@@ -39,3 +39,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Google Service Account
+google-service-account.json
+dnanir-app-e69e13cbbdc0.json
