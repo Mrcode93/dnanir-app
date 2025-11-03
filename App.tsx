@@ -49,24 +49,24 @@ const fontConfig = {
   },
 };
 
-// Custom dark theme with green gradient accents
+// Custom dark theme with modern teal/cyan accents
 const theme = {
   ...DefaultTheme,
   fonts: configureFonts(fontConfig),
   colors: {
     ...DefaultTheme.colors,
-    primary: colors.primary, // Vibrant green accent
-    accent: colors.primary,  // Same green for consistency
-    background: colors.background, // Dark charcoal background
-    surface: colors.surface, // Dark gray for cards
+    primary: colors.primary, // Modern turquoise accent
+    accent: colors.primary,  // Same turquoise for consistency
+    background: colors.background, // Deep navy background
+    surface: colors.surfaceCard, // Dark slate for cards
     text: colors.text, // White primary text
     onSurface: colors.text, // White text on dark surface
-    placeholder: colors.textSecondary, // Light gray for placeholders
-    backdrop: 'rgba(0, 0, 0, 0.8)',
+    placeholder: colors.textSecondary, // Light blue grey for placeholders
+    backdrop: colors.overlay, // Dark overlay
     error: colors.error, // Red for negative amounts
-    success: colors.success, // Green for positive amounts
-    warning: colors.warning, // Orange for warnings
-    disabled: colors.surfaceLight, // Dark gray for disabled elements
+    success: colors.success, // Teal for positive amounts
+    warning: colors.warning, // Amber for warnings
+    disabled: colors.surfaceLight, // Medium slate for disabled elements
   },
   roundness: 16, // Rounded corners
 };
@@ -120,9 +120,28 @@ export default function App() {
       try {
         await initDatabase();
         
-        // Initialize notification service (only request permissions, don't setup notifications)
+        // Initialize notification service
         const notificationService = NotificationService.getInstance();
-        await notificationService.requestPermissions();
+        
+        // Request permissions first
+        const hasPermission = await notificationService.requestPermissions();
+        
+        // If permissions granted, setup notifications from database settings
+        if (hasPermission) {
+          try {
+            const notificationSettings = await notificationService.getNotificationSettings();
+            const { getAppSettings } = await import('./src/database/database');
+            const appSettings = await getAppSettings();
+            
+            // Only setup notifications if they're enabled in app settings
+            if (appSettings?.notificationsEnabled !== false) {
+              await notificationService.setupNotifications(notificationSettings);
+            }
+          } catch (error) {
+            console.warn('Could not setup notifications on startup:', error);
+            // Continue app initialization even if notification setup fails
+          }
+        }
         
         // Check if user has completed setup
         const userSettings = await getUserSettings();
@@ -195,7 +214,7 @@ export default function App() {
         <PaperProvider theme={theme}>
           <RTLWrapper style={styles.container}>
             <WelcomeScreen onGetStarted={handleGetStarted} />
-            <StatusBar style="light" backgroundColor="#2E7D32" />
+            <StatusBar style="light" backgroundColor={colors.primaryDark} />
           </RTLWrapper>
         </PaperProvider>
       </SafeAreaProvider>
@@ -208,7 +227,7 @@ export default function App() {
         <PaperProvider theme={theme}>
           <RTLWrapper style={styles.container}>
             <AuthScreen onAuthenticated={handleAuthenticated} />
-            <StatusBar style="light" backgroundColor="#2E7D32" />
+            <StatusBar style="light" backgroundColor={colors.primaryDark} />
           </RTLWrapper>
         </PaperProvider>
       </SafeAreaProvider>
@@ -221,7 +240,7 @@ export default function App() {
         <PaperProvider theme={theme}>
           <RTLWrapper style={styles.container}>
             <AppNavigator />
-            <StatusBar style="light" backgroundColor="#2E7D32" />
+            <StatusBar style="light" backgroundColor={colors.primaryDark} />
           </RTLWrapper>
         </PaperProvider>
       </SafeAreaProvider>
@@ -251,16 +270,17 @@ const styles = StyleSheet.create({
     
   },
   loadingText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 8,
+    fontSize: 36,
+    fontWeight: '600',
+    color: colors.primary,
+    marginBottom: 12,
     fontFamily: 'Cairo-Regular',
+    textAlign: 'center',
   },
   loadingSubtext: {
     fontSize: 16,
-    color: colors.text,
-    opacity: 0.8,
+    color: colors.textSecondary,
     fontFamily: 'Cairo-Regular',
+    textAlign: 'center',
   },
 });

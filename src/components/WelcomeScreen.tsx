@@ -15,6 +15,7 @@ import { useRTL } from '../hooks/useRTL';
 import RTLText from './RTLText';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { upsertUserSettings } from '../database/database';
+import { colors } from '../utils/gradientColors';
 
 const { width } = Dimensions.get('window');
 
@@ -206,17 +207,23 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGetStarted }) => {
               label="اسمك"
               value={name}
               onChangeText={setName}
-              outlineColor="#404040"
-              activeOutlineColor="#00D4AA"
+              outlineColor={colors.border}
+              activeOutlineColor={colors.primary}
               style={styles.input}
+              contentStyle={styles.inputContent}
               theme={{
                 colors: {
-                  background: '#1A1A1A',
-                  text: '#FFFFFF',
-                  placeholder: '#9E9E9E',
-                }
+                  background: colors.background,
+                  text: colors.text,
+                  placeholder: colors.textSecondary,
+                },
+                fonts: {
+                  bodyMedium: {
+                    fontFamily: 'Cairo-Regular',
+                  },
+                },
               }}
-              right={name.trim().length > 0 ? <TextInput.Icon icon="check-circle" color="#00D4AA" /> : null}
+              right={name.trim().length > 0 ? <TextInput.Icon icon="check-circle" color={colors.primary} /> : null}
             />
           </View>
           
@@ -423,17 +430,23 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGetStarted }) => {
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
-                outlineColor="#404040"
-                activeOutlineColor="#00D4AA"
+                outlineColor={colors.border}
+                activeOutlineColor={colors.primary}
                 style={styles.input}
+                contentStyle={styles.inputContent}
                 theme={{
                   colors: {
-                    background: '#1A1A1A',
-                    text: '#FFFFFF',
-                    placeholder: '#9E9E9E',
-                  }
+                    background: colors.background,
+                    text: colors.text,
+                    placeholder: colors.textSecondary,
+                  },
+                  fonts: {
+                    bodyMedium: {
+                      fontFamily: 'Cairo-Regular',
+                    },
+                  },
                 }}
-                right={password.length >= 4 ? <TextInput.Icon icon="check-circle" color="#00D4AA" /> : null}
+                right={password.length >= 4 ? <TextInput.Icon icon="check-circle" color={colors.primary} /> : null}
               />
             </View>
 
@@ -445,19 +458,25 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGetStarted }) => {
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 secureTextEntry
-                outlineColor="#404040"
-                activeOutlineColor="#00D4AA"
+                outlineColor={colors.border}
+                activeOutlineColor={colors.primary}
                 style={styles.input}
+                contentStyle={styles.inputContent}
                 theme={{
                   colors: {
-                    background: '#1A1A1A',
-                    text: '#FFFFFF',
-                    placeholder: '#9E9E9E',
-                  }
+                    background: colors.background,
+                    text: colors.text,
+                    placeholder: colors.textSecondary,
+                  },
+                  fonts: {
+                    bodyMedium: {
+                      fontFamily: 'Cairo-Regular',
+                    },
+                  },
                 }}
                 right={
                   confirmPassword.length > 0 && password === confirmPassword 
-                    ? <TextInput.Icon icon="check-circle" color="#00D4AA" /> 
+                    ? <TextInput.Icon icon="check-circle" color={colors.primary} /> 
                     : null
                 }
               />
@@ -666,11 +685,17 @@ const styles = StyleSheet.create({
 
   },
   input: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: colors.background,
     marginBottom: 12,
     borderRadius: 12,
-    textAlign: 'left',
+    textAlign: 'right',
+    direction: 'rtl',
     flex: 1,
+  },
+  inputContent: {
+    textAlign: 'right',
+    fontFamily: 'Cairo-Regular',
+    writingDirection: 'rtl',
   },
   inputContainer: {
     gap: 16,

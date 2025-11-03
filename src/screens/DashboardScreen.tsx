@@ -67,13 +67,22 @@ const DashboardScreen = ({ navigation }: any) => {
     return 'remove';
   };
 
-  const chartData = summary?.topExpenseCategories.map((category, index) => ({
-    name: category.category,
-    population: category.amount,
-    color: gradientColors.chart.green1[index % 2] || gradientColors.chart.green2[index % 2] || gradientColors.chart.green3[index % 2] || gradientColors.chart.green4[index % 2],
-    legendFontColor: colors.textSecondary,
-    legendFontSize: 12,
-  })) || [];
+  const chartData = summary?.topExpenseCategories.map((category, index) => {
+    const chartColors = [
+      gradientColors.chart.teal1,
+      gradientColors.chart.teal2,
+      gradientColors.chart.cyan1,
+      gradientColors.chart.cyan2,
+    ];
+    const colorIndex = index % 4;
+    return {
+      name: category.category,
+      population: category.amount,
+      color: chartColors[colorIndex][1],
+      legendFontColor: colors.textSecondary,
+      legendFontSize: 12,
+    };
+  }) || [];
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -87,7 +96,7 @@ const DashboardScreen = ({ navigation }: any) => {
         {/* Master Card Style Balance */}
         {summary && (
           <LinearGradient
-            colors={['#136a8a',  '#267871']}
+            colors={gradientColors.primary.medium}
             style={styles.masterCard}
           >
             <View style={styles.cardContent}>
@@ -180,7 +189,12 @@ const DashboardScreen = ({ navigation }: any) => {
                 width={width - 60}
                 height={220}
                 chartConfig={{
-                  color: (opacity = 1) => `rgba(0, 212, 170, ${opacity})`,
+                  color: (opacity = 1) => {
+                    const r = parseInt(colors.primary.slice(1, 3), 16);
+                    const g = parseInt(colors.primary.slice(3, 5), 16);
+                    const b = parseInt(colors.primary.slice(5, 7), 16);
+                    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+                  },
                 }}
                 accessor="population"
                 backgroundColor="transparent"
@@ -241,7 +255,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     elevation: 8,
     borderRadius: 20,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

@@ -29,10 +29,10 @@
   "submit": {
     "production": {
       "ios": {
+        "ascAppId": "REPLACE_WITH_YOUR_APP_ID",
         "ascApiKeyPath": "./AuthKey.p8",
-        "ascApiKeyId": "323B2YC34J",
-        "ascApiIssuer": "efe61021-7e42-4446-b470-75ee3f13cb3b",
-        "ascAppId": "REPLACE_WITH_YOUR_APP_ID"
+        "ascApiKeyId": "REPLACE_WITH_YOUR_KEY_ID",
+        "ascApiIssuer": "REPLACE_WITH_YOUR_ISSUER_ID"
       },
       "android": {
         "serviceAccountKeyPath": "./dnanir-app-e69e13cbbdc0.json"
@@ -40,3 +40,4 @@
     }
   }
 }
+

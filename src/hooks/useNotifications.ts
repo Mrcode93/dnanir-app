@@ -10,7 +10,7 @@ export const useNotifications = () => {
       // This would typically check your database for today's entries
       // For now, we'll implement basic reminder scheduling
       
-      const settings = notificationService.getNotificationSettings();
+      const settings = await notificationService.getNotificationSettings();
       
       if (settings.expenseReminder) {
         // Schedule expense reminder if no expenses recorded today

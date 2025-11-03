@@ -215,6 +215,42 @@ export const deleteIncome = async (id: number): Promise<void> => {
   }
 };
 
+// Get expenses by date range
+export const getExpensesByDateRange = async (startDate: string, endDate: string): Promise<Expense[]> => {
+  if (!db) {
+    throw new Error('Database not initialized');
+  }
+  
+  try {
+    const result = await db.getAllAsync(
+      'SELECT * FROM expenses WHERE date >= ? AND date <= ? ORDER BY date DESC',
+      [startDate, endDate]
+    );
+    return result as Expense[];
+  } catch (error) {
+    console.error('Error getting expenses by date range:', error);
+    throw error;
+  }
+};
+
+// Get income by date range
+export const getIncomeByDateRange = async (startDate: string, endDate: string): Promise<Income[]> => {
+  if (!db) {
+    throw new Error('Database not initialized');
+  }
+  
+  try {
+    const result = await db.getAllAsync(
+      'SELECT * FROM income WHERE date >= ? AND date <= ? ORDER BY date DESC',
+      [startDate, endDate]
+    );
+    return result as Income[];
+  } catch (error) {
+    console.error('Error getting income by date range:', error);
+    throw error;
+  }
+};
+
 // User settings operations
 export interface UserSettings {
   name: string;

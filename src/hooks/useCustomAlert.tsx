@@ -41,7 +41,7 @@ export const useCustomAlert = () => {
       buttons: [
         {
           text: 'موافق',
-          onPress: onOk,
+          onPress: onOk || (() => {}),
         },
       ],
     });
@@ -55,7 +55,7 @@ export const useCustomAlert = () => {
       buttons: [
         {
           text: 'موافق',
-          onPress: onOk,
+          onPress: onOk || (() => {}),
         },
       ],
     });
@@ -69,7 +69,7 @@ export const useCustomAlert = () => {
       buttons: [
         {
           text: 'موافق',
-          onPress: onOk,
+          onPress: onOk || (() => {}),
         },
       ],
     });
@@ -83,7 +83,7 @@ export const useCustomAlert = () => {
       buttons: [
         {
           text: 'موافق',
-          onPress: onOk,
+          onPress: onOk || (() => {}),
         },
       ],
     });
@@ -105,12 +105,12 @@ export const useCustomAlert = () => {
         {
           text: cancelText,
           style: 'cancel',
-          onPress: onCancel,
+          onPress: onCancel || (() => {}),
         },
         {
           text: confirmText,
           style: 'destructive',
-          onPress: onConfirm,
+          onPress: onConfirm || (() => {}),
         },
       ],
     });

@@ -1,4 +1,5 @@
 import { getExpensesByDateRange, getIncomeByDateRange } from '../database/database';
+import { Expense, Income } from '../types';
 import NotificationService from './notificationService';
 
 interface DailySummary {
@@ -32,19 +33,19 @@ class DailySummaryService {
     try {
       // Get expenses for the day
       const expenses = await getExpensesByDateRange(date, date);
-      const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+      const totalExpenses = expenses.reduce((sum: number, expense: Expense) => sum + expense.amount, 0);
       const expenseCount = expenses.length;
 
       // Get income for the day
       const income = await getIncomeByDateRange(date, date);
-      const totalIncome = income.reduce((sum, inc) => sum + inc.amount, 0);
+      const totalIncome = income.reduce((sum: number, inc: Income) => sum + inc.amount, 0);
       const incomeCount = income.length;
 
       // Calculate net amount
       const netAmount = totalIncome - totalExpenses;
 
       // Find top expense category
-      const expenseCategories = expenses.reduce((acc, expense) => {
+      const expenseCategories = expenses.reduce((acc: Record<string, number>, expense: Expense) => {
         acc[expense.category] = (acc[expense.category] || 0) + expense.amount;
         return acc;
       }, {} as Record<string, number>);
@@ -53,7 +54,7 @@ class DailySummaryService {
       );
 
       // Find top income source
-      const incomeSources = income.reduce((acc, inc) => {
+      const incomeSources = income.reduce((acc: Record<string, number>, inc: Income) => {
         acc[inc.source] = (acc[inc.source] || 0) + inc.amount;
         return acc;
       }, {} as Record<string, number>);
@@ -131,8 +132,8 @@ class DailySummaryService {
       const expenses = await getExpensesByDateRange(startDate, endDate);
       const income = await getIncomeByDateRange(startDate, endDate);
       
-      const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-      const totalIncome = income.reduce((sum, inc) => sum + inc.amount, 0);
+      const totalExpenses = expenses.reduce((sum: number, expense: Expense) => sum + expense.amount, 0);
+      const totalIncome = income.reduce((sum: number, inc: Income) => sum + inc.amount, 0);
       const netAmount = totalIncome - totalExpenses;
       
       // Calculate number of days in range
@@ -210,8 +211,8 @@ class DailySummaryService {
       const expenses = await getExpensesByDateRange(startDate, endDate);
       const income = await getIncomeByDateRange(startDate, endDate);
       
-      const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-      const totalIncome = income.reduce((sum, inc) => sum + inc.amount, 0);
+      const totalExpenses = expenses.reduce((sum: number, expense: Expense) => sum + expense.amount, 0);
+      const totalIncome = income.reduce((sum: number, inc: Income) => sum + inc.amount, 0);
       const netAmount = totalIncome - totalExpenses;
       
       const daysInMonth = new Date(year, month, 0).getDate();

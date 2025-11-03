@@ -5,6 +5,7 @@ import { useCustomAlert } from '../hooks/useCustomAlert';
 
 const CustomAlertExample: React.FC = () => {
   const {
+    showAlert,
     showSuccess,
     showError,
     showWarning,
@@ -53,6 +54,7 @@ const CustomAlertExample: React.FC = () => {
         {
           text: 'إلغاء',
           style: 'cancel',
+          onPress: () => {},
         },
         {
           text: 'حفظ',

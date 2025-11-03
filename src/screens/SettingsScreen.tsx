@@ -127,52 +127,82 @@ const SettingsScreen: React.FC = () => {
   };
 
   const handleNotificationsToggle = async (value: boolean) => {
-    setNotificationsEnabled(value);
-    await saveAppSettings({ notificationsEnabled: value });
-    
-    const notificationService = NotificationService.getInstance();
-    
-    if (value) {
-      // When enabling notifications, setup all scheduled notifications
-      await notificationService.setupNotifications(notificationSettings);
-      showSuccess('تم تفعيل الإشعارات', 'تم تفعيل الإشعارات بنجاح وجدولتها');
-      console.log('Notifications enabled and scheduled:', notificationSettings);
-    } else {
-      // When disabling notifications, cancel all scheduled notifications
-      await notificationService.cancelAllNotifications();
-      showSuccess('تم إيقاف الإشعارات', 'تم إيقاف جميع الإشعارات');
-      console.log('Notifications disabled and cancelled');
+    try {
+      setNotificationsEnabled(value);
+      await saveAppSettings({ notificationsEnabled: value });
+      
+      const notificationService = NotificationService.getInstance();
+      
+      if (value) {
+        // Check permissions first
+        const hasPermission = await notificationService.areNotificationsEnabled();
+        if (!hasPermission) {
+          const granted = await notificationService.requestPermissions();
+          if (!granted) {
+            setNotificationsEnabled(false);
+            await saveAppSettings({ notificationsEnabled: false });
+            showError('لم يتم تفعيل الإشعارات', 'يرجى السماح بالإشعارات من إعدادات الجهاز');
+            return;
+          }
+        }
+        
+        // When enabling notifications, setup all scheduled notifications
+        await notificationService.setupNotifications(notificationSettings);
+        showSuccess('تم تفعيل الإشعارات', 'تم تفعيل الإشعارات بنجاح وجدولتها');
+        console.log('Notifications enabled and scheduled:', notificationSettings);
+      } else {
+        // When disabling notifications, cancel all scheduled notifications
+        await notificationService.cancelAllNotifications();
+        showSuccess('تم إيقاف الإشعارات', 'تم إيقاف جميع الإشعارات');
+        console.log('Notifications disabled and cancelled');
+      }
+    } catch (error) {
+      console.error('Error toggling notifications:', error);
+      setNotificationsEnabled(!value); // Revert on error
+      await saveAppSettings({ notificationsEnabled: !value });
+      showError('خطأ', 'حدث خطأ أثناء تغيير إعدادات الإشعارات');
     }
   };
 
   const handleNotificationSettingChange = async (key: keyof NotificationSettings, value: any) => {
-    const newSettings = { ...notificationSettings, [key]: value };
-    setNotificationSettings(newSettings);
-    
-    // Save to database
-    const dbSettings: DBNotificationSettings = {
-      dailyReminder: newSettings.dailyReminder,
-      dailyReminderTime: newSettings.dailyReminderTime,
-      expenseReminder: newSettings.expenseReminder,
-      incomeReminder: newSettings.incomeReminder,
-      weeklySummary: newSettings.weeklySummary,
-      monthlySummary: newSettings.monthlySummary,
-      transactionNotifications: true, // Always enabled
-      budgetWarnings: true, // Always enabled
-      soundEnabled: true, // Default enabled
-      vibrationEnabled: true, // Default enabled
-    };
-    
-    await upsertNotificationSettings(dbSettings);
-    
-    // Update notification service settings AND reschedule notifications
-    const notificationService = NotificationService.getInstance();
-    await notificationService.updateNotificationSettings(newSettings);
-    
-    // Reschedule all notifications with new settings if notifications are enabled
-    if (notificationsEnabled) {
-      await notificationService.setupNotifications(newSettings);
-      console.log('Notifications rescheduled with new settings:', newSettings);
+    try {
+      const newSettings = { ...notificationSettings, [key]: value };
+      setNotificationSettings(newSettings);
+      
+      // Save to database
+      const dbSettings: DBNotificationSettings = {
+        dailyReminder: newSettings.dailyReminder,
+        dailyReminderTime: newSettings.dailyReminderTime,
+        expenseReminder: newSettings.expenseReminder,
+        incomeReminder: newSettings.incomeReminder,
+        weeklySummary: newSettings.weeklySummary,
+        monthlySummary: newSettings.monthlySummary,
+        transactionNotifications: true, // Always enabled
+        budgetWarnings: true, // Always enabled
+        soundEnabled: true, // Default enabled
+        vibrationEnabled: true, // Default enabled
+      };
+      
+      await upsertNotificationSettings(dbSettings);
+      
+      // Update notification service settings AND reschedule notifications
+      const notificationService = NotificationService.getInstance();
+      await notificationService.updateNotificationSettings(newSettings);
+      
+      // Reschedule all notifications with new settings if notifications are enabled
+      if (notificationsEnabled) {
+        // Check permissions before rescheduling
+        const hasPermission = await notificationService.areNotificationsEnabled();
+        if (hasPermission) {
+          await notificationService.setupNotifications(newSettings);
+          console.log('Notifications rescheduled with new settings:', newSettings);
+        } else {
+          console.warn('Cannot reschedule notifications - permissions not granted');
+        }
+      }
+    } catch (error) {
+      console.error('Error updating notification setting:', error);
+      showError('خطأ', 'حدث خطأ أثناء تحديث إعدادات الإشعارات');
     }
   };
 

@@ -69,13 +69,29 @@ class NotificationService {
         return false;
       }
 
-      // Configure notification channel for Android
+      // Configure notification channel for Android (required for Android 8+)
       if (Platform.OS === 'android') {
         await Notifications.setNotificationChannelAsync('default', {
           name: 'دنانير - تذكيرات مالية',
+          description: 'تذكيرات يومية وأسبوعية وشهرية لإدارة الأموال',
           importance: Notifications.AndroidImportance.HIGH,
           vibrationPattern: [0, 250, 250, 250],
-          lightColor: '#2E7D32',
+          lightColor: '#20B2AA', // Use app primary color
+          sound: 'default',
+          enableVibrate: true,
+          showBadge: false,
+        });
+        
+        // Create additional channel for transaction notifications
+        await Notifications.setNotificationChannelAsync('transactions', {
+          name: 'معاملات مالية',
+          description: 'إشعارات عند إضافة أو تعديل المصروفات والدخل',
+          importance: Notifications.AndroidImportance.DEFAULT,
+          vibrationPattern: [0, 200],
+          lightColor: '#20B2AA',
+          sound: 'default',
+          enableVibrate: true,
+          showBadge: false,
         });
       }
 
@@ -92,9 +108,17 @@ class NotificationService {
     title: string,
     body: string,
     trigger: Notifications.NotificationTriggerInput,
-    data?: any
+    data?: any,
+    channelId: string = 'default'
   ): Promise<string | null> {
     try {
+      // Check permissions before scheduling
+      const hasPermission = await this.areNotificationsEnabled();
+      if (!hasPermission) {
+        console.warn(`Cannot schedule ${identifier} - notifications not permitted`);
+        return null;
+      }
+
       const notificationId = await Notifications.scheduleNotificationAsync({
         identifier,
         content: {
@@ -102,6 +126,7 @@ class NotificationService {
           body,
           data,
           sound: 'default',
+          ...(Platform.OS === 'android' && { channelId }),
         },
         trigger,
       });
@@ -109,7 +134,7 @@ class NotificationService {
       console.log(`Scheduled notification: ${identifier} with ID: ${notificationId}`);
       return notificationId;
     } catch (error) {
-      console.error('Error scheduling notification:', error);
+      console.error(`Error scheduling notification ${identifier}:`, error);
       return null;
     }
   }
@@ -149,6 +174,7 @@ class NotificationService {
     const [hours, minutes] = time.split(':').map(Number);
     
     const trigger: Notifications.DailyTriggerInput = {
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
       hour: hours,
       minute: minutes,
     };
@@ -166,6 +192,7 @@ class NotificationService {
   async scheduleExpenseReminder(): Promise<void> {
     // Schedule for 2 hours from now if no expense recorded today
     const trigger: Notifications.TimeIntervalTriggerInput = {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
       seconds: 2 * 60 * 60, // 2 hours
     };
 
@@ -182,6 +209,7 @@ class NotificationService {
   async scheduleIncomeReminder(): Promise<void> {
     // Schedule for 1 hour from now if no income recorded today
     const trigger: Notifications.TimeIntervalTriggerInput = {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
       seconds: 1 * 60 * 60, // 1 hour
     };
 
@@ -196,9 +224,10 @@ class NotificationService {
 
   // Schedule weekly summary
   async scheduleWeeklySummary(): Promise<void> {
-    // Schedule for every Sunday at 9 AM
+      // Schedule for every Sunday at 9 AM (weekday 1 = Sunday, 7 = Saturday)
     const trigger: Notifications.WeeklyTriggerInput = {
-      weekday: 1, // Sunday
+      type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+      weekday: 7, // Sunday (1 = Monday, 7 = Sunday in iOS/Android)
       hour: 9,
       minute: 0,
     };
@@ -214,8 +243,9 @@ class NotificationService {
 
   // Schedule monthly summary
   async scheduleMonthlySummary(): Promise<void> {
-    // Schedule for the 1st of every month at 10 AM
+      // Schedule for the 1st of every month at 10 AM
     const trigger: Notifications.MonthlyTriggerInput = {
+      type: Notifications.SchedulableTriggerInputTypes.MONTHLY,
       day: 1,
       hour: 10,
       minute: 0,
@@ -233,6 +263,17 @@ class NotificationService {
   // Setup all notifications based on settings
   async setupNotifications(settings: NotificationSettings): Promise<void> {
     try {
+      // Check permissions first
+      const hasPermission = await this.areNotificationsEnabled();
+      if (!hasPermission) {
+        console.warn('Notifications not enabled - requesting permissions');
+        const granted = await this.requestPermissions();
+        if (!granted) {
+          console.error('Cannot setup notifications - permissions denied');
+          return;
+        }
+      }
+
       // Cancel existing notifications first
       await this.cancelAllNotifications();
 
@@ -254,28 +295,42 @@ class NotificationService {
       console.log('All notifications scheduled successfully');
     } catch (error) {
       console.error('Error setting up notifications:', error);
+      throw error; // Re-throw for proper error handling
     }
   }
 
   // Send immediate notification
   async sendImmediateNotification(title: string, body: string, data?: any): Promise<void> {
     try {
+      // Check permissions before sending
+      const hasPermission = await this.areNotificationsEnabled();
+      if (!hasPermission) {
+        console.warn('Cannot send notification - notifications not permitted');
+        return;
+      }
+
+      const notificationType = data?.type || 'immediate';
+      const channelId = notificationType === 'expense_reminder' || notificationType === 'income_reminder' 
+        ? 'transactions' 
+        : 'default';
+
       await Notifications.scheduleNotificationAsync({
         content: {
           title,
           body,
           data,
           sound: 'default',
+          ...(Platform.OS === 'android' && { channelId }),
         },
         trigger: null, // Immediate
       });
       
       // Log notification to database
       await addNotificationLog({
-        type: data?.type || 'immediate',
+        type: notificationType,
         title,
         body,
-        data: data ? JSON.stringify(data) : null,
+        data: data ? JSON.stringify(data) : undefined,
       });
     } catch (error) {
       console.error('Error sending immediate notification:', error);

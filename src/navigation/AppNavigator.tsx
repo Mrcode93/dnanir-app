@@ -59,12 +59,17 @@ const AppNavigator = () => {
           tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: colors.textSecondary,
           tabBarStyle: {
-            backgroundColor: colors.surface,
+            backgroundColor: colors.surfaceCard,
             borderTopColor: colors.border,
             borderTopWidth: 1,
             height: 80 + (Platform.OS === 'android' ? insets.bottom : 0),
             paddingBottom: Platform.OS === 'android' ? insets.bottom + 8 : 20,
             paddingTop: 8,
+            elevation: 8,
+            shadowColor: colors.shadow,
+            shadowOffset: { width: 0, height: -2 },
+            shadowOpacity: 0.3,
+            shadowRadius: 4,
           },
           
         })}

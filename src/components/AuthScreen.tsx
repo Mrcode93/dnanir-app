@@ -205,16 +205,22 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated }) => {
                       secureTextEntry
                       mode="outlined"
                       placeholder="أدخل كلمة المرور"
-                      outlineColor="#404040"
+                      outlineColor={colors.border}
                       activeOutlineColor={colors.primary}
                       style={styles.passwordInput}
+                      contentStyle={styles.inputContent}
                       onSubmitEditing={handlePasswordSubmit}
                       theme={{
                         colors: {
-                          background: '#1A1A1A',
-                          text: '#FFFFFF',
-                          placeholder: '#9E9E9E',
-                        }
+                          background: colors.background,
+                          text: colors.text,
+                          placeholder: colors.textSecondary,
+                        },
+                        fonts: {
+                          bodyMedium: {
+                            fontFamily: 'Cairo-Regular',
+                          },
+                        },
                       }}
                       right={password.length > 0 ? <TextInput.Icon icon="check-circle" color={colors.primary} /> : null}
                     />
@@ -379,6 +385,7 @@ const styles = StyleSheet.create({
   },
   passwordSection: {
     gap: 16,
+    direction: 'rtl',
   },
   passwordHeader: {
     flexDirection: 'row-reverse',
@@ -396,9 +403,16 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   passwordInput: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: colors.background,
     borderRadius: 12,
     fontSize: 16,
+    textAlign: 'right',
+    direction: 'rtl',
+  },
+  inputContent: {
+    textAlign: 'right',
+    fontFamily: 'Cairo-Regular',
+    writingDirection: 'rtl',
   },
   passwordButton: {
     borderRadius: 12,

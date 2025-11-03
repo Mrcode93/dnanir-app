@@ -161,6 +161,14 @@ const AddEditExpenseModal: React.FC<AddEditExpenseModalProps> = ({
               outlineColor={colors.border}
               activeOutlineColor={colors.primary}
               textColor={colors.text}
+              contentStyle={styles.inputContent}
+              theme={{
+                fonts: {
+                  bodyMedium: {
+                    fontFamily: 'Cairo-Regular',
+                  },
+                },
+              }}
             />
 
             <TextInput
@@ -174,6 +182,14 @@ const AddEditExpenseModal: React.FC<AddEditExpenseModalProps> = ({
               textColor={colors.text}
               multiline
               numberOfLines={3}
+              contentStyle={styles.inputContent}
+              theme={{
+                fonts: {
+                  bodyMedium: {
+                    fontFamily: 'Cairo-Regular',
+                  },
+                },
+              }}
             />
 
             <TextInput
@@ -186,6 +202,14 @@ const AddEditExpenseModal: React.FC<AddEditExpenseModalProps> = ({
               outlineColor={colors.border}
               activeOutlineColor={colors.primary}
               textColor={colors.text}
+              contentStyle={styles.inputContent}
+              theme={{
+                fonts: {
+                  bodyMedium: {
+                    fontFamily: 'Cairo-Regular',
+                  },
+                },
+              }}
             />
 
             <View style={styles.dateContainer}>
@@ -288,7 +312,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
     padding: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: colors.overlay,
   },
   container: {
     borderTopLeftRadius: 20,
@@ -350,11 +374,19 @@ const styles = StyleSheet.create({
   form: {
     paddingHorizontal: 20,
     paddingTop: 20,
+    direction: 'rtl',
   },
   input: {
     marginBottom: 16,
     backgroundColor: colors.background,
     borderRadius: 12,
+    textAlign: 'right',
+    direction: 'rtl',
+  },
+  inputContent: {
+    textAlign: 'right',
+    fontFamily: 'Cairo-Regular',
+    writingDirection: 'rtl',
   },
   dateContainer: {
     marginBottom: 16,
