@@ -5,7 +5,7 @@
     "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "locale": "ar",
     "primaryLanguage": "ar",
@@ -13,7 +13,7 @@
     "splash": {
       "image": "./assets/logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0F1419"
+      "backgroundColor": "#F8F9FA"
     },
     "ios": {
       "supportsTablet": true,
@@ -22,22 +22,39 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleDisplayName": "دنانير",
-        "CFBundleName": "دنانير"
+        "CFBundleName": "دنانير",
+        "CFBundleDevelopmentRegion": "ar",
+        "CFBundleLocalizations": ["ar"],
+        "NSUserNotificationsUsageDescription": "نحتاج إلى الإشعارات لتذكيرك بتسجيل المصاريف والدخل",
+        "NSFaceIDUsageDescription": "نستخدم Face ID لتأمين بياناتك المالية",
+        "UIUserInterfaceStyle": "Light",
+        "UIRequiresFullScreen": false,
+        "UISupportedInterfaceOrientations": [
+          "UIInterfaceOrientationPortrait"
+        ],
+        "UISupportedInterfaceOrientations~ipad": [
+          "UIInterfaceOrientationPortrait",
+          "UIInterfaceOrientationPortraitUpsideDown",
+          "UIInterfaceOrientationLandscapeLeft",
+          "UIInterfaceOrientationLandscapeRight"
+        ]
       },
       "localization": {
         "locale": "ar"
       },
       "fonts": [
-        "./assets/fonts/Cairo-Regular.ttf",
         "./assets/fonts/Cairo-Regular.ttf"
       ],
       "notificationMode": "production",
-      "usesAppleSignIn": false
+      "usesAppleSignIn": false,
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/logo.png",
-        "backgroundColor": "#0F1419"
+        "backgroundColor": "#F8F9FA"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -57,7 +74,10 @@
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.VIBRATE"
-      ]
+      ],
+      "config": {
+        "supportsRtl": true
+      }
     },
     "web": {
       "favicon": "./assets/logo.png"

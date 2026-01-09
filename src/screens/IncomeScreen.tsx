@@ -1,35 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
-  Alert,
   RefreshControl,
   I18nManager,
+  Text,
+  TouchableOpacity,
   ScrollView,
+  Alert,
+  Modal,
+  Animated,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  Card,
-  Title,
-  Paragraph,
-  FAB,
-  IconButton,
-  Chip,
-  Searchbar,
-} from 'react-native-paper';
-import { Ionicons } from '@expo/vector-icons';
+import { Searchbar, FAB } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
-import RTLText from '../components/RTLText';
-
-import { Income, IncomeSource, INCOME_SOURCES } from '../types';
-import { getIncome, deleteIncome } from '../database/database';
+import { Ionicons } from '@expo/vector-icons';
+import { TransactionItem } from '../components/TransactionItem';
+import { AddIncomeModal } from '../components/AddIncomeModal';
+import { AddCategoryModal } from '../components/AddCategoryModal';
+import { theme } from '../utils/theme';
+import { getIncome, deleteIncome, getCustomCategories, addCustomCategory, deleteCustomCategory, CustomCategory } from '../database/database';
 import { formatCurrency } from '../services/financialService';
-import AddEditIncomeModal from '../components/AddEditIncomeModal';
-import { gradientColors, colors } from '../utils/gradientColors';
+import { Income, IncomeSource, INCOME_SOURCES } from '../types';
+import { isRTL } from '../utils/rtl';
 
-const IncomeScreen = () => {
+export const IncomeScreen = ({ navigation, route }: any) => {
   const [income, setIncome] = useState<Income[]>([]);
   const [filteredIncome, setFilteredIncome] = useState<Income[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -37,6 +34,10 @@ const IncomeScreen = () => {
   const [selectedSource, setSelectedSource] = useState<IncomeSource | 'all'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingIncome, setEditingIncome] = useState<Income | null>(null);
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+  const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
+  const filterMenuAnim = useRef(new Animated.Value(0)).current;
 
   const loadIncome = async () => {
     try {
@@ -48,24 +49,36 @@ const IncomeScreen = () => {
     }
   };
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadIncome();
-    setRefreshing(false);
+  const loadCustomCategories = async () => {
+    try {
+      const categories = await getCustomCategories('income');
+      setCustomCategories(categories);
+    } catch (error) {
+      console.error('Error loading custom categories:', error);
+    }
   };
 
   useEffect(() => {
     loadIncome();
-  }, []);
+    loadCustomCategories();
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadIncome();
+      loadCustomCategories();
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   useEffect(() => {
-    filterIncome();
-  }, [income, searchQuery, selectedSource]);
+    if (route?.params?.income) {
+      setEditingIncome(route.params.income);
+      setShowAddModal(true);
+      navigation.setParams({ income: undefined });
+    }
+  }, [route?.params]);
 
-  const filterIncome = () => {
+  useEffect(() => {
     let filtered = income;
 
-    // Filter by search query
     if (searchQuery) {
       filtered = filtered.filter(incomeItem =>
         incomeItem.source.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -73,182 +86,407 @@ const IncomeScreen = () => {
       );
     }
 
-    // Filter by source
     if (selectedSource !== 'all') {
       filtered = filtered.filter(incomeItem => incomeItem.source === selectedSource);
     }
 
     setFilteredIncome(filtered);
+  }, [income, searchQuery, selectedSource]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadIncome();
+    setRefreshing(false);
   };
 
-  const handleDeleteIncome = (id: number) => {
-    Alert.alert(
-      'تأكيد الحذف',
-      'هل أنت متأكد من حذف هذا الدخل؟',
-      [
-        { text: 'إلغاء', style: 'cancel' },
-        {
-          text: 'حذف',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteIncome(id);
-              await loadIncome();
-            } catch (error) {
-              console.error('Error deleting income:', error);
-              Alert.alert('خطأ', 'حدث خطأ أثناء حذف الدخل');
-            }
-          },
-        },
-      ]
-    );
+  useEffect(() => {
+    if (showFilterMenu) {
+      Animated.spring(filterMenuAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 50,
+        friction: 7,
+      }).start();
+    } else {
+      Animated.timing(filterMenuAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [showFilterMenu]);
+
+  const sourceIcons: Record<string, string> = {
+    salary: 'cash',
+    business: 'briefcase',
+    investment: 'trending-up',
+    gift: 'gift',
+    other: 'ellipse',
   };
 
-  const handleEditIncome = (incomeItem: Income) => {
-    setEditingIncome(incomeItem);
-    setShowAddModal(true);
+  const sourceColors: Record<string, string[]> = {
+    salary: ['#10B981', '#059669'],
+    business: ['#3B82F6', '#2563EB'],
+    investment: ['#8B5CF6', '#7C3AED'],
+    gift: ['#EC4899', '#DB2777'],
+    other: ['#6B7280', '#4B5563'],
   };
 
-  const handleModalClose = () => {
-    setShowAddModal(false);
-    setEditingIncome(null);
-    loadIncome();
+  const handleSourceSelect = (source: IncomeSource | 'all') => {
+    setSelectedSource(source);
+    setShowFilterMenu(false);
   };
 
-  const getSourceColor = (source: string) => {
-    return colors.primary;
+  const getSelectedSourceLabel = () => {
+    if (selectedSource === 'all') return 'الكل';
+    if (INCOME_SOURCES[selectedSource as IncomeSource]) {
+      return INCOME_SOURCES[selectedSource as IncomeSource];
+    }
+    const custom = customCategories.find(c => c.name === selectedSource);
+    return custom?.name || selectedSource;
   };
 
-  const renderIncomeItem = ({ item }: { item: Income }) => (
-    <LinearGradient
-      colors={gradientColors.background.card}
-      style={styles.incomeCard}
-    >
-      <View style={styles.incomeContent}>
-        <View style={styles.incomeHeader}>
-          <View style={styles.incomeInfo}>
-            <RTLText style={styles.incomeTitle}>{item.source}</RTLText>
-            <RTLText style={styles.incomeDate}>
-              {new Date(item.date).toLocaleDateString('ar-IQ')}
-            </RTLText>
-          </View>
-          <View style={styles.incomeActions}>
-            <RTLText style={styles.incomeAmount}>
-              {formatCurrency(item.amount)}
-            </RTLText>
-            <View style={styles.actionButtons}>
-              <IconButton
-                icon="pencil"
-                size={20}
-                iconColor={colors.primary}
-                onPress={() => handleEditIncome(item)}
-              />
-              <IconButton
-                icon="delete"
-                size={20}
-                iconColor={colors.error}
-                onPress={() => handleDeleteIncome(item.id)}
-              />
-            </View>
-          </View>
-        </View>
-        <View style={styles.incomeFooter}>
-          <Chip
-            style={styles.sourceChip}
-            textStyle={styles.sourceChipText}
-          >
-            {INCOME_SOURCES[item.source as IncomeSource]}
-          </Chip>
-          {item.description && (
-            <Paragraph style={styles.incomeDescription}>
-              {item.description}
-            </Paragraph>
-          )}
-        </View>
-      </View>
-    </LinearGradient>
-  );
+  const handleAddCategory = async (name: string, icon: string, color: string) => {
+    try {
+      await addCustomCategory({ name, type: 'income', icon, color });
+      await loadCustomCategories();
+    } catch (error: any) {
+      Alert.alert('❌ خطأ', error.message || 'حدث خطأ أثناء إضافة المصدر');
+    }
+  };
 
-  const renderSourceFilter = () => (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.filterScrollContent}
-      style={styles.filterScrollView}
-    >
-      <View style={styles.sourceFilter}>
-        <Chip
-          selected={selectedSource === 'all'}
-          onPress={() => setSelectedSource('all')}
-          style={[styles.filterChip, selectedSource === 'all' && styles.selectedFilterChip]}
-          textStyle={styles.filterChipText}
-        >
-          الكل
-        </Chip>
-        {Object.entries(INCOME_SOURCES).map(([key, label]) => (
-          <Chip
-            key={key}
-            selected={selectedSource === key}
-            onPress={() => setSelectedSource(key as IncomeSource)}
-            style={[styles.filterChip, selectedSource === key && styles.selectedFilterChip]}
-            textStyle={styles.filterChipText}
-          >
-            {label}
-          </Chip>
-        ))}
-      </View>
-    </ScrollView>
-  );
+  const handleDeleteCategory = async (categoryId: number) => {
+    try {
+      await deleteCustomCategory(categoryId);
+      await loadCustomCategories();
+      if (selectedSource !== 'all' && customCategories.find(c => c.id === categoryId)?.name === selectedSource) {
+        setSelectedSource('all');
+      }
+    } catch (error) {
+      Alert.alert('❌ خطأ', 'حدث خطأ أثناء حذف المصدر');
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Searchbar
-          placeholder="البحث في الدخل..."
-          onChangeText={setSearchQuery}
-          value={searchQuery}
-          style={styles.searchBar}
-          iconColor="#9E9E9E"
-          inputStyle={styles.searchInput}
-          placeholderTextColor="#9E9E9E"
-        />
-        {renderSourceFilter()}
+        <View style={styles.searchFilterRow}>
+          <View style={styles.searchContainer}>
+            <Searchbar
+              placeholder="البحث في الدخل..."
+              onChangeText={setSearchQuery}
+              value={searchQuery}
+              style={styles.searchBar}
+              inputStyle={styles.searchInput}
+              placeholderTextColor={theme.colors.textMuted}
+            />
+          </View>
+          <TouchableOpacity
+            onPress={() => setShowFilterMenu(true)}
+            style={styles.filterTrigger}
+            activeOpacity={0.7}
+          >
+            <LinearGradient
+              colors={selectedSource === 'all' 
+                ? (theme.gradients.primary as any)
+                : (sourceColors[selectedSource] || 
+                    (customCategories.find(c => c.name === selectedSource) 
+                      ? [customCategories.find(c => c.name === selectedSource)!.color, customCategories.find(c => c.name === selectedSource)!.color]
+                      : theme.gradients.primary)) as any}
+              style={styles.filterTriggerGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Ionicons
+                name={selectedSource === 'all' 
+                  ? 'apps' 
+                  : (sourceIcons[selectedSource] || customCategories.find(c => c.name === selectedSource)?.icon || 'ellipse') as any}
+                size={20}
+                color={theme.colors.textInverse}
+              />
+              <Ionicons name="chevron-down" size={16} color={theme.colors.textInverse} />
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+
+        {/* Filter Menu Modal */}
+        <Modal
+          visible={showFilterMenu}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowFilterMenu(false)}
+        >
+          <Pressable
+            style={styles.filterMenuOverlay}
+            onPress={() => setShowFilterMenu(false)}
+          >
+            <Animated.View
+              style={[
+                styles.filterMenuContainer,
+                {
+                  opacity: filterMenuAnim,
+                  transform: [
+                    {
+                      scale: filterMenuAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.9, 1],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <Pressable onPress={(e) => e.stopPropagation()}>
+                <View style={styles.filterMenuHeader}>
+                  <Text style={styles.filterMenuTitle}>اختر نوع المصدر</Text>
+                  <TouchableOpacity
+                    onPress={() => setShowFilterMenu(false)}
+                    style={styles.filterMenuCloseButton}
+                  >
+                    <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
+                  </TouchableOpacity>
+                </View>
+                <ScrollView
+                  style={styles.filterMenuScroll}
+                  showsVerticalScrollIndicator={true}
+                  contentContainerStyle={styles.filterMenuContent}
+                >
+                  <TouchableOpacity
+                    onPress={() => handleSourceSelect('all')}
+                    style={[
+                      styles.filterMenuItem,
+                      selectedSource === 'all' && styles.filterMenuItemActive,
+                    ]}
+                    activeOpacity={0.7}
+                  >
+                    {selectedSource === 'all' ? (
+                      <LinearGradient
+                        colors={theme.gradients.primary as any}
+                        style={styles.filterMenuItemGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                      >
+                        <Ionicons name="apps" size={22} color={theme.colors.textInverse} />
+                        <Text style={styles.filterMenuItemTextActive}>الكل</Text>
+                        <Ionicons name="checkmark-circle" size={20} color={theme.colors.textInverse} />
+                      </LinearGradient>
+                    ) : (
+                      <View style={styles.filterMenuItemDefault}>
+                        <Ionicons name="apps-outline" size={22} color={theme.colors.textSecondary} />
+                        <Text style={styles.filterMenuItemText}>الكل</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                  {Object.entries(INCOME_SOURCES).map(([key, label]) => {
+                    const isSelected = selectedSource === key;
+                    return (
+                      <TouchableOpacity
+                        key={key}
+                        onPress={() => handleSourceSelect(key as IncomeSource)}
+                        style={[
+                          styles.filterMenuItem,
+                          isSelected && styles.filterMenuItemActive,
+                        ]}
+                        activeOpacity={0.7}
+                      >
+                        {isSelected ? (
+                          <LinearGradient
+                            colors={(sourceColors[key] || theme.gradients.primary) as any}
+                            style={styles.filterMenuItemGradient}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                          >
+                            <Ionicons
+                              name={sourceIcons[key] as any}
+                              size={22}
+                              color={theme.colors.textInverse}
+                            />
+                            <Text style={styles.filterMenuItemTextActive}>{label}</Text>
+                            <Ionicons name="checkmark-circle" size={20} color={theme.colors.textInverse} />
+                          </LinearGradient>
+                        ) : (
+                          <View style={styles.filterMenuItemDefault}>
+                            <Ionicons
+                              name={`${sourceIcons[key]}-outline` as any}
+                              size={22}
+                              color={theme.colors.textSecondary}
+                            />
+                            <Text style={styles.filterMenuItemText}>{label}</Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                  {customCategories.map((category) => {
+                    const isSelected = selectedSource === category.name;
+                    return (
+                      <TouchableOpacity
+                        key={category.id}
+                        onPress={() => handleSourceSelect(category.name)}
+                        style={[
+                          styles.filterMenuItem,
+                          isSelected && styles.filterMenuItemActive,
+                        ]}
+                        activeOpacity={0.7}
+                      >
+                        {isSelected ? (
+                          <LinearGradient
+                            colors={[category.color, category.color] as any}
+                            style={styles.filterMenuItemGradient}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                          >
+                            <Ionicons
+                              name={category.icon as any}
+                              size={22}
+                              color={theme.colors.textInverse}
+                            />
+                            <Text style={styles.filterMenuItemTextActive}>{category.name}</Text>
+                            <View style={styles.filterMenuItemActions}>
+                              <Ionicons name="checkmark-circle" size={20} color={theme.colors.textInverse} />
+                              <TouchableOpacity
+                                onPress={(e) => {
+                                  e.stopPropagation();
+                                  Alert.alert(
+                                    'حذف المصدر',
+                                    `هل تريد حذف "${category.name}"؟`,
+                                    [
+                                      { text: 'إلغاء', style: 'cancel' },
+                                      {
+                                        text: 'حذف',
+                                        style: 'destructive',
+                                        onPress: () => handleDeleteCategory(category.id),
+                                      },
+                                    ]
+                                  );
+                                }}
+                                style={styles.deleteCategoryButton}
+                              >
+                                <Ionicons name="trash" size={18} color={theme.colors.textInverse} />
+                              </TouchableOpacity>
+                            </View>
+                          </LinearGradient>
+                        ) : (
+                          <View style={styles.filterMenuItemDefault}>
+                            <Ionicons
+                              name={`${category.icon}-outline` as any}
+                              size={22}
+                              color={theme.colors.textSecondary}
+                            />
+                            <Text style={styles.filterMenuItemText}>{category.name}</Text>
+                            <TouchableOpacity
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                Alert.alert(
+                                  'حذف المصدر',
+                                  `هل تريد حذف "${category.name}"؟`,
+                                  [
+                                    { text: 'إلغاء', style: 'cancel' },
+                                    {
+                                      text: 'حذف',
+                                      style: 'destructive',
+                                      onPress: () => handleDeleteCategory(category.id),
+                                    },
+                                  ]
+                                );
+                              }}
+                              style={styles.deleteCategoryButtonDefault}
+                            >
+                              <Ionicons name="trash-outline" size={18} color={theme.colors.textSecondary} />
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowFilterMenu(false);
+                      setShowAddCategoryModal(true);
+                    }}
+                    style={styles.addCategoryButton}
+                    activeOpacity={0.7}
+                  >
+                    <LinearGradient
+                      colors={['#10B981', '#059669'] as any}
+                      style={styles.addCategoryButtonGradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                    >
+                      <Ionicons name="add-circle" size={22} color={theme.colors.textInverse} />
+                      <Text style={styles.addCategoryButtonText}>إضافة مصدر جديد</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </ScrollView>
+              </Pressable>
+            </Animated.View>
+          </Pressable>
+        </Modal>
       </View>
 
       <FlatList
         data={filteredIncome}
-        renderItem={renderIncomeItem}
+        renderItem={({ item }) => (
+          <TransactionItem
+            item={item}
+            type="income"
+            formatCurrency={formatCurrency}
+            onPress={() => {
+              setEditingIncome(item);
+              setShowAddModal(true);
+            }}
+            onDelete={async () => {
+              try {
+                await deleteIncome(item.id);
+                await loadIncome();
+              } catch (error) {
+                console.error('Error deleting income:', error);
+                Alert.alert('❌ خطأ', 'حدث خطأ أثناء حذف الدخل');
+              }
+            }}
+          />
+        )}
         keyExtractor={(item) => item.id.toString()}
         style={styles.list}
+        contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="wallet-outline" size={64} color="#9E9E9E" />
-            <RTLText style={styles.emptyText}>لا يوجد دخل مسجل</RTLText>
-            <RTLText style={styles.emptySubtext}>اضغط على + لإضافة دخل جديد</RTLText>
+            <View style={styles.emptyIconContainer} />
           </View>
         }
       />
 
-       <LinearGradient
-         colors={gradientColors.button.primary}
-         style={styles.fabGradient}
-       >
-         <FAB
-           style={styles.fab}
-           icon="plus"
-           onPress={() => setShowAddModal(true)}
-           size="small"
-           color={colors.text}
-         />
-       </LinearGradient>
+      <LinearGradient
+        colors={theme.gradients.primary as any}
+        style={styles.fabGradient}
+      >
+        <FAB
+          style={styles.fab}
+          icon="plus"
+          onPress={() => setShowAddModal(true)}
+          size="medium"
+          color={theme.colors.textInverse}
+        />
+      </LinearGradient>
 
-      <AddEditIncomeModal
+      <AddIncomeModal
         visible={showAddModal}
-        onClose={handleModalClose}
+        onClose={() => {
+          setShowAddModal(false);
+          setEditingIncome(null);
+        }}
         income={editingIncome}
+        onSave={loadIncome}
+      />
+
+      <AddCategoryModal
+        visible={showAddCategoryModal}
+        onClose={() => setShowAddCategoryModal(false)}
+        onSave={handleAddCategory}
+        type="income"
       />
     </SafeAreaView>
   );
@@ -257,155 +495,200 @@ const IncomeScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    width: '100%',
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
   },
   header: {
-    padding: 16,
-    backgroundColor: colors.surface,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: theme.colors.border,
+    direction: 'rtl',
+  },
+  searchFilterRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  searchContainer: {
+    flex: 1,
   },
   searchBar: {
-    marginBottom: 12,
-    backgroundColor: colors.surfaceLight,
-    borderRadius: 12,
+    backgroundColor: theme.colors.surfaceLight,
+    borderRadius: theme.borderRadius.md,
   },
   searchInput: {
-    color: colors.text,
-    fontFamily: 'Cairo-Regular',
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',
+    direction: 'rtl',
   },
-  filterScrollView: {
-    marginBottom: 8,
+  filterTrigger: {
+    borderRadius: theme.borderRadius.md,
+    overflow: 'hidden',
+    width: 56,
+    height: 56,
+    ...theme.shadows.md,
   },
-  filterScrollContent: {
-    paddingHorizontal: 0,
-  },
-  sourceFilter: {
+  filterTriggerGradient: {
     flexDirection: 'row-reverse',
-    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    height: '100%',
+    gap: theme.spacing.xs,
   },
-  filterChip: {
-    marginRight: 4,
-    marginBottom: 4,
-    backgroundColor: colors.surfaceLight,
+  filterMenuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.lg,
   },
-  selectedFilterChip: {
-    backgroundColor: colors.primary,
+  filterMenuContainer: {
+    width: '90%',
+    maxWidth: 400,
+    maxHeight: '80%',
+    backgroundColor: theme.colors.surfaceCard,
+    borderRadius: theme.borderRadius.xl,
+    overflow: 'hidden',
+    ...theme.shadows.lg,
   },
-  filterChipText: {
-    color: colors.text,
-    fontFamily: 'Cairo-Regular',
+  filterMenuHeader: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: theme.spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  filterMenuTitle: {
+    fontSize: theme.typography.sizes.xl,
+    fontWeight: '700',
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
+  },
+  filterMenuCloseButton: {
+    padding: theme.spacing.xs,
+  },
+  filterMenuScroll: {
+    maxHeight: 400,
+  },
+  filterMenuContent: {
+    padding: theme.spacing.md,
+  },
+  filterMenuItem: {
+    borderRadius: theme.borderRadius.md,
+    overflow: 'hidden',
+    marginBottom: theme.spacing.sm,
+    ...theme.shadows.sm,
+  },
+  filterMenuItemActive: {
+    ...theme.shadows.md,
+  },
+  filterMenuItemGradient: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    minHeight: 56,
+    gap: theme.spacing.md,
+  },
+  filterMenuItemDefault: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: theme.colors.surfaceLight,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    minHeight: 56,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    gap: theme.spacing.md,
+  },
+  filterMenuItemText: {
+    flex: 1,
+    color: theme.colors.textSecondary,
+    fontSize: theme.typography.sizes.md,
+    fontFamily: theme.typography.fontFamily,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+  filterMenuItemTextActive: {
+    flex: 1,
+    color: theme.colors.textInverse,
+    fontSize: theme.typography.sizes.md,
+    fontFamily: theme.typography.fontFamily,
+    fontWeight: '700',
+    textAlign: 'right',
+  },
+  filterMenuItemActions: {
+    flexDirection: 'row-reverse',
+    gap: theme.spacing.sm,
+    alignItems: 'center',
+  },
+  deleteCategoryButton: {
+    padding: theme.spacing.xs,
+  },
+  deleteCategoryButtonDefault: {
+    padding: theme.spacing.xs,
+  },
+  addCategoryButton: {
+    borderRadius: theme.borderRadius.md,
+    overflow: 'hidden',
+    marginTop: theme.spacing.sm,
+    ...theme.shadows.sm,
+  },
+  addCategoryButtonGradient: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    minHeight: 56,
+    gap: theme.spacing.sm,
+  },
+  addCategoryButtonText: {
+    color: theme.colors.textInverse,
+    fontSize: theme.typography.sizes.md,
+    fontFamily: theme.typography.fontFamily,
+    fontWeight: '700',
   },
   list: {
     flex: 1,
-    padding: 16,
+    paddingTop: theme.spacing.md,
+    paddingHorizontal: 0,
+    direction: 'ltr',
   },
-  incomeCard: {
-    marginBottom: 12,
-    elevation: 2,
-    borderRadius: 16,
-  },
-  incomeContent: {
-    padding: 16,
-  },
-  incomeHeader: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  incomeInfo: {
-    flex: 1,
-  },
-  incomeTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 4,
-    fontFamily: 'Cairo-Regular',
-    textAlign: 'right',
-    color: colors.text,
-  },
-  incomeDate: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontFamily: 'Cairo-Regular',
-    textAlign: 'right',
-  },
-  incomeActions: {
-    alignItems: 'flex-end',
-  },
-  incomeAmount: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.primary,
-    marginBottom: 8,
-    fontFamily: 'Cairo-Regular',
-    textAlign: 'right',
-  },
-  actionButtons: {
-    flexDirection: 'row-reverse',
-  },
-  incomeFooter: {
-    marginTop: 8,
-  },
-  sourceChip: {
-    alignSelf: 'flex-start',
-    marginBottom: 4,
-    backgroundColor: colors.primary,
-  },
-  sourceChipText: {
-    color: colors.text,
-    fontSize: 12,
-    fontFamily: 'Cairo-Regular',
-  },
-  incomeDescription: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-    fontFamily: 'Cairo-Regular',
-    textAlign: 'right',
+  listContent: {
+    paddingBottom: 120,
+    paddingHorizontal: theme.spacing.sm,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 64,
+    paddingVertical: theme.spacing.xxl,
   },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    paddingTop:14,
-    paddingBottom: 14,
-    color: colors.textSecondary,
-    marginTop: 16,
-    fontFamily: 'Cairo-Regular',
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: colors.textMuted,
-    marginTop: 8,
-    fontFamily: 'Cairo-Regular',
+  emptyIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: theme.colors.surfaceLight,
   },
   fabGradient: {
     position: 'absolute',
-    margin: 16,
-    right: 0,
-    bottom: 0,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    ...(I18nManager.isRTL ? { left: theme.spacing.lg } : { right: theme.spacing.lg }),
+    bottom: theme.spacing.lg,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
+    ...theme.shadows.lg,
   },
   fab: {
     backgroundColor: 'transparent',
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
-
-export default IncomeScreen;
