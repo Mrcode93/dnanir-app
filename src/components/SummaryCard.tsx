@@ -3,13 +3,14 @@ import { View, Text, StyleSheet, I18nManager } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
+import { useCurrency } from '../hooks/useCurrency';
 
 interface SummaryCardProps {
   label: string;
   value: number;
   icon: keyof typeof Ionicons.glyphMap;
   gradient: string[];
-  formatCurrency: (amount: number) => string;
+  formatCurrency?: (amount: number) => string;
 }
 
 export const SummaryCard: React.FC<SummaryCardProps> = ({
@@ -17,8 +18,10 @@ export const SummaryCard: React.FC<SummaryCardProps> = ({
   value,
   icon,
   gradient,
-  formatCurrency,
+  formatCurrency: propFormatCurrency,
 }) => {
+  const { formatCurrency: hookFormatCurrency } = useCurrency();
+  const formatCurrency = propFormatCurrency || hookFormatCurrency;
   return (
     <LinearGradient
       colors={gradient}

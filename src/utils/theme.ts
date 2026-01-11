@@ -1,8 +1,8 @@
 // Modern Light Theme Configuration
-export const theme = {
+const lightTheme = {
   colors: {
     // Primary colors - vibrant blue
-    primary: '#3B82F6',
+    primary: '#003459',
     primaryLight: '#60A5FA',
     primaryDark: '#1D4ED8',
     
@@ -37,10 +37,10 @@ export const theme = {
   },
   
   gradients: {
-    primary: ['#3B82F6', '#2563EB', '#1D4ED8'],
+    primary: ['#003459', '#004D73', '#006699'],
     success: ['#10B981', '#059669'],
     error: ['#EF4444', '#DC2626'],
-    info: ['#3B82F6', '#2563EB'],
+    info: ['#003459', '#004D73'],
     // Modern gradient colors for goals
     goalPurple: ['#A78BFA', '#8B5CF6', '#7C3AED'],
     goalBlue: ['#60A5FA', '#3B82F6', '#2563EB'],
@@ -106,3 +106,45 @@ export const theme = {
     },
   },
 };
+
+// Dark Theme Configuration
+const darkTheme = {
+  ...lightTheme,
+  colors: {
+    ...lightTheme.colors,
+    // Background colors - dark theme
+    background: '#0F172A',
+    backgroundSecondary: '#1E293B',
+    surface: '#1E293B',
+    surfaceLight: '#334155',
+    surfaceCard: '#1E293B',
+    
+    // Text colors
+    text: '#F1F5F9',
+    textPrimary: '#FFFFFF',
+    textSecondary: '#94A3B8',
+    textMuted: '#64748B',
+    textInverse: '#0F172A',
+    
+    // Border and divider
+    border: '#334155',
+    borderLight: '#475569',
+    divider: 'rgba(255, 255, 255, 0.1)',
+    
+    // Shadow
+    shadow: '#000000',
+    overlay: 'rgba(0, 0, 0, 0.7)',
+  },
+};
+
+let isDarkMode = false;
+
+export const setDarkMode = (dark: boolean) => {
+  isDarkMode = dark;
+};
+
+export const getTheme = () => {
+  return isDarkMode ? darkTheme : lightTheme;
+};
+
+export const theme = lightTheme; // Default export for backward compatibility

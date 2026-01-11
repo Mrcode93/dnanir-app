@@ -7,6 +7,7 @@ import {
   RefreshControl,
   Dimensions,
   I18nManager,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FAB } from 'react-native-paper';
@@ -14,13 +15,15 @@ import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
-import { calculateFinancialSummary, formatCurrency, getCurrentMonthData, generateFinancialInsights } from '../services/financialService';
+import { calculateFinancialSummary, getCurrentMonthData, generateFinancialInsights } from '../services/financialService';
+import { useCurrency } from '../hooks/useCurrency';
 import { EXPENSE_CATEGORIES } from '../types';
 import { getCustomCategories } from '../database/database';
 
 const { width } = Dimensions.get('window');
 
 export const InsightsScreen = ({ navigation }: any) => {
+  const { formatCurrency } = useCurrency();
   const [summary, setSummary] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [monthlyData, setMonthlyData] = useState<any>(null);
@@ -172,61 +175,146 @@ export const InsightsScreen = ({ navigation }: any) => {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh}
+            tintColor={theme.colors.primary}
+          />
         }
+        showsVerticalScrollIndicator={false}
       >
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>الرؤى المالية</Text>
+            <Text style={styles.headerSubtitle}>تحليل شامل لأدائك المالي</Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('AdvancedReports')}
+            style={styles.advancedReportsButton}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={theme.gradients.primary as any}
+              style={styles.advancedReportsButtonGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Ionicons name="document-text" size={18} color={theme.colors.textInverse} />
+              <Text style={styles.advancedReportsButtonText}>تقارير متقدمة</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
         {/* Financial Health Card */}
         {summary && (
-          <LinearGradient
-            colors={getHealthColor(healthScore) as any}
-            style={styles.healthCard}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <View style={styles.healthContent}>
-              <View style={styles.healthHeader}>
-                <View style={styles.healthIconContainer}>
-                  <Ionicons name="trending-up" size={32} color={theme.colors.textInverse} />
+          <View style={styles.healthCardWrapper}>
+            <LinearGradient
+              colors={getHealthColor(healthScore) as any}
+              style={styles.healthCard}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <View style={styles.healthContent}>
+                <View style={styles.healthHeader}>
+                  <View style={styles.healthIconContainer}>
+                    <LinearGradient
+                      colors={['rgba(255, 255, 255, 0.3)', 'rgba(255, 255, 255, 0.15)']}
+                      style={styles.healthIconGradient}
+                    >
+                      <Ionicons 
+                        name={healthScore >= 80 ? "checkmark-circle" : healthScore >= 60 ? "warning" : "alert-circle"} 
+                        size={32} 
+                        color={theme.colors.textInverse} 
+                      />
+                    </LinearGradient>
+                  </View>
+                  <View style={styles.healthTextContainer}>
+                    <Text style={styles.healthTitle}>صحة مالية</Text>
+                    <View style={styles.healthScoreContainer}>
+                      <Text style={styles.healthScore}>{healthScore}</Text>
+                      <Text style={styles.healthLabel}>/ 100</Text>
+                    </View>
+                  </View>
                 </View>
-                <View style={styles.healthTextContainer}>
-                  <Text style={styles.healthTitle}>صحة مالية</Text>
-                  <Text style={styles.healthScore}>{healthScore}</Text>
-                  <Text style={styles.healthLabel}>من 100</Text>
+                <View style={styles.healthProgressBar}>
+                  <LinearGradient
+                    colors={['rgba(255, 255, 255, 0.95)', 'rgba(255, 255, 255, 0.85)']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[
+                      styles.healthProgressFill,
+                      { width: `${healthScore}%` },
+                    ]}
+                  />
+                </View>
+                <View style={styles.healthStats}>
+                  <View style={styles.healthStatItem}>
+                    <View style={styles.healthStatIconContainer}>
+                      <Ionicons name="arrow-up-circle" size={20} color={theme.colors.textInverse} />
+                    </View>
+                    <Text style={styles.healthStatLabel}>الدخل</Text>
+                    <Text style={styles.healthStatValue}>{formatCurrency(summary.totalIncome)}</Text>
+                  </View>
+                  <View style={styles.healthStatDivider} />
+                  <View style={styles.healthStatItem}>
+                    <View style={styles.healthStatIconContainer}>
+                      <Ionicons name="arrow-down-circle" size={20} color={theme.colors.textInverse} />
+                    </View>
+                    <Text style={styles.healthStatLabel}>المصاريف</Text>
+                    <Text style={styles.healthStatValue}>{formatCurrency(summary.totalExpenses)}</Text>
+                  </View>
+                  <View style={styles.healthStatDivider} />
+                  <View style={styles.healthStatItem}>
+                    <View style={styles.healthStatIconContainer}>
+                      <Ionicons 
+                        name={summary.balance >= 0 ? "wallet" : "alert-circle"} 
+                        size={20} 
+                        color={theme.colors.textInverse} 
+                      />
+                    </View>
+                    <Text style={styles.healthStatLabel}>الرصيد</Text>
+                    <Text style={[
+                      styles.healthStatValue,
+                      { color: summary.balance >= 0 ? theme.colors.textInverse : '#FFE5E5' }
+                    ]}>
+                      {formatCurrency(summary.balance)}
+                    </Text>
+                  </View>
                 </View>
               </View>
-              <View style={styles.healthStats}>
-                <View style={styles.healthStatItem}>
-                  <Text style={styles.healthStatLabel}>الدخل</Text>
-                  <Text style={styles.healthStatValue}>{formatCurrency(summary.totalIncome)}</Text>
-                </View>
-                <View style={styles.healthStatDivider} />
-                <View style={styles.healthStatItem}>
-                  <Text style={styles.healthStatLabel}>المصاريف</Text>
-                  <Text style={styles.healthStatValue}>{formatCurrency(summary.totalExpenses)}</Text>
-                </View>
-                <View style={styles.healthStatDivider} />
-                <View style={styles.healthStatItem}>
-                  <Text style={styles.healthStatLabel}>الرصيد</Text>
-                  <Text style={[
-                    styles.healthStatValue,
-                    { color: summary.balance >= 0 ? '#10B981' : '#EF4444' }
-                  ]}>
-                    {formatCurrency(summary.balance)}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </LinearGradient>
+            </LinearGradient>
+          </View>
         )}
 
         {/* Insights Cards */}
         {insights.length > 0 && (
           <View style={styles.insightsContainer}>
-            <Text style={styles.sectionTitle}>رؤى مالية</Text>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionHeaderLeft}>
+                <LinearGradient
+                  colors={theme.gradients.info as any}
+                  style={styles.sectionIconContainer}
+                >
+                  <Ionicons name="bulb" size={20} color={theme.colors.textInverse} />
+                </LinearGradient>
+                <Text style={styles.sectionTitle}>رؤى مالية</Text>
+              </View>
+            </View>
             {insights.map((insight, index) => (
               <View key={index} style={styles.insightCard}>
-                <Ionicons name="bulb" size={20} color={theme.colors.primary} />
-                <Text style={styles.insightText}>{insight}</Text>
+                <LinearGradient
+                  colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
+                  style={styles.insightCardGradient}
+                >
+                  <View style={styles.insightIconWrapper}>
+                    <LinearGradient
+                      colors={theme.gradients.primary as any}
+                      style={styles.insightIconContainer}
+                    >
+                      <Ionicons name="sparkles" size={18} color={theme.colors.textInverse} />
+                    </LinearGradient>
+                  </View>
+                  <Text style={styles.insightText}>{insight}</Text>
+                </LinearGradient>
               </View>
             ))}
           </View>
@@ -234,12 +322,26 @@ export const InsightsScreen = ({ navigation }: any) => {
 
         {/* Expense Trend Chart */}
         {trendData && (
-          <View style={styles.chartCard}>
-            <Text style={styles.chartTitle}>اتجاه المصاريف (آخر 7 أيام)</Text>
+          <LinearGradient
+            colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
+            style={styles.chartCard}
+          >
+            <View style={styles.chartHeader}>
+              <View style={styles.chartHeaderLeft}>
+                <LinearGradient
+                  colors={theme.gradients.error as any}
+                  style={styles.chartIconContainer}
+                >
+                  <Ionicons name="trending-down" size={18} color={theme.colors.textInverse} />
+                </LinearGradient>
+                <Text style={styles.chartTitle}>اتجاه المصاريف</Text>
+              </View>
+              <Text style={styles.chartSubtitle}>آخر 7 أيام</Text>
+            </View>
             <LineChart
               data={trendData}
-              width={width - 48}
-              height={220}
+              width={width - 64}
+              height={240}
               chartConfig={{
                 backgroundColor: theme.colors.surfaceCard,
                 backgroundGradientFrom: theme.colors.surfaceCard,
@@ -247,29 +349,52 @@ export const InsightsScreen = ({ navigation }: any) => {
                 decimalPlaces: 0,
                 color: (opacity = 1) => `rgba(239, 68, 68, ${opacity})`,
                 labelColor: () => theme.colors.textSecondary,
-                style: {
-                  borderRadius: theme.borderRadius.lg
-                },
+                strokeWidth: 3,
+                barPercentage: 0.7,
                 propsForDots: {
                   r: '6',
-                  strokeWidth: '2',
-                  stroke: '#EF4444'
+                  strokeWidth: '3',
+                  stroke: '#FFFFFF',
+                  fill: '#EF4444'
+                },
+                propsForBackgroundLines: {
+                  strokeDasharray: '',
+                  stroke: theme.colors.border,
+                  strokeWidth: 1,
                 }
               }}
               bezier
               style={styles.chart}
+              withInnerLines={true}
+              withOuterLines={false}
+              withVerticalLabels={true}
+              withHorizontalLabels={true}
             />
-          </View>
+          </LinearGradient>
         )}
 
         {/* Income vs Expenses Bar Chart */}
         {barData && (
-          <View style={styles.chartCard}>
-            <Text style={styles.chartTitle}>الدخل مقابل المصاريف (هذا الشهر)</Text>
+          <LinearGradient
+            colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
+            style={styles.chartCard}
+          >
+            <View style={styles.chartHeader}>
+              <View style={styles.chartHeaderLeft}>
+                <LinearGradient
+                  colors={theme.gradients.info as any}
+                  style={styles.chartIconContainer}
+                >
+                  <Ionicons name="bar-chart" size={18} color={theme.colors.textInverse} />
+                </LinearGradient>
+                <Text style={styles.chartTitle}>الدخل مقابل المصاريف</Text>
+              </View>
+              <Text style={styles.chartSubtitle}>هذا الشهر</Text>
+            </View>
             <BarChart
               data={barData}
-              width={width - 48}
-              height={220}
+              width={width - 64}
+              height={240}
               chartConfig={{
                 backgroundColor: theme.colors.surfaceCard,
                 backgroundGradientFrom: theme.colors.surfaceCard,
@@ -277,58 +402,108 @@ export const InsightsScreen = ({ navigation }: any) => {
                 decimalPlaces: 0,
                 color: (opacity = 1) => `rgba(59, 130, 246, ${opacity})`,
                 labelColor: () => theme.colors.textSecondary,
-                style: {
-                  borderRadius: theme.borderRadius.lg
-                },
+                barPercentage: 0.6,
+                propsForBackgroundLines: {
+                  strokeDasharray: '',
+                  stroke: theme.colors.border,
+                  strokeWidth: 1,
+                }
               }}
               style={styles.chart}
               yAxisLabel=""
               yAxisSuffix=""
+              withInnerLines={true}
+              showValuesOnTopOfBars={true}
             />
-          </View>
+          </LinearGradient>
         )}
 
         {/* Category Pie Chart */}
         {pieData && pieData.length > 0 && (
-          <View style={styles.chartCard}>
-            <Text style={styles.chartTitle}>توزيع المصاريف حسب الفئة</Text>
+          <LinearGradient
+            colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
+            style={styles.chartCard}
+          >
+            <View style={styles.chartHeader}>
+              <View style={styles.chartHeaderLeft}>
+                <LinearGradient
+                  colors={['#8B5CF6', '#7C3AED']}
+                  style={styles.chartIconContainer}
+                >
+                  <Ionicons name="pie-chart" size={18} color={theme.colors.textInverse} />
+                </LinearGradient>
+                <Text style={styles.chartTitle}>توزيع المصاريف</Text>
+              </View>
+              <Text style={styles.chartSubtitle}>حسب الفئة</Text>
+            </View>
             <PieChart
               data={pieData}
-              width={width - 48}
-              height={220}
+              width={width - 64}
+              height={240}
               chartConfig={{
                 color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
               }}
               accessor="amount"
-              backgroundColor="transparent"
+              backgroundColor={theme.colors.surfaceCard}
               paddingLeft="15"
               style={styles.chart}
+              absolute
             />
-          </View>
+          </LinearGradient>
         )}
 
         {/* Top Categories List */}
         {summary?.topExpenseCategories && summary.topExpenseCategories.length > 0 && (
-          <View style={styles.categoriesCard}>
-            <Text style={styles.chartTitle}>أعلى الفئات</Text>
+          <LinearGradient
+            colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
+            style={styles.categoriesCard}
+          >
+            <View style={styles.chartHeader}>
+              <View style={styles.chartHeaderLeft}>
+                <LinearGradient
+                  colors={['#F59E0B', '#D97706']}
+                  style={styles.chartIconContainer}
+                >
+                  <Ionicons name="list" size={18} color={theme.colors.textInverse} />
+                </LinearGradient>
+                <Text style={styles.chartTitle}>أعلى الفئات</Text>
+              </View>
+            </View>
             {summary.topExpenseCategories.map((item: any, index: number) => {
               const categoryName = EXPENSE_CATEGORIES[item.category as keyof typeof EXPENSE_CATEGORIES] || 
                                   customCategories.find(c => c.name === item.category)?.name || 
                                   item.category;
+              const categoryColor = pieData?.[index]?.color || '#6B7280';
               return (
                 <View key={index} style={styles.categoryItem}>
-                  <View style={styles.categoryInfo}>
-                    <View style={[styles.categoryColor, { backgroundColor: pieData?.[index]?.color || '#6B7280' }]} />
+                  <View style={styles.categoryLeft}>
+                    <View style={styles.categoryRank}>
+                      <Text style={styles.categoryRankText}>#{index + 1}</Text>
+                    </View>
+                    <View style={[styles.categoryColor, { backgroundColor: categoryColor }]} />
                     <Text style={styles.categoryName}>{categoryName}</Text>
                   </View>
-                  <View style={styles.categoryAmount}>
-                    <Text style={styles.categoryAmountText}>{formatCurrency(item.amount)}</Text>
-                    <Text style={styles.categoryPercentage}>{item.percentage.toFixed(1)}%</Text>
+                  <View style={styles.categoryRight}>
+                    <View style={styles.categoryProgressBar}>
+                      <LinearGradient
+                        colors={[categoryColor, categoryColor]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={[
+                          styles.categoryProgressFill,
+                          { width: `${item.percentage}%` },
+                        ]}
+                      />
+                    </View>
+                    <View style={styles.categoryAmount}>
+                      <Text style={styles.categoryAmountText}>{formatCurrency(item.amount)}</Text>
+                      <Text style={styles.categoryPercentage}>{item.percentage.toFixed(1)}%</Text>
+                    </View>
                   </View>
                 </View>
               );
             })}
-          </View>
+          </LinearGradient>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -339,6 +514,52 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
+    direction: 'rtl' as const,
+  },
+  header: {
+    padding: theme.spacing.lg,
+    paddingBottom: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+    ...theme.shadows.sm,
+
+  },
+  headerContent: {
+    marginBottom: theme.spacing.md,
+  },
+  headerTitle: {
+    fontSize: theme.typography.sizes.xxl,
+    fontWeight: '700',
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
+    textAlign: 'left',
+    marginBottom: theme.spacing.xs,
+  },
+  headerSubtitle: {
+    fontSize: theme.typography.sizes.sm,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+    textAlign: 'left',
+  },
+  advancedReportsButton: {
+    borderRadius: theme.borderRadius.lg,
+    overflow: 'hidden',
+    ...theme.shadows.md,
+  },
+  advancedReportsButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    gap: theme.spacing.xs,
+  },
+  advancedReportsButtonText: {
+    fontSize: theme.typography.sizes.sm,
+    fontWeight: '700',
+    color: theme.colors.textInverse,
+    fontFamily: theme.typography.fontFamily,
   },
   scrollView: {
     flex: 1,
@@ -346,59 +567,81 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: theme.spacing.md,
     paddingBottom: theme.spacing.xxl,
-    direction: 'rtl',
+    direction: 'ltr' as const,
   },
-  healthCard: {
+  healthCardWrapper: {
     marginBottom: theme.spacing.lg,
-    borderRadius: theme.borderRadius.xl,
-    overflow: 'hidden',
     ...theme.shadows.lg,
   },
+  healthCard: {
+    borderRadius: theme.borderRadius.xl,
+    overflow: 'hidden',
+  },
   healthContent: {
-    padding: theme.spacing.lg,
+    padding: theme.spacing.xl,
   },
   healthHeader: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     marginBottom: theme.spacing.lg,
   },
   healthIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    marginLeft: theme.spacing.md,
+  },
+  healthIconGradient: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: theme.spacing.md,
+    ...theme.shadows.md,
   },
   healthTextContainer: {
     flex: 1,
   },
   healthTitle: {
-    fontSize: theme.typography.sizes.lg,
+    fontSize: theme.typography.sizes.xl,
     fontWeight: '600',
     color: theme.colors.textInverse,
-    marginBottom: theme.spacing.xs,
+    marginBottom: theme.spacing.sm,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
   },
+  healthScoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
   healthScore: {
-    fontSize: 48,
+    fontSize: 56,
     fontWeight: '700',
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
+    letterSpacing: -1,
   },
   healthLabel: {
-    fontSize: theme.typography.sizes.md,
-    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: theme.typography.sizes.lg,
+    color: 'rgba(255, 255, 255, 0.85)',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
+    marginRight: theme.spacing.xs,
+  },
+  healthProgressBar: {
+    height: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: theme.borderRadius.round,
+    overflow: 'hidden',
+    marginBottom: theme.spacing.lg,
+    ...theme.shadows.sm,
+  },
+  healthProgressFill: {
+    height: '100%',
+    borderRadius: theme.borderRadius.round,
   },
   healthStats: {
     flexDirection: 'row-reverse',
     justifyContent: 'space-around',
-    paddingTop: theme.spacing.md,
+    paddingTop: theme.spacing.lg,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.2)',
   },
@@ -406,17 +649,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
+  healthStatIconContainer: {
+    marginBottom: theme.spacing.xs,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   healthStatLabel: {
-    fontSize: theme.typography.sizes.sm,
+    fontSize: theme.typography.sizes.xs,
     color: 'rgba(255, 255, 255, 0.8)',
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
+    textAlign: 'center',
   },
   healthStatValue: {
     fontSize: theme.typography.sizes.md,
     fontWeight: '700',
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
+    textAlign: 'center',
   },
   healthStatDivider: {
     width: 1,
@@ -426,22 +680,54 @@ const styles = StyleSheet.create({
   insightsContainer: {
     marginBottom: theme.spacing.lg,
   },
+  sectionHeader: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  sectionHeaderLeft: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  sectionIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...theme.shadows.sm,
+  },
   sectionTitle: {
     fontSize: theme.typography.sizes.xl,
     fontWeight: '700',
     color: theme.colors.textPrimary,
-    marginBottom: theme.spacing.md,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
   },
   insightCard: {
+    marginBottom: theme.spacing.sm,
+    borderRadius: theme.borderRadius.lg,
+    overflow: 'hidden',
+    ...theme.shadows.sm,
+  },
+  insightCardGradient: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    backgroundColor: theme.colors.surfaceCard,
     padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    marginBottom: theme.spacing.sm,
-    gap: theme.spacing.sm,
+    gap: theme.spacing.md,
+  },
+  insightIconWrapper: {
+    width: 40,
+    height: 40,
+  },
+  insightIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
     ...theme.shadows.sm,
   },
   insightText: {
@@ -450,28 +736,53 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
+    lineHeight: 24,
   },
   chartCard: {
-    backgroundColor: theme.colors.surfaceCard,
     padding: theme.spacing.lg,
     borderRadius: theme.borderRadius.xl,
     marginBottom: theme.spacing.lg,
     ...theme.shadows.md,
   },
+  chartHeader: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.lg,
+  },
+  chartHeaderLeft: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    flex: 1,
+  },
+  chartIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...theme.shadows.sm,
+  },
   chartTitle: {
     fontSize: theme.typography.sizes.lg,
     fontWeight: '700',
     color: theme.colors.textPrimary,
-    marginBottom: theme.spacing.md,
-    textAlign: 'right',
     fontFamily: theme.typography.fontFamily,
+    textAlign: 'right',
+  },
+  chartSubtitle: {
+    fontSize: theme.typography.sizes.sm,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+    textAlign: 'right',
   },
   chart: {
     marginVertical: theme.spacing.sm,
     borderRadius: theme.borderRadius.lg,
+    direction: 'rtl' as const,
   },
   categoriesCard: {
-    backgroundColor: theme.colors.surfaceCard,
     padding: theme.spacing.lg,
     borderRadius: theme.borderRadius.xl,
     marginBottom: theme.spacing.lg,
@@ -485,22 +796,55 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
-  categoryInfo: {
+  categoryLeft: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
     flex: 1,
     gap: theme.spacing.sm,
   },
+  categoryRank: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: theme.colors.surfaceLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...theme.shadows.sm,
+  },
+  categoryRankText: {
+    fontSize: theme.typography.sizes.xs,
+    fontWeight: '700',
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+  },
   categoryColor: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    ...theme.shadows.sm,
   },
   categoryName: {
     fontSize: theme.typography.sizes.md,
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     fontWeight: '600',
+    flex: 1,
+  },
+  categoryRight: {
+    alignItems: 'flex-end',
+    width: 120,
+  },
+  categoryProgressBar: {
+    height: 6,
+    backgroundColor: theme.colors.surfaceLight,
+    borderRadius: theme.borderRadius.round,
+    overflow: 'hidden',
+    marginBottom: theme.spacing.xs,
+    width: '100%',
+  },
+  categoryProgressFill: {
+    height: '100%',
+    borderRadius: theme.borderRadius.round,
   },
   categoryAmount: {
     alignItems: 'flex-end',
@@ -512,9 +856,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   categoryPercentage: {
-    fontSize: theme.typography.sizes.sm,
+    fontSize: theme.typography.sizes.xs,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    marginTop: theme.spacing.xs,
+    marginTop: 2,
   },
 });

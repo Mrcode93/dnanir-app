@@ -12,26 +12,30 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
 
-interface ConfirmAlertProps {
+export type AlertType = 'success' | 'error' | 'warning' | 'info';
+
+interface CustomAlertProps {
   visible: boolean;
   title: string;
   message: string;
+  type?: AlertType;
   confirmText?: string;
   cancelText?: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-  type?: 'danger' | 'warning' | 'info';
+  onConfirm?: () => void;
+  onCancel?: () => void;
+  showCancel?: boolean;
 }
 
-export const ConfirmAlert: React.FC<ConfirmAlertProps> = ({
+export const CustomAlert: React.FC<CustomAlertProps> = ({
   visible,
   title,
   message,
-  confirmText = 'تأكيد',
+  type = 'info',
+  confirmText = 'حسناً',
   cancelText = 'إلغاء',
   onConfirm,
   onCancel,
-  type = 'danger',
+  showCancel = false,
 }) => {
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -67,45 +71,52 @@ export const ConfirmAlert: React.FC<ConfirmAlertProps> = ({
     }
   }, [visible]);
 
-  const getTypeColors = () => {
+  const getTypeColors = (): string[] => {
     switch (type) {
-      case 'danger':
+      case 'success':
+        return ['#10B981', '#059669'];
+      case 'error':
         return ['#EF4444', '#DC2626'];
       case 'warning':
         return ['#F59E0B', '#D97706'];
       case 'info':
         return ['#3B82F6', '#2563EB'];
       default:
-        return ['#EF4444', '#DC2626'];
+        return ['#3B82F6', '#2563EB'];
     }
   };
 
-  const getTypeIcon = () => {
+  const getTypeIcon = (): string => {
     switch (type) {
-      case 'danger':
-        return 'alert-circle';
+      case 'success':
+        return 'checkmark-circle';
+      case 'error':
+        return 'close-circle';
       case 'warning':
         return 'warning';
       case 'info':
         return 'information-circle';
       default:
-        return 'alert-circle';
+        return 'information-circle';
     }
   };
 
   const colors = getTypeColors();
   const icon = getTypeIcon();
 
-  const handleConfirmPress = async () => {
-    try {
-      if (onConfirm) {
-        const result = onConfirm();
-        if (result instanceof Promise) {
-          await result;
-        }
+  const handleConfirm = () => {
+    if (onConfirm) {
+      try {
+      onConfirm();
+      } catch (error) {
+        console.error('Error in CustomAlert handleConfirm:', error);
       }
-    } catch (error) {
-      console.error('Error in ConfirmAlert onConfirm:', error);
+    }
+  };
+
+  const handleCancel = () => {
+    if (onCancel) {
+      onCancel();
     }
   };
 
@@ -114,8 +125,7 @@ export const ConfirmAlert: React.FC<ConfirmAlertProps> = ({
       visible={visible}
       transparent={true}
       animationType="none"
-      onRequestClose={onCancel}
-      statusBarTranslucent={true}
+      onRequestClose={handleCancel}
     >
       <View style={styles.overlay}>
         <Animated.View
@@ -139,12 +149,12 @@ export const ConfirmAlert: React.FC<ConfirmAlertProps> = ({
             {/* Icon Section */}
             <View style={[styles.iconContainer, { backgroundColor: colors[0] + '15' }]}>
               <LinearGradient
-                colors={colors}
+                colors={colors as any}
                 style={styles.iconGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
-                <Ionicons name={icon} size={32} color="#FFFFFF" />
+                <Ionicons name={icon as any} size={32} color="#FFFFFF" />
               </LinearGradient>
             </View>
 
@@ -156,25 +166,32 @@ export const ConfirmAlert: React.FC<ConfirmAlertProps> = ({
 
             {/* Actions */}
             <View style={styles.actions}>
+              {showCancel && (
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={handleCancel}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.cancelButtonText}>{cancelText}</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={onCancel}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.cancelButtonText}>{cancelText}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.confirmButton}
-                onPress={handleConfirmPress}
+                style={[
+                  styles.confirmButton,
+                  showCancel ? { flex: 1 } : { width: '100%' },
+                ]}
+                onPress={handleConfirm}
                 activeOpacity={0.8}
               >
                 <LinearGradient
-                  colors={colors}
+                  colors={colors as any}
                   style={styles.confirmButtonGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                 >
-                  <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                  {type === 'success' && (
+                    <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                  )}
                   <Text style={styles.confirmButtonText}>{confirmText}</Text>
                 </LinearGradient>
               </TouchableOpacity>
@@ -194,8 +211,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: theme.spacing.lg,
-    zIndex: 9999,
-    elevation: 9999,
   },
   overlayAnimated: {
     ...StyleSheet.absoluteFillObject,
@@ -207,13 +222,12 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.xl,
     overflow: 'hidden',
     ...theme.shadows.lg,
-    zIndex: 10000,
-    elevation: 10000,
   },
   alertContent: {
     backgroundColor: theme.colors.surfaceCard,
     padding: theme.spacing.xl,
     alignItems: 'center',
+    direction: 'rtl' as const,
   },
   iconContainer: {
     width: 80,
@@ -236,6 +250,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.sm,
     textAlign: 'center',
+    writingDirection: 'rtl',
   },
   message: {
     fontSize: theme.typography.sizes.md,
@@ -244,9 +259,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: theme.spacing.xl,
+    writingDirection: 'rtl',
   },
   actions: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     width: '100%',
     gap: theme.spacing.md,
   },
@@ -265,18 +281,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
+    textAlign: 'center',
+    writingDirection: 'rtl',
   },
   confirmButton: {
-    flex: 1,
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
     ...theme.shadows.md,
   },
   confirmButtonGradient: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
     gap: theme.spacing.xs,
   },
   confirmButtonText: {
@@ -284,5 +302,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
+    textAlign: 'center',
   },
 });

@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
 import { isRTL } from '../utils/rtl';
+import { useCurrency } from '../hooks/useCurrency';
 
 interface BalanceCardProps {
   balance: number;
@@ -11,22 +12,19 @@ interface BalanceCardProps {
 }
 
 export const BalanceCard: React.FC<BalanceCardProps> = ({ balance, userName }) => {
+  const { formatCurrency } = useCurrency();
   const isPositive = balance >= 0;
   
-  // Blue gradient for balance card
+  // Use theme gradients based on #003459
   const gradientColors = isPositive 
-    ? ['#3B82F6', '#2563EB', '#1D4ED8'] as const // Blue gradient (positive)
-    : ['#60A5FA', '#3B82F6', '#2563EB'] as const; // Lighter blue gradient (negative)
+    ? theme.gradients.primary // Primary gradient (positive)
+    : ['#004D73', '#003459', '#002640'] as const; // Darker gradient (negative)
   
-  const formattedBalance = new Intl.NumberFormat('ar-IQ', {
-    style: 'currency',
-    currency: 'IQD',
-    minimumFractionDigits: 0,
-  }).format(balance);
+  const formattedBalance = formatCurrency(balance);
 
   return (
     <LinearGradient
-      colors={[...gradientColors]}
+      colors={gradientColors as any}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.card}
@@ -46,21 +44,21 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({ balance, userName }) =
         {isPositive && (
           <View style={styles.statusBadge}>
             <Ionicons name="trending-up" size={16} color={theme.colors.textInverse} />
-          </View>
+        </View>
         )}
       </View>
       
       <View style={styles.body}>
         {userName && (
           <View style={styles.greetingContainer}>
-            <Text style={styles.greeting}>مرحباً، {userName} 👋</Text>
+            <Text style={styles.greeting}>مرحباً، {userName}</Text>
           </View>
         )}
-        <Text style={styles.label}>الرصيد الحالي</Text>
+        {/* <Text style={styles.label}>الرصيد الحالي</Text> */}
         <View style={styles.balanceContainer}>
           <Text style={styles.balance}>
-            {formattedBalance}
-          </Text>
+          {formattedBalance}
+        </Text>
           {!isPositive && (
             <View style={styles.warningIcon}>
               <Ionicons name="alert-circle" size={20} color={theme.colors.textInverse} />
@@ -75,9 +73,9 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({ balance, userName }) =
 const styles = StyleSheet.create({
   card: {
     borderRadius: theme.borderRadius.xl,
-    padding: theme.spacing.lg,
+    padding: theme.spacing.md,
     marginBottom: theme.spacing.lg,
-    minHeight: 200,
+    minHeight: 140,
     ...theme.shadows.lg,
     overflow: 'hidden',
     position: 'relative',
@@ -105,7 +103,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: theme.spacing.xl,
+    marginBottom: theme.spacing.md,
     zIndex: 1,
   },
   badge: {
@@ -140,7 +138,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   greetingContainer: {
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
   },
   greeting: {
     fontSize: theme.typography.sizes.lg,
@@ -165,7 +163,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   balance: {
-    fontSize: 40,
+    fontSize: 32,
     fontWeight: '800',
     color: theme.colors.textInverse,
     letterSpacing: -1.5,

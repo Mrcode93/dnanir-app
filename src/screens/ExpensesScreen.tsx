@@ -22,11 +22,13 @@ import { AddExpenseModal } from '../components/AddExpenseModal';
 import { AddCategoryModal } from '../components/AddCategoryModal';
 import { theme } from '../utils/theme';
 import { getExpenses, deleteExpense, getCustomCategories, addCustomCategory, deleteCustomCategory, CustomCategory } from '../database/database';
-import { formatCurrency } from '../services/financialService';
 import { Expense, ExpenseCategory, EXPENSE_CATEGORIES } from '../types';
 import { isRTL } from '../utils/rtl';
+import { useCurrency } from '../hooks/useCurrency';
+import { alertService } from '../services/alertService';
 
 export const ExpensesScreen = ({ navigation, route }: any) => {
+  const { formatCurrency } = useCurrency();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -157,7 +159,7 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
       await addCustomCategory({ name, type: 'expense', icon, color });
       await loadCustomCategories();
     } catch (error: any) {
-      Alert.alert('❌ خطأ', error.message || 'حدث خطأ أثناء إضافة الفئة');
+      Alert.alert('خطأ', error.message || 'حدث خطأ أثناء إضافة الفئة');
     }
   };
 
@@ -169,14 +171,14 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
         setSelectedCategory('all');
       }
     } catch (error) {
-      Alert.alert('❌ خطأ', 'حدث خطأ أثناء حذف الفئة');
+      Alert.alert('خطأ', 'حدث خطأ أثناء حذف الفئة');
     }
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <View style={styles.searchFilterRow}>
+        <View style={styles.searchRow}>
           <View style={styles.searchContainer}>
             <Searchbar
               placeholder="البحث في المصاريف..."
@@ -188,32 +190,129 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
             />
           </View>
           <TouchableOpacity
-            onPress={() => setShowFilterMenu(true)}
-            style={styles.filterTrigger}
+            onPress={() => navigation.navigate('RecurringExpenses')}
+            style={styles.recurringButton}
             activeOpacity={0.7}
           >
             <LinearGradient
-              colors={selectedCategory === 'all' 
-                ? (theme.gradients.primary as any)
-                : (categoryColors[selectedCategory] || 
-                    (customCategories.find(c => c.name === selectedCategory) 
-                      ? [customCategories.find(c => c.name === selectedCategory)!.color, customCategories.find(c => c.name === selectedCategory)!.color]
-                      : theme.gradients.primary)) as any}
-              style={styles.filterTriggerGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+              colors={['#8B5CF6', '#7C3AED'] as any}
+              style={styles.recurringButtonGradient}
             >
-              <Ionicons
-                name={selectedCategory === 'all' 
-                  ? 'apps' 
-                  : (categoryIcons[selectedCategory] || customCategories.find(c => c.name === selectedCategory)?.icon || 'ellipse') as any}
-                size={20}
-                color={theme.colors.textInverse}
-              />
-              <Ionicons name="chevron-down" size={16} color={theme.colors.textInverse} />
+              <Ionicons name="repeat" size={20} color={theme.colors.textInverse} />
             </LinearGradient>
           </TouchableOpacity>
         </View>
+
+        {/* Filter Buttons Row */}
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterRow}
+          contentContainerStyle={styles.filterRowContent}
+        >
+          <TouchableOpacity
+            onPress={() => handleCategorySelect('all')}
+            style={styles.filterButton}
+            activeOpacity={0.7}
+          >
+            {selectedCategory === 'all' ? (
+              <LinearGradient
+                colors={theme.gradients.primary as any}
+                style={styles.filterButtonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Ionicons name="apps" size={16} color={theme.colors.textInverse} />
+                <Text style={styles.filterButtonTextActive}>الكل</Text>
+              </LinearGradient>
+            ) : (
+              <View style={styles.filterButtonDefault}>
+                <Ionicons name="apps-outline" size={16} color={theme.colors.textSecondary} />
+                <Text style={styles.filterButtonText}>الكل</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          {Object.entries(EXPENSE_CATEGORIES).map(([key, label]) => {
+            const isSelected = selectedCategory === key;
+            return (
+              <TouchableOpacity
+                key={key}
+                onPress={() => handleCategorySelect(key as ExpenseCategory)}
+                style={styles.filterButton}
+                activeOpacity={0.7}
+              >
+                {isSelected ? (
+                  <LinearGradient
+                    colors={(categoryColors[key] || theme.gradients.primary) as any}
+                    style={styles.filterButtonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Ionicons
+                      name={categoryIcons[key] as any}
+                      size={16}
+                      color={theme.colors.textInverse}
+                    />
+                    <Text style={styles.filterButtonTextActive} numberOfLines={1}>
+                      {label}
+                    </Text>
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.filterButtonDefault}>
+                    <Ionicons
+                      name={`${categoryIcons[key]}-outline` as any}
+                      size={16}
+                      color={theme.colors.textSecondary}
+                    />
+                    <Text style={styles.filterButtonText} numberOfLines={1}>
+                      {label}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+          {customCategories.slice(0, 5).map((category) => {
+            const isSelected = selectedCategory === category.name;
+            return (
+              <TouchableOpacity
+                key={category.id}
+                onPress={() => handleCategorySelect(category.name as ExpenseCategory)}
+                style={styles.filterButton}
+                activeOpacity={0.7}
+              >
+                {isSelected ? (
+                  <LinearGradient
+                    colors={[category.color, category.color] as any}
+                    style={styles.filterButtonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Ionicons
+                      name={category.icon as any}
+                      size={16}
+                      color={theme.colors.textInverse}
+                    />
+                    <Text style={styles.filterButtonTextActive} numberOfLines={1}>
+                      {category.name}
+                    </Text>
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.filterButtonDefault}>
+                    <Ionicons
+                      name={`${category.icon}-outline` as any}
+                      size={16}
+                      color={theme.colors.textSecondary}
+                    />
+                    <Text style={styles.filterButtonText} numberOfLines={1}>
+                      {category.name}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
 
         {/* Filter Menu Modal */}
         <Modal
@@ -400,7 +499,7 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
                             >
                               <Ionicons name="trash-outline" size={18} color={theme.colors.textSecondary} />
                             </TouchableOpacity>
-                          </View>
+        </View>
                         )}
                       </TouchableOpacity>
                     );
@@ -437,7 +536,7 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
             item={item}
             type="expense"
             formatCurrency={formatCurrency}
-            onPress={() => {
+            onEdit={() => {
               setEditingExpense(item);
               setShowAddModal(true);
             }}
@@ -445,9 +544,10 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
               try {
                 await deleteExpense(item.id);
                 await loadExpenses();
+                alertService.success('نجح', 'تم حذف المصروف بنجاح');
               } catch (error) {
                 console.error('Error deleting expense:', error);
-                Alert.alert('❌ خطأ', 'حدث خطأ أثناء حذف المصروف');
+                alertService.error('خطأ', 'حدث خطأ أثناء حذف المصروف');
               }
             }}
           />
@@ -512,13 +612,28 @@ const styles = StyleSheet.create({
     borderBottomColor: theme.colors.border,
     direction: 'rtl',
   },
-  searchFilterRow: {
-    flexDirection: 'row-reverse',
+  searchRow: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     gap: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
   },
   searchContainer: {
     flex: 1,
+  },
+  recurringButton: {
+    borderRadius: theme.borderRadius.md,
+    overflow: 'hidden',
+    width: 56,
+    height: 56,
+    ...theme.shadows.md,
+  },
+  recurringButtonGradient: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    height: '100%',
   },
   searchBar: {
     backgroundColor: theme.colors.surfaceLight,
@@ -531,20 +646,45 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
     direction: 'rtl',
   },
-  filterTrigger: {
+  filterRow: {
+    marginBottom: theme.spacing.md,
+  },
+  filterRowContent: {
+    gap: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.xs,
+  },
+  filterButton: {
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    width: 56,
-    height: 56,
-    ...theme.shadows.md,
+    ...theme.shadows.sm,
   },
-  filterTriggerGradient: {
-    flexDirection: 'row-reverse',
+  filterButtonGradient: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    height: '100%',
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
     gap: theme.spacing.xs,
+  },
+  filterButtonDefault: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surfaceLight,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    gap: theme.spacing.xs,
+    borderRadius: theme.borderRadius.md,
+  },
+  filterButtonText: {
+    fontSize: theme.typography.sizes.xs,
+    fontWeight: '600',
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+  },
+  filterButtonTextActive: {
+    fontSize: theme.typography.sizes.xs,
+    fontWeight: '700',
+    color: theme.colors.textInverse,
+    fontFamily: theme.typography.fontFamily,
   },
   filterMenuOverlay: {
     flex: 1,

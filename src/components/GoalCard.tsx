@@ -1,24 +1,28 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, I18nManager } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, I18nManager, Modal, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
 import { isRTL } from '../utils/rtl';
 import { FinancialGoal, GOAL_CATEGORIES } from '../types';
-import { formatCurrency } from '../services/financialService';
+import { useCurrency } from '../hooks/useCurrency';
+import { convertCurrency, formatCurrencyAmount } from '../services/currencyService';
+import { calculateAverageMonthlySavings, calculateTimeToReachGoal } from '../services/financialService';
+import { ConfirmAlert } from './ConfirmAlert';
 
 interface GoalCardProps {
   goal: FinancialGoal;
-  onPress: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
 // Get gradient colors based on category
-const getCategoryGradient = (category: string, isCompleted: boolean): string[] => {
+const getCategoryGradient = (category: string, isCompleted: boolean): readonly string[] => {
   if (isCompleted) {
     return theme.gradients.success;
   }
   
-  const gradientMap: Record<string, string[]> = {
+  const gradientMap: Record<string, readonly string[]> = {
     emergency: theme.gradients.goalRose,
     vacation: theme.gradients.goalBlue,
     car: theme.gradients.goalOrange,
@@ -32,12 +36,84 @@ const getCategoryGradient = (category: string, isCompleted: boolean): string[] =
   return gradientMap[category] || theme.gradients.goalPurple;
 };
 
-export const GoalCard: React.FC<GoalCardProps> = ({ goal, onPress }) => {
+export const GoalCard: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete }) => {
+  const [showConfirmAlert, setShowConfirmAlert] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const { formatCurrency, currencyCode } = useCurrency();
+  const goalCurrency = goal.currency || currencyCode;
   const progress = goal.targetAmount > 0 ? (goal.currentAmount / goal.targetAmount) * 100 : 0;
   const categoryInfo = GOAL_CATEGORIES[goal.category as keyof typeof GOAL_CATEGORIES] || GOAL_CATEGORIES.other;
   const remaining = goal.targetAmount - goal.currentAmount;
   const isCompleted = goal.completed || progress >= 100;
   const gradientColors = getCategoryGradient(goal.category, isCompleted);
+  const [convertedTargetAmount, setConvertedTargetAmount] = useState<number | null>(null);
+  const [convertedCurrentAmount, setConvertedCurrentAmount] = useState<number | null>(null);
+  const [convertedRemaining, setConvertedRemaining] = useState<number | null>(null);
+  const [estimatedTime, setEstimatedTime] = useState<{ months: number | null; days: number | null; formatted: string } | null>(null);
+  const [averageMonthlySavings, setAverageMonthlySavings] = useState<number | null>(null);
+
+  // Convert amounts if currency is different
+  useEffect(() => {
+    const convertAmounts = async () => {
+      if (goalCurrency !== currencyCode) {
+        try {
+          const convertedTarget = await convertCurrency(goal.targetAmount, goalCurrency, currencyCode);
+          const convertedCurrent = await convertCurrency(goal.currentAmount, goalCurrency, currencyCode);
+          const convertedRem = await convertCurrency(remaining, goalCurrency, currencyCode);
+          setConvertedTargetAmount(convertedTarget);
+          setConvertedCurrentAmount(convertedCurrent);
+          setConvertedRemaining(convertedRem);
+        } catch (error) {
+          console.error('Error converting currency:', error);
+          setConvertedTargetAmount(null);
+          setConvertedCurrentAmount(null);
+          setConvertedRemaining(null);
+        }
+      } else {
+        setConvertedTargetAmount(null);
+        setConvertedCurrentAmount(null);
+        setConvertedRemaining(null);
+      }
+    };
+
+    convertAmounts();
+  }, [goal.targetAmount, goal.currentAmount, remaining, goalCurrency, currencyCode]);
+
+  // Calculate estimated time to reach goal
+  useEffect(() => {
+    const calculateTime = async () => {
+      if (isCompleted || remaining <= 0) {
+        setEstimatedTime({ months: 0, days: 0, formatted: 'مكتمل' });
+        setAverageMonthlySavings(null);
+        return;
+      }
+
+      try {
+        // Get average monthly savings
+        const avgSavings = await calculateAverageMonthlySavings(6);
+        setAverageMonthlySavings(avgSavings);
+        
+        // Convert remaining amount to primary currency if needed
+        let remainingInPrimaryCurrency = remaining;
+        if (goalCurrency !== currencyCode) {
+          try {
+            remainingInPrimaryCurrency = await convertCurrency(remaining, goalCurrency, currencyCode);
+          } catch (error) {
+            console.error('Error converting remaining amount for time calculation:', error);
+          }
+        }
+
+        const timeEstimate = calculateTimeToReachGoal(remainingInPrimaryCurrency, avgSavings);
+        setEstimatedTime(timeEstimate);
+      } catch (error) {
+        console.error('Error calculating estimated time:', error);
+        setEstimatedTime(null);
+        setAverageMonthlySavings(null);
+      }
+    };
+
+    calculateTime();
+  }, [goal.id, remaining, isCompleted, goalCurrency, currencyCode]);
 
   // Calculate days remaining if target date exists
   let daysRemaining: number | null = null;
@@ -48,10 +124,17 @@ export const GoalCard: React.FC<GoalCardProps> = ({ goal, onPress }) => {
     daysRemaining = Math.ceil(diff / (1000 * 60 * 60 * 24));
   }
 
+  const handleConfirmDelete = () => {
+    setShowConfirmAlert(false);
+    onDelete?.();
+  };
+
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.9} style={styles.cardWrapper}>
+    <View 
+      style={styles.cardWrapper}
+    >
       <LinearGradient
-        colors={gradientColors}
+        colors={gradientColors as any}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.card}
@@ -69,11 +152,23 @@ export const GoalCard: React.FC<GoalCardProps> = ({ goal, onPress }) => {
             </Text>
             <Text style={styles.category}>{categoryInfo.label}</Text>
           </View>
-          {isCompleted && (
-            <View style={styles.completedBadge}>
-              <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
-            </View>
-          )}
+          <View style={styles.headerRight}>
+            {isCompleted && (
+              <View style={styles.completedBadge}>
+                <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
+              </View>
+            )}
+            <TouchableOpacity
+              style={styles.menuButton}
+              onPress={(e) => {
+                e.stopPropagation();
+                setShowMenu(true);
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="ellipsis-vertical" size={20} color={theme.colors.textInverse} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.progressContainer}>
@@ -98,38 +193,127 @@ export const GoalCard: React.FC<GoalCardProps> = ({ goal, onPress }) => {
         <View style={styles.amountContainer}>
           <View style={styles.amountRow}>
             <Text style={styles.amountLabel}>المحقق</Text>
-            <Text style={styles.amountValue}>
-              {formatCurrency(goal.currentAmount)}
-            </Text>
+            <View>
+              <Text style={styles.amountValue}>
+                {formatCurrencyAmount(goal.currentAmount, goalCurrency)}
+              </Text>
+              {convertedCurrentAmount !== null && goalCurrency !== currencyCode && (
+                <Text style={styles.convertedAmount}>
+                  ≈ {formatCurrency(convertedCurrentAmount)}
+                </Text>
+              )}
+            </View>
           </View>
           <View style={styles.amountRow}>
             <Text style={styles.amountLabel}>المستهدف</Text>
-            <Text style={styles.amountValue}>
-              {formatCurrency(goal.targetAmount)}
-            </Text>
+            <View>
+              <Text style={styles.amountValue}>
+                {formatCurrencyAmount(goal.targetAmount, goalCurrency)}
+              </Text>
+              {convertedTargetAmount !== null && goalCurrency !== currencyCode && (
+                <Text style={styles.convertedAmount}>
+                  ≈ {formatCurrency(convertedTargetAmount)}
+                </Text>
+              )}
+            </View>
           </View>
         </View>
 
         {!isCompleted && remaining > 0 && (
           <View style={styles.remainingContainer}>
             <Ionicons name="time-outline" size={14} color={theme.colors.textInverse} />
-            <Text style={styles.remainingText}>
-              متبقي: {formatCurrency(remaining)}
-              {daysRemaining !== null && daysRemaining > 0 && (
-                <Text> • {daysRemaining} يوم</Text>
+            <View style={styles.remainingInfo}>
+              <Text style={styles.remainingText}>
+                متبقي: {formatCurrencyAmount(remaining, goalCurrency)}
+                {daysRemaining !== null && daysRemaining > 0 && (
+                  <Text> • {daysRemaining} يوم</Text>
+                )}
+              </Text>
+              {convertedRemaining !== null && goalCurrency !== currencyCode && (
+                <Text style={styles.convertedRemainingText}>
+                  ≈ {formatCurrency(convertedRemaining)}
+                </Text>
               )}
-            </Text>
+              {estimatedTime && estimatedTime.formatted !== 'مكتمل' && (
+                <View style={styles.estimatedTimeContainer}>
+                  <Ionicons name="hourglass-outline" size={12} color={theme.colors.textInverse} />
+                  <View style={styles.estimatedTimeContent}>
+                    <Text style={styles.estimatedTimeText}>
+                      الوقت المتوقع: {estimatedTime.formatted}
+                    </Text>
+                    {averageMonthlySavings !== null && averageMonthlySavings > 0 && (
+                      <Text style={styles.estimatedTimeExplanation}>
+                        (بناءً على متوسط ادخار شهري: {formatCurrency(averageMonthlySavings)})
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              )}
+            </View>
           </View>
         )}
 
         {isCompleted && (
           <View style={styles.completedContainer}>
             <Ionicons name="trophy" size={16} color={theme.colors.textInverse} />
-            <Text style={styles.completedText}>تم إنجاز الهدف! 🎉</Text>
+            <Text style={styles.completedText}>تم إنجاز الهدف!</Text>
           </View>
         )}
       </LinearGradient>
-    </TouchableOpacity>
+
+      <ConfirmAlert
+        visible={showConfirmAlert}
+        title="تأكيد الحذف"
+        message="هل أنت متأكد من حذف هذا الهدف؟ لا يمكن التراجع عن هذا الإجراء."
+        confirmText="حذف"
+        cancelText="إلغاء"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setShowConfirmAlert(false)}
+        type="danger"
+      />
+
+      {/* Options Menu */}
+      <Modal
+        visible={showMenu}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowMenu(false)}
+      >
+        <Pressable
+          style={styles.menuOverlay}
+          onPress={() => setShowMenu(false)}
+        >
+          <View style={styles.menuContainer}>
+            {onEdit && (
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowMenu(false);
+                  onEdit();
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="create-outline" size={20} color={theme.colors.primary} />
+                <Text style={styles.menuItemText}>تعديل</Text>
+              </TouchableOpacity>
+            )}
+            {onDelete && (
+              <TouchableOpacity
+                style={[styles.menuItem, styles.menuItemDanger]}
+                onPress={() => {
+                  setShowMenu(false);
+                  setShowConfirmAlert(true);
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="trash-outline" size={20} color={theme.colors.error} />
+                <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>حذف</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </Pressable>
+      </Modal>
+    </View>
   );
 };
 
@@ -142,7 +326,7 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     ...theme.shadows.lg,
     overflow: 'hidden',
-    direction: 'rtl',
+    direction: 'ltr',
   },
   header: {
     flexDirection: 'row',
@@ -177,10 +361,51 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
   completedBadge: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: theme.borderRadius.round,
     padding: theme.spacing.xs,
+  },
+  menuButton: {
+    padding: theme.spacing.xs,
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuContainer: {
+    backgroundColor: theme.colors.surfaceCard,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.xs,
+    minWidth: 150,
+    ...theme.shadows.lg,
+  },
+  menuItem: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.sm,
+  },
+  menuItemDanger: {
+    marginTop: theme.spacing.xs,
+  },
+  menuItemText: {
+    fontSize: theme.typography.sizes.md,
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
+    ...(isRTL ? { marginRight: theme.spacing.sm } : { marginLeft: theme.spacing.sm }),
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  menuItemTextDanger: {
+    color: theme.colors.error,
   },
   progressContainer: {
     marginBottom: theme.spacing.md,
@@ -226,21 +451,76 @@ const styles = StyleSheet.create({
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
   },
+  convertedAmount: {
+    fontSize: theme.typography.sizes.xs,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontFamily: theme.typography.fontFamily,
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
+  convertedRemainingText: {
+    fontSize: theme.typography.sizes.xs,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontFamily: theme.typography.fontFamily,
+    marginTop: 2,
+    fontStyle: 'italic',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
   remainingContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginTop: theme.spacing.sm,
     paddingTop: theme.spacing.sm,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.2)',
   },
+  remainingInfo: {
+    flex: 1,
+    ...(isRTL ? { marginRight: theme.spacing.xs } : { marginLeft: theme.spacing.xs }),
+  },
   remainingText: {
     fontSize: theme.typography.sizes.sm,
     color: theme.colors.textInverse,
-    ...(isRTL ? { marginRight: theme.spacing.xs } : { marginLeft: theme.spacing.xs }),
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',
+    marginBottom: theme.spacing.xs,
+  },
+  estimatedTimeContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: theme.spacing.xs,
+    paddingTop: theme.spacing.xs,
+    paddingBottom: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: theme.borderRadius.sm,
+    alignSelf: 'flex-start',
+    width: '100%',
+  },
+  estimatedTimeContent: {
+    flex: 1,
+    ...(isRTL ? { marginRight: theme.spacing.xs } : { marginLeft: theme.spacing.xs }),
+  },
+  estimatedTimeText: {
+    fontSize: theme.typography.sizes.xs,
+    color: theme.colors.textInverse,
+    fontFamily: theme.typography.fontFamily,
+    fontWeight: '600',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+    marginBottom: 2,
+  },
+  estimatedTimeExplanation: {
+    fontSize: theme.typography.sizes.xs - 1,
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontFamily: theme.typography.fontFamily,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+    fontStyle: 'italic',
   },
   completedContainer: {
     flexDirection: 'row',

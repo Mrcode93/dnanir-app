@@ -22,11 +22,13 @@ import { AddIncomeModal } from '../components/AddIncomeModal';
 import { AddCategoryModal } from '../components/AddCategoryModal';
 import { theme } from '../utils/theme';
 import { getIncome, deleteIncome, getCustomCategories, addCustomCategory, deleteCustomCategory, CustomCategory } from '../database/database';
-import { formatCurrency } from '../services/financialService';
 import { Income, IncomeSource, INCOME_SOURCES } from '../types';
 import { isRTL } from '../utils/rtl';
+import { useCurrency } from '../hooks/useCurrency';
+import { alertService } from '../services/alertService';
 
 export const IncomeScreen = ({ navigation, route }: any) => {
+  const { formatCurrency } = useCurrency();
   const [income, setIncome] = useState<Income[]>([]);
   const [filteredIncome, setFilteredIncome] = useState<Income[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -151,7 +153,7 @@ export const IncomeScreen = ({ navigation, route }: any) => {
       await addCustomCategory({ name, type: 'income', icon, color });
       await loadCustomCategories();
     } catch (error: any) {
-      Alert.alert('❌ خطأ', error.message || 'حدث خطأ أثناء إضافة المصدر');
+      Alert.alert('خطأ', error.message || 'حدث خطأ أثناء إضافة المصدر');
     }
   };
 
@@ -163,51 +165,134 @@ export const IncomeScreen = ({ navigation, route }: any) => {
         setSelectedSource('all');
       }
     } catch (error) {
-      Alert.alert('❌ خطأ', 'حدث خطأ أثناء حذف المصدر');
+      Alert.alert('خطأ', 'حدث خطأ أثناء حذف المصدر');
     }
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <View style={styles.searchFilterRow}>
-          <View style={styles.searchContainer}>
-            <Searchbar
-              placeholder="البحث في الدخل..."
-              onChangeText={setSearchQuery}
-              value={searchQuery}
-              style={styles.searchBar}
-              inputStyle={styles.searchInput}
-              placeholderTextColor={theme.colors.textMuted}
-            />
-          </View>
+        <View style={styles.searchContainer}>
+          <Searchbar
+            placeholder="البحث في الدخل..."
+            onChangeText={setSearchQuery}
+            value={searchQuery}
+            style={styles.searchBar}
+            inputStyle={styles.searchInput}
+            placeholderTextColor={theme.colors.textMuted}
+          />
+        </View>
+
+        {/* Filter Buttons Row */}
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterRow}
+          contentContainerStyle={styles.filterRowContent}
+        >
           <TouchableOpacity
-            onPress={() => setShowFilterMenu(true)}
-            style={styles.filterTrigger}
+            onPress={() => handleSourceSelect('all')}
+            style={styles.filterButton}
             activeOpacity={0.7}
           >
-            <LinearGradient
-              colors={selectedSource === 'all' 
-                ? (theme.gradients.primary as any)
-                : (sourceColors[selectedSource] || 
-                    (customCategories.find(c => c.name === selectedSource) 
-                      ? [customCategories.find(c => c.name === selectedSource)!.color, customCategories.find(c => c.name === selectedSource)!.color]
-                      : theme.gradients.primary)) as any}
-              style={styles.filterTriggerGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              <Ionicons
-                name={selectedSource === 'all' 
-                  ? 'apps' 
-                  : (sourceIcons[selectedSource] || customCategories.find(c => c.name === selectedSource)?.icon || 'ellipse') as any}
-                size={20}
-                color={theme.colors.textInverse}
-              />
-              <Ionicons name="chevron-down" size={16} color={theme.colors.textInverse} />
-            </LinearGradient>
+            {selectedSource === 'all' ? (
+              <LinearGradient
+                colors={theme.gradients.primary as any}
+                style={styles.filterButtonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Ionicons name="apps" size={16} color={theme.colors.textInverse} />
+                <Text style={styles.filterButtonTextActive}>الكل</Text>
+              </LinearGradient>
+            ) : (
+              <View style={styles.filterButtonDefault}>
+                <Ionicons name="apps-outline" size={16} color={theme.colors.textSecondary} />
+                <Text style={styles.filterButtonText}>الكل</Text>
+              </View>
+            )}
           </TouchableOpacity>
-        </View>
+          {Object.entries(INCOME_SOURCES).map(([key, label]) => {
+            const isSelected = selectedSource === key;
+            return (
+              <TouchableOpacity
+                key={key}
+                onPress={() => handleSourceSelect(key as IncomeSource)}
+                style={styles.filterButton}
+                activeOpacity={0.7}
+              >
+                {isSelected ? (
+                  <LinearGradient
+                    colors={sourceColors[key] || theme.gradients.primary as any}
+                    style={styles.filterButtonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Ionicons
+                      name={sourceIcons[key] as any}
+                      size={16}
+                      color={theme.colors.textInverse}
+                    />
+                    <Text style={styles.filterButtonTextActive} numberOfLines={1}>
+                      {label}
+                    </Text>
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.filterButtonDefault}>
+                    <Ionicons
+                      name={`${sourceIcons[key]}-outline` as any}
+                      size={16}
+                      color={theme.colors.textSecondary}
+                    />
+                    <Text style={styles.filterButtonText} numberOfLines={1}>
+                      {label}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+          {customCategories.slice(0, 5).map((category) => {
+            const isSelected = selectedSource === category.name;
+            return (
+              <TouchableOpacity
+                key={category.id}
+                onPress={() => handleSourceSelect(category.name as IncomeSource)}
+                style={styles.filterButton}
+                activeOpacity={0.7}
+              >
+                {isSelected ? (
+                  <LinearGradient
+                    colors={[category.color, category.color] as any}
+                    style={styles.filterButtonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Ionicons
+                      name={category.icon as any}
+                      size={16}
+                      color={theme.colors.textInverse}
+                    />
+                    <Text style={styles.filterButtonTextActive} numberOfLines={1}>
+                      {category.name}
+                    </Text>
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.filterButtonDefault}>
+                    <Ionicons
+                      name={`${category.icon}-outline` as any}
+                      size={16}
+                      color={theme.colors.textSecondary}
+                    />
+                    <Text style={styles.filterButtonText} numberOfLines={1}>
+                      {category.name}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
 
         {/* Filter Menu Modal */}
         <Modal
@@ -394,7 +479,7 @@ export const IncomeScreen = ({ navigation, route }: any) => {
                             >
                               <Ionicons name="trash-outline" size={18} color={theme.colors.textSecondary} />
                             </TouchableOpacity>
-                          </View>
+        </View>
                         )}
                       </TouchableOpacity>
                     );
@@ -431,7 +516,7 @@ export const IncomeScreen = ({ navigation, route }: any) => {
             item={item}
             type="income"
             formatCurrency={formatCurrency}
-            onPress={() => {
+            onEdit={() => {
               setEditingIncome(item);
               setShowAddModal(true);
             }}
@@ -439,9 +524,10 @@ export const IncomeScreen = ({ navigation, route }: any) => {
               try {
                 await deleteIncome(item.id);
                 await loadIncome();
+                alertService.success('نجح', 'تم حذف الدخل بنجاح');
               } catch (error) {
                 console.error('Error deleting income:', error);
-                Alert.alert('❌ خطأ', 'حدث خطأ أثناء حذف الدخل');
+                alertService.error('خطأ', 'حدث خطأ أثناء حذف الدخل');
               }
             }}
           />
@@ -502,15 +588,10 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
-    direction: 'rtl',
-  },
-  searchFilterRow: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
+    direction: 'rtl' as const,
   },
   searchContainer: {
-    flex: 1,
+    marginBottom: theme.spacing.sm,
   },
   searchBar: {
     backgroundColor: theme.colors.surfaceLight,
@@ -523,20 +604,45 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
     direction: 'rtl',
   },
-  filterTrigger: {
+  filterRow: {
+    marginBottom: theme.spacing.md,
+  },
+  filterRowContent: {
+    gap: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.xs,
+  },
+  filterButton: {
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    width: 56,
-    height: 56,
-    ...theme.shadows.md,
+    ...theme.shadows.sm,
   },
-  filterTriggerGradient: {
-    flexDirection: 'row-reverse',
+  filterButtonGradient: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    height: '100%',
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
     gap: theme.spacing.xs,
+  },
+  filterButtonDefault: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surfaceLight,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    gap: theme.spacing.xs,
+    borderRadius: theme.borderRadius.md,
+  },
+  filterButtonText: {
+    fontSize: theme.typography.sizes.xs,
+    fontWeight: '600',
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+  },
+  filterButtonTextActive: {
+    fontSize: theme.typography.sizes.xs,
+    fontWeight: '700',
+    color: theme.colors.textInverse,
+    fontFamily: theme.typography.fontFamily,
   },
   filterMenuOverlay: {
     flex: 1,

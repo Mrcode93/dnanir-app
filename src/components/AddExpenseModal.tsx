@@ -4,12 +4,12 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Alert,
   Modal,
   TouchableOpacity,
   Animated,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextInput, IconButton } from 'react-native-paper';
@@ -17,8 +17,12 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
-import { Expense, ExpenseCategory, EXPENSE_CATEGORIES } from '../types';
+import { Expense, ExpenseCategory, EXPENSE_CATEGORIES, CURRENCIES } from '../types';
 import { addExpense, updateExpense } from '../database/database';
+import { alertService } from '../services/alertService';
+import { useCurrency } from '../hooks/useCurrency';
+import { isRTL } from '../utils/rtl';
+import { convertCurrency } from '../services/currencyService';
 
 interface AddExpenseModalProps {
   visible: boolean;
@@ -34,14 +38,18 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
   onSave,
 }) => {
   const insets = useSafeAreaInsets();
+  const { currencyCode, formatCurrency } = useCurrency();
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<ExpenseCategory>('food');
   const [date, setDate] = useState(new Date());
   const [description, setDescription] = useState('');
+  const [currency, setCurrency] = useState<string>(currencyCode);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [slideAnim] = useState(new Animated.Value(0));
+  const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
 
   useEffect(() => {
     if (visible) {
@@ -57,16 +65,39 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
   }, [visible]);
 
   useEffect(() => {
+    setCurrency(currencyCode);
+  }, [currencyCode]);
+
+  // Convert amount when it changes
+  useEffect(() => {
+    const convertAmount = async () => {
+      if (amount && !isNaN(Number(amount)) && Number(amount) > 0) {
+        if (currency !== currencyCode) {
+          const converted = await convertCurrency(Number(amount), currency, currencyCode);
+          setConvertedAmount(converted);
+        } else {
+          setConvertedAmount(null);
+        }
+      } else {
+        setConvertedAmount(null);
+      }
+    };
+
+    convertAmount();
+  }, [amount, currency, currencyCode]);
+
+  useEffect(() => {
     if (expense) {
       setTitle(expense.title);
       setAmount(expense.amount.toString());
       setCategory(expense.category as ExpenseCategory);
       setDate(new Date(expense.date));
       setDescription(expense.description || '');
+      setCurrency(expense.currency || currencyCode);
     } else {
       resetForm();
     }
-  }, [expense, visible]);
+  }, [expense, visible, currencyCode]);
 
   const resetForm = () => {
     setTitle('');
@@ -74,16 +105,17 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
     setCategory('food');
     setDate(new Date());
     setDescription('');
+    setCurrency(currencyCode);
   };
 
   const handleSave = async () => {
     if (!title.trim()) {
-      Alert.alert('⚠️ تنبيه', 'يرجى إدخال عنوان المصروف');
+      alertService.warning('تنبيه', 'يرجى إدخال عنوان المصروف');
       return;
     }
 
     if (!amount.trim() || isNaN(Number(amount)) || Number(amount) <= 0) {
-      Alert.alert('⚠️ تنبيه', 'يرجى إدخال مبلغ صحيح');
+      alertService.warning('تنبيه', 'يرجى إدخال مبلغ صحيح');
       return;
     }
 
@@ -96,6 +128,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
         category: category,
         date: date.toISOString().split('T')[0],
         description: description.trim(),
+        currency: currency,
       };
 
       if (expense) {
@@ -109,7 +142,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
       resetForm();
     } catch (error) {
       console.error('Error saving expense:', error);
-      Alert.alert('❌ خطأ', 'حدث خطأ أثناء حفظ المصروف');
+      alertService.error('خطأ', 'حدث خطأ أثناء حفظ المصروف');
     } finally {
       setLoading(false);
     }
@@ -173,12 +206,12 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
             ]}
           >
             <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
-              <LinearGradient
-                colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
+        <LinearGradient
+          colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
                 style={[styles.modalGradient, { paddingBottom: insets.bottom }]}
-              >
+        >
                 {/* Header */}
-                <View style={styles.header}>
+          <View style={styles.header}>
                   <View style={styles.headerLeft}>
                     <View style={[styles.iconBadge, { backgroundColor: categoryColors[category][0] + '20' }]}>
                       <Ionicons
@@ -188,20 +221,20 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                       />
                     </View>
                     <View style={styles.headerText}>
-                      <Text style={styles.title}>
+            <Text style={styles.title}>
                         {expense ? 'تعديل المصروف' : 'مصروف جديد'}
-                      </Text>
+            </Text>
                       <Text style={styles.subtitle}>أضف تفاصيل المصروف</Text>
                     </View>
                   </View>
-                  <IconButton
-                    icon="close"
-                    size={24}
-                    onPress={handleClose}
+            <IconButton
+              icon="close"
+              size={24}
+              onPress={handleClose}
                     iconColor={theme.colors.textSecondary}
                     style={styles.closeButton}
-                  />
-                </View>
+            />
+          </View>
 
                 <ScrollView
                   style={styles.scrollView}
@@ -213,31 +246,31 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>عنوان المصروف</Text>
                     <View style={styles.inputWrapper}>
-                      <TextInput
-                        value={title}
-                        onChangeText={setTitle}
+            <TextInput
+              value={title}
+              onChangeText={setTitle}
                         placeholder="مثال: عشاء في المطعم"
                         mode="flat"
-                        style={styles.input}
-                        contentStyle={styles.inputContent}
+              style={styles.input}
+              contentStyle={styles.inputContent}
                         underlineColor="transparent"
                         activeUnderlineColor={theme.colors.primary}
-                      />
+            />
                     </View>
                   </View>
 
                   {/* Amount Input */}
                   <View style={styles.inputGroup}>
-                    <Text style={styles.label}>المبلغ (دينار)</Text>
+                    <Text style={styles.label}>المبلغ ({CURRENCIES.find(c => c.code === currency)?.symbol})</Text>
                     <View style={styles.inputWrapper}>
-                      <TextInput
-                        value={amount}
-                        onChangeText={setAmount}
+            <TextInput
+              value={amount}
+              onChangeText={setAmount}
                         placeholder="0.00"
-                        keyboardType="numeric"
+              keyboardType="numeric"
                         mode="flat"
-                        style={styles.input}
-                        contentStyle={styles.inputContent}
+              style={styles.input}
+              contentStyle={styles.inputContent}
                         underlineColor="transparent"
                         activeUnderlineColor={theme.colors.primary}
                         left={
@@ -249,14 +282,42 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                         }
                       />
                     </View>
+                    {convertedAmount !== null && currency !== currencyCode && (
+                      <Text style={styles.convertedAmountText}>
+                        ≈ {formatCurrency(convertedAmount)}
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* Currency Selection */}
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>العملة</Text>
+                    <TouchableOpacity
+                      onPress={() => setShowCurrencyPicker(true)}
+                      style={styles.currencyButton}
+                      activeOpacity={0.7}
+                    >
+                      <LinearGradient
+                        colors={theme.gradients.primary as any}
+                        style={styles.currencyButtonGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                      >
+                        <Ionicons name="cash" size={20} color="#FFFFFF" />
+                        <Text style={styles.currencyButtonText}>
+                          {CURRENCIES.find(c => c.code === currency)?.symbol} {CURRENCIES.find(c => c.code === currency)?.name}
+                        </Text>
+                        <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color="#FFFFFF" />
+                      </LinearGradient>
+                    </TouchableOpacity>
                   </View>
 
                   {/* Date Picker */}
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>التاريخ</Text>
                     <TouchableOpacity
-                      onPress={() => setShowDatePicker(true)}
-                      style={styles.dateButton}
+              onPress={() => setShowDatePicker(true)}
+              style={styles.dateButton}
                     >
                       <Ionicons name="calendar-outline" size={20} color={theme.colors.primary} />
                       <Text style={styles.dateButtonText}>
@@ -268,17 +329,17 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                       </Text>
                       <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
                     </TouchableOpacity>
-                    {showDatePicker && (
-                      <DateTimePicker
-                        value={date}
-                        mode="date"
-                        display="default"
-                        onChange={(event, selectedDate) => {
-                          setShowDatePicker(false);
-                          if (selectedDate) {
-                            setDate(selectedDate);
-                          }
-                        }}
+            {showDatePicker && (
+              <DateTimePicker
+                value={date}
+                mode="date"
+                display="default"
+                onChange={(event, selectedDate) => {
+                  setShowDatePicker(false);
+                  if (selectedDate) {
+                    setDate(selectedDate);
+                  }
+                }}
                       />
                     )}
                   </View>
@@ -328,41 +389,41 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                         );
                       })}
                     </ScrollView>
-                  </View>
+            </View>
 
                   {/* Description Input */}
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>وصف (اختياري)</Text>
                     <View style={styles.inputWrapper}>
-                      <TextInput
-                        value={description}
-                        onChangeText={setDescription}
+            <TextInput
+              value={description}
+              onChangeText={setDescription}
                         placeholder="أضف ملاحظات إضافية..."
-                        multiline
+              multiline
                         numberOfLines={4}
                         mode="flat"
-                        style={styles.input}
+              style={styles.input}
                         contentStyle={[styles.inputContent, styles.textAreaContent]}
                         underlineColor="transparent"
                         activeUnderlineColor={theme.colors.primary}
                       />
                     </View>
                   </View>
-                </ScrollView>
+          </ScrollView>
 
                 {/* Actions */}
-                <View style={styles.actions}>
+          <View style={styles.actions}>
                   <TouchableOpacity
-                    onPress={handleClose}
-                    style={styles.cancelButton}
+              onPress={handleClose}
+              style={styles.cancelButton}
                     activeOpacity={0.7}
                   >
                     <Text style={styles.cancelButtonText}>إلغاء</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    onPress={handleSave}
-                    disabled={loading}
-                    style={styles.saveButton}
+              onPress={handleSave}
+              disabled={loading}
+              style={styles.saveButton}
                     activeOpacity={0.8}
                   >
                     <LinearGradient
@@ -377,18 +438,82 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                         <>
                           <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
                           <Text style={styles.saveButtonText}>
-                            {expense ? 'تحديث' : 'حفظ'}
+              {expense ? 'تحديث' : 'حفظ'}
                           </Text>
                         </>
                       )}
                     </LinearGradient>
                   </TouchableOpacity>
-                </View>
-              </LinearGradient>
+          </View>
+        </LinearGradient>
             </TouchableOpacity>
           </Animated.View>
         </TouchableOpacity>
       </KeyboardAvoidingView>
+
+      {/* Currency Picker Modal */}
+      <Modal
+        visible={showCurrencyPicker}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowCurrencyPicker(false)}
+      >
+        <Pressable
+          style={styles.currencyModalOverlay}
+          onPress={() => setShowCurrencyPicker(false)}
+        >
+          <Pressable
+            style={styles.currencyModalContainer}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <LinearGradient
+              colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
+              style={styles.currencyModalGradient}
+            >
+              <View style={styles.currencyModalHeader}>
+                <Text style={styles.currencyModalTitle}>اختر العملة</Text>
+                <TouchableOpacity
+                  onPress={() => setShowCurrencyPicker(false)}
+                  style={styles.currencyModalCloseButton}
+                >
+                  <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
+                </TouchableOpacity>
+      </View>
+              <ScrollView
+                style={styles.currencyModalScrollView}
+                contentContainerStyle={styles.currencyModalScrollContent}
+                showsVerticalScrollIndicator={true}
+                nestedScrollEnabled={true}
+              >
+                {CURRENCIES.map((curr) => (
+                  <TouchableOpacity
+                    key={curr.code}
+                    style={[
+                      styles.currencyOption,
+                      currency === curr.code && styles.currencyOptionSelected,
+                    ]}
+                    onPress={() => {
+                      setCurrency(curr.code);
+                      setShowCurrencyPicker(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[
+                      styles.currencyOptionText,
+                      currency === curr.code && styles.currencyOptionTextSelected,
+                    ]}>
+                      {curr.symbol} {curr.name}
+                    </Text>
+                    {currency === curr.code && (
+                      <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </LinearGradient>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Modal>
   );
 };
@@ -586,5 +711,103 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
+  },
+  currencyButton: {
+    borderRadius: theme.borderRadius.md,
+    overflow: 'hidden',
+    ...theme.shadows.sm,
+  },
+  currencyButtonGradient: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: theme.spacing.md,
+  },
+  currencyButtonText: {
+    flex: 1,
+    fontSize: theme.typography.sizes.md,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'right' : 'left',
+    ...(isRTL ? { marginRight: theme.spacing.sm } : { marginLeft: theme.spacing.sm }),
+  },
+  currencyModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+    position: 'relative',
+  },
+  currencyModalContainer: {
+    maxHeight: '70%',
+    borderTopLeftRadius: theme.borderRadius.xl,
+    borderTopRightRadius: theme.borderRadius.xl,
+    overflow: 'hidden',
+    zIndex: 1000,
+  },
+  currencyModalGradient: {
+    maxHeight: '100%',
+  },
+  currencyModalHeader: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: theme.spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  currencyModalTitle: {
+    fontSize: theme.typography.sizes.xl,
+    fontWeight: '700',
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'right' : 'left',
+  },
+  currencyModalCloseButton: {
+    padding: theme.spacing.xs,
+  },
+  currencyModalScrollView: {
+    maxHeight: 400,
+  },
+  currencyModalScrollContent: {
+    padding: theme.spacing.md,
+  },
+  currencyPicker: {
+    marginTop: theme.spacing.sm,
+    backgroundColor: theme.colors.surfaceLight,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.sm,
+    maxHeight: 200,
+  },
+  currencyOption: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.sm,
+    backgroundColor: theme.colors.surfaceCard,
+    marginBottom: theme.spacing.xs,
+  },
+  currencyOptionSelected: {
+    backgroundColor: theme.colors.primaryLight,
+  },
+  currencyOptionText: {
+    fontSize: theme.typography.sizes.sm,
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'right' : 'left',
+  },
+  currencyOptionTextSelected: {
+    fontWeight: '700',
+    color: theme.colors.primary,
+  },
+  convertedAmountText: {
+    fontSize: theme.typography.sizes.xs,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+    marginTop: theme.spacing.xs,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+    fontStyle: 'italic',
   },
 });

@@ -1,120 +1,76 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, I18nManager, Modal, Pressable } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Modal, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../utils/theme';
-import { Expense, Income } from '../types';
+import { Debt } from '../types';
 import { isRTL } from '../utils/rtl';
 import { ConfirmAlert } from './ConfirmAlert';
 import { useCurrency } from '../hooks/useCurrency';
-import { convertCurrency, formatCurrencyAmount } from '../services/currencyService';
+import { DEBT_TYPES } from '../types';
 
-interface TransactionItemProps {
-  item: Expense | Income;
-  type: 'expense' | 'income';
+interface DebtItemProps {
+  item: Debt;
+  onPress?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
+  onPay?: () => void;
   formatCurrency?: (amount: number) => string;
+  unpaidInstallmentsCount?: number;
+  totalInstallmentsCount?: number;
 }
 
-export const TransactionItem: React.FC<TransactionItemProps> = ({
+export const DebtItem: React.FC<DebtItemProps> = ({
   item,
-  type,
+  onPress,
   onEdit,
   onDelete,
+  onPay,
   formatCurrency: propFormatCurrency,
+  unpaidInstallmentsCount = 0,
+  totalInstallmentsCount = 0,
 }) => {
-  const { formatCurrency: hookFormatCurrency, currencyCode } = useCurrency();
+  const { formatCurrency: hookFormatCurrency } = useCurrency();
   const formatCurrency = propFormatCurrency || hookFormatCurrency;
   const [swipeAnim] = useState(new Animated.Value(0));
-  const [scaleAnim] = useState(new Animated.Value(1));
   const [showConfirmAlert, setShowConfirmAlert] = useState(false);
-  const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
   const [showMenu, setShowMenu] = useState(false);
 
-  const isExpense = type === 'expense';
-  const expense = isExpense ? (item as Expense) : null;
-  const income = !isExpense ? (item as Income) : null;
-
-  const getCategoryIcon = (category?: string): keyof typeof Ionicons.glyphMap => {
-    if (!category) return 'wallet-outline';
-    const iconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
-      food: 'restaurant',
-      transport: 'car',
-      shopping: 'bag',
-      bills: 'receipt',
-      entertainment: 'musical-notes',
-      health: 'medical',
-      education: 'school',
-      other: 'ellipse',
-    };
-    return iconMap[category] || 'wallet-outline';
+  const typeIcons: Record<'debt' | 'installment' | 'advance', string> = {
+    debt: 'card',
+    installment: 'calendar',
+    advance: 'cash',
   };
 
-  const getCategoryColor = (category?: string): string[] => {
-    if (!category) return ['#6B7280', '#4B5563'];
-    const colorMap: Record<string, string[]> = {
-      food: ['#F59E0B', '#D97706'],
-      transport: ['#3B82F6', '#2563EB'],
-      shopping: ['#EC4899', '#DB2777'],
-      bills: ['#EF4444', '#DC2626'],
-      entertainment: ['#8B5CF6', '#7C3AED'],
-      health: ['#10B981', '#059669'],
-      education: ['#06B6D4', '#0891B2'],
-      other: ['#6B7280', '#4B5563'],
-    };
-    return colorMap[category] || ['#6B7280', '#4B5563'];
+  const typeColors: Record<'debt' | 'installment' | 'advance', string[]> = {
+    debt: ['#8B5CF6', '#7C3AED'],
+    installment: ['#3B82F6', '#2563EB'],
+    advance: ['#F59E0B', '#D97706'],
   };
 
-  const getCategoryLabel = (category?: string): string => {
-    if (!category) return 'أخرى';
-    const labelMap: Record<string, string> = {
-      food: 'طعام',
-      transport: 'مواصلات',
-      shopping: 'تسوق',
-      bills: 'فواتير',
-      entertainment: 'ترفيه',
-      health: 'صحة',
-      education: 'تعليم',
-      other: 'أخرى',
-    };
-    return labelMap[category] || 'أخرى';
-  };
-
-  const icon = isExpense ? getCategoryIcon(expense?.category) : 'trending-up';
-  const title = isExpense ? expense!.title : income!.source;
-  const amount = item.amount;
-  const itemCurrency = (item as Expense | Income).currency || currencyCode;
-  const date = new Date(item.date);
+  const icon = typeIcons[item.type];
+  const colors = item.isPaid ? ['#10B981', '#059669'] : typeColors[item.type];
+  const title = `مدين لـ: ${item.debtorName}`;
+  const typeLabel = DEBT_TYPES[item.type];
+  const date = new Date(item.startDate);
   const formattedDate = date.toLocaleDateString('ar-IQ', {
     month: 'short',
     day: 'numeric',
   });
-  const formattedTime = date.toLocaleTimeString('ar-IQ', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-  const colors = isExpense ? getCategoryColor(expense?.category) : ['#10B981', '#059669'];
-  const categoryLabel = isExpense ? getCategoryLabel(expense?.category) : '';
 
-  // Convert amount if currency is different
-  useEffect(() => {
-    const convertAmount = async () => {
-      if (itemCurrency && itemCurrency !== currencyCode) {
-        try {
-          const converted = await convertCurrency(amount, itemCurrency, currencyCode);
-          setConvertedAmount(converted);
-        } catch (error) {
-          console.error('Error converting currency:', error);
-          setConvertedAmount(null);
-        }
-      } else {
-        setConvertedAmount(null);
-      }
-    };
+  const getDaysUntilDue = (dueDate?: string) => {
+    if (!dueDate) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = new Date(dueDate);
+    due.setHours(0, 0, 0, 0);
+    const diff = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    return diff;
+  };
 
-    convertAmount();
-  }, [amount, itemCurrency, currencyCode]);
+  const daysUntilDue = getDaysUntilDue(item.dueDate);
+  const isOverdue = daysUntilDue !== null && daysUntilDue < 0;
+  const isDueSoon = daysUntilDue !== null && daysUntilDue >= 0 && daysUntilDue <= 3;
 
   const handleDelete = () => {
     setShowConfirmAlert(true);
@@ -128,16 +84,10 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
         duration: 300,
         useNativeDriver: true,
       }),
-      Animated.timing(scaleAnim, {
-        toValue: 0.8,
-        duration: 300,
-        useNativeDriver: true,
-      }),
     ]).start(() => {
       onDelete?.();
     });
   };
-
 
   return (
     <View style={styles.wrapper}>
@@ -155,9 +105,11 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
           },
         ]}
       >
-    <View
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={onPress}
           style={styles.card}
-    >
+        >
           <LinearGradient
             colors={[colors[0] + '15', colors[1] + '08']}
             start={{ x: 0, y: 0 }}
@@ -173,12 +125,12 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                 >
-                  <Ionicons name={icon} size={20} color="#FFFFFF" />
+                  <Ionicons name={icon as any} size={20} color="#FFFFFF" />
                 </LinearGradient>
               </View>
             </View>
 
-            {/* Content Section - Single Row */}
+            {/* Content Section */}
             <View style={styles.contentSection}>
               <View style={styles.mainRow}>
                 <View style={styles.leftContent}>
@@ -190,10 +142,60 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
                       <Ionicons name="calendar-outline" size={12} color={theme.colors.textMuted} />
                       <Text style={styles.dateText}>{formattedDate}</Text>
                     </View>
-                    {categoryLabel && (
-                      <View style={[styles.categoryTag, { backgroundColor: colors[0] + '20' }]}>
-                        <Text style={[styles.categoryText, { color: colors[0] }]}>
-                          {categoryLabel}
+                    <View style={[styles.categoryTag, { backgroundColor: colors[0] + '20' }]}>
+                      <Text style={[styles.categoryText, { color: colors[0] }]}>
+                        {typeLabel}
+                      </Text>
+                    </View>
+                    {item.isPaid && (
+                      <View style={[styles.categoryTag, { backgroundColor: '#D1FAE5' }]}>
+                        <Ionicons name="checkmark-circle" size={12} color="#059669" />
+                        <Text style={[styles.categoryText, { color: '#059669' }]}>
+                          مدفوع
+                        </Text>
+                      </View>
+                    )}
+                    {totalInstallmentsCount > 0 && (
+                      <View style={[styles.categoryTag, { backgroundColor: theme.colors.surfaceLight }]}>
+                        <Ionicons name="list" size={12} color={theme.colors.textSecondary} />
+                        <Text style={[styles.categoryText, { color: theme.colors.textSecondary }]}>
+                          {unpaidInstallmentsCount}/{totalInstallmentsCount}
+                        </Text>
+                      </View>
+                    )}
+                    {item.dueDate && !item.isPaid && (
+                      <View style={[
+                        styles.categoryTag,
+                        {
+                          backgroundColor: isOverdue
+                            ? '#FEE2E2'
+                            : isDueSoon
+                              ? '#FEF3C7'
+                              : theme.colors.surfaceLight
+                        }
+                      ]}>
+                        <Ionicons
+                          name={isOverdue ? 'warning' : 'time-outline'}
+                          size={12}
+                          color={isOverdue ? '#DC2626' : isDueSoon ? '#F59E0B' : theme.colors.textSecondary}
+                        />
+                        <Text style={[
+                          styles.categoryText,
+                          {
+                            color: isOverdue
+                              ? '#DC2626'
+                              : isDueSoon
+                                ? '#F59E0B'
+                                : theme.colors.textSecondary
+                          }
+                        ]}>
+                          {isOverdue
+                            ? `متأخر ${Math.abs(daysUntilDue!)} يوم`
+                            : isDueSoon && daysUntilDue === 0
+                              ? 'اليوم!'
+                              : isDueSoon
+                                ? `بعد ${daysUntilDue} يوم`
+                                : formattedDate}
                         </Text>
                       </View>
                     )}
@@ -202,17 +204,17 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
                 <View style={styles.rightContent}>
                   <View style={styles.amountWrapper}>
                     <LinearGradient
-                      colors={isExpense ? ['#EF4444', '#DC2626'] : ['#10B981', '#059669']}
+                      colors={item.isPaid ? ['#10B981', '#059669'] : ['#EF4444', '#DC2626']}
                       style={styles.amountBadge}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                     >
                       <Text style={styles.amount}>
-                        {isExpense ? '-' : '+'}{formatCurrencyAmount(amount, itemCurrency)}
+                        {formatCurrency(item.totalAmount)}
                       </Text>
-                      {convertedAmount !== null && itemCurrency !== currencyCode && (
-                        <Text style={styles.convertedAmount}>
-                          ≈ {formatCurrency(convertedAmount)}
+                      {!item.isPaid && item.remainingAmount < item.totalAmount && (
+                        <Text style={styles.remainingAmount}>
+                          متبقي: {formatCurrency(item.remainingAmount)}
                         </Text>
                       )}
                     </LinearGradient>
@@ -237,7 +239,7 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
               />
             </TouchableOpacity>
           </LinearGradient>
-        </View>
+        </TouchableOpacity>
       </Animated.View>
 
       {/* Delete Button */}
@@ -266,14 +268,14 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
             >
               <Ionicons name="trash" size={22} color="#FFFFFF" />
             </LinearGradient>
-    </TouchableOpacity>
+          </TouchableOpacity>
         </Animated.View>
       )}
 
       <ConfirmAlert
         visible={showConfirmAlert}
         title="تأكيد الحذف"
-        message={`هل أنت متأكد من حذف ${isExpense ? 'هذا المصروف' : 'هذا الدخل'}؟ لا يمكن التراجع عن هذا الإجراء.`}
+        message="هل أنت متأكد من حذف هذا الدين؟ لا يمكن التراجع عن هذا الإجراء."
         confirmText="حذف"
         cancelText="إلغاء"
         onConfirm={handleConfirmDelete}
@@ -293,7 +295,20 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
           onPress={() => setShowMenu(false)}
         >
           <View style={styles.menuContainer}>
-            {onEdit && (
+            {onPress && (
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowMenu(false);
+                  onPress();
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="eye-outline" size={20} color={theme.colors.primary} />
+                <Text style={styles.menuItemText}>عرض التفاصيل</Text>
+              </TouchableOpacity>
+            )}
+            {onEdit && !item.isPaid && (
               <TouchableOpacity
                 style={styles.menuItem}
                 onPress={() => {
@@ -306,7 +321,20 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
                 <Text style={styles.menuItemText}>تعديل</Text>
               </TouchableOpacity>
             )}
-            {onDelete && (
+            {onPay && !item.isPaid && (
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowMenu(false);
+                  onPay();
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="checkmark-circle-outline" size={20} color="#10B981" />
+                <Text style={[styles.menuItemText, { color: '#10B981' }]}>دفع</Text>
+              </TouchableOpacity>
+            )}
+            {onDelete && !item.isPaid && (
               <TouchableOpacity
                 style={[styles.menuItem, styles.menuItemDanger]}
                 onPress={() => {
@@ -387,7 +415,8 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    gap: theme.spacing.sm,
+    gap: theme.spacing.xs,
+    flexWrap: 'wrap',
   },
   dateInfo: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -403,9 +432,12 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   categoryTag: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
     paddingHorizontal: theme.spacing.xs,
     paddingVertical: 2,
     borderRadius: theme.borderRadius.sm,
+    gap: 4,
   },
   categoryText: {
     fontSize: theme.typography.sizes.xs,
@@ -432,15 +464,14 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  convertedAmount: {
+  remainingAmount: {
     fontSize: theme.typography.sizes.xs,
     fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: 'rgba(255, 255, 255, 0.9)',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',
     marginTop: 2,
-    fontStyle: 'italic',
   },
   menuSection: {
     ...(isRTL ? { marginRight: theme.spacing.xs } : { marginLeft: theme.spacing.xs }),

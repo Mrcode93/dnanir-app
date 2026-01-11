@@ -17,9 +17,17 @@ export const initDatabase = async () => {
         amount REAL NOT NULL,
         category TEXT NOT NULL,
         date TEXT NOT NULL,
-        description TEXT
+        description TEXT,
+        currency TEXT DEFAULT 'IQD'
       );
     `);
+    
+    // Add currency column if it doesn't exist (for existing databases)
+    try {
+      await db.execAsync('ALTER TABLE expenses ADD COLUMN currency TEXT DEFAULT "IQD";');
+    } catch (e) {
+      // Column already exists, ignore
+    }
 
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS income (
@@ -27,9 +35,17 @@ export const initDatabase = async () => {
         source TEXT NOT NULL,
         amount REAL NOT NULL,
         date TEXT NOT NULL,
-        description TEXT
+        description TEXT,
+        currency TEXT DEFAULT 'IQD'
       );
     `);
+    
+    // Add currency column if it doesn't exist (for existing databases)
+    try {
+      await db.execAsync('ALTER TABLE income ADD COLUMN currency TEXT DEFAULT "IQD";');
+    } catch (e) {
+      // Column already exists, ignore
+    }
 
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS user_settings (
@@ -58,11 +74,33 @@ export const initDatabase = async () => {
         dailyReminder INTEGER DEFAULT 1,
         dailyReminderTime TEXT DEFAULT '20:00',
         expenseReminder INTEGER DEFAULT 1,
+        expenseReminderTime TEXT DEFAULT '20:00',
         incomeReminder INTEGER DEFAULT 1,
         weeklySummary INTEGER DEFAULT 1,
         monthlySummary INTEGER DEFAULT 1
       );
     `);
+
+    // Add expenseReminderTime column if it doesn't exist (for existing databases)
+    try {
+      await db.execAsync('ALTER TABLE notification_settings ADD COLUMN expenseReminderTime TEXT DEFAULT "20:00";');
+    } catch (e) {
+      // Column already exists, ignore
+    }
+
+    // Initialize default notification settings if table is empty
+    try {
+      const existing = await db.getFirstAsync<{ id: number }>('SELECT id FROM notification_settings LIMIT 1');
+      if (!existing) {
+        await db.runAsync(
+          'INSERT INTO notification_settings (dailyReminder, dailyReminderTime, expenseReminder, expenseReminderTime, incomeReminder, weeklySummary, monthlySummary) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [0, '20:00', 0, '20:00', 1, 1, 1]
+        );
+        console.log('Initialized default notification settings');
+      }
+    } catch (e) {
+      console.warn('Warning: Could not initialize notification settings:', e);
+    }
 
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS financial_goals (
@@ -74,9 +112,17 @@ export const initDatabase = async () => {
         category TEXT NOT NULL,
         description TEXT,
         createdAt TEXT NOT NULL,
-        completed INTEGER DEFAULT 0
+        completed INTEGER DEFAULT 0,
+        currency TEXT DEFAULT 'IQD'
       );
     `);
+    
+    // Add currency column if it doesn't exist (for existing databases)
+    try {
+      await db.execAsync('ALTER TABLE financial_goals ADD COLUMN currency TEXT DEFAULT "IQD";');
+    } catch (e) {
+      // Column already exists, ignore
+    }
 
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS custom_categories (
@@ -88,6 +134,113 @@ export const initDatabase = async () => {
         createdAt TEXT NOT NULL
       );
     `);
+
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS budgets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        category TEXT NOT NULL,
+        amount REAL NOT NULL,
+        month TEXT NOT NULL,
+        year INTEGER NOT NULL,
+        createdAt TEXT NOT NULL,
+        currency TEXT DEFAULT 'IQD',
+        UNIQUE(category, month, year)
+      );
+    `);
+    
+    // Add currency column if it doesn't exist (for existing databases)
+    try {
+      await db.execAsync('ALTER TABLE budgets ADD COLUMN currency TEXT DEFAULT "IQD";');
+    } catch (e) {
+      // Column already exists, ignore
+    }
+
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS recurring_expenses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        amount REAL NOT NULL,
+        category TEXT NOT NULL,
+        recurrenceType TEXT NOT NULL,
+        recurrenceValue INTEGER NOT NULL,
+        startDate TEXT NOT NULL,
+        endDate TEXT,
+        description TEXT,
+        isActive INTEGER DEFAULT 1,
+        lastProcessedDate TEXT,
+        createdAt TEXT NOT NULL
+      );
+    `);
+
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS exchange_rates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fromCurrency TEXT NOT NULL,
+        toCurrency TEXT NOT NULL,
+        rate REAL NOT NULL,
+        updatedAt TEXT NOT NULL,
+        UNIQUE(fromCurrency, toCurrency)
+      );
+    `);
+
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS debts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        debtorName TEXT NOT NULL,
+        totalAmount REAL NOT NULL,
+        remainingAmount REAL NOT NULL,
+        startDate TEXT NOT NULL,
+        dueDate TEXT,
+        description TEXT,
+        type TEXT NOT NULL,
+        currency TEXT DEFAULT 'IQD',
+        isPaid INTEGER DEFAULT 0,
+        createdAt TEXT NOT NULL
+      );
+    `);
+
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS debt_installments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        debtId INTEGER NOT NULL,
+        amount REAL NOT NULL,
+        dueDate TEXT NOT NULL,
+        isPaid INTEGER DEFAULT 0,
+        paidDate TEXT,
+        installmentNumber INTEGER NOT NULL,
+        createdAt TEXT NOT NULL,
+        FOREIGN KEY (debtId) REFERENCES debts(id) ON DELETE CASCADE
+      );
+    `);
+
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS challenges (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL,
+        category TEXT NOT NULL,
+        icon TEXT NOT NULL,
+        startDate TEXT NOT NULL,
+        endDate TEXT NOT NULL,
+        targetValue REAL,
+        targetCategory TEXT,
+        currentProgress REAL DEFAULT 0,
+        targetProgress REAL NOT NULL,
+        completed INTEGER DEFAULT 0,
+        completedAt TEXT,
+        reward TEXT,
+        isCustom INTEGER DEFAULT 0,
+        createdAt TEXT NOT NULL
+      );
+    `);
+    
+    // Add isCustom column if it doesn't exist (for existing databases)
+    try {
+      await db.execAsync('ALTER TABLE challenges ADD COLUMN isCustom INTEGER DEFAULT 0;');
+    } catch (e) {
+      // Column already exists, ignore
+    }
   } catch (error) {
     console.error('Database initialization error:', error);
     throw error;
@@ -105,8 +258,8 @@ const getDb = () => {
 export const addExpense = async (expense: Omit<import('../types').Expense, 'id'>): Promise<number> => {
   const database = getDb();
   const result = await database.runAsync(
-    'INSERT INTO expenses (title, amount, category, date, description) VALUES (?, ?, ?, ?, ?)',
-    [expense.title, expense.amount, expense.category, expense.date, expense.description || null]
+    'INSERT INTO expenses (title, amount, category, date, description, currency) VALUES (?, ?, ?, ?, ?, ?)',
+    [expense.title, expense.amount, expense.category, expense.date, expense.description || null, expense.currency || 'IQD']
   );
   return result.lastInsertRowId;
 };
@@ -122,8 +275,8 @@ export const getExpenses = async (): Promise<import('../types').Expense[]> => {
 export const updateExpense = async (id: number, expense: Omit<import('../types').Expense, 'id'>): Promise<void> => {
   const database = getDb();
   await database.runAsync(
-    'UPDATE expenses SET title = ?, amount = ?, category = ?, date = ?, description = ? WHERE id = ?',
-    [expense.title, expense.amount, expense.category, expense.date, expense.description || null, id]
+    'UPDATE expenses SET title = ?, amount = ?, category = ?, date = ?, description = ?, currency = ? WHERE id = ?',
+    [expense.title, expense.amount, expense.category, expense.date, expense.description || null, expense.currency || 'IQD', id]
   );
 };
 
@@ -136,8 +289,8 @@ export const deleteExpense = async (id: number): Promise<void> => {
 export const addIncome = async (income: Omit<import('../types').Income, 'id'>): Promise<number> => {
   const database = getDb();
   const result = await database.runAsync(
-    'INSERT INTO income (source, amount, date, description) VALUES (?, ?, ?, ?)',
-    [income.source, income.amount, income.date, income.description || null]
+    'INSERT INTO income (source, amount, date, description, currency) VALUES (?, ?, ?, ?, ?)',
+    [income.source, income.amount, income.date, income.description || null, income.currency || 'IQD']
   );
   return result.lastInsertRowId;
 };
@@ -153,8 +306,8 @@ export const getIncome = async (): Promise<import('../types').Income[]> => {
 export const updateIncome = async (id: number, income: Omit<import('../types').Income, 'id'>): Promise<void> => {
   const database = getDb();
   await database.runAsync(
-    'UPDATE income SET source = ?, amount = ?, date = ?, description = ? WHERE id = ?',
-    [income.source, income.amount, income.date, income.description || null, id]
+    'UPDATE income SET source = ?, amount = ?, date = ?, description = ?, currency = ? WHERE id = ?',
+    [income.source, income.amount, income.date, income.description || null, income.currency || 'IQD', id]
   );
 };
 
@@ -182,13 +335,16 @@ export const upsertUserSettings = async (settings: import('../types').UserSettin
   const database = getDb();
   const existing = await database.getFirstAsync<{ id: number }>('SELECT id FROM user_settings LIMIT 1');
   
+  const passwordHash = settings.passwordHash === undefined ? null : (settings.passwordHash || null);
+  const authMethod = settings.authMethod || 'none';
+  
   if (existing) {
     await database.runAsync(
       'UPDATE user_settings SET name = ?, authMethod = ?, passwordHash = ?, biometricsEnabled = ? WHERE id = ?',
       [
         settings.name || null,
-        settings.authMethod,
-        settings.passwordHash || null,
+        authMethod,
+        passwordHash,
         settings.biometricsEnabled ? 1 : 0,
         existing.id,
       ]
@@ -198,8 +354,8 @@ export const upsertUserSettings = async (settings: import('../types').UserSettin
       'INSERT INTO user_settings (name, authMethod, passwordHash, biometricsEnabled) VALUES (?, ?, ?, ?)',
       [
         settings.name || null,
-        settings.authMethod,
-        settings.passwordHash || null,
+        authMethod,
+        passwordHash,
         settings.biometricsEnabled ? 1 : 0,
       ]
     );
@@ -257,6 +413,60 @@ export const upsertAppSettings = async (settings: import('../types').AppSettings
   }
 };
 
+// Notification settings
+export interface NotificationSettings {
+  id?: number;
+  dailyReminder: number;
+  dailyReminderTime: string;
+  expenseReminder: number;
+  expenseReminderTime?: string;
+  incomeReminder: number;
+  weeklySummary: number;
+  monthlySummary: number;
+}
+
+export const getNotificationSettings = async (): Promise<NotificationSettings | null> => {
+  const database = getDb();
+  const result = await database.getFirstAsync<NotificationSettings>(
+    'SELECT * FROM notification_settings LIMIT 1'
+  );
+  return result || null;
+};
+
+export const upsertNotificationSettings = async (settings: NotificationSettings): Promise<void> => {
+  const database = getDb();
+  const existing = await database.getFirstAsync<{ id: number }>('SELECT id FROM notification_settings LIMIT 1');
+  
+  if (existing) {
+    await database.runAsync(
+      'UPDATE notification_settings SET dailyReminder = ?, dailyReminderTime = ?, expenseReminder = ?, expenseReminderTime = ?, incomeReminder = ?, weeklySummary = ?, monthlySummary = ? WHERE id = ?',
+      [
+        settings.dailyReminder,
+        settings.dailyReminderTime,
+        settings.expenseReminder,
+        settings.expenseReminderTime || '20:00',
+        settings.incomeReminder,
+        settings.weeklySummary,
+        settings.monthlySummary,
+        existing.id,
+      ]
+    );
+  } else {
+    await database.runAsync(
+      'INSERT INTO notification_settings (dailyReminder, dailyReminderTime, expenseReminder, expenseReminderTime, incomeReminder, weeklySummary, monthlySummary) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [
+        settings.dailyReminder,
+        settings.dailyReminderTime,
+        settings.expenseReminder,
+        settings.expenseReminderTime || '20:00',
+        settings.incomeReminder,
+        settings.weeklySummary,
+        settings.monthlySummary,
+      ]
+    );
+  }
+};
+
 // Clear data
 export const clearExpenses = async (): Promise<void> => {
   const database = getDb();
@@ -273,7 +483,7 @@ export const addFinancialGoal = async (goal: Omit<import('../types').FinancialGo
   const database = getDb();
   const createdAt = new Date().toISOString();
   const result = await database.runAsync(
-    'INSERT INTO financial_goals (title, targetAmount, currentAmount, targetDate, category, description, createdAt, completed) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO financial_goals (title, targetAmount, currentAmount, targetDate, category, description, createdAt, completed, currency) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     [
       goal.title,
       goal.targetAmount,
@@ -283,6 +493,7 @@ export const addFinancialGoal = async (goal: Omit<import('../types').FinancialGo
       goal.description || null,
       createdAt,
       goal.completed ? 1 : 0,
+      goal.currency || 'IQD',
     ]
   );
   return result.lastInsertRowId;
@@ -347,6 +558,10 @@ export const updateFinancialGoal = async (id: number, goal: Partial<import('../t
     updates.push('completed = ?');
     values.push(goal.completed ? 1 : 0);
   }
+  if (goal.currency !== undefined) {
+    updates.push('currency = ?');
+    values.push(goal.currency || 'IQD');
+  }
 
   if (updates.length > 0) {
     values.push(id);
@@ -407,6 +622,262 @@ export const deleteCustomCategory = async (id: number): Promise<void> => {
   await database.runAsync('DELETE FROM custom_categories WHERE id = ?', [id]);
 };
 
+// Budget operations
+export interface Budget {
+  id: number;
+  category: string;
+  amount: number;
+  month: string;
+  year: number;
+  createdAt: string;
+  currency?: string;
+}
+
+export const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt'>): Promise<number> => {
+  const database = getDb();
+  const createdAt = new Date().toISOString();
+  try {
+    const result = await database.runAsync(
+      'INSERT OR REPLACE INTO budgets (category, amount, month, year, createdAt, currency) VALUES (?, ?, ?, ?, ?, ?)',
+      [budget.category, budget.amount, budget.month, budget.year, createdAt, budget.currency || 'IQD']
+    );
+    return result.lastInsertRowId;
+  } catch (error) {
+    console.error('Error adding budget:', error);
+    throw error;
+  }
+};
+
+export const getBudgets = async (month?: string, year?: number): Promise<Budget[]> => {
+  const database = getDb();
+  let query = 'SELECT * FROM budgets';
+  const params: any[] = [];
+  
+  if (month && year) {
+    query += ' WHERE month = ? AND year = ?';
+    params.push(month, year);
+  } else if (year) {
+    query += ' WHERE year = ?';
+    params.push(year);
+  }
+  
+  query += ' ORDER BY createdAt DESC';
+  const result = await database.getAllAsync<Budget>(query, params);
+  return result;
+};
+
+export const getBudget = async (category: string, month: string, year: number): Promise<Budget | null> => {
+  const database = getDb();
+  const result = await database.getFirstAsync<Budget>(
+    'SELECT * FROM budgets WHERE category = ? AND month = ? AND year = ?',
+    [category, month, year]
+  );
+  return result || null;
+};
+
+export const updateBudget = async (id: number, budget: Partial<Budget>): Promise<void> => {
+  const database = getDb();
+  const updates: string[] = [];
+  const values: any[] = [];
+
+  if (budget.category !== undefined) {
+    updates.push('category = ?');
+    values.push(budget.category);
+  }
+  if (budget.amount !== undefined) {
+    updates.push('amount = ?');
+    values.push(budget.amount);
+  }
+  if (budget.month !== undefined) {
+    updates.push('month = ?');
+    values.push(budget.month);
+  }
+  if (budget.year !== undefined) {
+    updates.push('year = ?');
+    values.push(budget.year);
+  }
+  if (budget.currency !== undefined) {
+    updates.push('currency = ?');
+    values.push(budget.currency || 'IQD');
+  }
+
+  if (updates.length > 0) {
+    values.push(id);
+    await database.runAsync(
+      `UPDATE budgets SET ${updates.join(', ')} WHERE id = ?`,
+      values
+    );
+  }
+};
+
+export const deleteBudget = async (id: number): Promise<void> => {
+  const database = getDb();
+  await database.runAsync('DELETE FROM budgets WHERE id = ?', [id]);
+};
+
+// Recurring Expenses operations
+export interface RecurringExpense {
+  id: number;
+  title: string;
+  amount: number;
+  category: string;
+  recurrenceType: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  recurrenceValue: number; // e.g., every 2 weeks = 2
+  startDate: string;
+  endDate?: string;
+  description?: string;
+  isActive: boolean;
+  lastProcessedDate?: string;
+  createdAt: string;
+}
+
+export const addRecurringExpense = async (expense: Omit<RecurringExpense, 'id' | 'createdAt'>): Promise<number> => {
+  const database = getDb();
+  const createdAt = new Date().toISOString();
+  const result = await database.runAsync(
+    'INSERT INTO recurring_expenses (title, amount, category, recurrenceType, recurrenceValue, startDate, endDate, description, isActive, lastProcessedDate, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [
+      expense.title,
+      expense.amount,
+      expense.category,
+      expense.recurrenceType,
+      expense.recurrenceValue,
+      expense.startDate,
+      expense.endDate || null,
+      expense.description || null,
+      expense.isActive ? 1 : 0,
+      expense.lastProcessedDate || null,
+      createdAt,
+    ]
+  );
+  return result.lastInsertRowId;
+};
+
+export const getRecurringExpenses = async (activeOnly?: boolean): Promise<RecurringExpense[]> => {
+  const database = getDb();
+  let query = 'SELECT * FROM recurring_expenses';
+  const params: any[] = [];
+  if (activeOnly) {
+    query += ' WHERE isActive = 1';
+  }
+  query += ' ORDER BY createdAt DESC';
+  const result = await database.getAllAsync<RecurringExpense & { isActive: number }>(query, params);
+  return result.map(exp => ({
+    ...exp,
+    isActive: Boolean(exp.isActive),
+  }));
+};
+
+export const getRecurringExpense = async (id: number): Promise<RecurringExpense | null> => {
+  const database = getDb();
+  const result = await database.getFirstAsync<RecurringExpense & { isActive: number }>(
+    'SELECT * FROM recurring_expenses WHERE id = ?',
+    [id]
+  );
+  if (result) {
+    return {
+      ...result,
+      isActive: Boolean(result.isActive),
+    };
+  }
+  return null;
+};
+
+export const updateRecurringExpense = async (id: number, expense: Partial<RecurringExpense>): Promise<void> => {
+  const database = getDb();
+  const updates: string[] = [];
+  const values: any[] = [];
+
+  if (expense.title !== undefined) {
+    updates.push('title = ?');
+    values.push(expense.title);
+  }
+  if (expense.amount !== undefined) {
+    updates.push('amount = ?');
+    values.push(expense.amount);
+  }
+  if (expense.category !== undefined) {
+    updates.push('category = ?');
+    values.push(expense.category);
+  }
+  if (expense.recurrenceType !== undefined) {
+    updates.push('recurrenceType = ?');
+    values.push(expense.recurrenceType);
+  }
+  if (expense.recurrenceValue !== undefined) {
+    updates.push('recurrenceValue = ?');
+    values.push(expense.recurrenceValue);
+  }
+  if (expense.startDate !== undefined) {
+    updates.push('startDate = ?');
+    values.push(expense.startDate);
+  }
+  if (expense.endDate !== undefined) {
+    updates.push('endDate = ?');
+    values.push(expense.endDate || null);
+  }
+  if (expense.description !== undefined) {
+    updates.push('description = ?');
+    values.push(expense.description || null);
+  }
+  if (expense.isActive !== undefined) {
+    updates.push('isActive = ?');
+    values.push(expense.isActive ? 1 : 0);
+  }
+  if (expense.lastProcessedDate !== undefined) {
+    updates.push('lastProcessedDate = ?');
+    values.push(expense.lastProcessedDate || null);
+  }
+
+  if (updates.length > 0) {
+    values.push(id);
+    await database.runAsync(
+      `UPDATE recurring_expenses SET ${updates.join(', ')} WHERE id = ?`,
+      values
+    );
+  }
+};
+
+export const deleteRecurringExpense = async (id: number): Promise<void> => {
+  const database = getDb();
+  await database.runAsync('DELETE FROM recurring_expenses WHERE id = ?', [id]);
+};
+
+// Exchange Rates operations
+export interface ExchangeRate {
+  id: number;
+  fromCurrency: string;
+  toCurrency: string;
+  rate: number;
+  updatedAt: string;
+}
+
+export const upsertExchangeRate = async (rate: Omit<ExchangeRate, 'id' | 'updatedAt'>): Promise<void> => {
+  const database = getDb();
+  const updatedAt = new Date().toISOString();
+  await database.runAsync(
+    'INSERT OR REPLACE INTO exchange_rates (fromCurrency, toCurrency, rate, updatedAt) VALUES (?, ?, ?, ?)',
+    [rate.fromCurrency, rate.toCurrency, rate.rate, updatedAt]
+  );
+};
+
+export const getExchangeRate = async (fromCurrency: string, toCurrency: string): Promise<ExchangeRate | null> => {
+  const database = getDb();
+  const result = await database.getFirstAsync<ExchangeRate>(
+    'SELECT * FROM exchange_rates WHERE fromCurrency = ? AND toCurrency = ?',
+    [fromCurrency, toCurrency]
+  );
+  return result || null;
+};
+
+export const getAllExchangeRates = async (): Promise<ExchangeRate[]> => {
+  const database = getDb();
+  const result = await database.getAllAsync<ExchangeRate>(
+    'SELECT * FROM exchange_rates ORDER BY updatedAt DESC'
+  );
+  return result;
+};
+
 export const clearAllData = async (): Promise<void> => {
   const database = getDb();
   await database.execAsync(`
@@ -417,5 +888,418 @@ export const clearAllData = async (): Promise<void> => {
     DELETE FROM notification_settings;
     DELETE FROM financial_goals;
     DELETE FROM custom_categories;
+    DELETE FROM budgets;
+    DELETE FROM recurring_expenses;
+    DELETE FROM exchange_rates;
+    DELETE FROM debt_installments;
+    DELETE FROM debts;
+    DELETE FROM challenges;
   `);
+};
+
+// Debt operations
+export interface Debt {
+  id: number;
+  debtorName: string;
+  totalAmount: number;
+  remainingAmount: number;
+  startDate: string;
+  dueDate?: string;
+  description?: string;
+  type: 'debt' | 'installment' | 'advance'; // دين، أقساط، سلف
+  currency?: string;
+  isPaid: boolean;
+  createdAt: string;
+}
+
+export interface DebtInstallment {
+  id: number;
+  debtId: number;
+  amount: number;
+  dueDate: string;
+  isPaid: boolean;
+  paidDate?: string;
+  installmentNumber: number;
+  createdAt: string;
+}
+
+export const addDebt = async (debt: Omit<Debt, 'id' | 'createdAt'>): Promise<number> => {
+  const database = getDb();
+  const createdAt = new Date().toISOString();
+  const result = await database.runAsync(
+    'INSERT INTO debts (debtorName, totalAmount, remainingAmount, startDate, dueDate, description, type, currency, isPaid, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [
+      debt.debtorName,
+      debt.totalAmount,
+      debt.remainingAmount,
+      debt.startDate,
+      debt.dueDate || null,
+      debt.description || null,
+      debt.type,
+      debt.currency || 'IQD',
+      debt.isPaid ? 1 : 0,
+      createdAt,
+    ]
+  );
+  return result.lastInsertRowId;
+};
+
+export const getDebts = async (): Promise<Debt[]> => {
+  const database = getDb();
+  const result = await database.getAllAsync<Debt & { isPaid: number }>(
+    'SELECT * FROM debts ORDER BY createdAt DESC'
+  );
+  return result.map(debt => ({
+    ...debt,
+    isPaid: Boolean(debt.isPaid),
+  }));
+};
+
+export const getDebt = async (id: number): Promise<Debt | null> => {
+  const database = getDb();
+  const result = await database.getFirstAsync<Debt & { isPaid: number }>(
+    'SELECT * FROM debts WHERE id = ?',
+    [id]
+  );
+  if (result) {
+    return {
+      ...result,
+      isPaid: Boolean(result.isPaid),
+    };
+  }
+  return null;
+};
+
+export const updateDebt = async (id: number, debt: Partial<Debt>): Promise<void> => {
+  const database = getDb();
+  const updates: string[] = [];
+  const values: any[] = [];
+
+  if (debt.debtorName !== undefined) {
+    updates.push('debtorName = ?');
+    values.push(debt.debtorName);
+  }
+  if (debt.totalAmount !== undefined) {
+    updates.push('totalAmount = ?');
+    values.push(debt.totalAmount);
+  }
+  if (debt.remainingAmount !== undefined) {
+    updates.push('remainingAmount = ?');
+    values.push(debt.remainingAmount);
+  }
+  if (debt.startDate !== undefined) {
+    updates.push('startDate = ?');
+    values.push(debt.startDate);
+  }
+  if (debt.dueDate !== undefined) {
+    updates.push('dueDate = ?');
+    values.push(debt.dueDate || null);
+  }
+  if (debt.description !== undefined) {
+    updates.push('description = ?');
+    values.push(debt.description || null);
+  }
+  if (debt.type !== undefined) {
+    updates.push('type = ?');
+    values.push(debt.type);
+  }
+  if (debt.currency !== undefined) {
+    updates.push('currency = ?');
+    values.push(debt.currency || 'IQD');
+  }
+  if (debt.isPaid !== undefined) {
+    updates.push('isPaid = ?');
+    values.push(debt.isPaid ? 1 : 0);
+  }
+
+  if (updates.length > 0) {
+    values.push(id);
+    await database.runAsync(
+      `UPDATE debts SET ${updates.join(', ')} WHERE id = ?`,
+      values
+    );
+  }
+};
+
+export const deleteDebt = async (id: number): Promise<void> => {
+  const database = getDb();
+  await database.runAsync('DELETE FROM debts WHERE id = ?', [id]);
+};
+
+// Debt Installment operations
+export const addDebtInstallment = async (installment: Omit<DebtInstallment, 'id' | 'createdAt'>): Promise<number> => {
+  const database = getDb();
+  const createdAt = new Date().toISOString();
+  const result = await database.runAsync(
+    'INSERT INTO debt_installments (debtId, amount, dueDate, isPaid, paidDate, installmentNumber, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [
+      installment.debtId,
+      installment.amount,
+      installment.dueDate,
+      installment.isPaid ? 1 : 0,
+      installment.paidDate || null,
+      installment.installmentNumber,
+      createdAt,
+    ]
+  );
+  return result.lastInsertRowId;
+};
+
+export const getDebtInstallments = async (debtId: number): Promise<DebtInstallment[]> => {
+  const database = getDb();
+  const result = await database.getAllAsync<DebtInstallment & { isPaid: number }>(
+    'SELECT * FROM debt_installments WHERE debtId = ? ORDER BY installmentNumber ASC',
+    [debtId]
+  );
+  return result.map(inst => ({
+    ...inst,
+    isPaid: Boolean(inst.isPaid),
+  }));
+};
+
+export const updateDebtInstallment = async (id: number, installment: Partial<DebtInstallment>): Promise<void> => {
+  const database = getDb();
+  const updates: string[] = [];
+  const values: any[] = [];
+
+  if (installment.amount !== undefined) {
+    updates.push('amount = ?');
+    values.push(installment.amount);
+  }
+  if (installment.dueDate !== undefined) {
+    updates.push('dueDate = ?');
+    values.push(installment.dueDate);
+  }
+  if (installment.isPaid !== undefined) {
+    updates.push('isPaid = ?');
+    values.push(installment.isPaid ? 1 : 0);
+  }
+  if (installment.paidDate !== undefined) {
+    updates.push('paidDate = ?');
+    values.push(installment.paidDate || null);
+  }
+
+  if (updates.length > 0) {
+    values.push(id);
+    await database.runAsync(
+      `UPDATE debt_installments SET ${updates.join(', ')} WHERE id = ?`,
+      values
+    );
+  }
+};
+
+export const deleteDebtInstallment = async (id: number): Promise<void> => {
+  const database = getDb();
+  await database.runAsync('DELETE FROM debt_installments WHERE id = ?', [id]);
+};
+
+export const getUpcomingDebtPayments = async (days: number = 7): Promise<{ debt: Debt; installment?: DebtInstallment }[]> => {
+  const database = getDb();
+  const today = new Date();
+  const futureDate = new Date();
+  futureDate.setDate(today.getDate() + days);
+  const todayStr = today.toISOString().split('T')[0];
+  const futureStr = futureDate.toISOString().split('T')[0];
+
+  // Get debts with due dates in the range
+  const debts = await database.getAllAsync<Debt & { isPaid: number }>(
+    `SELECT * FROM debts 
+     WHERE isPaid = 0 
+     AND (dueDate IS NOT NULL AND dueDate >= ? AND dueDate <= ?)
+     ORDER BY dueDate ASC`,
+    [todayStr, futureStr]
+  );
+
+  // Get installments with due dates in the range
+  const installments = await database.getAllAsync<DebtInstallment & { isPaid: number }>(
+    `SELECT di.*, d.debtorName, d.type, d.currency 
+     FROM debt_installments di
+     JOIN debts d ON di.debtId = d.id
+     WHERE di.isPaid = 0 
+     AND d.isPaid = 0
+     AND di.dueDate >= ? AND di.dueDate <= ?
+     ORDER BY di.dueDate ASC`,
+    [todayStr, futureStr]
+  );
+
+  const result: { debt: Debt; installment?: DebtInstallment }[] = [];
+
+  // Add debts without installments
+  for (const debt of debts) {
+    const debtObj: Debt = {
+      ...debt,
+      isPaid: Boolean(debt.isPaid),
+    };
+    result.push({ debt: debtObj });
+  }
+
+  // Add installments
+  for (const inst of installments) {
+    const debt = await getDebt(inst.debtId);
+    if (debt) {
+      const installment: DebtInstallment = {
+        ...inst,
+        isPaid: Boolean(inst.isPaid),
+      };
+      result.push({ debt, installment });
+    }
+  }
+
+  return result;
+};
+
+// Challenge operations
+export interface Challenge {
+  id: number;
+  type: string;
+  title: string;
+  description: string;
+  category: string;
+  icon: string;
+  startDate: string;
+  endDate: string;
+  targetValue?: number;
+  targetCategory?: string;
+  currentProgress: number;
+  targetProgress: number;
+  completed: boolean;
+  completedAt?: string;
+  reward?: string;
+  isCustom?: boolean;
+  createdAt: string;
+}
+
+export const addChallenge = async (challenge: Omit<Challenge, 'id' | 'createdAt'>): Promise<number> => {
+  const database = getDb();
+  const createdAt = new Date().toISOString();
+  const result = await database.runAsync(
+    'INSERT INTO challenges (type, title, description, category, icon, startDate, endDate, targetValue, targetCategory, currentProgress, targetProgress, completed, completedAt, reward, isCustom, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [
+      challenge.type,
+      challenge.title,
+      challenge.description,
+      challenge.category,
+      challenge.icon,
+      challenge.startDate,
+      challenge.endDate,
+      challenge.targetValue || null,
+      challenge.targetCategory || null,
+      challenge.currentProgress || 0,
+      challenge.targetProgress,
+      challenge.completed ? 1 : 0,
+      challenge.completedAt || null,
+      challenge.reward || null,
+      challenge.isCustom ? 1 : 0,
+      createdAt,
+    ]
+  );
+  return result.lastInsertRowId;
+};
+
+export const getChallenges = async (): Promise<Challenge[]> => {
+  const database = getDb();
+  const result = await database.getAllAsync<Challenge & { completed: number; isCustom?: number }>(
+    'SELECT * FROM challenges ORDER BY createdAt DESC'
+  );
+  return result.map(challenge => ({
+    ...challenge,
+    completed: Boolean(challenge.completed),
+    isCustom: challenge.isCustom !== undefined ? Boolean(challenge.isCustom) : challenge.type === 'custom',
+  }));
+};
+
+export const getChallenge = async (id: number): Promise<Challenge | null> => {
+  const database = getDb();
+  const result = await database.getFirstAsync<Challenge & { completed: number; isCustom?: number }>(
+    'SELECT * FROM challenges WHERE id = ?',
+    [id]
+  );
+  if (result) {
+    return {
+      ...result,
+      completed: Boolean(result.completed),
+      isCustom: result.isCustom !== undefined ? Boolean(result.isCustom) : result.type === 'custom',
+    };
+  }
+  return null;
+};
+
+export const updateChallenge = async (id: number, challenge: Partial<Challenge>): Promise<void> => {
+  const database = getDb();
+  const updates: string[] = [];
+  const values: any[] = [];
+
+  if (challenge.type !== undefined) {
+    updates.push('type = ?');
+    values.push(challenge.type);
+  }
+  if (challenge.title !== undefined) {
+    updates.push('title = ?');
+    values.push(challenge.title);
+  }
+  if (challenge.description !== undefined) {
+    updates.push('description = ?');
+    values.push(challenge.description);
+  }
+  if (challenge.category !== undefined) {
+    updates.push('category = ?');
+    values.push(challenge.category);
+  }
+  if (challenge.icon !== undefined) {
+    updates.push('icon = ?');
+    values.push(challenge.icon);
+  }
+  if (challenge.startDate !== undefined) {
+    updates.push('startDate = ?');
+    values.push(challenge.startDate);
+  }
+  if (challenge.endDate !== undefined) {
+    updates.push('endDate = ?');
+    values.push(challenge.endDate);
+  }
+  if (challenge.targetValue !== undefined) {
+    updates.push('targetValue = ?');
+    values.push(challenge.targetValue || null);
+  }
+  if (challenge.targetCategory !== undefined) {
+    updates.push('targetCategory = ?');
+    values.push(challenge.targetCategory || null);
+  }
+  if (challenge.currentProgress !== undefined) {
+    updates.push('currentProgress = ?');
+    values.push(challenge.currentProgress);
+  }
+  if (challenge.targetProgress !== undefined) {
+    updates.push('targetProgress = ?');
+    values.push(challenge.targetProgress);
+  }
+  if (challenge.completed !== undefined) {
+    updates.push('completed = ?');
+    values.push(challenge.completed ? 1 : 0);
+  }
+  if (challenge.completedAt !== undefined) {
+    updates.push('completedAt = ?');
+    values.push(challenge.completedAt || null);
+  }
+  if (challenge.reward !== undefined) {
+    updates.push('reward = ?');
+    values.push(challenge.reward || null);
+  }
+  if (challenge.isCustom !== undefined) {
+    updates.push('isCustom = ?');
+    values.push(challenge.isCustom ? 1 : 0);
+  }
+
+  if (updates.length > 0) {
+    values.push(id);
+    await database.runAsync(
+      `UPDATE challenges SET ${updates.join(', ')} WHERE id = ?`,
+      values
+    );
+  }
+};
+
+export const deleteChallenge = async (id: number): Promise<void> => {
+  const database = getDb();
+  await database.runAsync('DELETE FROM challenges WHERE id = ?', [id]);
 };

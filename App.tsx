@@ -1,23 +1,34 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View, Text, I18nManager, Platform } from 'react-native';
+import { StyleSheet, View, Text, I18nManager, Platform, AppState } from 'react-native';
 import { Provider as PaperProvider, Portal, DefaultTheme, configureFonts } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppNavigator } from './src/navigation/AppNavigator';
+import { LockScreen } from './src/screens/LockScreen';
 import { initDatabase } from './src/database/database';
 import { theme } from './src/utils/theme';
+import { initializeNotifications } from './src/services/notificationService';
+import { isAuthenticationEnabled } from './src/services/authService';
+import { authEventService } from './src/services/authEventService';
+import { AlertProvider } from './src/components/AlertProvider';
 
 const fontConfig = {
   config: {
     regular: {
       fontFamily: 'Cairo-Regular',
       fontWeight: '400' as const,
+      fontSize: 16,
+      letterSpacing: 0.5,
+      lineHeight: 24,
     },
     medium: {
       fontFamily: 'Cairo-Regular',
       fontWeight: '600' as const,
+      fontSize: 16,
+      letterSpacing: 0.5,
+      lineHeight: 24,
     },
   },
 };
@@ -39,37 +50,18 @@ const paperTheme = {
 
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
+  const [isLocked, setIsLocked] = useState(false);
+  const isUnlockedRef = useRef(false);
   const [fontsLoaded] = useFonts({
     'Cairo-Regular': require('./assets/fonts/Cairo-Regular.ttf'),
   });
 
   useEffect(() => {
     try {
-      // Force RTL for Arabic app - Always set, don't check
       I18nManager.allowRTL(true);
       I18nManager.forceRTL(true);
       I18nManager.swapLeftAndRightInRTL(true);
-      
-      // Log current RTL state
-      console.log('RTL Status:', {
-        isRTL: I18nManager.isRTL,
-        allowRTL: I18nManager.allowRTL,
-        platform: Platform.OS,
-        note: 'App will use RTL layout regardless of I18nManager.isRTL value',
-      });
-      
-      // Note: On iOS, I18nManager.forceRTL() doesn't work dynamically
-      // We handle RTL manually in all components using flexDirection: 'row-reverse'
-      if (Platform.OS === 'ios' && !I18nManager.isRTL) {
-        console.log('ℹ️ iOS: Using manual RTL layout (I18nManager.forceRTL not supported)');
-      }
-      
-      // On Android, need to restart app for RTL to take effect
-      if (Platform.OS === 'android' && !I18nManager.isRTL) {
-        console.warn('⚠️ Android: RTL not active - App restart required');
-      }
 
-      // Set default text styles for RTL
       if (Platform.OS === 'android') {
         (Text as any).defaultProps = {
           ...(Text as any).defaultProps,
@@ -90,15 +82,112 @@ export default function App() {
     const initializeApp = async () => {
       try {
         await initDatabase();
+        await initializeNotifications();
+        
+        const authEnabled = await isAuthenticationEnabled();
+        setIsLocked(authEnabled);
+        
         setIsLoading(false);
       } catch (error) {
-        console.error('Failed to initialize database:', error);
+        console.error('Failed to initialize app:', error);
         setIsLoading(false);
       }
     };
 
     initializeApp();
   }, []);
+
+  const checkAndUpdateAuthStatus = useCallback(async () => {
+    try {
+      if (authEventService.shouldKeepUnlocked()) {
+        isUnlockedRef.current = true;
+        setIsLocked(false);
+        return;
+      }
+
+      const authEnabled = await isAuthenticationEnabled();
+      
+      if (!authEnabled) {
+        isUnlockedRef.current = true;
+        setIsLocked(false);
+      } else if (!isUnlockedRef.current) {
+        setIsLocked(true);
+      }
+    } catch (error) {
+      console.error('Error checking authentication status:', error);
+      isUnlockedRef.current = true;
+      setIsLocked(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let subscription: any;
+    let appState = AppState.currentState;
+
+    const checkAuthOnFocus = async () => {
+      if (authEventService.shouldKeepUnlocked()) {
+        isUnlockedRef.current = true;
+        setIsLocked(false);
+        return;
+      }
+
+      const authEnabled = await isAuthenticationEnabled();
+      if (!authEnabled) {
+        setIsLocked(false);
+        isUnlockedRef.current = true;
+      } else if (!isUnlockedRef.current) {
+        setIsLocked(true);
+      }
+      
+      // Re-initialize notifications when app comes to foreground
+      try {
+        await initializeNotifications();
+      } catch (error) {
+        console.error('Error re-initializing notifications on focus:', error);
+      }
+    };
+
+    if (AppState.addEventListener) {
+      subscription = AppState.addEventListener('change', (nextAppState) => {
+        if (appState.match(/inactive|background/) && nextAppState === 'active') {
+          checkAuthOnFocus();
+        }
+        if (nextAppState.match(/inactive|background/)) {
+          isUnlockedRef.current = false;
+        }
+        appState = nextAppState;
+      });
+    }
+
+    return () => {
+      if (subscription?.remove) {
+        subscription.remove();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = authEventService.subscribe(() => {
+      setTimeout(() => {
+        checkAndUpdateAuthStatus();
+      }, 150);
+    });
+
+    return unsubscribe;
+  }, [checkAndUpdateAuthStatus]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      checkAndUpdateAuthStatus();
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [checkAndUpdateAuthStatus]);
+
+  const handleUnlock = () => {
+    isUnlockedRef.current = true;
+    setIsLocked(false);
+  };
 
   if (isLoading || !fontsLoaded) {
     return (
@@ -112,14 +201,24 @@ export default function App() {
     );
   }
 
+  if (isLocked) {
+    return (
+      <SafeAreaProvider>
+        <LockScreen onUnlock={handleUnlock} />
+      </SafeAreaProvider>
+    );
+  }
+
   return (
     <SafeAreaProvider>
+      <AlertProvider>
       <PaperProvider theme={paperTheme}>
-        <Portal.Host>
-          <AppNavigator />
-          <StatusBar style="dark" backgroundColor={theme.colors.background} />
-        </Portal.Host>
+          <Portal.Host>
+        <AppNavigator />
+        <StatusBar style="dark" backgroundColor={theme.colors.background} />
+          </Portal.Host>
       </PaperProvider>
+      </AlertProvider>
     </SafeAreaProvider>
   );
 }

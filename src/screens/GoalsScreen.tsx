@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,6 @@ import {
   I18nManager,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { FAB } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
@@ -21,19 +20,68 @@ import {
   deleteFinancialGoal,
 } from '../database/database';
 import { FinancialGoal } from '../types';
-import { formatCurrency } from '../services/financialService';
+import { useCurrency } from '../hooks/useCurrency';
 import { isRTL } from '../utils/rtl';
+import { alertService } from '../services/alertService';
+import { convertCurrency, formatCurrencyAmount } from '../services/currencyService';
+import { CURRENCIES } from '../types';
 
-export const GoalsScreen = ({ navigation }: any) => {
+export const GoalsScreen = ({ navigation, route }: any) => {
+  const { formatCurrency, currencyCode } = useCurrency();
   const [goals, setGoals] = useState<FinancialGoal[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingGoal, setEditingGoal] = useState<FinancialGoal | null>(null);
+  const [convertedTotals, setConvertedTotals] = useState<{ current: number; target: number } | null>(null);
+  const [currencyBreakdown, setCurrencyBreakdown] = useState<Record<string, { current: number; target: number }>>({});
 
   const loadGoals = async () => {
     try {
       const allGoals = await getFinancialGoals();
       setGoals(allGoals);
+
+      // Calculate converted totals and currency breakdown
+      const active = allGoals.filter(g => !g.completed);
+      if (active.length > 0) {
+        let totalCurrentConverted = 0;
+        let totalTargetConverted = 0;
+        const breakdown: Record<string, { current: number; target: number }> = {};
+
+        for (const goal of active) {
+          const goalCurrency = goal.currency || currencyCode;
+          
+          // Add to breakdown by currency
+          if (!breakdown[goalCurrency]) {
+            breakdown[goalCurrency] = { current: 0, target: 0 };
+          }
+          breakdown[goalCurrency].current += goal.currentAmount;
+          breakdown[goalCurrency].target += goal.targetAmount;
+
+          // Convert to primary currency and add to totals
+          if (goalCurrency !== currencyCode) {
+            try {
+              const convertedCurrent = await convertCurrency(goal.currentAmount, goalCurrency, currencyCode);
+              const convertedTarget = await convertCurrency(goal.targetAmount, goalCurrency, currencyCode);
+              totalCurrentConverted += convertedCurrent;
+              totalTargetConverted += convertedTarget;
+            } catch (error) {
+              console.error('Error converting currency:', error);
+              // If conversion fails, add original amount
+              totalCurrentConverted += goal.currentAmount;
+              totalTargetConverted += goal.targetAmount;
+            }
+          } else {
+            totalCurrentConverted += goal.currentAmount;
+            totalTargetConverted += goal.targetAmount;
+          }
+        }
+
+        setConvertedTotals({ current: totalCurrentConverted, target: totalTargetConverted });
+        setCurrencyBreakdown(breakdown);
+      } else {
+        setConvertedTotals(null);
+        setCurrencyBreakdown({});
+      }
     } catch (error) {
       console.error('Error loading goals:', error);
     }
@@ -44,6 +92,45 @@ export const GoalsScreen = ({ navigation }: any) => {
     const unsubscribe = navigation.addListener('focus', loadGoals);
     return unsubscribe;
   }, [navigation]);
+
+  useLayoutEffect(() => {
+    const parent = navigation.getParent();
+    if (parent) {
+      parent.setOptions({
+        tabBarStyle: { display: 'none' },
+        tabBarShowLabel: false,
+      });
+    }
+    return () => {
+      if (parent) {
+        parent.setOptions({
+          tabBarStyle: {
+            backgroundColor: theme.colors.surfaceCard,
+            borderTopColor: theme.colors.border,
+            borderTopWidth: 1,
+            height: 80,
+            paddingBottom: 20,
+            paddingTop: 8,
+            elevation: 8,
+            shadowColor: theme.colors.shadow,
+            shadowOffset: { width: 0, height: -2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
+            flexDirection: 'row',
+            display: 'flex',
+          },
+          tabBarShowLabel: true,
+        });
+      }
+    };
+  }, [navigation]);
+
+  useEffect(() => {
+    if (route?.params?.action === 'add') {
+      handleAddGoal();
+      navigation.setParams({ action: undefined });
+    }
+  }, [route?.params]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -78,16 +165,24 @@ export const GoalsScreen = ({ navigation }: any) => {
     try {
       await deleteFinancialGoal(goalId);
       await loadGoals();
+      alertService.success('نجح', 'تم حذف الهدف بنجاح');
     } catch (error) {
       console.error('Error deleting goal:', error);
+      alertService.error('خطأ', 'حدث خطأ أثناء حذف الهدف');
     }
   };
 
   const activeGoals = goals.filter(g => !g.completed);
   const completedGoals = goals.filter(g => g.completed);
-  const totalTarget = activeGoals.reduce((sum, g) => sum + g.targetAmount, 0);
-  const totalCurrent = activeGoals.reduce((sum, g) => sum + g.currentAmount, 0);
+  
+  // Use converted totals if available, otherwise calculate from active goals
+  const totalTarget = convertedTotals?.target ?? activeGoals.reduce((sum, g) => sum + g.targetAmount, 0);
+  const totalCurrent = convertedTotals?.current ?? activeGoals.reduce((sum, g) => sum + g.currentAmount, 0);
   const overallProgress = totalTarget > 0 ? (totalCurrent / totalTarget) * 100 : 0;
+
+  // Check if all goals use the same currency
+  const uniqueCurrencies = new Set(activeGoals.map(g => g.currency || currencyCode));
+  const hasMultipleCurrencies = uniqueCurrencies.size > 1;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -106,7 +201,7 @@ export const GoalsScreen = ({ navigation }: any) => {
         {/* Summary Card */}
         {activeGoals.length > 0 && (
           <LinearGradient
-            colors={theme.gradients.primary}
+            colors={theme.gradients.primary as any}
             style={styles.summaryCard}
           >
             <View style={styles.summaryHeader}>
@@ -136,15 +231,45 @@ export const GoalsScreen = ({ navigation }: any) => {
             <View style={styles.summaryAmounts}>
               <View style={styles.summaryAmount}>
                 <Text style={styles.summaryAmountLabel}>المحقق</Text>
-                <Text style={styles.summaryAmountValue}>
-                  {formatCurrency(totalCurrent)}
-                </Text>
+                <View>
+                  <Text style={styles.summaryAmountValue}>
+                    {formatCurrency(totalCurrent)}
+                  </Text>
+                  {hasMultipleCurrencies && Object.keys(currencyBreakdown).length > 0 && (
+                    <View style={styles.currencyBreakdown}>
+                      {Object.entries(currencyBreakdown).map(([curr, amounts]) => {
+                        const currencyData = CURRENCIES.find(c => c.code === curr);
+                        if (!currencyData || amounts.current === 0) return null;
+                        return (
+                          <Text key={curr} style={styles.currencyBreakdownText}>
+                            {formatCurrencyAmount(amounts.current, curr)}
+                          </Text>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
               </View>
               <View style={styles.summaryAmount}>
                 <Text style={styles.summaryAmountLabel}>المستهدف</Text>
-                <Text style={styles.summaryAmountValue}>
-                  {formatCurrency(totalTarget)}
-                </Text>
+                <View>
+                  <Text style={styles.summaryAmountValue}>
+                    {formatCurrency(totalTarget)}
+                  </Text>
+                  {hasMultipleCurrencies && Object.keys(currencyBreakdown).length > 0 && (
+                    <View style={styles.currencyBreakdown}>
+                      {Object.entries(currencyBreakdown).map(([curr, amounts]) => {
+                        const currencyData = CURRENCIES.find(c => c.code === curr);
+                        if (!currencyData || amounts.target === 0) return null;
+                        return (
+                          <Text key={curr} style={styles.currencyBreakdownText}>
+                            {formatCurrencyAmount(amounts.target, curr)}
+                          </Text>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
               </View>
             </View>
           </LinearGradient>
@@ -158,7 +283,8 @@ export const GoalsScreen = ({ navigation }: any) => {
               <GoalCard
                 key={goal.id}
                 goal={goal}
-                onPress={() => handleEditGoal(goal)}
+                onEdit={() => handleEditGoal(goal)}
+                onDelete={() => handleDeleteGoal(goal.id)}
               />
             ))}
           </View>
@@ -172,7 +298,8 @@ export const GoalsScreen = ({ navigation }: any) => {
               <GoalCard
                 key={goal.id}
                 goal={goal}
-                onPress={() => handleEditGoal(goal)}
+                onEdit={() => handleEditGoal(goal)}
+                onDelete={() => handleDeleteGoal(goal.id)}
               />
             ))}
           </View>
@@ -189,20 +316,6 @@ export const GoalsScreen = ({ navigation }: any) => {
           </View>
         )}
       </ScrollView>
-
-      {/* FAB */}
-      <LinearGradient
-        colors={theme.gradients.primary}
-        style={styles.fabGradient}
-      >
-        <FAB
-          style={styles.fab}
-          icon="plus"
-          onPress={handleAddGoal}
-          size="medium"
-          color={theme.colors.textInverse}
-        />
-      </LinearGradient>
 
       {/* Add/Edit Goal Modal */}
       <AddGoalModal
@@ -222,14 +335,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
+
   },
+
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     padding: theme.spacing.md,
     paddingBottom: 100,
-    direction: 'rtl',
+    direction: 'ltr' as const,
   },
   summaryCard: {
     borderRadius: theme.borderRadius.xl,
@@ -303,6 +418,16 @@ const styles = StyleSheet.create({
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
   },
+  currencyBreakdown: {
+    marginTop: theme.spacing.xs,
+  },
+  currencyBreakdownText: {
+    fontSize: theme.typography.sizes.xs,
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontFamily: theme.typography.fontFamily,
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
   section: {
     marginBottom: theme.spacing.lg,
     direction: 'rtl',
@@ -315,7 +440,6 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     textAlign: 'left',
     writingDirection: 'rtl',
-    direction: 'rtl',
   },
   emptyState: {
     alignItems: 'center',
@@ -340,19 +464,5 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     writingDirection: 'rtl',
     lineHeight: 24,
-  },
-  fabGradient: {
-    position: 'absolute',
-    ...(isRTL ? { left: theme.spacing.lg } : { right: theme.spacing.lg }),
-    bottom: theme.spacing.lg,
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...theme.shadows.lg,
-  },
-  fab: {
-    backgroundColor: 'transparent',
   },
 });
