@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
-import { authenticateWithBiometric, verifyPassword, getAuthenticationMethod, getBiometricType } from '../services/authService';
+import { authenticateWithBiometric, verifyPassword, getAuthenticationMethod, getBiometricType, isBiometricAvailable } from '../services/authService';
 import { alertService } from '../services/alertService';
 
 interface LockScreenProps {
@@ -56,7 +56,6 @@ export const LockScreen: React.FC<LockScreenProps> = ({ onUnlock }) => {
       } else if (method === 'password') {
         setAuthMethod('password');
         // Also check if biometric is available as fallback
-        const { isBiometricAvailable } = await import('../services/authService');
         const available = await isBiometricAvailable();
         if (available) {
           const type = await getBiometricType();

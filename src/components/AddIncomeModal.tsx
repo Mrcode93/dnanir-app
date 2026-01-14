@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextInput, IconButton } from 'react-native-paper';
@@ -18,7 +19,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
 import { Income, IncomeSource, INCOME_SOURCES, CURRENCIES } from '../types';
-import { addIncome, updateIncome } from '../database/database';
+import { 
+  addIncome, 
+  updateIncome, 
+  getIncomeShortcuts, 
+  addIncomeShortcut, 
+  deleteIncomeShortcut,
+  updateIncomeShortcut,
+  IncomeShortcut,
+  getCustomCategories,
+  CustomCategory
+} from '../database/database';
 import { alertService } from '../services/alertService';
 import { useCurrency } from '../hooks/useCurrency';
 import { isRTL } from '../utils/rtl';
@@ -50,6 +61,12 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [slideAnim] = useState(new Animated.Value(0));
   const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
+  const [shortcuts, setShortcuts] = useState<IncomeShortcut[]>([]);
+  const [showShortcuts, setShowShortcuts] = useState(true);
+  const [showAddShortcutModal, setShowAddShortcutModal] = useState(false);
+  const [showEditShortcutModal, setShowEditShortcutModal] = useState(false);
+  const [editingShortcut, setEditingShortcut] = useState<IncomeShortcut | null>(null);
+  const [categories, setCategories] = useState<CustomCategory[]>([]);
 
   useEffect(() => {
     if (visible) {
@@ -87,16 +104,48 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
   }, [amount, currency, currencyCode]);
 
   useEffect(() => {
+    if (visible) {
+      loadCategories();
+    }
+  }, [visible]);
+
+  useEffect(() => {
     if (income) {
       setSource(income.source);
       setAmount(income.amount.toString());
       setDate(new Date(income.date));
       setDescription(income.description || '');
       setCurrency(income.currency || currencyCode);
+      setShowShortcuts(false);
     } else {
       resetForm();
+      setShowShortcuts(true);
+      loadShortcuts();
     }
   }, [income, visible, currencyCode]);
+
+  const loadShortcuts = async () => {
+    try {
+      const shortcutsData = await getIncomeShortcuts();
+      setShortcuts(shortcutsData);
+    } catch (error) {
+      // Ignore error
+    }
+  };
+
+  const loadCategories = async () => {
+    try {
+      const data = await getCustomCategories('income');
+      setCategories(data);
+      // Set default source if no source is selected
+      if (!income && data.length > 0) {
+        const defaultCat = data.find(cat => cat.name === 'راتب') || data[0];
+        setIncomeSource(defaultCat.name);
+      }
+    } catch (error) {
+      // Ignore error
+    }
+  };
 
   const resetForm = () => {
     setSource('');
@@ -139,7 +188,6 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
       onClose();
       resetForm();
     } catch (error) {
-      console.error('Error saving income:', error);
       alertService.error('خطأ', 'حدث خطأ أثناء حفظ الدخل');
     } finally {
       setLoading(false);
@@ -149,6 +197,109 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
   const handleClose = () => {
     resetForm();
     onClose();
+  };
+
+  const handleShortcutPress = async (shortcut: IncomeShortcut) => {
+    try {
+      const incomeData = {
+        source: shortcut.source,
+        amount: shortcut.amount,
+        date: new Date().toISOString().split('T')[0],
+        description: shortcut.description || '',
+        currency: shortcut.currency || currencyCode,
+      };
+
+      await addIncome(incomeData);
+      onSave?.();
+      onClose();
+      alertService.success('نجح', 'تم إضافة الدخل بنجاح');
+    } catch (error) {
+      alertService.error('خطأ', 'حدث خطأ أثناء إضافة الدخل');
+    }
+  };
+
+  const handleAddShortcut = async () => {
+    if (!source.trim()) {
+      alertService.warning('تنبيه', 'يرجى إدخال مصدر الدخل');
+      return;
+    }
+
+    if (!amount.trim() || isNaN(Number(amount)) || Number(amount) <= 0) {
+      alertService.warning('تنبيه', 'يرجى إدخال مبلغ صحيح');
+      return;
+    }
+
+    try {
+      // Debug: Check if function exists
+      if (typeof addIncomeShortcut !== 'function') {
+        alertService.error('خطأ', 'الدالة غير متاحة. يرجى إعادة تشغيل التطبيق');
+        return;
+      }
+      
+      await addIncomeShortcut({
+        source: source.trim(),
+        amount: Number(amount),
+        incomeSource: incomeSource,
+        currency: currency,
+        description: description.trim() || undefined,
+      });
+      await loadShortcuts();
+      setShowAddShortcutModal(false);
+      alertService.success('نجح', 'تم إضافة الاختصار بنجاح');
+    } catch (error) {
+      alertService.error('خطأ', 'حدث خطأ أثناء إضافة الاختصار');
+    }
+  };
+
+  const handleDeleteShortcut = async (id: number) => {
+    try {
+      await deleteIncomeShortcut(id);
+      await loadShortcuts();
+      alertService.success('نجح', 'تم حذف الاختصار بنجاح');
+    } catch (error) {
+      alertService.error('خطأ', `حدث خطأ أثناء حذف الاختصار: ${error}`);
+    }
+  };
+
+  const handleUpdateShortcut = async () => {
+    if (!editingShortcut) return;
+
+    if (!source.trim()) {
+      alertService.warning('تنبيه', 'يرجى إدخال المصدر');
+      return;
+    }
+
+    if (!amount.trim() || isNaN(Number(amount)) || Number(amount) <= 0) {
+      alertService.warning('تنبيه', 'يرجى إدخال مبلغ صحيح');
+      return;
+    }
+
+    try {
+      await updateIncomeShortcut(editingShortcut.id, {
+        source: source.trim(),
+        amount: Number(amount),
+        incomeSource: incomeSource,
+        currency: currency,
+        description: description.trim() || undefined,
+      });
+      await loadShortcuts();
+      setShowEditShortcutModal(false);
+      setEditingShortcut(null);
+      alertService.success('نجح', 'تم تحديث الاختصار بنجاح');
+    } catch (error) {
+      alertService.error('خطأ', 'حدث خطأ أثناء تحديث الاختصار');
+    }
+  };
+
+  const handleEditShortcutPress = (shortcut: IncomeShortcut) => {
+    // Fill form with shortcut data
+    setSource(shortcut.source);
+    setAmount(shortcut.amount.toString());
+    setIncomeSource(shortcut.incomeSource);
+    setCurrency(shortcut.currency || currencyCode);
+    setDescription(shortcut.description || '');
+    setEditingShortcut(shortcut);
+    setShowEditShortcutModal(true);
   };
 
   const sourceIcons: Record<IncomeSource, string> = {
@@ -165,6 +316,34 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
     investment: ['#8B5CF6', '#7C3AED'],
     gift: ['#EC4899', '#DB2777'],
     other: ['#6B7280', '#4B5563'],
+  };
+
+  // Helper function to get source info from database or fallback to defaults
+  const getSourceInfo = (sourceName: string) => {
+    const cat = categories.find(c => c.name === sourceName);
+    if (cat) {
+      return {
+        icon: cat.icon,
+        color: cat.color,
+        colors: [cat.color, cat.color],
+      };
+    }
+    // Fallback to default sources
+    const defaultKey = Object.keys(INCOME_SOURCES).find(
+      key => INCOME_SOURCES[key as IncomeSource] === sourceName
+    ) as IncomeSource;
+    if (defaultKey) {
+      return {
+        icon: sourceIcons[defaultKey] || 'ellipse',
+        color: sourceColors[defaultKey]?.[0] || '#6B7280',
+        colors: sourceColors[defaultKey] || ['#6B7280', '#4B5563'],
+      };
+    }
+    return {
+      icon: 'ellipse',
+      color: '#6B7280',
+      colors: ['#6B7280', '#4B5563'],
+    };
   };
 
   const translateY = slideAnim.interpolate({
@@ -205,11 +384,11 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
                 {/* Header */}
           <View style={styles.header}>
                   <View style={styles.headerLeft}>
-                    <View style={[styles.iconBadge, { backgroundColor: sourceColors[incomeSource][0] + '20' }]}>
+                    <View style={[styles.iconBadge, { backgroundColor: getSourceInfo(incomeSource).color + '20' }]}>
                       <Ionicons
-                        name={sourceIcons[incomeSource] as any}
+                        name={getSourceInfo(incomeSource).icon as any}
                         size={24}
-                        color={sourceColors[incomeSource][0]}
+                        color={getSourceInfo(incomeSource).color}
                       />
                     </View>
                     <View style={styles.headerText}>
@@ -234,6 +413,157 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
                   showsVerticalScrollIndicator={false}
                   keyboardShouldPersistTaps="handled"
                 >
+                  {/* Shortcuts Section - Only show when adding new income */}
+                  {!income && showShortcuts && shortcuts.length > 0 && (
+                    <View style={styles.shortcutsSection}>
+                      <View style={styles.shortcutsHeader}>
+                        <View style={styles.shortcutsHeaderLeft}>
+                          <View style={styles.shortcutsIconBadge}>
+                            <Ionicons name="flash" size={18} color={theme.colors.primary} />
+                          </View>
+                          <Text style={styles.shortcutsTitle}>الاختصارات السريعة</Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => setShowShortcuts(!showShortcuts)}
+                          style={styles.toggleButton}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons
+                            name={showShortcuts ? "chevron-up" : "chevron-down"}
+                            size={20}
+                            color={theme.colors.textSecondary}
+                          />
+                        </TouchableOpacity>
+                      </View>
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.shortcutsScroll}
+                        style={styles.shortcutsScrollView}
+                      >
+                        {shortcuts.map((shortcut, index) => (
+                          <View
+                            key={shortcut.id}
+                            style={[
+                              styles.shortcutCard,
+                              index === 0 && styles.shortcutCardFirst,
+                            ]}
+                          >
+                            <LinearGradient
+                              colors={getSourceInfo(shortcut.incomeSource).colors as any}
+                              style={styles.shortcutGradient}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 1 }}
+                            >
+                              <View style={styles.shortcutActions}>
+                                <TouchableOpacity
+                                  onPress={() => {
+                                    handleEditShortcutPress(shortcut);
+                                  }}
+                                  style={styles.shortcutEditButton}
+                                  activeOpacity={0.7}
+                                >
+                                  <Ionicons name="create" size={16} color="#FFFFFF" />
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                  onPress={() => {
+                                    Alert.alert(
+                                      'حذف الاختصار',
+                                      `هل تريد حذف "${shortcut.source}"؟`,
+                                      [
+                                        {
+                                          text: 'إلغاء',
+                                          style: 'cancel',
+                                        },
+                                        {
+                                          text: 'حذف',
+                                          style: 'destructive',
+                                          onPress: async () => {
+                                            await handleDeleteShortcut(shortcut.id);
+                                          },
+                                        },
+                                      ],
+                                      { cancelable: true }
+                                    );
+                                  }}
+                                  style={styles.shortcutDeleteButton}
+                                  activeOpacity={0.7}
+                                >
+                                  <Ionicons name="trash" size={16} color="#FFFFFF" />
+                                </TouchableOpacity>
+                              </View>
+                              <TouchableOpacity
+                                onPress={() => handleShortcutPress(shortcut)}
+                                style={styles.shortcutCardPressable}
+                                activeOpacity={0.8}
+                              >
+                                <View style={styles.shortcutIconContainer}>
+                                  <Ionicons
+                                    name={getSourceInfo(shortcut.incomeSource).icon as any}
+                                    size={28}
+                                    color="#FFFFFF"
+                                  />
+                                </View>
+                                <Text style={styles.shortcutTitle} numberOfLines={1}>
+                                  {shortcut.source}
+                                </Text>
+                                <Text style={styles.shortcutAmount}>
+                                  {formatCurrency(shortcut.amount)}
+                                </Text>
+                                <View style={styles.shortcutBadge}>
+                                  <Ionicons name="flash" size={10} color="#FFFFFF" />
+                                </View>
+                              </TouchableOpacity>
+                            </LinearGradient>
+                          </View>
+                        ))}
+                        <TouchableOpacity
+                          onPress={() => setShowAddShortcutModal(true)}
+                          style={styles.addShortcutButton}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.addShortcutContent}>
+                            <View style={styles.addShortcutIconContainer}>
+                              <Ionicons name="add" size={28} color={theme.colors.primary} />
+                            </View>
+                            <Text style={styles.addShortcutText}>إضافة اختصار</Text>
+                          </View>
+                        </TouchableOpacity>
+                      </ScrollView>
+                    </View>
+                  )}
+
+                  {/* Show add shortcut button if no shortcuts exist */}
+                  {!income && shortcuts.length === 0 && (
+                    <View style={styles.shortcutsSection}>
+                      <TouchableOpacity
+                        onPress={() => setShowAddShortcutModal(true)}
+                        style={styles.addFirstShortcutButton}
+                        activeOpacity={0.8}
+                      >
+                        <LinearGradient
+                          colors={['#10B981', '#059669'] as any}
+                          style={styles.addFirstShortcutGradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                        >
+                          <View style={styles.addFirstShortcutIconContainer}>
+                            <Ionicons name="flash" size={24} color="#FFFFFF" />
+                          </View>
+                          <View style={styles.addFirstShortcutTextContainer}>
+                            <Text style={styles.addFirstShortcutTitle}>
+                              أنشئ اختصاراً سريعاً
+                            </Text>
+                            <Text style={styles.addFirstShortcutSubtitle}>
+                              احفظ هذا الدخل كاختصار لإضافته بضغطة واحدة
+                            </Text>
+                          </View>
+                          <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
                   {/* Source Input */}
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>مصدر الدخل</Text>
@@ -344,37 +674,42 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
                       showsHorizontalScrollIndicator={false}
                       contentContainerStyle={styles.categoryScroll}
                     >
-                      {Object.entries(INCOME_SOURCES).map(([key, label]) => {
-                        const isSelected = incomeSource === key;
+                      {categories.map((cat) => {
+                        const isSelected = incomeSource === cat.name;
+                        // Parse color gradient from hex color
+                        const color1 = cat.color;
+                        const color2 = cat.color; // Use same color or create darker shade
+                        const colors = [color1, color2];
+                        
                         return (
                           <TouchableOpacity
-                            key={key}
-                            onPress={() => setIncomeSource(key as IncomeSource)}
+                            key={cat.id}
+                            onPress={() => setIncomeSource(cat.name)}
                             style={styles.categoryOption}
                             activeOpacity={0.7}
                           >
                             {isSelected ? (
                               <LinearGradient
-                                colors={sourceColors[key as IncomeSource] as any}
+                                colors={colors as any}
                                 style={styles.categoryGradient}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 1 }}
                               >
                                 <Ionicons
-                                  name={sourceIcons[key as IncomeSource] as any}
+                                  name={cat.icon as any}
                                   size={20}
                                   color="#FFFFFF"
                                 />
-                                <Text style={styles.categoryTextActive}>{label}</Text>
+                                <Text style={styles.categoryTextActive}>{cat.name}</Text>
                               </LinearGradient>
                             ) : (
                               <View style={styles.categoryDefault}>
                                 <Ionicons
-                                  name={`${sourceIcons[key as IncomeSource]}-outline` as any}
+                                  name={`${cat.icon}-outline` as any}
                                   size={20}
                                   color={theme.colors.textSecondary}
                                 />
-                                <Text style={styles.categoryText}>{label}</Text>
+                                <Text style={styles.categoryText}>{cat.name}</Text>
                               </View>
                             )}
                           </TouchableOpacity>
@@ -410,8 +745,27 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
               style={styles.cancelButton}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.cancelButtonText}>إلغاء</Text>
+                    <View style={styles.cancelButtonContent}>
+                      <Ionicons name="close-outline" size={18} color={theme.colors.textSecondary} />
+                      <Text style={styles.cancelButtonText}>إلغاء</Text>
+                    </View>
                   </TouchableOpacity>
+                  {!income && (
+                    <TouchableOpacity
+                      onPress={() => setShowAddShortcutModal(true)}
+                      style={styles.addShortcutActionButton}
+                      activeOpacity={0.8}
+                    >
+                      <LinearGradient
+                        colors={[theme.colors.primary + '15', theme.colors.primary + '25'] as any}
+                        style={styles.addShortcutActionGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                      >
+                        <Ionicons name="flash" size={20} color={theme.colors.primary} />
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  )}
                   <TouchableOpacity
               onPress={handleSave}
               disabled={loading}
@@ -419,16 +773,19 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
                     activeOpacity={0.8}
                   >
                     <LinearGradient
-                      colors={sourceColors[incomeSource] as any}
+                      colors={getSourceInfo(incomeSource).colors as any}
                       style={styles.saveButtonGradient}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                     >
                       {loading ? (
-                        <Text style={styles.saveButtonText}>جاري الحفظ...</Text>
+                        <>
+                          <Ionicons name="hourglass-outline" size={18} color="#FFFFFF" />
+                          <Text style={styles.saveButtonText}>جاري الحفظ...</Text>
+                        </>
                       ) : (
                         <>
-                          <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                          <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
                           <Text style={styles.saveButtonText}>
               {income ? 'تحديث' : 'حفظ'}
                           </Text>
@@ -502,6 +859,146 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
                   </TouchableOpacity>
                 ))}
               </ScrollView>
+            </LinearGradient>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Add Shortcut Confirmation Modal */}
+      <Modal
+        visible={showAddShortcutModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowAddShortcutModal(false)}
+      >
+        <Pressable
+          style={styles.shortcutModalOverlay}
+          onPress={() => setShowAddShortcutModal(false)}
+        >
+          <Pressable
+            style={styles.shortcutModalContainer}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <LinearGradient
+              colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
+              style={styles.shortcutModalGradient}
+            >
+              <View style={styles.shortcutModalHeader}>
+                <Text style={styles.shortcutModalTitle}>إضافة اختصار</Text>
+                <TouchableOpacity
+                  onPress={() => setShowAddShortcutModal(false)}
+                  style={styles.shortcutModalCloseButton}
+                >
+                  <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.shortcutModalContent}>
+                <Text style={styles.shortcutModalText}>
+                  هل تريد إضافة "{source || 'دخل جديد'}" كاختصار سريع؟
+                </Text>
+                <Text style={styles.shortcutModalSubtext}>
+                  يمكنك الضغط على الاختصار لإضافة الدخل مباشرة
+                </Text>
+              </View>
+              <View style={styles.shortcutModalActions}>
+                <TouchableOpacity
+                  onPress={() => setShowAddShortcutModal(false)}
+                  style={styles.shortcutModalCancelButton}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.shortcutModalCancelText}>إلغاء</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleAddShortcut}
+                  style={styles.shortcutModalSaveButton}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={theme.gradients.primary as any}
+                    style={styles.shortcutModalSaveGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Text style={styles.shortcutModalSaveText}>إضافة</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Edit Shortcut Modal */}
+      <Modal
+        visible={showEditShortcutModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          setShowEditShortcutModal(false);
+          setEditingShortcut(null);
+        }}
+      >
+        <Pressable
+          style={styles.shortcutModalOverlay}
+          onPress={() => {
+            setShowEditShortcutModal(false);
+            setEditingShortcut(null);
+          }}
+        >
+          <Pressable
+            style={styles.shortcutModalContainer}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <LinearGradient
+              colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
+              style={styles.shortcutModalGradient}
+            >
+              <View style={styles.shortcutModalHeader}>
+                <Text style={styles.shortcutModalTitle}>تعديل الاختصار</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowEditShortcutModal(false);
+                    setEditingShortcut(null);
+                  }}
+                  style={styles.shortcutModalCloseButton}
+                >
+                  <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.shortcutModalContent}>
+                <Text style={styles.shortcutModalText}>
+                  قم بتعديل بيانات الاختصار في النموذج أعلاه
+                </Text>
+                <Text style={styles.shortcutModalSubtext}>
+                  بعد التعديل، اضغط على "تحديث" لحفظ التغييرات
+                </Text>
+              </View>
+              <View style={styles.shortcutModalActions}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowEditShortcutModal(false);
+                    setEditingShortcut(null);
+                  }}
+                  style={styles.shortcutModalCancelButton}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.shortcutModalCancelText}>إلغاء</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleUpdateShortcut}
+                  style={styles.shortcutModalSaveButton}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={theme.gradients.primary as any}
+                    style={styles.shortcutModalSaveGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Text style={styles.shortcutModalSaveText}>تحديث</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
             </LinearGradient>
           </Pressable>
         </Pressable>
@@ -666,30 +1163,55 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
-    padding: theme.spacing.lg,
-    paddingBottom: theme.spacing.xl,
-    gap: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.lg,
+    gap: theme.spacing.sm,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceCard,
     flexShrink: 0,
+    alignItems: 'center',
   },
   cancelButton: {
     flex: 1,
-    paddingVertical: theme.spacing.md,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: theme.borderRadius.md,
     backgroundColor: theme.colors.surfaceLight,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+  },
+  cancelButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
   },
   cancelButtonText: {
-    fontSize: theme.typography.sizes.md,
+    fontSize: theme.typography.sizes.sm,
     fontWeight: '600',
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     writingDirection: 'rtl',
   },
+  addShortcutActionButton: {
+    width: 48,
+    height: 48,
+    borderRadius: theme.borderRadius.md,
+    overflow: 'hidden',
+    ...theme.shadows.sm,
+  },
+  addShortcutActionGradient: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   saveButton: {
     flex: 2,
+    height: 48,
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
     ...theme.shadows.md,
@@ -698,11 +1220,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: theme.spacing.md,
+    height: '100%',
     gap: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
   },
   saveButtonText: {
-    fontSize: theme.typography.sizes.md,
+    fontSize: theme.typography.sizes.sm,
     fontWeight: '700',
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
@@ -805,5 +1328,303 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
     fontStyle: 'italic',
+  },
+  shortcutsSection: {
+    marginBottom: theme.spacing.xl,
+    paddingTop: theme.spacing.md,
+  },
+  shortcutsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+    paddingHorizontal: theme.spacing.xs,
+  },
+  shortcutsHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  shortcutsIconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: theme.colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shortcutsTitle: {
+    fontSize: theme.typography.sizes.lg,
+    fontWeight: '700',
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
+    writingDirection: 'rtl',
+  },
+  toggleButton: {
+    padding: theme.spacing.xs,
+    borderRadius: theme.borderRadius.sm,
+    backgroundColor: theme.colors.surfaceLight,
+  },
+  shortcutsScrollView: {
+    marginHorizontal: -theme.spacing.lg,
+    paddingHorizontal: theme.spacing.lg,
+  },
+  shortcutsScroll: {
+    paddingVertical: theme.spacing.xs,
+    gap: theme.spacing.md,
+    paddingRight: theme.spacing.xs,
+  },
+  shortcutCard: {
+    width: 140,
+    borderRadius: theme.borderRadius.lg,
+    overflow: 'hidden',
+    ...theme.shadows.lg,
+    marginRight: theme.spacing.xs,
+  },
+  shortcutCardFirst: {
+    marginRight: 0,
+  },
+  shortcutGradient: {
+    padding: theme.spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 140,
+    position: 'relative',
+  },
+  shortcutActions: {
+    position: 'absolute',
+    top: theme.spacing.xs,
+    right: theme.spacing.xs,
+    flexDirection: 'row',
+    gap: theme.spacing.xs,
+    zIndex: 10,
+  },
+  shortcutEditButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(59, 130, 246, 0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...theme.shadows.sm,
+  },
+  shortcutDeleteButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(239, 68, 68, 0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...theme.shadows.sm,
+  },
+  shortcutIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  shortcutTitle: {
+    fontSize: theme.typography.sizes.md,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    fontFamily: theme.typography.fontFamily,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+    marginBottom: theme.spacing.xs,
+  },
+  shortcutAmount: {
+    fontSize: theme.typography.sizes.sm,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    fontFamily: theme.typography.fontFamily,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+    opacity: 0.95,
+  },
+  shortcutBadge: {
+    position: 'absolute',
+    top: theme.spacing.sm,
+    left: theme.spacing.sm,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addShortcutButton: {
+    width: 140,
+    minHeight: 140,
+    borderRadius: theme.borderRadius.lg,
+    backgroundColor: theme.colors.surfaceLight,
+    borderWidth: 2.5,
+    borderColor: theme.colors.primary + '40',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: theme.spacing.xs,
+    ...theme.shadows.sm,
+  },
+  addShortcutContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.sm,
+  },
+  addShortcutIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: theme.colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addShortcutText: {
+    fontSize: theme.typography.sizes.sm,
+    fontWeight: '600',
+    color: theme.colors.primary,
+    fontFamily: theme.typography.fontFamily,
+    writingDirection: 'rtl',
+    textAlign: 'center',
+  },
+  addFirstShortcutButton: {
+    borderRadius: theme.borderRadius.lg,
+    overflow: 'hidden',
+    ...theme.shadows.md,
+  },
+  addFirstShortcutGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: theme.spacing.lg,
+    gap: theme.spacing.md,
+  },
+  addFirstShortcutIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addFirstShortcutTextContainer: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+  addFirstShortcutTitle: {
+    fontSize: theme.typography.sizes.md,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    fontFamily: theme.typography.fontFamily,
+    writingDirection: 'rtl',
+    marginBottom: theme.spacing.xs,
+  },
+  addFirstShortcutSubtitle: {
+    fontSize: theme.typography.sizes.xs,
+    fontWeight: '400',
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontFamily: theme.typography.fontFamily,
+    writingDirection: 'rtl',
+    lineHeight: 18,
+  },
+  addShortcutActionButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.surfaceLight,
+    marginRight: theme.spacing.sm,
+  },
+  shortcutModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.lg,
+  },
+  shortcutModalContainer: {
+    width: '90%',
+    maxWidth: 400,
+    borderRadius: theme.borderRadius.xl,
+    overflow: 'hidden',
+    ...theme.shadows.lg,
+  },
+  shortcutModalGradient: {
+    padding: theme.spacing.lg,
+  },
+  shortcutModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.lg,
+  },
+  shortcutModalTitle: {
+    fontSize: theme.typography.sizes.xl,
+    fontWeight: '700',
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
+    writingDirection: 'rtl',
+  },
+  shortcutModalCloseButton: {
+    padding: theme.spacing.xs,
+  },
+  shortcutModalContent: {
+    marginBottom: theme.spacing.lg,
+  },
+  shortcutModalText: {
+    fontSize: theme.typography.sizes.md,
+    fontWeight: '600',
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
+    marginBottom: theme.spacing.sm,
+    writingDirection: 'rtl',
+    textAlign: 'right',
+  },
+  shortcutModalSubtext: {
+    fontSize: theme.typography.sizes.sm,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+    writingDirection: 'rtl',
+    textAlign: 'right',
+  },
+  shortcutModalActions: {
+    flexDirection: 'row',
+    gap: theme.spacing.md,
+  },
+  shortcutModalCancelButton: {
+    flex: 1,
+    paddingVertical: theme.spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.surfaceLight,
+  },
+  shortcutModalCancelText: {
+    fontSize: theme.typography.sizes.md,
+    fontWeight: '600',
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+    writingDirection: 'rtl',
+  },
+  shortcutModalSaveButton: {
+    flex: 1,
+    borderRadius: theme.borderRadius.md,
+    overflow: 'hidden',
+    ...theme.shadows.md,
+  },
+  shortcutModalSaveGradient: {
+    paddingVertical: theme.spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shortcutModalSaveText: {
+    fontSize: theme.typography.sizes.md,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    fontFamily: theme.typography.fontFamily,
+    writingDirection: 'rtl',
   },
 });

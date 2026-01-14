@@ -21,7 +21,7 @@ interface CustomAlertProps {
   type?: AlertType;
   confirmText?: string;
   cancelText?: string;
-  onConfirm?: () => void;
+  onConfirm?: () => void | Promise<void>;
   onCancel?: () => void;
   showCancel?: boolean;
 }
@@ -37,6 +37,8 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
   onCancel,
   showCancel = false,
 }) => {
+  React.useEffect(() => {
+  }, [visible, title, message, type, showCancel]);
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
@@ -104,12 +106,12 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
   const colors = getTypeColors();
   const icon = getTypeIcon();
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (onConfirm) {
       try {
-      onConfirm();
+        await onConfirm();
       } catch (error) {
-        console.error('Error in CustomAlert handleConfirm:', error);
+        // Ignore error
       }
     }
   };
@@ -120,14 +122,21 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
     }
   };
 
+  if (!visible) {
+    return null;
+  }
+
   return (
     <Modal
       visible={visible}
       transparent={true}
-      animationType="none"
+      animationType="fade"
       onRequestClose={handleCancel}
+      statusBarTranslucent={true}
+      presentationStyle="overFullScreen"
+      hardwareAccelerated={true}
     >
-      <View style={styles.overlay}>
+      <View style={styles.overlay} pointerEvents="box-none">
         <Animated.View
           style={[
             styles.overlayAnimated,
@@ -144,6 +153,7 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
               opacity: opacityAnim,
             },
           ]}
+          pointerEvents="auto"
         >
           <View style={styles.alertContent}>
             {/* Icon Section */}
@@ -211,10 +221,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: theme.spacing.lg,
+    zIndex: 99999,
+    elevation: 99999,
+    backgroundColor: 'transparent',
   },
   overlayAnimated: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    zIndex: 10000,
+    elevation: 10000,
   },
   alertContainer: {
     width: width * 0.85,
@@ -222,6 +237,8 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.xl,
     overflow: 'hidden',
     ...theme.shadows.lg,
+    zIndex: 10001,
+    elevation: 10001,
   },
   alertContent: {
     backgroundColor: theme.colors.surfaceCard,

@@ -16,12 +16,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme, getTheme } from '../utils/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Budget } from '../database/database';
+import { Budget, getCustomCategories, addBudget, updateBudget } from '../database/database';
 import { EXPENSE_CATEGORIES, CURRENCIES } from '../types';
-import { getCustomCategories } from '../database/database';
 import { useCurrency } from '../hooks/useCurrency';
 import { isRTL } from '../utils/rtl';
 import { convertCurrency } from '../services/currencyService';
+import { alertService } from '../services/alertService';
 
 interface AddBudgetModalProps {
   visible: boolean;
@@ -110,26 +110,21 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
 
   const handleSave = async () => {
     if (!amount.trim()) {
-      const { alertService } = await import('../services/alertService');
       alertService.warning('تنبيه', 'يرجى إدخال مبلغ الميزانية');
       return;
     }
 
     if (isNaN(Number(amount)) || Number(amount) <= 0) {
-      const { alertService } = await import('../services/alertService');
       alertService.warning('تنبيه', 'يرجى إدخال مبلغ صحيح');
       return;
     }
 
     if (!selectedCategory) {
-      const { alertService } = await import('../services/alertService');
       alertService.warning('تنبيه', 'يرجى اختيار فئة للميزانية');
       return;
     }
 
     try {
-      const { addBudget, updateBudget } = await import('../database/database');
-      const { alertService } = await import('../services/alertService');
       const now = new Date();
       const month = (now.getMonth() + 1).toString().padStart(2, '0');
       const year = now.getFullYear();
@@ -158,7 +153,6 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
       onClose();
     } catch (error) {
       console.error('Error saving budget:', error);
-      const { alertService } = await import('../services/alertService');
       alertService.error('خطأ', 'حدث خطأ أثناء حفظ الميزانية');
     }
   };

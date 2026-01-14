@@ -26,6 +26,8 @@ import { convertCurrency, formatCurrencyAmount } from '../services/currencyServi
 import { ConfirmAlert } from '../components/ConfirmAlert';
 import { alertService } from '../services/alertService';
 import { isRTL } from '../utils/rtl';
+import { MonthFilter } from '../components/MonthFilter';
+import { getMonthData } from '../services/financialService';
 
 export const BudgetScreen = ({ navigation, route }: any) => {
   const { formatCurrency, currencyCode } = useCurrency();
@@ -44,10 +46,87 @@ export const BudgetScreen = ({ navigation, route }: any) => {
   const [selectedBudget, setSelectedBudget] = useState<BudgetStatus | null>(null);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const filterMenuAnim = useRef(new Animated.Value(0)).current;
+  // Month filter state - default to current month
+  const [selectedMonth, setSelectedMonth] = useState<{ year: number; month: number }>(() => {
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() + 1 };
+  });
+  const [availableMonths, setAvailableMonths] = useState<Array<{ year: number; month: number }>>([]);
 
   const loadData = async () => {
     try {
-      const statuses = await calculateBudgetStatus();
+      // Get available months (months that have expenses or budgets)
+      const { getExpenses, getBudgets } = await import('../database/database');
+      const allExpenses = await getExpenses();
+      const allBudgets = await getBudgets();
+      
+      const monthsSet = new Set<string>();
+      // Add months from expenses
+      allExpenses.forEach(expense => {
+        const date = new Date(expense.date);
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        monthsSet.add(`${year}-${month}`);
+      });
+      // Add months from budgets
+      allBudgets.forEach(budget => {
+        monthsSet.add(`${budget.year}-${parseInt(budget.month)}`);
+      });
+      
+      const months = Array.from(monthsSet).map(key => {
+        const [year, month] = key.split('-').map(Number);
+        return { year, month };
+      });
+      setAvailableMonths(months);
+      
+      // Get month data based on selected month
+      let monthData;
+      let monthBudgets: any[] = [];
+      
+      if (selectedMonth && (selectedMonth.year !== 0 || selectedMonth.month !== 0)) {
+        // Specific month selected
+        monthData = await getMonthData(selectedMonth.year, selectedMonth.month);
+        const targetMonth = selectedMonth.month.toString().padStart(2, '0');
+        const targetYear = selectedMonth.year;
+        
+        // Get budgets for the selected month
+        const { getBudgets } = await import('../database/database');
+        monthBudgets = await getBudgets(targetMonth, targetYear);
+      } else {
+        // "All" selected - get all budgets and all expenses
+        const { getExpenses } = await import('../database/database');
+        const allExpenses = await getExpenses();
+        const allIncome = await (await import('../database/database')).getIncome();
+        
+        monthData = {
+          expenses: allExpenses,
+          income: allIncome,
+        };
+        
+        // Get all budgets
+        const { getBudgets } = await import('../database/database');
+        monthBudgets = await getBudgets(); // No parameters = all budgets
+      }
+      
+      // Calculate budget status for selected period
+      const statuses = monthBudgets.map(budget => {
+        const periodExpenses = monthData.expenses.filter(
+          (expense) => expense.category === budget.category
+        );
+        const spent = periodExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+        const remaining = budget.amount - spent;
+        const percentage = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
+        const isExceeded = spent > budget.amount;
+        
+        return {
+          budget,
+          spent,
+          remaining,
+          percentage,
+          isExceeded,
+        };
+      });
+      
       setBudgets(statuses);
       
       const customCats = await getCustomCategories('expense');
@@ -77,7 +156,7 @@ export const BudgetScreen = ({ navigation, route }: any) => {
     loadData();
     const unsubscribe = navigation.addListener('focus', loadData);
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, selectedMonth]);
 
   useEffect(() => {
     if (route?.params?.action === 'add') {
@@ -325,7 +404,7 @@ export const BudgetScreen = ({ navigation, route }: any) => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={[]}>
       {/* Header with Search and Filter */}
       <View style={styles.header}>
         <View style={styles.searchContainer}>
@@ -336,6 +415,16 @@ export const BudgetScreen = ({ navigation, route }: any) => {
             style={styles.searchBar}
             inputStyle={styles.searchInput}
             placeholderTextColor={theme.colors.textMuted}
+          />
+        </View>
+        
+        {/* Month Filter */}
+        <View style={styles.monthFilterContainer}>
+          <MonthFilter
+            selectedMonth={selectedMonth}
+            onMonthChange={(year, month) => setSelectedMonth({ year, month })}
+            showAllOption={true}
+            availableMonths={availableMonths}
           />
         </View>
 
@@ -637,6 +726,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
+    direction: 'rtl',
   },
   header: {
     padding: theme.spacing.md,
@@ -644,9 +734,10 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surfaceCard,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
+    direction: 'rtl',
   },
   headerTitleRow: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: theme.spacing.md,
@@ -666,6 +757,10 @@ const styles = StyleSheet.create({
   searchContainer: {
     marginBottom: theme.spacing.sm,
   },
+  monthFilterContainer: {
+    marginBottom: theme.spacing.md,
+    alignItems: 'flex-start',
+  },
   searchBar: {
     backgroundColor: theme.colors.surfaceLight,
     elevation: 0,
@@ -673,10 +768,11 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     fontFamily: theme.typography.fontFamily,
-    textAlign: isRTL ? 'right' : 'left',
+    textAlign: isRTL ? 'left' : 'right',
   },
   filterRow: {
     marginBottom: theme.spacing.md,
+    direction: 'rtl' as const,
   },
   filterRowContent: {
     gap: theme.spacing.xs,
@@ -688,14 +784,14 @@ const styles = StyleSheet.create({
     ...theme.shadows.sm,
   },
   filterButtonGradient: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing.xs,
     gap: theme.spacing.xs,
   },
   filterButtonDefault: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     backgroundColor: theme.colors.surfaceLight,
     paddingHorizontal: theme.spacing.sm,
@@ -716,7 +812,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   summaryRow: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     gap: theme.spacing.sm,
   },
   summaryCard: {
@@ -732,7 +828,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
-    textAlign: 'center',
+    textAlign: 'right',
   },
   summaryAmount: {
     fontSize: theme.typography.sizes.lg,
@@ -760,13 +856,13 @@ const styles = StyleSheet.create({
     borderColor: '#FEF3C7',
   },
   budgetHeader: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: theme.spacing.md,
   },
   budgetCategory: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     flex: 1,
     gap: theme.spacing.md,
@@ -810,7 +906,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   budgetDetails: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     justifyContent: 'space-around',
     paddingTop: theme.spacing.md,
     borderTopWidth: 1,
@@ -870,7 +966,7 @@ const styles = StyleSheet.create({
     maxHeight: '70%',
   },
   filterMenuHeader: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: theme.spacing.lg,
@@ -901,13 +997,13 @@ const styles = StyleSheet.create({
     ...theme.shadows.md,
   },
   filterMenuItemGradient: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     padding: theme.spacing.md,
     gap: theme.spacing.sm,
   },
   filterMenuItemDefault: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     padding: theme.spacing.md,
     backgroundColor: theme.colors.surfaceLight,
@@ -940,7 +1036,7 @@ const styles = StyleSheet.create({
     ...theme.shadows.lg,
   },
   menuItem: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     padding: theme.spacing.md,
     borderRadius: theme.borderRadius.sm,

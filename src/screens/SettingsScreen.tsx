@@ -25,9 +25,14 @@ import { getUserSettings, getAppSettings, upsertAppSettings, getNotificationSett
 import { initializeNotifications, requestPermissions, scheduleDailyReminder, sendExpenseReminder, cancelNotification, rescheduleAllNotifications, sendTestNotification, verifyScheduledNotifications } from '../services/notificationService';
 import { generateMonthlyReport, sharePDF } from '../services/pdfService';
 import { AuthSettingsModal } from '../components/AuthSettingsModal';
+import { AuthModal } from '../components/AuthModal';
+import { ConfirmAlert } from '../components/ConfirmAlert';
 import { CURRENCIES, Currency } from '../types';
 import { alertService } from '../services/alertService';
 import { getExchangeRate, upsertExchangeRate } from '../database/database';
+import * as Notifications from 'expo-notifications';
+import { authApiService } from '../services/authApiService';
+import { generateMockData } from '../utils/mockData';
 
 export const SettingsScreen = ({ navigation }: any) => {
   const [userName, setUserName] = useState<string>('');
@@ -40,29 +45,66 @@ export const SettingsScreen = ({ navigation }: any) => {
   const [showDailyTimePicker, setShowDailyTimePicker] = useState(false);
   const [showExpenseTimePicker, setShowExpenseTimePicker] = useState(false);
   const [exportingPDF, setExportingPDF] = useState(false);
+  const [generatingMockData, setGeneratingMockData] = useState(false);
   const [selectedCurrency, setSelectedCurrency] = useState<string>('IQD');
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [showAuthSettings, setShowAuthSettings] = useState(false);
   const [showExchangeRateModal, setShowExchangeRateModal] = useState(false);
   const [usdToIqdRate, setUsdToIqdRate] = useState<string>('1315');
+  const [showMockDataConfirm, setShowMockDataConfirm] = useState(false);
   const [showCurrencyConverter, setShowCurrencyConverter] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
   const [editingName, setEditingName] = useState<string>('');
-  const [tempHour, setTempHour] = useState<number>(20);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userPhone, setUserPhone] = useState<string>('');
+  const [tempHour, setTempHour] = useState<number>(8); // 12-hour format (1-12)
   const [tempMinute, setTempMinute] = useState<number>(0);
+  const [tempAmPm, setTempAmPm] = useState<'ص' | 'م'>('م');
   const dailyHourScrollRef = useRef<ScrollView>(null);
   const dailyMinuteScrollRef = useRef<ScrollView>(null);
+  const dailyAmPmScrollRef = useRef<ScrollView>(null);
   const expenseHourScrollRef = useRef<ScrollView>(null);
   const expenseMinuteScrollRef = useRef<ScrollView>(null);
+  const expenseAmPmScrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     loadSettings();
+    checkAuthStatus();
     // Reload settings when screen comes into focus (to reflect currency changes)
-    const unsubscribe = navigation?.addListener?.('focus', loadSettings);
+    const unsubscribe = navigation?.addListener?.('focus', () => {
+      loadSettings();
+      checkAuthStatus();
+    });
     return () => {
       if (unsubscribe) unsubscribe();
     };
   }, [navigation]);
+
+  const checkAuthStatus = async () => {
+    try {
+      const auth = await authApiService.isAuthenticated();
+      setIsAuthenticated(auth);
+      // Optionally get user info if authenticated
+      if (auth) {
+        // You can extend authApiService to get user info
+      }
+    } catch (error) {
+      // Ignore error
+      setIsAuthenticated(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await authApiService.logout();
+      setIsAuthenticated(false);
+      setUserPhone('');
+      alertService.success('نجح', 'تم تسجيل الخروج بنجاح');
+    } catch (error) {
+      alertService.error('خطأ', 'فشل تسجيل الخروج');
+    }
+  };
 
   const loadSettings = async () => {
     try {
@@ -121,7 +163,7 @@ export const SettingsScreen = ({ navigation }: any) => {
         setUsdToIqdRate('1');
       }
     } catch (error) {
-      console.error('Error loading settings:', error);
+      // Ignore error
     }
   };
 
@@ -146,19 +188,16 @@ export const SettingsScreen = ({ navigation }: any) => {
       }
     } else {
       // Cancel all notifications when disabled
-      const { cancelAllScheduledNotificationsAsync } = await import('expo-notifications');
-      await cancelAllScheduledNotificationsAsync();
+      await Notifications.cancelAllScheduledNotificationsAsync();
     }
   };
 
   const handleDailyReminderToggle = async (value: boolean) => {
-    console.log('[SettingsScreen] handleDailyReminderToggle:', value);
     setDailyReminder(value);
     let notificationSettings = await getNotificationSettings();
     
     // Create default settings if they don't exist
     if (!notificationSettings) {
-      console.log('[SettingsScreen] No notification settings found, creating default...');
       notificationSettings = {
         dailyReminder: 0,
         dailyReminderTime: '20:00',
@@ -176,30 +215,24 @@ export const SettingsScreen = ({ navigation }: any) => {
     });
     
     if (value) {
-      console.log('[SettingsScreen] Enabling daily reminder, calling scheduleDailyReminder...');
       try {
         await scheduleDailyReminder();
-        console.log('[SettingsScreen] scheduleDailyReminder completed');
       } catch (error) {
-        console.error('[SettingsScreen] Error in scheduleDailyReminder:', error);
         alertService.error('خطأ', 'فشل جدولة التذكير اليومي');
       }
     } else {
       // Cancel the notification if disabled
-      console.log('[SettingsScreen] Disabling daily reminder, canceling notifications...');
       await cancelNotification('daily-reminder');
       await cancelNotification('daily-reminder-repeat');
     }
   };
 
   const handleExpenseReminderToggle = async (value: boolean) => {
-    console.log('[SettingsScreen] handleExpenseReminderToggle:', value);
     setExpenseReminder(value);
     let notificationSettings = await getNotificationSettings();
     
     // Create default settings if they don't exist
     if (!notificationSettings) {
-      console.log('[SettingsScreen] No notification settings found, creating default...');
       notificationSettings = {
         dailyReminder: 0,
         dailyReminderTime: '20:00',
@@ -217,17 +250,13 @@ export const SettingsScreen = ({ navigation }: any) => {
     });
     
     if (value) {
-      console.log('[SettingsScreen] Enabling expense reminder, calling sendExpenseReminder...');
       try {
         await sendExpenseReminder();
-        console.log('[SettingsScreen] sendExpenseReminder completed');
       } catch (error) {
-        console.error('[SettingsScreen] Error in sendExpenseReminder:', error);
         alertService.error('خطأ', 'فشل جدولة تذكير المصاريف');
       }
     } else {
       // Cancel the notification if disabled
-      console.log('[SettingsScreen] Disabling expense reminder, canceling notifications...');
       await cancelNotification('expense-reminder');
       await cancelNotification('expense-reminder-repeat');
     }
@@ -280,43 +309,66 @@ export const SettingsScreen = ({ navigation }: any) => {
   };
 
   const handleOpenDailyTimePicker = () => {
-    const hour = dailyReminderTime.getHours();
+    const hour24 = dailyReminderTime.getHours();
     const minute = dailyReminderTime.getMinutes();
-    setTempHour(hour);
+    
+    // Convert 24-hour to 12-hour format
+    let hour12 = hour24 % 12;
+    if (hour12 === 0) hour12 = 12;
+    const amPm: 'ص' | 'م' = hour24 >= 12 ? 'م' : 'ص';
+    
+    setTempHour(hour12);
     setTempMinute(minute);
+    setTempAmPm(amPm);
     setShowDailyTimePicker(true);
     setTimeout(() => {
-      dailyHourScrollRef.current?.scrollTo({ y: hour * 50, animated: false });
+      dailyHourScrollRef.current?.scrollTo({ y: (hour12 - 1) * 50, animated: false });
       dailyMinuteScrollRef.current?.scrollTo({ y: minute * 50, animated: false });
+      dailyAmPmScrollRef.current?.scrollTo({ y: amPm === 'ص' ? 0 : 50, animated: false });
     }, 100);
   };
 
   const handleOpenExpenseTimePicker = () => {
-    const hour = expenseReminderTime.getHours();
+    const hour24 = expenseReminderTime.getHours();
     const minute = expenseReminderTime.getMinutes();
-    setTempHour(hour);
+    
+    // Convert 24-hour to 12-hour format
+    let hour12 = hour24 % 12;
+    if (hour12 === 0) hour12 = 12;
+    const amPm: 'ص' | 'م' = hour24 >= 12 ? 'م' : 'ص';
+    
+    setTempHour(hour12);
     setTempMinute(minute);
+    setTempAmPm(amPm);
     setShowExpenseTimePicker(true);
     setTimeout(() => {
-      expenseHourScrollRef.current?.scrollTo({ y: hour * 50, animated: false });
+      expenseHourScrollRef.current?.scrollTo({ y: (hour12 - 1) * 50, animated: false });
       expenseMinuteScrollRef.current?.scrollTo({ y: minute * 50, animated: false });
+      expenseAmPmScrollRef.current?.scrollTo({ y: amPm === 'ص' ? 0 : 50, animated: false });
     }, 100);
   };
 
   const handleDailyTimeConfirm = async () => {
     setShowDailyTimePicker(false);
+    
+    // Convert 12-hour to 24-hour format
+    let hour24 = tempHour;
+    if (tempAmPm === 'م' && tempHour !== 12) {
+      hour24 = tempHour + 12;
+    } else if (tempAmPm === 'ص' && tempHour === 12) {
+      hour24 = 0;
+    }
+    
     const newTime = new Date();
-    newTime.setHours(tempHour, tempMinute, 0, 0);
+    newTime.setHours(hour24, tempMinute, 0, 0);
     setDailyReminderTime(newTime);
     
-    const timeString = `${tempHour.toString().padStart(2, '0')}:${tempMinute.toString().padStart(2, '0')}`;
-    console.log(`[SettingsScreen] Daily reminder time changed to: ${timeString}`);
+    const timeString = `${hour24.toString().padStart(2, '0')}:${tempMinute.toString().padStart(2, '0')}`;
     
     let notificationSettings = await getNotificationSettings();
     
     // Create default settings if they don't exist
     if (!notificationSettings) {
-      console.log('[SettingsScreen] No notification settings found, creating default...');
       notificationSettings = {
         dailyReminder: dailyReminder ? 1 : 0,
         dailyReminderTime: timeString,
@@ -334,13 +386,10 @@ export const SettingsScreen = ({ navigation }: any) => {
     });
     
     if (dailyReminder) {
-      console.log('[SettingsScreen] Daily reminder is enabled, calling scheduleDailyReminder after time change...');
       try {
         await scheduleDailyReminder();
-        console.log('[SettingsScreen] scheduleDailyReminder completed after time change');
         alertService.success('نجح', `تم تعيين وقت التذكير اليومي إلى ${timeString}`);
       } catch (error) {
-        console.error('[SettingsScreen] Error in scheduleDailyReminder after time change:', error);
         alertService.error('خطأ', 'فشل جدولة التذكير اليومي');
       }
     }
@@ -348,18 +397,25 @@ export const SettingsScreen = ({ navigation }: any) => {
 
   const handleExpenseTimeConfirm = async () => {
     setShowExpenseTimePicker(false);
+    
+    // Convert 12-hour to 24-hour format
+    let hour24 = tempHour;
+    if (tempAmPm === 'م' && tempHour !== 12) {
+      hour24 = tempHour + 12;
+    } else if (tempAmPm === 'ص' && tempHour === 12) {
+      hour24 = 0;
+    }
+    
     const newTime = new Date();
-    newTime.setHours(tempHour, tempMinute, 0, 0);
+    newTime.setHours(hour24, tempMinute, 0, 0);
     setExpenseReminderTime(newTime);
     
-    const timeString = `${tempHour.toString().padStart(2, '0')}:${tempMinute.toString().padStart(2, '0')}`;
-    console.log(`[SettingsScreen] Expense reminder time changed to: ${timeString}`);
+    const timeString = `${hour24.toString().padStart(2, '0')}:${tempMinute.toString().padStart(2, '0')}`;
     
     let notificationSettings = await getNotificationSettings();
     
     // Create default settings if they don't exist
     if (!notificationSettings) {
-      console.log('[SettingsScreen] No notification settings found, creating default...');
       notificationSettings = {
         dailyReminder: dailyReminder ? 1 : 0,
         dailyReminderTime: formatTime(dailyReminderTime),
@@ -377,30 +433,29 @@ export const SettingsScreen = ({ navigation }: any) => {
     });
     
     if (expenseReminder) {
-      console.log('[SettingsScreen] Expense reminder is enabled, calling sendExpenseReminder after time change...');
       try {
         await sendExpenseReminder();
-        console.log('[SettingsScreen] sendExpenseReminder completed after time change');
         alertService.success('نجح', `تم تعيين وقت تذكير المصاريف إلى ${timeString}`);
       } catch (error) {
-        console.error('[SettingsScreen] Error in sendExpenseReminder after time change:', error);
         alertService.error('خطأ', 'فشل جدولة تذكير المصاريف');
       }
     }
   };
 
   const renderTimePickerWheel = (type: 'daily' | 'expense') => {
-    const hours = Array.from({ length: 24 }, (_, i) => i);
+    const hours = Array.from({ length: 12 }, (_, i) => i + 1); // 1-12 for 12-hour format
     const minutes = Array.from({ length: 60 }, (_, i) => i);
+    const amPmOptions: ('ص' | 'م')[] = ['ص', 'م'];
     const itemHeight = 50;
 
     const hourRef = type === 'daily' ? dailyHourScrollRef : expenseHourScrollRef;
     const minuteRef = type === 'daily' ? dailyMinuteScrollRef : expenseMinuteScrollRef;
+    const amPmRef = type === 'daily' ? dailyAmPmScrollRef : expenseAmPmScrollRef;
 
     const handleHourScroll = (event: any) => {
       const y = event.nativeEvent.contentOffset.y;
       const index = Math.round(y / itemHeight);
-      const hour = Math.max(0, Math.min(23, index));
+      const hour = Math.max(1, Math.min(12, index + 1));
       setTempHour(hour);
     };
 
@@ -409,6 +464,13 @@ export const SettingsScreen = ({ navigation }: any) => {
       const index = Math.round(y / itemHeight);
       const minute = Math.max(0, Math.min(59, index));
       setTempMinute(minute);
+    };
+
+    const handleAmPmScroll = (event: any) => {
+      const y = event.nativeEvent.contentOffset.y;
+      const index = Math.round(y / itemHeight);
+      const amPm = index === 0 ? 'ص' : 'م';
+      setTempAmPm(amPm);
     };
 
     return (
@@ -464,14 +526,42 @@ export const SettingsScreen = ({ navigation }: any) => {
             ))}
           </ScrollView>
         </View>
+
+        <View style={styles.timePickerWheel}>
+          <View style={styles.timePickerSelectionIndicator} />
+          <ScrollView
+            ref={amPmRef}
+            style={styles.timePickerScroll}
+            contentContainerStyle={styles.timePickerScrollContent}
+            showsVerticalScrollIndicator={false}
+            snapToInterval={itemHeight}
+            decelerationRate="fast"
+            onMomentumScrollEnd={handleAmPmScroll}
+            onScrollEndDrag={handleAmPmScroll}
+          >
+            {amPmOptions.map((amPm) => (
+              <View key={amPm} style={[styles.timePickerItem, { height: itemHeight }]}>
+                <Text style={[
+                  styles.timePickerItemText,
+                  tempAmPm === amPm && styles.timePickerItemTextSelected
+                ]}>
+                  {amPm}
+                </Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
       </View>
     );
   };
 
   const formatTime = (date: Date): string => {
-    const hours = date.getHours().toString().padStart(2, '0');
+    const hour24 = date.getHours();
+    let hour12 = hour24 % 12;
+    if (hour12 === 0) hour12 = 12;
+    const amPm = hour24 >= 12 ? 'م' : 'ص';
     const minutes = date.getMinutes().toString().padStart(2, '0');
-    return `${hours}:${minutes}`;
+    return `${hour12}:${minutes} ${amPm}`;
   };
 
   const handleCurrencyChange = async (currencyCode: string) => {
@@ -512,10 +602,31 @@ export const SettingsScreen = ({ navigation }: any) => {
       await sharePDF(uri);
       alertService.success('نجح', 'تم تصدير التقرير بنجاح');
     } catch (error) {
-      console.error('Error exporting PDF:', error);
       alertService.error('خطأ', 'حدث خطأ أثناء تصدير التقرير');
     } finally {
       setExportingPDF(false);
+    }
+  };
+
+  const handleGenerateMockData = async () => {
+    setShowMockDataConfirm(true);
+  };
+
+  const confirmGenerateMockData = async () => {
+    setShowMockDataConfirm(false);
+    try {
+      setGeneratingMockData(true);
+      await generateMockData();
+      alertService.success('نجح', 'تم إنشاء البيانات التجريبية بنجاح!');
+      
+      // Reload the app or navigate to dashboard
+      setTimeout(() => {
+        navigation.navigate('Dashboard');
+      }, 1000);
+    } catch (error) {
+      alertService.error('خطأ', 'حدث خطأ أثناء إنشاء البيانات التجريبية');
+    } finally {
+      setGeneratingMockData(false);
     }
   };
 
@@ -548,7 +659,6 @@ export const SettingsScreen = ({ navigation }: any) => {
       setShowExchangeRateModal(false);
       alertService.success('نجح', 'تم حفظ سعر الصرف بنجاح');
     } catch (error) {
-      console.error('Error saving exchange rate:', error);
       alertService.error('خطأ', 'حدث خطأ أثناء حفظ سعر الصرف');
     }
   };
@@ -615,6 +725,8 @@ export const SettingsScreen = ({ navigation }: any) => {
             </TouchableOpacity>
           </View>
         </LinearGradient>
+
+        {/* Account Section - Removed for now */}
 
         {/* General Settings */}
         <LinearGradient
@@ -790,36 +902,7 @@ export const SettingsScreen = ({ navigation }: any) => {
                 )}
               </View>
 
-              {/* Expense Reminder */}
-              <View style={styles.notificationItem}>
-                <View style={styles.notificationItemHeader}>
-                  <View style={styles.notificationItemLeft}>
-                    <View style={styles.notificationIconContainer}>
-                      <Ionicons name="cash" size={20} color={theme.colors.primary} />
-                    </View>
-                    <View style={styles.notificationItemInfo}>
-                      <Text style={styles.notificationItemTitle}>تذكير المصاريف</Text>
-                      <Text style={styles.notificationItemDescription}>تذكير لتسجيل المصاريف اليومية</Text>
-                    </View>
-                  </View>
-                  <Switch
-                    value={expenseReminder}
-                    onValueChange={handleExpenseReminderToggle}
-                    trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
-                  />
-                </View>
-                {expenseReminder && (
-                  <TouchableOpacity
-                    onPress={handleOpenExpenseTimePicker}
-                    style={styles.timePickerButton}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="time-outline" size={18} color={theme.colors.primary} />
-                    <Text style={styles.timePickerText}>اختر الوقت: {formatTime(expenseReminderTime)}</Text>
-                    <Ionicons name="chevron-back" size={16} color={theme.colors.textMuted} />
-                  </TouchableOpacity>
-                )}
-              </View>
+            
 
             
             </View>
@@ -860,6 +943,31 @@ export const SettingsScreen = ({ navigation }: any) => {
                 )}
               </LinearGradient>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleGenerateMockData}
+              disabled={generatingMockData}
+              style={[styles.exportButton, { marginTop: theme.spacing.md }]}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={['#F59E0B', '#D97706'] as any}
+                style={styles.exportButtonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                {generatingMockData ? (
+                  <ActivityIndicator color={theme.colors.textInverse} />
+                ) : (
+                  <>
+                    <Ionicons name="refresh" size={20} color={theme.colors.textInverse} />
+                    <Text style={styles.exportButtonText}>
+                      إنشاء بيانات تجريبية
+                    </Text>
+                  </>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
         </LinearGradient>
 
@@ -886,6 +994,16 @@ export const SettingsScreen = ({ navigation }: any) => {
         onClose={() => setShowAuthSettings(false)}
         onAuthChanged={() => {
           // Reload settings if needed
+        }}
+      />
+
+      {/* Auth Modal (Login/Register) */}
+      <AuthModal
+        visible={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onSuccess={() => {
+          checkAuthStatus();
+          setShowAuthModal(false);
         }}
       />
 
@@ -1021,7 +1139,6 @@ export const SettingsScreen = ({ navigation }: any) => {
                       setShowNameModal(false);
                       alertService.success('نجح', 'تم حفظ الاسم بنجاح');
                     } catch (error) {
-                      console.error('Error saving name:', error);
                       alertService.error('خطأ', 'فشل حفظ الاسم');
                     }
                   }}
@@ -1039,6 +1156,15 @@ export const SettingsScreen = ({ navigation }: any) => {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Mock Data Confirmation */}
+      <ConfirmAlert
+        visible={showMockDataConfirm}
+        title="تأكيد"
+        message="سيتم مسح جميع البيانات الحالية (المصاريف والدخل) وإضافة بيانات تجريبية للفترات التالية:\n\n• نوفمبر 2025\n• ديسمبر 2025\n• يناير 2026 (حتى اليوم 12)\n\nهل أنت متأكد؟"
+        onConfirm={confirmGenerateMockData}
+        onCancel={() => setShowMockDataConfirm(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -1264,6 +1390,77 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     textAlign: 'left',
   },
+  accountInfo: {
+    marginBottom: theme.spacing.md,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.surfaceLight,
+    borderRadius: theme.borderRadius.md,
+  },
+  accountInfoLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+  },
+  accountIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accountInfoText: {
+    flex: 1,
+  },
+  accountStatusText: {
+    fontSize: theme.typography.sizes.md,
+    fontWeight: '600',
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
+    marginBottom: theme.spacing.xs,
+  },
+  accountPhoneText: {
+    fontSize: theme.typography.sizes.sm,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+  },
+  loginButton: {
+    borderRadius: theme.borderRadius.md,
+    overflow: 'hidden',
+    ...theme.shadows.md,
+  },
+  loginButtonGradient: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: theme.spacing.md,
+    gap: theme.spacing.sm,
+  },
+  loginButtonText: {
+    fontSize: theme.typography.sizes.md,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    fontFamily: theme.typography.fontFamily,
+  },
+  logoutButton: {
+    borderRadius: theme.borderRadius.md,
+    overflow: 'hidden',
+    marginTop: theme.spacing.md,
+    ...theme.shadows.sm,
+  },
+  logoutButtonGradient: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: theme.spacing.md,
+    gap: theme.spacing.sm,
+  },
+  logoutButtonText: {
+    fontSize: theme.typography.sizes.md,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    fontFamily: theme.typography.fontFamily,
+  },
   listItemTitle: {
     fontFamily: theme.typography.fontFamily,
     fontSize: theme.typography.sizes.md,
@@ -1278,9 +1475,7 @@ const styles = StyleSheet.create({
   notificationItem: {
     marginBottom: theme.spacing.md,
     paddingBottom: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    direction: 'ltr' as const,
+    direction: 'rtl' as const,
   },
   notificationItemHeader: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -1311,14 +1506,14 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
   },
   notificationItemDescription: {
     fontSize: theme.typography.sizes.sm,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
   },
   timePickerButton: {
@@ -1758,6 +1953,7 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === 'ios' ? 40 : theme.spacing.lg,
     maxHeight: '50%',
     ...theme.shadows.lg,
+    direction: 'rtl' as const,
   },
   timePickerModalHeader: {
     flexDirection: 'row-reverse',
@@ -1778,7 +1974,7 @@ const styles = StyleSheet.create({
   timePickerCancelButton: {
     padding: theme.spacing.sm,
     minWidth: 60,
-    alignItems: 'flex-start',
+    alignItems: 'flex-end',
   },
   timePickerCancelText: {
     fontSize: theme.typography.sizes.md,
@@ -1789,7 +1985,7 @@ const styles = StyleSheet.create({
   timePickerConfirmButton: {
     padding: theme.spacing.sm,
     minWidth: 60,
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
   },
   timePickerConfirmText: {
     fontSize: theme.typography.sizes.md,
@@ -1798,7 +1994,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   customTimePickerContainer: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: theme.spacing.lg,

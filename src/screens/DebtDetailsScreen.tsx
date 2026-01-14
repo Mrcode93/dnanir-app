@@ -746,6 +746,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.md,
+    textAlign: 'right',
   },
   detailRow: {
     gap: theme.spacing.md,
@@ -763,6 +764,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
+    textAlign: 'right',
   },
   detailValue: {
     fontSize: theme.typography.sizes.md,

@@ -20,8 +20,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 interface AddCategoryModalProps {
   visible: boolean;
   onClose: () => void;
-  onSave: (name: string, icon: string, color: string) => void;
+  onSave: (name: string, icon: string, color: string, id?: number) => void;
   type: 'expense' | 'income';
+  category?: {
+    id: number;
+    name: string;
+    icon: string;
+    color: string;
+  } | null;
 }
 
 const AVAILABLE_ICONS = [
@@ -50,6 +56,7 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
   onClose,
   onSave,
   type,
+  category,
 }) => {
   const [name, setName] = useState('');
   const [selectedIcon, setSelectedIcon] = useState('ellipse');
@@ -65,6 +72,18 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
         tension: 50,
         friction: 7,
       }).start();
+      
+      // Load category data if editing
+      if (category) {
+        setName(category.name);
+        setSelectedIcon(category.icon);
+        const colorIndex = COLOR_PRESETS.findIndex(c => c[0] === category.color);
+        if (colorIndex !== -1) {
+          setSelectedColor(COLOR_PRESETS[colorIndex]);
+        } else {
+          setSelectedColor([category.color, category.color]);
+        }
+      }
     } else {
       Animated.timing(slideAnim, {
         toValue: 0,
@@ -75,11 +94,11 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
       setSelectedIcon('ellipse');
       setSelectedColor(COLOR_PRESETS[0]);
     }
-  }, [visible]);
+  }, [visible, category]);
 
   const handleSave = () => {
     if (name.trim()) {
-      onSave(name.trim(), selectedIcon, selectedColor[0]);
+      onSave(name.trim(), selectedIcon, selectedColor[0], category?.id);
       onClose();
     }
   };
@@ -121,14 +140,19 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
               >
                 <View style={styles.modalContent}>
                   <View style={styles.header}>
-                    <Text style={styles.title}>إضافة فئة جديدة</Text>
+                    <Text style={styles.title}>
+                      {category ? 'تعديل الفئة' : 'إضافة فئة جديدة'}
+                    </Text>
                     <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                       <Ionicons name="close" size={24} color={theme.colors.textInverse} />
                     </TouchableOpacity>
                   </View>
 
                   <Text style={styles.subtitle}>
-                    {type === 'expense' ? 'أضف فئة جديدة للمصاريف' : 'أضف مصدر دخل جديد'}
+                    {category 
+                      ? (type === 'expense' ? 'قم بتعديل بيانات فئة المصاريف' : 'قم بتعديل بيانات مصدر الدخل')
+                      : (type === 'expense' ? 'أضف فئة جديدة للمصاريف' : 'أضف مصدر دخل جديد')
+                    }
                   </Text>
 
                   <View style={styles.inputContainer}>
@@ -237,7 +261,9 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                       >
-                        <Text style={styles.saveButtonText}>حفظ</Text>
+                        <Text style={styles.saveButtonText}>
+                          {category ? 'تحديث' : 'حفظ'}
+                        </Text>
                       </LinearGradient>
                     </TouchableOpacity>
                   </View>

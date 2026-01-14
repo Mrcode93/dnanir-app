@@ -185,7 +185,7 @@ export const GoalsScreen = ({ navigation, route }: any) => {
   const hasMultipleCurrencies = uniqueCurrencies.size > 1;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={[]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}

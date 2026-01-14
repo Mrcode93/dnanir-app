@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View, Text, I18nManager, Platform, AppState } from 'react-native';
+import { StyleSheet, View, Text, Image, I18nManager, Platform, AppState } from 'react-native';
 import { Provider as PaperProvider, Portal, DefaultTheme, configureFonts } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
@@ -58,9 +58,9 @@ export default function App() {
 
   useEffect(() => {
     try {
-      I18nManager.allowRTL(true);
-      I18nManager.forceRTL(true);
-      I18nManager.swapLeftAndRightInRTL(true);
+      I18nManager.allowRTL(false);
+      I18nManager.forceRTL(false);
+      I18nManager.swapLeftAndRightInRTL(false);
 
       if (Platform.OS === 'android') {
         (Text as any).defaultProps = {
@@ -68,21 +68,30 @@ export default function App() {
           style: [
             {
               fontFamily: 'Cairo-Regular',
-              textAlign: 'right',
-              writingDirection: 'rtl',
+              textAlign: 'left',
+              writingDirection: 'ltr',
             },
             (Text as any).defaultProps?.style,
           ],
         };
       }
     } catch (error) {
-      console.error('RTL initialization error:', error);
+      console.error('LTR initialization error:', error);
     }
 
     const initializeApp = async () => {
       try {
         await initDatabase();
         await initializeNotifications();
+        
+        // Initialize achievements
+        try {
+          const { initializeAchievements, checkAllAchievements } = await import('./src/services/achievementService');
+          await initializeAchievements();
+          await checkAllAchievements();
+        } catch (error) {
+          console.error('Error initializing achievements:', error);
+        }
         
         const authEnabled = await isAuthenticationEnabled();
         setIsLocked(authEnabled);
@@ -192,11 +201,16 @@ export default function App() {
   if (isLoading || !fontsLoaded) {
     return (
       <LinearGradient
-        colors={[theme.colors.background, theme.colors.backgroundSecondary]}
+        colors={theme.gradients.primary}
         style={styles.loadingContainer}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
       >
-        <Text style={styles.loadingText}>دنانير</Text>
-        <Text style={styles.loadingSubtext}>جاري التحميل...</Text>
+        <Image
+          source={require('./assets/letters-logo.png')}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
       </LinearGradient>
     );
   }
@@ -229,20 +243,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  loadingText: {
-    fontSize: 36,
-    fontWeight: '700',
-    color: theme.colors.primary,
-    marginBottom: theme.spacing.md,
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  loadingSubtext: {
-    fontSize: theme.typography.sizes.md,
-    color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
-    writingDirection: 'rtl',
+  logoImage: {
+    width: 200,
+    height: 200,
+    maxWidth: '80%',
+    maxHeight: '80%',
   },
 });

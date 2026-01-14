@@ -1,12 +1,14 @@
 import * as ImagePicker from 'expo-image-picker';
 import { ExpenseCategory, EXPENSE_CATEGORIES } from '../types';
+import { authApiService } from './authApiService';
+import { aiApiService } from './aiApiService';
 
 // محاولة استيراد OCR - قد لا يكون متوفراً في جميع الإصدارات
 let TextRecognition: any = null;
 try {
   TextRecognition = require('expo-text-recognition');
 } catch (e) {
-  console.log('expo-text-recognition not available, using fallback');
+  // expo-text-recognition not available, using fallback
 }
 
 export interface ReceiptData {
@@ -33,7 +35,7 @@ export const requestImagePermissions = async (): Promise<boolean> => {
 export const pickImageFromLibrary = async (): Promise<string | null> => {
   try {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: 'images' as ImagePicker.MediaTypeOptions,
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.8,
@@ -44,7 +46,6 @@ export const pickImageFromLibrary = async (): Promise<string | null> => {
     }
     return null;
   } catch (error) {
-    console.error('Error picking image:', error);
     return null;
   }
 };
@@ -65,7 +66,6 @@ export const takePhotoWithCamera = async (): Promise<string | null> => {
     }
     return null;
   } catch (error) {
-    console.error('Error taking photo:', error);
     return null;
   }
 };
@@ -311,10 +311,44 @@ export const parseReceiptText = (text: string): ReceiptData => {
 
 /**
  * معالجة صورة الفاتورة باستخدام OCR
+ * يحاول استخدام API السيرفر أولاً، ثم ينتقل إلى OCR المحلي
  */
 export const processReceiptImage = async (imageUri: string): Promise<ReceiptData> => {
   try {
-    // محاولة استخدام OCR إذا كان متوفراً
+    // محاولة استخدام API السيرفر أولاً (متاح لجميع المستخدمين المسجلين)
+    try {
+      if (authApiService && typeof authApiService.isAuthenticated === 'function' && 
+          aiApiService && typeof aiApiService.processReceiptOCR === 'function') {
+        // التحقق من أن المستخدم مسجل دخول
+        const isAuthenticated = await authApiService.isAuthenticated();
+        
+        if (isAuthenticated) {
+          const serverResult = await aiApiService.processReceiptOCR(imageUri, 'ar+en');
+          
+          if (serverResult.success && serverResult.data) {
+            // تحويل بيانات السيرفر إلى تنسيق ReceiptData
+            const receiptData: ReceiptData = {
+              amount: serverResult.data.amount,
+              date: serverResult.data.date ? new Date(serverResult.data.date) : new Date(),
+              title: serverResult.data.merchant || 'فاتورة',
+              description: serverResult.data.text,
+              // يمكن إضافة المزيد من البيانات من serverResult.data.items
+            };
+            
+            // إذا كان هناك نص، نحاول استخراج الفئة من النص
+            if (serverResult.data.text) {
+              receiptData.category = detectCategory(serverResult.data.text);
+            }
+            
+            return receiptData;
+          }
+        }
+      }
+    } catch (apiError: unknown) {
+      // Continue to local OCR fallback
+    }
+
+    // محاولة استخدام OCR المحلي إذا كان متوفراً
     if (TextRecognition && TextRecognition.recognizeTextAsync) {
       try {
         const result = await TextRecognition.recognizeTextAsync(imageUri, {
@@ -327,7 +361,7 @@ export const processReceiptImage = async (imageUri: string): Promise<ReceiptData
           return parsedData;
         }
       } catch (ocrError) {
-        console.log('OCR not available or failed, using fallback:', ocrError);
+        // Local OCR not available or failed, using fallback
       }
     }
 
@@ -339,7 +373,6 @@ export const processReceiptImage = async (imageUri: string): Promise<ReceiptData
       title: 'فاتورة',
     };
   } catch (error) {
-    console.error('Error in OCR processing:', error);
     // في حالة الخطأ، نعيد بيانات افتراضية
     return {
       date: new Date(),

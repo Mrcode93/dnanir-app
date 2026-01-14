@@ -1,8 +1,8 @@
 {
   "expo": {
     "name": "دنانير",
-    "slug": "sachmah",
-    "version": "1.1.0",
+    "slug": "dnanir",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "light",
@@ -11,14 +11,14 @@
     "primaryLanguage": "ar",
     "description": "تطبيق دنانير - تطبيقك الذكي لإدارة الأموال وتتبع المصروفات والدخل بطريقة سهلة وممتعة",
     "splash": {
-      "image": "./assets/logo.png",
+      "image": "./assets/letters-logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#F8F9FA"
+      "backgroundColor": "#003459"
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.mrcodeiq.dinar",
-      "buildNumber": "1",
+      "buildNumber": "4",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleDisplayName": "دنانير",
@@ -60,7 +60,7 @@
       "predictiveBackGestureEnabled": false,
       "locale": "ar",
       "package": "com.mrcodeiq.dinar",
-      "versionCode": 1,
+      "versionCode": 4,
       "fonts": [
         "./assets/fonts/Cairo-Regular.ttf",
         "./assets/fonts/Cairo-Regular.ttf"

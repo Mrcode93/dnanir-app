@@ -130,12 +130,31 @@ export const updateChallengeProgress = async (challengeId: number): Promise<void
 
   const progress = await calculateChallengeProgress(challenge);
   const isCompleted = progress >= challenge.targetProgress;
+  const wasCompleted = challenge.completed;
 
   await updateChallenge(challengeId, {
     currentProgress: progress,
     completed: isCompleted,
     completedAt: isCompleted ? new Date().toISOString() : undefined,
   });
+
+  // Send notification if challenge was just completed
+  if (isCompleted && !wasCompleted) {
+    try {
+      const { sendChallengeCompletionNotification } = await import('./notificationService');
+      await sendChallengeCompletionNotification(challenge);
+      
+      // Check achievements after completing challenge (async, don't wait)
+      try {
+        const { checkAllAchievements } = await import('./achievementService');
+        checkAllAchievements().catch(err => console.error('Error checking achievements after challenge completion:', err));
+      } catch (error) {
+        // Ignore if achievementService is not available
+      }
+    } catch (error) {
+      console.error('Error sending challenge completion notification:', error);
+    }
+  }
 };
 
 /**

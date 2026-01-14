@@ -279,7 +279,7 @@ export const DebtsScreen = ({ navigation, route }: any) => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={[]}>
       {/* Header with Search and Filter */}
       <View style={styles.header}>
         <View style={styles.searchContainer}>
@@ -578,6 +578,7 @@ const styles = StyleSheet.create({
   },
   filterRow: {
     marginBottom: theme.spacing.md,
+    direction: 'rtl' as const,
   },
   filterRowContent: {
     gap: theme.spacing.xs,
@@ -644,6 +645,7 @@ const styles = StyleSheet.create({
   listContent: {
     padding: theme.spacing.md,
     paddingTop: 0,
+    direction: 'rtl',
   },
   emptyContainer: {
     flex: 1,
@@ -662,7 +664,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.md,
     color: theme.colors.textSecondary,
     marginTop: theme.spacing.sm,
-    textAlign: 'center',
+    textAlign: 'right',
     fontFamily: theme.typography.fontFamily,
   },
   filterMenuOverlay: {

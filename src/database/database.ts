@@ -96,10 +96,9 @@ export const initDatabase = async () => {
           'INSERT INTO notification_settings (dailyReminder, dailyReminderTime, expenseReminder, expenseReminderTime, incomeReminder, weeklySummary, monthlySummary) VALUES (?, ?, ?, ?, ?, ?, ?)',
           [0, '20:00', 0, '20:00', 1, 1, 1]
         );
-        console.log('Initialized default notification settings');
       }
     } catch (e) {
-      console.warn('Warning: Could not initialize notification settings:', e);
+      // Ignore error
     }
 
     await db.execAsync(`
@@ -241,9 +240,104 @@ export const initDatabase = async () => {
     } catch (e) {
       // Column already exists, ignore
     }
+
+    // Achievements and Badges table
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS achievements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        type TEXT NOT NULL UNIQUE,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL,
+        icon TEXT NOT NULL,
+        category TEXT NOT NULL,
+        unlockedAt TEXT,
+        progress REAL DEFAULT 0,
+        targetProgress REAL NOT NULL,
+        isUnlocked INTEGER DEFAULT 0
+      );
+    `);
+
+    // Expense Shortcuts table
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS expense_shortcuts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        amount REAL NOT NULL,
+        category TEXT NOT NULL,
+        currency TEXT DEFAULT 'IQD',
+        description TEXT,
+        createdAt TEXT NOT NULL
+      );
+    `);
+
+    // Income Shortcuts table
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS income_shortcuts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source TEXT NOT NULL,
+        amount REAL NOT NULL,
+        incomeSource TEXT NOT NULL,
+        currency TEXT DEFAULT 'IQD',
+        description TEXT,
+        createdAt TEXT NOT NULL
+      );
+    `);
+
+    // Initialize default categories
+    await initializeDefaultCategories(db);
   } catch (error) {
-    console.error('Database initialization error:', error);
+    // Database initialization error
     throw error;
+  }
+};
+
+// Initialize default categories for expenses and income
+const initializeDefaultCategories = async (database: SQLite.SQLiteDatabase) => {
+  const now = new Date().toISOString();
+
+  // Default expense categories
+  const defaultExpenseCategories = [
+    { name: 'طعام', type: 'expense', icon: 'restaurant', color: '#F59E0B' },
+    { name: 'مواصلات', type: 'expense', icon: 'car', color: '#3B82F6' },
+    { name: 'تسوق', type: 'expense', icon: 'bag', color: '#EC4899' },
+    { name: 'فواتير', type: 'expense', icon: 'receipt', color: '#EF4444' },
+    { name: 'ترفيه', type: 'expense', icon: 'musical-notes', color: '#8B5CF6' },
+    { name: 'صحة', type: 'expense', icon: 'medical', color: '#10B981' },
+    { name: 'تعليم', type: 'expense', icon: 'school', color: '#06B6D4' },
+    { name: 'أخرى', type: 'expense', icon: 'ellipse', color: '#6B7280' },
+  ];
+
+  // Default income sources
+  const defaultIncomeSources = [
+    { name: 'راتب', type: 'income', icon: 'cash', color: '#10B981' },
+    { name: 'تجارة', type: 'income', icon: 'briefcase', color: '#3B82F6' },
+    { name: 'استثمار', type: 'income', icon: 'trending-up', color: '#8B5CF6' },
+    { name: 'هدية', type: 'income', icon: 'gift', color: '#EC4899' },
+    { name: 'أخرى', type: 'income', icon: 'ellipse', color: '#6B7280' },
+  ];
+
+  // Insert default expense categories (ignore if already exists)
+  for (const category of defaultExpenseCategories) {
+    try {
+      await database.runAsync(
+        'INSERT OR IGNORE INTO custom_categories (name, type, icon, color, createdAt) VALUES (?, ?, ?, ?, ?)',
+        [category.name, category.type, category.icon, category.color, now]
+      );
+    } catch (error) {
+      // Ignore errors (category might already exist)
+    }
+  }
+
+  // Insert default income sources (ignore if already exists)
+  for (const source of defaultIncomeSources) {
+    try {
+      await database.runAsync(
+        'INSERT OR IGNORE INTO custom_categories (name, type, icon, color, createdAt) VALUES (?, ?, ?, ?, ?)',
+        [source.name, source.type, source.icon, source.color, now]
+      );
+    } catch (error) {
+      // Ignore errors (source might already exist)
+    }
   }
 };
 
@@ -261,6 +355,15 @@ export const addExpense = async (expense: Omit<import('../types').Expense, 'id'>
     'INSERT INTO expenses (title, amount, category, date, description, currency) VALUES (?, ?, ?, ?, ?, ?)',
     [expense.title, expense.amount, expense.category, expense.date, expense.description || null, expense.currency || 'IQD']
   );
+  
+  // Check achievements after adding expense (async, don't wait)
+  try {
+    const { checkAllAchievements } = await import('../services/achievementService');
+    checkAllAchievements().catch(() => {});
+  } catch (error) {
+    // Ignore if achievementService is not available
+  }
+  
   return result.lastInsertRowId;
 };
 
@@ -292,6 +395,15 @@ export const addIncome = async (income: Omit<import('../types').Income, 'id'>): 
     'INSERT INTO income (source, amount, date, description, currency) VALUES (?, ?, ?, ?, ?)',
     [income.source, income.amount, income.date, income.description || null, income.currency || 'IQD']
   );
+  
+  // Check achievements after adding income (async, don't wait)
+  try {
+    const { checkAllAchievements } = await import('../services/achievementService');
+    checkAllAchievements().catch(() => {});
+  } catch (error) {
+    // Ignore if achievementService is not available
+  }
+  
   return result.lastInsertRowId;
 };
 
@@ -612,7 +724,7 @@ export const getCustomCategories = async (type?: 'expense' | 'income'): Promise<
     query += ' WHERE type = ?';
     params.push(type);
   }
-  query += ' ORDER BY createdAt DESC';
+  query += ' ORDER BY createdAt ASC';
   const result = await database.getAllAsync<CustomCategory>(query, params);
   return result;
 };
@@ -620,6 +732,37 @@ export const getCustomCategories = async (type?: 'expense' | 'income'): Promise<
 export const deleteCustomCategory = async (id: number): Promise<void> => {
   const database = getDb();
   await database.runAsync('DELETE FROM custom_categories WHERE id = ?', [id]);
+};
+
+export const updateCustomCategory = async (id: number, category: Partial<Omit<CustomCategory, 'id' | 'createdAt'>>): Promise<void> => {
+  const database = getDb();
+  const updates: string[] = [];
+  const values: any[] = [];
+
+  if (category.name !== undefined) {
+    updates.push('name = ?');
+    values.push(category.name);
+  }
+  if (category.type !== undefined) {
+    updates.push('type = ?');
+    values.push(category.type);
+  }
+  if (category.icon !== undefined) {
+    updates.push('icon = ?');
+    values.push(category.icon);
+  }
+  if (category.color !== undefined) {
+    updates.push('color = ?');
+    values.push(category.color);
+  }
+
+  if (updates.length > 0) {
+    values.push(id);
+    await database.runAsync(
+      `UPDATE custom_categories SET ${updates.join(', ')} WHERE id = ?`,
+      values
+    );
+  }
 };
 
 // Budget operations
@@ -643,7 +786,7 @@ export const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt'>): Promi
     );
     return result.lastInsertRowId;
   } catch (error) {
-    console.error('Error adding budget:', error);
+    // Error adding budget
     throw error;
   }
 };
@@ -1302,4 +1445,270 @@ export const updateChallenge = async (id: number, challenge: Partial<Challenge>)
 export const deleteChallenge = async (id: number): Promise<void> => {
   const database = getDb();
   await database.runAsync('DELETE FROM challenges WHERE id = ?', [id]);
+};
+
+// Achievement operations
+export interface Achievement {
+  id: number;
+  type: string;
+  title: string;
+  description: string;
+  icon: string;
+  category: string;
+  unlockedAt?: string;
+  progress: number;
+  targetProgress: number;
+  isUnlocked: boolean;
+}
+
+export const addAchievement = async (achievement: Omit<Achievement, 'id'>): Promise<number> => {
+  const database = getDb();
+  const result = await database.runAsync(
+    'INSERT INTO achievements (type, title, description, icon, category, unlockedAt, progress, targetProgress, isUnlocked) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [
+      achievement.type,
+      achievement.title,
+      achievement.description,
+      achievement.icon,
+      achievement.category,
+      achievement.unlockedAt || null,
+      achievement.progress,
+      achievement.targetProgress,
+      achievement.isUnlocked ? 1 : 0,
+    ]
+  );
+  return result.lastInsertRowId;
+};
+
+export const getAchievements = async (): Promise<Achievement[]> => {
+  const database = getDb();
+  const result = await database.getAllAsync<Achievement & { isUnlocked: number }>(
+    'SELECT * FROM achievements ORDER BY isUnlocked DESC, category ASC'
+  );
+  return result.map(achievement => ({
+    ...achievement,
+    isUnlocked: Boolean(achievement.isUnlocked),
+  }));
+};
+
+export const getAchievement = async (type: string): Promise<Achievement | null> => {
+  const database = getDb();
+  const result = await database.getFirstAsync<Achievement & { isUnlocked: number }>(
+    'SELECT * FROM achievements WHERE type = ?',
+    [type]
+  );
+  if (result) {
+    return {
+      ...result,
+      isUnlocked: Boolean(result.isUnlocked),
+    };
+  }
+  return null;
+};
+
+export const updateAchievement = async (type: string, achievement: Partial<Achievement>): Promise<void> => {
+  const database = getDb();
+  const updates: string[] = [];
+  const values: any[] = [];
+
+  if (achievement.title !== undefined) {
+    updates.push('title = ?');
+    values.push(achievement.title);
+  }
+  if (achievement.description !== undefined) {
+    updates.push('description = ?');
+    values.push(achievement.description);
+  }
+  if (achievement.icon !== undefined) {
+    updates.push('icon = ?');
+    values.push(achievement.icon);
+  }
+  if (achievement.category !== undefined) {
+    updates.push('category = ?');
+    values.push(achievement.category);
+  }
+  if (achievement.unlockedAt !== undefined) {
+    updates.push('unlockedAt = ?');
+    values.push(achievement.unlockedAt || null);
+  }
+  if (achievement.progress !== undefined) {
+    updates.push('progress = ?');
+    values.push(achievement.progress);
+  }
+  if (achievement.targetProgress !== undefined) {
+    updates.push('targetProgress = ?');
+    values.push(achievement.targetProgress);
+  }
+  if (achievement.isUnlocked !== undefined) {
+    updates.push('isUnlocked = ?');
+    values.push(achievement.isUnlocked ? 1 : 0);
+  }
+
+  if (updates.length > 0) {
+    values.push(type);
+    await database.runAsync(
+      `UPDATE achievements SET ${updates.join(', ')} WHERE type = ?`,
+      values
+    );
+  }
+};
+
+export const unlockAchievement = async (type: string): Promise<void> => {
+  const database = getDb();
+  await database.runAsync(
+    'UPDATE achievements SET isUnlocked = 1, unlockedAt = ? WHERE type = ?',
+    [new Date().toISOString(), type]
+  );
+};
+
+// Expense Shortcuts operations
+export interface ExpenseShortcut {
+  id: number;
+  title: string;
+  amount: number;
+  category: string;
+  currency?: string;
+  description?: string;
+  createdAt: string;
+}
+
+export const addExpenseShortcut = async (shortcut: Omit<ExpenseShortcut, 'id' | 'createdAt'>): Promise<number> => {
+  const database = getDb();
+  const createdAt = new Date().toISOString();
+  const result = await database.runAsync(
+    'INSERT INTO expense_shortcuts (title, amount, category, currency, description, createdAt) VALUES (?, ?, ?, ?, ?, ?)',
+    [
+      shortcut.title,
+      shortcut.amount,
+      shortcut.category,
+      shortcut.currency || 'IQD',
+      shortcut.description || null,
+      createdAt,
+    ]
+  );
+  return result.lastInsertRowId;
+};
+
+export const getExpenseShortcuts = async (): Promise<ExpenseShortcut[]> => {
+  const database = getDb();
+  const result = await database.getAllAsync<ExpenseShortcut>(
+    'SELECT * FROM expense_shortcuts ORDER BY createdAt DESC'
+  );
+  return result;
+};
+
+export const deleteExpenseShortcut = async (id: number): Promise<void> => {
+  const database = getDb();
+  await database.runAsync('DELETE FROM expense_shortcuts WHERE id = ?', [id]);
+};
+
+export const updateExpenseShortcut = async (id: number, shortcut: Partial<ExpenseShortcut>): Promise<void> => {
+  const database = getDb();
+  const updates: string[] = [];
+  const values: any[] = [];
+
+  if (shortcut.title !== undefined) {
+    updates.push('title = ?');
+    values.push(shortcut.title);
+  }
+  if (shortcut.amount !== undefined) {
+    updates.push('amount = ?');
+    values.push(shortcut.amount);
+  }
+  if (shortcut.category !== undefined) {
+    updates.push('category = ?');
+    values.push(shortcut.category);
+  }
+  if (shortcut.currency !== undefined) {
+    updates.push('currency = ?');
+    values.push(shortcut.currency || 'IQD');
+  }
+  if (shortcut.description !== undefined) {
+    updates.push('description = ?');
+    values.push(shortcut.description || null);
+  }
+
+  if (updates.length > 0) {
+    values.push(id);
+    await database.runAsync(
+      `UPDATE expense_shortcuts SET ${updates.join(', ')} WHERE id = ?`,
+      values
+    );
+  }
+};
+
+// Income Shortcuts operations
+export interface IncomeShortcut {
+  id: number;
+  source: string;
+  amount: number;
+  incomeSource: string;
+  currency?: string;
+  description?: string;
+  createdAt: string;
+}
+
+export const addIncomeShortcut = async (shortcut: Omit<IncomeShortcut, 'id' | 'createdAt'>): Promise<number> => {
+  const database = getDb();
+  const createdAt = new Date().toISOString();
+  const result = await database.runAsync(
+    'INSERT INTO income_shortcuts (source, amount, incomeSource, currency, description, createdAt) VALUES (?, ?, ?, ?, ?, ?)',
+    [
+      shortcut.source,
+      shortcut.amount,
+      shortcut.incomeSource,
+      shortcut.currency || 'IQD',
+      shortcut.description || null,
+      createdAt,
+    ]
+  );
+  return result.lastInsertRowId;
+};
+
+export const getIncomeShortcuts = async (): Promise<IncomeShortcut[]> => {
+  const database = getDb();
+  const result = await database.getAllAsync<IncomeShortcut>(
+    'SELECT * FROM income_shortcuts ORDER BY createdAt DESC'
+  );
+  return result;
+};
+
+export const deleteIncomeShortcut = async (id: number): Promise<void> => {
+  const database = getDb();
+  await database.runAsync('DELETE FROM income_shortcuts WHERE id = ?', [id]);
+};
+
+export const updateIncomeShortcut = async (id: number, shortcut: Partial<IncomeShortcut>): Promise<void> => {
+  const database = getDb();
+  const updates: string[] = [];
+  const values: any[] = [];
+
+  if (shortcut.source !== undefined) {
+    updates.push('source = ?');
+    values.push(shortcut.source);
+  }
+  if (shortcut.amount !== undefined) {
+    updates.push('amount = ?');
+    values.push(shortcut.amount);
+  }
+  if (shortcut.incomeSource !== undefined) {
+    updates.push('incomeSource = ?');
+    values.push(shortcut.incomeSource);
+  }
+  if (shortcut.currency !== undefined) {
+    updates.push('currency = ?');
+    values.push(shortcut.currency || 'IQD');
+  }
+  if (shortcut.description !== undefined) {
+    updates.push('description = ?');
+    values.push(shortcut.description || null);
+  }
+
+  if (updates.length > 0) {
+    values.push(id);
+    await database.runAsync(
+      `UPDATE income_shortcuts SET ${updates.join(', ')} WHERE id = ?`,
+      values
+    );
+  }
 };

@@ -26,6 +26,7 @@ import {
 } from '../services/receiptOCRService';
 import { alertService } from '../services/alertService';
 import { EXPENSE_CATEGORIES, ExpenseCategory } from '../types';
+import { authApiService } from '../services/authApiService';
 
 interface ReceiptScannerModalProps {
   visible: boolean;
@@ -63,6 +64,7 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
       }
 
       if (uri) {
+        console.log('📷 Image picked, URI:', uri);
         setImageUri(uri);
         setProcessing(true);
         setScannedData(null);
@@ -70,7 +72,19 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
 
         try {
           // استخدام OCR لتحليل الصورة تلقائياً
+          console.log('🔄 Starting receipt processing...');
+          
+          // Check if user is authenticated for better UX
+          const isAuthenticated = await authApiService.isAuthenticated();
+          if (!isAuthenticated) {
+            alertService.info(
+              'ملاحظة',
+              'أنت غير مسجل دخول. سيتم استخدام OCR المحلي. للتجربة الأفضل، يرجى تسجيل الدخول لاستخدام OCR السيرفر.'
+            );
+          }
+          
           const data = await processReceiptImage(uri);
+          console.log('✅ Receipt processing completed, data:', data);
           setScannedData(data);
           
           // إذا لم يتم استخراج بيانات كافية، نعرض خيار إدخال النص يدوياً
@@ -81,10 +95,11 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
             );
             setShowManualInput(true);
           } else {
-            alertService.success('نجح', 'تم استخراج البيانات من الفاتورة بنجاح');
+            // Success message is now shown in the UI, no need for alert
+            console.log('✅ Receipt data extracted successfully');
           }
         } catch (error) {
-          console.error('Error processing receipt:', error);
+          console.error('❌ Error processing receipt:', error);
           alertService.error('خطأ', 'فشل معالجة الفاتورة. يمكنك إدخال النص يدوياً.');
           setShowManualInput(true);
         } finally {
@@ -213,9 +228,17 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
               </View>
             ) : !imageUri ? (
               <View style={styles.emptyState}>
-                <Ionicons name="camera-outline" size={64} color={theme.colors.textMuted} />
+                <View style={styles.emptyStateIconContainer}>
+                  <LinearGradient
+                    colors={theme.gradients.primary as any}
+                    style={styles.emptyStateIconGradient}
+                  >
+                    <Ionicons name="receipt-outline" size={48} color="#FFFFFF" />
+                  </LinearGradient>
+                </View>
+                <Text style={styles.emptyStateTitle}>مسح الفاتورة</Text>
                 <Text style={styles.emptyStateText}>
-                  اختر صورة الفاتورة أو أدخل النص يدوياً
+                  استخدم الكاميرا لالتقاط صورة الفاتورة أو أدخل النص يدوياً
                 </Text>
                 <View style={styles.buttonRow}>
                   <TouchableOpacity
@@ -226,9 +249,11 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
                     <LinearGradient
                       colors={theme.gradients.primary as any}
                       style={styles.selectButtonGradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
                     >
-                      <Ionicons name="camera" size={20} color="#FFFFFF" />
-                      <Text style={styles.selectButtonText}>صورة</Text>
+                      <Ionicons name="camera" size={22} color="#FFFFFF" />
+                      <Text style={styles.selectButtonText}>التقاط صورة</Text>
                     </LinearGradient>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -239,9 +264,11 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
                     <LinearGradient
                       colors={['#8B5CF6', '#7C3AED']}
                       style={styles.selectButtonGradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
                     >
-                      <Ionicons name="text" size={20} color="#FFFFFF" />
-                      <Text style={styles.selectButtonText}>نص</Text>
+                      <Ionicons name="text" size={22} color="#FFFFFF" />
+                      <Text style={styles.selectButtonText}>إدخال نص</Text>
                     </LinearGradient>
                   </TouchableOpacity>
                 </View>
@@ -268,33 +295,45 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
                 {/* Extracted Data Section */}
                 {scannedData && !processing && (
                   <View style={styles.extractedDataSection}>
-                    <View style={styles.sectionHeader}>
-                      <LinearGradient
-                        colors={theme.gradients.primary as any}
-                        style={styles.sectionHeaderGradient}
-                      >
-                        <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-                        <Text style={styles.sectionHeaderText}>البيانات المستخرجة</Text>
-                      </LinearGradient>
+                    {/* Success Header */}
+                    <View style={styles.successHeader}>
+                      <View style={styles.successIconContainer}>
+                        <LinearGradient
+                          colors={['#10B981', '#059669']}
+                          style={styles.successIconGradient}
+                        >
+                          <Ionicons name="checkmark" size={28} color="#FFFFFF" />
+                        </LinearGradient>
+                      </View>
+                      <View style={styles.successTextContainer}>
+                        <Text style={styles.successTitle}>تم استخراج البيانات بنجاح</Text>
+                        <Text style={styles.successSubtitle}>تم تحليل الفاتورة باستخدام الذكاء الاصطناعي</Text>
+                      </View>
                     </View>
 
+                    {/* Data Card */}
                     <View style={styles.dataCard}>
                       {scannedData.title && (
                         <View style={styles.dataItem}>
                           <View style={styles.dataItemIcon}>
-                            <Ionicons name="document-text" size={20} color={theme.colors.primary} />
+                            <Ionicons name="document-text-outline" size={22} color={theme.colors.primary} />
                           </View>
                           <View style={styles.dataItemContent}>
                             <Text style={styles.dataItemLabel}>العنوان</Text>
-                            <Text style={styles.dataItemValue}>{scannedData.title}</Text>
+                            <Text style={styles.dataItemValue} numberOfLines={2}>{scannedData.title}</Text>
                           </View>
                         </View>
                       )}
                       
                       {scannedData.amount && (
-                        <View style={styles.dataItem}>
-                          <View style={[styles.dataItemIcon, { backgroundColor: '#10B98120' }]}>
-                            <Ionicons name="cash" size={20} color="#10B981" />
+                        <View style={[styles.dataItem, styles.dataItemHighlight]}>
+                          <View style={[styles.dataItemIcon, styles.amountIcon]}>
+                            <LinearGradient
+                              colors={['#10B981', '#059669']}
+                              style={styles.amountIconGradient}
+                            >
+                              <Ionicons name="cash" size={22} color="#FFFFFF" />
+                            </LinearGradient>
                           </View>
                           <View style={styles.dataItemContent}>
                             <Text style={styles.dataItemLabel}>المبلغ</Text>
@@ -307,8 +346,8 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
                       
                       {scannedData.date && (
                         <View style={styles.dataItem}>
-                          <View style={[styles.dataItemIcon, { backgroundColor: '#3B82F620' }]}>
-                            <Ionicons name="calendar" size={20} color="#3B82F6" />
+                          <View style={[styles.dataItemIcon, { backgroundColor: '#3B82F615' }]}>
+                            <Ionicons name="calendar-outline" size={22} color="#3B82F6" />
                           </View>
                           <View style={styles.dataItemContent}>
                             <Text style={styles.dataItemLabel}>التاريخ</Text>
@@ -325,8 +364,8 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
                       
                       {scannedData.category && (
                         <View style={styles.dataItem}>
-                          <View style={[styles.dataItemIcon, { backgroundColor: '#8B5CF620' }]}>
-                            <Ionicons name="pricetag" size={20} color="#8B5CF6" />
+                          <View style={[styles.dataItemIcon, { backgroundColor: '#8B5CF615' }]}>
+                            <Ionicons name="pricetag-outline" size={22} color="#8B5CF6" />
                           </View>
                           <View style={styles.dataItemContent}>
                             <Text style={styles.dataItemLabel}>الفئة</Text>
@@ -338,11 +377,14 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
                       )}
                     </View>
 
-                    <View style={styles.infoBanner}>
-                      <Ionicons name="information-circle" size={18} color={theme.colors.primary} />
-                      <Text style={styles.infoBannerText}>
-                        يمكنك تعديل البيانات قبل الحفظ
-                      </Text>
+                    {/* Action Banner */}
+                    <View style={styles.actionBanner}>
+                      <View style={styles.actionBannerContent}>
+                        <Ionicons name="sparkles" size={20} color={theme.colors.primary} />
+                        <Text style={styles.actionBannerText}>
+                          البيانات جاهزة للحفظ. اضغط على "حفظ البيانات" لإضافتها للمصروف
+                        </Text>
+                      </View>
                     </View>
                   </View>
                 )}
@@ -362,72 +404,90 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
                       setScannedData(null);
                     }
                   }}
-                  style={styles.changeImageButton}
+                  style={styles.secondaryButton}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="arrow-back" size={20} color={theme.colors.primary} />
-                  <Text style={styles.changeImageText}>رجوع</Text>
+                  <Ionicons name="arrow-back" size={20} color={theme.colors.textSecondary} />
+                  <Text style={styles.secondaryButtonText}>رجوع</Text>
                 </TouchableOpacity>
                 {scannedData && (
                   <TouchableOpacity
                     onPress={handleUseData}
-                    style={styles.useButton}
+                    style={styles.saveButton}
                     activeOpacity={0.8}
                   >
                     <LinearGradient
-                      colors={theme.gradients.primary as any}
-                      style={styles.useButtonGradient}
+                      colors={['#10B981', '#059669']}
+                      style={styles.saveButtonGradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
                     >
-                      <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-                      <Text style={styles.useButtonText}>استخدام البيانات</Text>
+                      <Ionicons name="checkmark-circle" size={22} color="#FFFFFF" />
+                      <Text style={styles.saveButtonText}>حفظ البيانات</Text>
                     </LinearGradient>
                   </TouchableOpacity>
                 )}
               </>
             ) : imageUri && !processing ? (
               <>
-                <TouchableOpacity
-                  onPress={() => setShowManualInput(true)}
-                  style={styles.changeImageButton}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="text" size={20} color={theme.colors.primary} />
-                  <Text style={styles.changeImageText}>إدخال نص</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={showImageSourceOptions}
-                  style={styles.changeImageButton}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="refresh" size={20} color={theme.colors.primary} />
-                  <Text style={styles.changeImageText}>تغيير الصورة</Text>
-                </TouchableOpacity>
-                
-                {scannedData && (
-                  <TouchableOpacity
-                    onPress={handleUseData}
-                    style={styles.useButton}
-                    activeOpacity={0.8}
-                  >
-                    <LinearGradient
-                      colors={theme.gradients.primary as any}
-                      style={styles.useButtonGradient}
+                {scannedData ? (
+                  <>
+                    <TouchableOpacity
+                      onPress={showImageSourceOptions}
+                      style={styles.secondaryButton}
+                      activeOpacity={0.7}
                     >
-                      <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-                      <Text style={styles.useButtonText}>استخدام البيانات</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
+                      <Ionicons name="refresh" size={20} color={theme.colors.textSecondary} />
+                      <Text style={styles.secondaryButtonText}>إعادة المسح</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={handleUseData}
+                      style={styles.saveButton}
+                      activeOpacity={0.8}
+                    >
+                      <LinearGradient
+                        colors={['#10B981', '#059669']}
+                        style={styles.saveButtonGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                      >
+                        <Ionicons name="checkmark-circle" size={22} color="#FFFFFF" />
+                        <Text style={styles.saveButtonText}>حفظ البيانات</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    <TouchableOpacity
+                      onPress={() => setShowManualInput(true)}
+                      style={styles.secondaryButton}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="text" size={20} color={theme.colors.textSecondary} />
+                      <Text style={styles.secondaryButtonText}>إدخال نص</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={showImageSourceOptions}
+                      style={styles.secondaryButton}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="refresh" size={20} color={theme.colors.textSecondary} />
+                      <Text style={styles.secondaryButtonText}>تغيير الصورة</Text>
+                    </TouchableOpacity>
+                  </>
                 )}
               </>
             ) : null}
             
-            <TouchableOpacity
-              onPress={handleClose}
-              style={styles.cancelButton}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.cancelButtonText}>إلغاء</Text>
-            </TouchableOpacity>
+            {!scannedData && (
+              <TouchableOpacity
+                onPress={handleClose}
+                style={styles.cancelButton}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.cancelButtonText}>إلغاء</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </LinearGradient>
     </Modal>
@@ -487,13 +547,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.xl,
+  },
+  emptyStateIconContainer: {
+    marginBottom: theme.spacing.md,
+  },
+  emptyStateIconGradient: {
+    width: 120,
+    height: 120,
+    borderRadius: theme.borderRadius.round,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...theme.shadows.lg,
+  },
+  emptyStateTitle: {
+    fontSize: theme.typography.sizes.xl,
+    fontWeight: '700',
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
+    marginBottom: theme.spacing.xs,
   },
   emptyStateText: {
     fontSize: theme.typography.sizes.md,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
-    marginHorizontal: theme.spacing.xl,
+    lineHeight: 24,
+    marginBottom: theme.spacing.md,
   },
   selectButton: {
     borderRadius: theme.borderRadius.md,
@@ -541,65 +621,102 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: theme.spacing.md,
+    gap: theme.spacing.lg,
   },
   processingText: {
     fontSize: theme.typography.sizes.md,
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '600',
+    fontWeight: '700',
     marginTop: theme.spacing.sm,
   },
   extractedDataSection: {
     paddingHorizontal: theme.spacing.lg,
   },
-  sectionHeader: {
-    marginBottom: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    overflow: 'hidden',
-    ...theme.shadows.sm,
-  },
-  sectionHeaderGradient: {
+  successHeader: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
-    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.lg,
+    padding: theme.spacing.md,
+    backgroundColor: '#10B98110',
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: '#10B98130',
   },
-  sectionHeaderText: {
+  successIconContainer: {
+    marginRight: isRTL ? 0 : theme.spacing.md,
+    marginLeft: isRTL ? theme.spacing.md : 0,
+  },
+  successIconGradient: {
+    width: 56,
+    height: 56,
+    borderRadius: theme.borderRadius.round,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...theme.shadows.md,
+  },
+  successTextContainer: {
+    flex: 1,
+  },
+  successTitle: {
     fontSize: theme.typography.sizes.lg,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#10B981',
+    fontFamily: theme.typography.fontFamily,
+    marginBottom: theme.spacing.xs,
+  },
+  successSubtitle: {
+    fontSize: theme.typography.sizes.sm,
+    color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
   },
   dataCard: {
     backgroundColor: theme.colors.surfaceCard,
-    borderRadius: theme.borderRadius.lg,
+    borderRadius: theme.borderRadius.xl,
     padding: theme.spacing.lg,
     gap: theme.spacing.md,
-    ...theme.shadows.md,
-    marginBottom: theme.spacing.md,
+    ...theme.shadows.lg,
+    marginBottom: theme.spacing.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   dataItem: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    paddingVertical: theme.spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.surfaceLight,
+    marginBottom: theme.spacing.sm,
+  },
+  dataItemHighlight: {
+    backgroundColor: '#10B98110',
+    borderWidth: 1.5,
+    borderColor: '#10B98130',
   },
   dataItemIcon: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.primaryLight,
+    backgroundColor: theme.colors.primaryLight + '20',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: isRTL ? 0 : theme.spacing.md,
     marginLeft: isRTL ? theme.spacing.md : 0,
+  },
+  amountIcon: {
+    backgroundColor: 'transparent',
+    padding: 0,
+  },
+  amountIconGradient: {
+    width: 48,
+    height: 48,
+    borderRadius: theme.borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dataItemContent: {
     flex: 1,
@@ -609,7 +726,9 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
-    fontWeight: '500',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   dataItemValue: {
     fontSize: theme.typography.sizes.md,
@@ -618,26 +737,31 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   amountValue: {
-    fontSize: theme.typography.sizes.lg,
-    color: theme.colors.primary,
+    fontSize: theme.typography.sizes.xl,
+    color: '#10B981',
+    fontWeight: '800',
   },
-  infoBanner: {
+  actionBanner: {
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+  },
+  actionBannerContent: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     gap: theme.spacing.sm,
     padding: theme.spacing.md,
-    backgroundColor: theme.colors.primaryLight,
+    backgroundColor: theme.colors.primaryLight + '15',
     borderRadius: theme.borderRadius.md,
-    borderLeftWidth: isRTL ? 0 : 3,
-    borderRightWidth: isRTL ? 3 : 0,
-    borderColor: theme.colors.primary,
+    borderWidth: 1,
+    borderColor: theme.colors.primary + '30',
   },
-  infoBannerText: {
+  actionBannerText: {
     flex: 1,
     fontSize: theme.typography.sizes.sm,
-    color: theme.colors.textSecondary,
+    color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '500',
+    fontWeight: '600',
+    lineHeight: 20,
   },
   actions: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -645,8 +769,9 @@ const styles = StyleSheet.create({
     gap: theme.spacing.md,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceCard,
   },
-  changeImageButton: {
+  secondaryButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -659,30 +784,31 @@ const styles = StyleSheet.create({
     gap: theme.spacing.xs,
     minWidth: 100,
   },
-  changeImageText: {
+  secondaryButtonText: {
     fontSize: theme.typography.sizes.sm,
     fontWeight: '600',
-    color: theme.colors.primary,
+    color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
   },
-  useButton: {
+  saveButton: {
     flex: 1,
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.md,
+    ...theme.shadows.lg,
   },
-  useButtonGradient: {
+  saveButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: theme.spacing.md,
+    paddingVertical: theme.spacing.md + 2,
     gap: theme.spacing.sm,
   },
-  useButtonText: {
+  saveButtonText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
+    letterSpacing: 0.5,
   },
   cancelButton: {
     paddingVertical: theme.spacing.md,

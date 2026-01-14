@@ -15,7 +15,7 @@ try {
     }),
   });
 } catch (error) {
-  console.warn('Error setting notification handler:', error);
+  // Ignore notification handler setup errors
 }
 
 export const requestPermissions = async (): Promise<boolean> => {
@@ -45,14 +45,13 @@ export const requestPermissions = async (): Promise<boolean> => {
           lightColor: '#3B82F6',
         });
       } catch (error) {
-        console.warn('Warning: Could not set notification channel:', error);
+        // Ignore channel setup errors
       }
     }
     
     return true;
   } catch (error) {
     // Local notifications should still work even if there's a warning about push notifications
-    console.warn('Notification permission error (this is normal in Expo Go for local notifications):', error);
     return false;
   }
 };
@@ -74,46 +73,35 @@ const getNextTriggerDate = (hour: number, minute: number): Date => {
 
 export const scheduleDailyReminder = async () => {
   try {
-    console.log('[scheduleDailyReminder] Starting...');
-    
     // Check permissions first
     const hasPermission = await requestPermissions();
     if (!hasPermission) {
-      console.error('[scheduleDailyReminder] Cannot schedule: permissions not granted');
       throw new Error('Notification permissions not granted');
     }
-    console.log('[scheduleDailyReminder] Permissions granted');
     
     // Cancel all existing daily reminder notifications first
     try {
       const allScheduled = await Notifications.getAllScheduledNotificationsAsync();
       const toCancel = allScheduled.filter(n => n.identifier.startsWith('daily-reminder'));
-      console.log(`[scheduleDailyReminder] Canceling ${toCancel.length} existing notifications`);
       for (const notification of toCancel) {
         await Notifications.cancelScheduledNotificationAsync(notification.identifier);
       }
     } catch (e) {
       // Ignore if notifications don't exist
-      console.warn('[scheduleDailyReminder] Warning: Error canceling existing notifications:', e);
     }
     
     const settings = await getNotificationSettings();
-    console.log('[scheduleDailyReminder] Settings:', settings);
     
     if (!settings || !settings.dailyReminder) {
-      console.log('[scheduleDailyReminder] Daily reminder is disabled in settings');
       return;
     }
     
     // Parse time (format: HH:MM)
     const timeString = settings.dailyReminderTime || '20:00';
-    console.log(`[scheduleDailyReminder] Time string: ${timeString}`);
     const [hours, minutes] = timeString.split(':').map(Number);
-    console.log(`[scheduleDailyReminder] Parsed time: ${hours}:${minutes}`);
     
     // Validate time
     if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
-      console.error('[scheduleDailyReminder] Invalid time format:', timeString);
       return;
     }
     
@@ -129,24 +117,21 @@ export const scheduleDailyReminder = async () => {
           lightColor: '#3B82F6',
         });
       } catch (error) {
-        console.warn('Warning: Could not set notification channel:', error);
+        // Ignore channel setup errors
       }
     }
     
     // Use platform-specific triggers for exact time scheduling
     let notificationIds: string[] = [];
     
-    console.log(`[scheduleDailyReminder] Platform: ${Platform.OS}, Scheduling for ${hours}:${minutes}`);
-    
     if (Platform.OS === 'android') {
       // Android: Use DailyTriggerInput for exact daily time
-      console.log('[scheduleDailyReminder] Scheduling Android DailyTriggerInput...');
       try {
         const notificationId = await Notifications.scheduleNotificationAsync({
           identifier: 'daily-reminder',
           content: {
             title: 'تذكير يومي',
-            body: 'لا تنسى تسجيل مصاريفك اليومية!',
+            body: 'لا تنسى تسجل مصاريفك اليوم!',
             sound: true,
             data: { type: 'daily-reminder' },
           },
@@ -156,10 +141,8 @@ export const scheduleDailyReminder = async () => {
             minute: minutes,
           } as Notifications.DailyTriggerInput,
         });
-        console.log(`[scheduleDailyReminder] Android notification scheduled with ID: ${notificationId}`);
         notificationIds.push(notificationId);
       } catch (error) {
-        console.error('[scheduleDailyReminder] Error scheduling Android notification:', error);
         throw error;
       }
     } else {
@@ -167,13 +150,12 @@ export const scheduleDailyReminder = async () => {
       const oneDayInSeconds = 24 * 60 * 60;
       
       // Schedule calendar trigger for exact time (repeats daily)
-      console.log('[scheduleDailyReminder] Scheduling iOS CalendarTriggerInput...');
       try {
         const calendarId = await Notifications.scheduleNotificationAsync({
           identifier: 'daily-reminder',
           content: {
             title: 'تذكير يومي',
-            body: 'لا تنسى تسجيل مصاريفك اليومية!',
+            body: 'لا تنسى تسجل مصاريفك اليوم!',
             sound: true,
             data: { type: 'daily-reminder' },
           },
@@ -185,21 +167,18 @@ export const scheduleDailyReminder = async () => {
             repeats: true,
           } as Notifications.CalendarTriggerInput,
         });
-        console.log(`[scheduleDailyReminder] iOS calendar notification scheduled with ID: ${calendarId}`);
         notificationIds.push(calendarId);
       } catch (error) {
-        console.error('[scheduleDailyReminder] Error scheduling iOS calendar notification:', error);
         throw error;
       }
       
       // Schedule timeInterval backup (repeats every 24 hours)
-      console.log('[scheduleDailyReminder] Scheduling iOS TimeIntervalTriggerInput backup...');
       try {
         const repeatId = await Notifications.scheduleNotificationAsync({
           identifier: 'daily-reminder-repeat',
           content: {
             title: 'تذكير يومي',
-            body: 'لا تنسى تسجيل مصاريفك اليومية!',
+            body: 'لا تنسى تسجل مصاريفك اليوم!',
             sound: true,
             data: { type: 'daily-reminder' },
           },
@@ -209,15 +188,11 @@ export const scheduleDailyReminder = async () => {
             repeats: true,
           } as Notifications.TimeIntervalTriggerInput,
         });
-        console.log(`[scheduleDailyReminder] iOS timeInterval notification scheduled with ID: ${repeatId}`);
         notificationIds.push(repeatId);
       } catch (error) {
-        console.error('[scheduleDailyReminder] Error scheduling iOS timeInterval notification:', error);
         throw error;
       }
     }
-    
-    console.log(`[scheduleDailyReminder] Successfully scheduled ${notificationIds.length} notification(s) for ${hours}:${minutes} on ${Platform.OS} (IDs: ${notificationIds.join(', ')})`);
     
     // Verify the notifications were scheduled
     const scheduled = await Notifications.getAllScheduledNotificationsAsync();
@@ -225,21 +200,8 @@ export const scheduleDailyReminder = async () => {
       n.identifier === 'daily-reminder' || n.identifier === 'daily-reminder-repeat'
     );
     
-    console.log(`[scheduleDailyReminder] Verification: Found ${ourNotifications.length} of our notifications in scheduled list`);
-    
-    if (ourNotifications.length > 0) {
-      console.log('[scheduleDailyReminder] Verified scheduled notifications:', ourNotifications.map(n => ({
-        identifier: n.identifier,
-        trigger: n.trigger,
-      })));
-    } else {
-      console.warn('[scheduleDailyReminder] WARNING: Notifications were scheduled but not found in scheduled list!');
-      console.warn('[scheduleDailyReminder] All scheduled notifications:', scheduled.map(n => n.identifier));
-    }
-    
     return notificationIds[0];
   } catch (error) {
-    console.error('[scheduleDailyReminder] ERROR:', error);
     throw error;
   }
 };
@@ -252,8 +214,8 @@ export const checkBudgetAlerts = async () => {
       if (status.isExceeded) {
         await Notifications.scheduleNotificationAsync({
           content: {
-            title: 'تجاوز الميزانية',
-            body: `لقد تجاوزت ميزانية ${status.budget.category} بمبلغ ${Math.abs(status.remaining).toFixed(0)} دينار`,
+            title: 'تجاوزت الميزانية',
+            body: `تجاوزت ميزانية ${status.budget.category} بمبلغ ${Math.abs(status.remaining).toFixed(0)} دينار`,
             sound: true,
             priority: Notifications.AndroidNotificationPriority.HIGH,
           },
@@ -262,8 +224,8 @@ export const checkBudgetAlerts = async () => {
       } else if (status.percentage >= 80) {
         await Notifications.scheduleNotificationAsync({
           content: {
-            title: 'اقتراب من الميزانية',
-            body: `أنت قريب من تجاوز ميزانية ${status.budget.category} (${status.percentage.toFixed(0)}%)`,
+            title: 'قريب من الميزانية',
+            body: `قريب تتجاوز ميزانية ${status.budget.category} (${status.percentage.toFixed(0)}%)`,
             sound: true,
           },
           trigger: null,
@@ -271,7 +233,7 @@ export const checkBudgetAlerts = async () => {
       }
     }
   } catch (error) {
-    console.error('Error checking budget alerts:', error);
+    // Ignore budget alert errors
   }
 };
 
@@ -280,7 +242,6 @@ export const sendExpenseReminder = async () => {
     // Check permissions first
     const hasPermission = await requestPermissions();
     if (!hasPermission) {
-      console.error('Cannot schedule expense reminder: permissions not granted');
       throw new Error('Notification permissions not granted');
     }
     
@@ -294,12 +255,10 @@ export const sendExpenseReminder = async () => {
       }
     } catch (e) {
       // Ignore if notifications don't exist
-      console.warn('Warning: Error canceling existing notifications:', e);
     }
     
     const settings = await getNotificationSettings();
     if (!settings || !settings.expenseReminder) {
-      console.log('Expense reminder is disabled in settings');
       return;
     }
     
@@ -309,7 +268,6 @@ export const sendExpenseReminder = async () => {
     
     // Validate time
     if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
-      console.error('Invalid time format:', timeString);
       return;
     }
     
@@ -325,7 +283,7 @@ export const sendExpenseReminder = async () => {
           lightColor: '#3B82F6',
         });
       } catch (error) {
-        console.warn('Warning: Could not set notification channel:', error);
+        // Ignore channel setup errors
       }
     }
     
@@ -336,9 +294,9 @@ export const sendExpenseReminder = async () => {
       // Android: Use DailyTriggerInput for exact daily time
       const notificationId = await Notifications.scheduleNotificationAsync({
         identifier: 'expense-reminder',
-        content: {
-          title: 'تذكير المصاريف',
-          body: 'هل سجلت جميع مصاريفك اليوم؟',
+          content: {
+            title: 'تذكير المصاريف',
+            body: 'شلونك؟ سجلت كل مصاريفك اليوم؟',
           sound: true,
           data: { type: 'expense-reminder' },
         },
@@ -356,9 +314,9 @@ export const sendExpenseReminder = async () => {
       // Schedule calendar trigger for exact time (repeats daily)
       const calendarId = await Notifications.scheduleNotificationAsync({
         identifier: 'expense-reminder',
-        content: {
-          title: 'تذكير المصاريف',
-          body: 'هل سجلت جميع مصاريفك اليوم؟',
+          content: {
+            title: 'تذكير المصاريف',
+            body: 'شلونك؟ سجلت كل مصاريفك اليوم؟',
           sound: true,
           data: { type: 'expense-reminder' },
         },
@@ -375,9 +333,9 @@ export const sendExpenseReminder = async () => {
       // Schedule timeInterval backup (repeats every 24 hours)
       const repeatId = await Notifications.scheduleNotificationAsync({
         identifier: 'expense-reminder-repeat',
-        content: {
-          title: 'تذكير المصاريف',
-          body: 'هل سجلت جميع مصاريفك اليوم؟',
+          content: {
+            title: 'تذكير المصاريف',
+            body: 'شلونك؟ سجلت كل مصاريفك اليوم؟',
           sound: true,
           data: { type: 'expense-reminder' },
         },
@@ -390,26 +348,14 @@ export const sendExpenseReminder = async () => {
       notificationIds.push(repeatId);
     }
     
-    console.log(`Expense reminder scheduled for ${hours}:${minutes} on ${Platform.OS} (IDs: ${notificationIds.join(', ')})`);
-    
     // Verify the notifications were scheduled
     const scheduled = await Notifications.getAllScheduledNotificationsAsync();
     const ourNotifications = scheduled.filter(n => 
       n.identifier === 'expense-reminder' || n.identifier === 'expense-reminder-repeat'
     );
     
-    if (ourNotifications.length > 0) {
-      console.log('Verified scheduled notifications:', ourNotifications.map(n => ({
-        identifier: n.identifier,
-        trigger: n.trigger,
-      })));
-    } else {
-      console.warn('Warning: Notifications were not found in scheduled list');
-    }
-    
     return notificationIds[0];
   } catch (error) {
-    console.error('Error sending expense reminder:', error);
     throw error;
   }
 };
@@ -428,52 +374,38 @@ export const initializeNotifications = async () => {
           }
         }
       } catch (e) {
-        console.warn('Warning: Error canceling existing notifications:', e);
+        // Ignore if notifications don't exist
       }
       
       // Check settings and only schedule enabled notifications
       const settings = await getNotificationSettings();
-      console.log('Notification settings:', settings);
       
       if (settings?.dailyReminder) {
-        console.log('Scheduling daily reminder...');
         await scheduleDailyReminder();
-      } else {
-        console.log('Daily reminder is disabled');
       }
       
       if (settings?.expenseReminder) {
-        console.log('Scheduling expense reminder...');
         await sendExpenseReminder();
-      } else {
-        console.log('Expense reminder is disabled');
       }
       
       // Schedule debt reminders
-      console.log('Scheduling debt reminders...');
       await scheduleDebtReminders();
-      
-      console.log('Notifications initialized successfully');
-    } else {
-      console.warn('Notification permissions not granted');
     }
   } catch (error) {
-    console.error('Error initializing notifications:', error);
+    // Ignore initialization errors
   }
 };
 
 // Function to cancel specific notification types
 export const cancelNotification = async (identifier: string) => {
   try {
-    console.log(`[cancelNotification] Canceling notification: ${identifier}`);
     await Notifications.cancelScheduledNotificationAsync(identifier);
     // Also cancel related notifications
     await Notifications.cancelScheduledNotificationAsync(`${identifier}-first`);
     await Notifications.cancelScheduledNotificationAsync(`${identifier}-repeat`);
     await Notifications.cancelScheduledNotificationAsync(`${identifier}-initial`);
-    console.log(`[cancelNotification] Successfully cancelled notification: ${identifier}`);
   } catch (error) {
-    console.error(`[cancelNotification] Error cancelling notification ${identifier}:`, error);
+    // Ignore cancellation errors
   }
 };
 
@@ -484,10 +416,9 @@ export const rescheduleAllNotifications = async () => {
     if (hasPermission) {
       await scheduleDailyReminder();
       await sendExpenseReminder();
-      console.log('All notifications rescheduled');
     }
   } catch (error) {
-    console.error('Error rescheduling notifications:', error);
+    // Ignore rescheduling errors
   }
 };
 
@@ -496,41 +427,12 @@ export const verifyScheduledNotifications = async () => {
   try {
     const scheduled = await Notifications.getAllScheduledNotificationsAsync();
     
-    // Log all scheduled notifications in detail
-    console.log('=== All Scheduled Notifications ===');
-    console.log(`Total: ${scheduled.length} notifications`);
-    
-    scheduled.forEach((n, index) => {
-      const trigger = n.trigger as any;
-      let triggerInfo = '';
-      
-      if (trigger?.type === 'daily') {
-        triggerInfo = `Daily at ${trigger.hour}:${trigger.minute || '00'}`;
-      } else if (trigger?.type === 'calendar') {
-        const dateComponents = trigger.dateComponents || {};
-        triggerInfo = `Calendar: ${dateComponents.hour || '?'}:${dateComponents.minute || '?'} (repeats: ${trigger.repeats || false})`;
-      } else if (trigger?.type === 'timeInterval') {
-        const hours = Math.floor(trigger.seconds / 3600);
-        const minutes = Math.floor((trigger.seconds % 3600) / 60);
-        triggerInfo = `TimeInterval: every ${hours}h ${minutes}m (${trigger.seconds}s, repeats: ${trigger.repeats || false})`;
-      } else if (trigger?.type === 'date') {
-        triggerInfo = `Date: ${new Date(trigger.timestamp * 1000).toLocaleString()}`;
-      } else {
-        triggerInfo = JSON.stringify(trigger);
-      }
-      
-      console.log(`${index + 1}. ${n.identifier}: ${triggerInfo}`);
-    });
-    
-    console.log('===================================');
-    
     // Also return in the format used by the UI
     return scheduled.map(n => ({
       identifier: n.identifier,
       trigger: n.trigger,
     }));
   } catch (error) {
-    console.error('Error verifying notifications:', error);
     return [];
   }
 };
@@ -555,24 +457,22 @@ export const sendTestNotification = async () => {
           lightColor: '#3B82F6',
         });
       } catch (error) {
-        console.warn('Warning: Could not set notification channel:', error);
+        // Ignore channel setup errors
       }
     }
 
     await Notifications.scheduleNotificationAsync({
       content: {
         title: 'اختبار الإشعارات',
-        body: 'هذا إشعار تجريبي للتأكد من عمل الإشعارات بشكل صحيح',
+        body: 'هذا إشعار تجريبي عشان نتأكد إن الإشعارات تشتغل صح',
         sound: true,
         data: { type: 'test' },
       },
       trigger: null, // Show immediately
     });
     
-    console.log('Test notification sent');
     return true;
   } catch (error) {
-    console.error('Error sending test notification:', error);
     throw error;
   }
 };
@@ -584,7 +484,6 @@ export const checkDebtReminders = async () => {
   try {
     const hasPermission = await requestPermissions();
     if (!hasPermission) {
-      console.log('Cannot send debt reminders: permissions not granted');
       return;
     }
 
@@ -603,7 +502,7 @@ export const checkDebtReminders = async () => {
         }
       }
     } catch (e) {
-      console.warn('Warning: Error canceling existing debt notifications:', e);
+      // Ignore cancellation errors
     }
 
     // Send notifications for each debt due today
@@ -613,9 +512,9 @@ export const checkDebtReminders = async () => {
 
       if (installment) {
         title = 'تذكير دفع قسط';
-        body = `لازم تدفع لـ ${debt.debtorName} اليوم! القسط ${installment.installmentNumber}: ${installment.amount.toFixed(0)} دينار`;
+        body = `لازم تدفع ${debt.debtorName} اليوم! القسط ${installment.installmentNumber}: ${installment.amount.toFixed(0)} دينار`;
       } else {
-        body = `لازم تدفع لـ ${debt.debtorName} اليوم! المبلغ: ${debt.remainingAmount.toFixed(0)} دينار`;
+        body = `لازم تدفع ${debt.debtorName} اليوم! المبلغ: ${debt.remainingAmount.toFixed(0)} دينار`;
       }
 
       await Notifications.scheduleNotificationAsync({
@@ -630,10 +529,100 @@ export const checkDebtReminders = async () => {
         trigger: null, // Show immediately
       });
     }
-
-    console.log(`Sent ${debtsDueToday.length} debt reminder notification(s)`);
   } catch (error) {
-    console.error('Error checking debt reminders:', error);
+    // Ignore debt reminder errors
+  }
+};
+
+/**
+ * Send notification when an achievement is unlocked
+ */
+export const sendAchievementUnlockedNotification = async (achievement: any) => {
+  try {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) {
+      return;
+    }
+
+    // Ensure Android channel is set
+    if (Platform.OS === 'android') {
+      try {
+        await Notifications.setNotificationChannelAsync('challenge-achievements', {
+          name: 'إنجازات التحديات',
+          description: 'إشعارات عند إكمال التحديات',
+          importance: Notifications.AndroidImportance.HIGH,
+          sound: 'default',
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#10B981',
+        });
+      } catch (error) {
+        // Ignore channel setup errors
+      }
+    }
+
+    await Notifications.scheduleNotificationAsync({
+      identifier: `achievement-unlocked-${achievement.type}-${Date.now()}`,
+      content: {
+        title: '🏆 إنجاز جديد!',
+        body: `مبروك! حصلت على: ${achievement.title}`,
+        sound: true,
+        priority: Notifications.AndroidNotificationPriority.HIGH,
+        data: { 
+          type: 'achievement-unlocked', 
+          achievementType: achievement.type,
+          achievementTitle: achievement.title,
+        },
+      },
+      trigger: null, // Show immediately
+    });
+  } catch (error) {
+    // Ignore achievement notification errors
+  }
+};
+
+/**
+ * Send notification when a challenge is completed
+ */
+export const sendChallengeCompletionNotification = async (challenge: any) => {
+  try {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) {
+      return;
+    }
+
+    // Ensure Android channel is set
+    if (Platform.OS === 'android') {
+      try {
+        await Notifications.setNotificationChannelAsync('challenge-achievements', {
+          name: 'إنجازات التحديات',
+          description: 'إشعارات عند إكمال التحديات',
+          importance: Notifications.AndroidImportance.HIGH,
+          sound: 'default',
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#10B981',
+        });
+      } catch (error) {
+        // Ignore channel setup errors
+      }
+    }
+
+    await Notifications.scheduleNotificationAsync({
+      identifier: `challenge-completed-${challenge.id}-${Date.now()}`,
+      content: {
+        title: '🎉 مبروك! خلصت التحدي',
+        body: `خلصت تحدياً: ${challenge.title}`,
+        sound: true,
+        priority: Notifications.AndroidNotificationPriority.HIGH,
+        data: { 
+          type: 'challenge-completed', 
+          challengeId: challenge.id,
+          challengeTitle: challenge.title,
+        },
+      },
+      trigger: null, // Show immediately
+    });
+  } catch (error) {
+    // Ignore challenge notification errors
   }
 };
 
@@ -644,7 +633,6 @@ export const scheduleDebtReminders = async () => {
   try {
     const hasPermission = await requestPermissions();
     if (!hasPermission) {
-      console.log('Cannot schedule debt reminders: permissions not granted');
       return;
     }
 
@@ -657,7 +645,7 @@ export const scheduleDebtReminders = async () => {
         }
       }
     } catch (e) {
-      console.warn('Warning: Error canceling existing debt reminder checks:', e);
+      // Ignore cancellation errors
     }
 
     // Schedule daily check at 8 AM
@@ -666,7 +654,7 @@ export const scheduleDebtReminders = async () => {
         identifier: 'debt-reminder-check',
         content: {
           title: 'فحص الديون',
-          body: 'جارٍ فحص الديون المستحقة اليوم...',
+          body: 'دورنا على الديون المستحقة اليوم...',
           sound: false,
           data: { type: 'debt-check' },
         },
@@ -691,7 +679,7 @@ export const scheduleDebtReminders = async () => {
         identifier: 'debt-reminder-check',
         content: {
           title: 'فحص الديون',
-          body: 'جارٍ فحص الديون المستحقة اليوم...',
+          body: 'دورنا على الديون المستحقة اليوم...',
           sound: false,
           data: { type: 'debt-check' },
         },
@@ -706,6 +694,6 @@ export const scheduleDebtReminders = async () => {
     // Also check immediately
     await checkDebtReminders();
   } catch (error) {
-    console.error('Error scheduling debt reminders:', error);
+    // Ignore scheduling errors
   }
 };

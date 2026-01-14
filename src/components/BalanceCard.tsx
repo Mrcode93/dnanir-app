@@ -5,13 +5,25 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
 import { isRTL } from '../utils/rtl';
 import { useCurrency } from '../hooks/useCurrency';
+import { MonthFilter } from './MonthFilter';
 
 interface BalanceCardProps {
   balance: number;
   userName?: string;
+  selectedMonth?: { year: number; month: number };
+  onMonthChange?: (year: number, month: number) => void;
+  showFilter?: boolean;
+  availableMonths?: Array<{ year: number; month: number }>;
 }
 
-export const BalanceCard: React.FC<BalanceCardProps> = ({ balance, userName }) => {
+export const BalanceCard: React.FC<BalanceCardProps> = ({ 
+  balance, 
+  userName, 
+  selectedMonth,
+  onMonthChange,
+  showFilter = true,
+  availableMonths,
+}) => {
   const { formatCurrency } = useCurrency();
   const isPositive = balance >= 0;
   
@@ -22,51 +34,82 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({ balance, userName }) =
   
   const formattedBalance = formatCurrency(balance);
 
+  // Get month label
+  const getMonthLabel = () => {
+    if (!selectedMonth || (selectedMonth.year === 0 && selectedMonth.month === 0)) {
+      return 'الكل';
+    }
+    const monthNames = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 
+                        'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+    return `${monthNames[selectedMonth.month - 1]} ${selectedMonth.year}`;
+  };
+
   return (
-    <LinearGradient
-      colors={gradientColors as any}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.card}
-    >
-      {/* Decorative circles */}
-      <View style={styles.decorativeCircle1} />
-      <View style={styles.decorativeCircle2} />
-      
-      <View style={styles.header}>
-        <LinearGradient
-          colors={['rgba(255, 255, 255, 0.3)', 'rgba(255, 255, 255, 0.15)']}
-          style={styles.badge}
-        >
-          <Ionicons name="wallet" size={18} color={theme.colors.textInverse} />
-          <Text style={styles.badgeText}>دنانير</Text>
-        </LinearGradient>
-        {isPositive && (
-          <View style={styles.statusBadge}>
-            <Ionicons name="trending-up" size={16} color={theme.colors.textInverse} />
-        </View>
-        )}
-      </View>
-      
-      <View style={styles.body}>
-        {userName && (
-          <View style={styles.greetingContainer}>
-            <Text style={styles.greeting}>مرحباً، {userName}</Text>
+    <>
+      <LinearGradient
+        colors={gradientColors as any}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.card}
+      >
+        {/* Decorative circles */}
+        <View style={styles.decorativeCircle1} />
+        <View style={styles.decorativeCircle2} />
+        
+        <View style={styles.header}>
+          <LinearGradient
+            colors={['rgba(255, 255, 255, 0.3)', 'rgba(255, 255, 255, 0.15)']}
+            style={styles.badge}
+          >
+            <Ionicons name="wallet" size={18} color={theme.colors.textInverse} />
+            <Text style={styles.badgeText}>دنانير</Text>
+          </LinearGradient>
+          <View style={styles.headerRight}>
+            {isPositive && (
+              <View style={styles.statusBadge}>
+                <Ionicons name="trending-up" size={16} color={theme.colors.textInverse} />
+              </View>
+            )}
+            {/* Month Filter Button in Header */}
+            {showFilter && onMonthChange && (
+              <View style={styles.headerFilterButtonContainer}>
+                <MonthFilter
+                  selectedMonth={selectedMonth || null}
+                  onMonthChange={onMonthChange}
+                  showAllOption={true}
+                  availableMonths={availableMonths}
+                  style={styles.headerFilterButton}
+                />
+              </View>
+            )}
           </View>
-        )}
-        {/* <Text style={styles.label}>الرصيد الحالي</Text> */}
-        <View style={styles.balanceContainer}>
-          <Text style={styles.balance}>
-          {formattedBalance}
-        </Text>
-          {!isPositive && (
-            <View style={styles.warningIcon}>
-              <Ionicons name="alert-circle" size={20} color={theme.colors.textInverse} />
+        </View>
+        
+        <View style={styles.body}>
+          {userName && (
+            <View style={styles.greetingContainer}>
+              <Text style={styles.greeting}>مرحباً، {userName}</Text>
             </View>
           )}
+          
+          <View style={styles.balanceContainer}>
+            <Text style={styles.balance}>
+              {formattedBalance}
+            </Text>
+            {!isPositive && (
+              <View style={styles.warningIcon}>
+                <Ionicons name="alert-circle" size={20} color={theme.colors.textInverse} />
+              </View>
+            )}
+          </View>
+          {selectedMonth && (selectedMonth.year !== 0 || selectedMonth.month !== 0) && (
+            <Text style={styles.periodLabel}>
+              رصيد {getMonthLabel()}
+            </Text>
+          )}
         </View>
-      </View>
-    </LinearGradient>
+      </LinearGradient>
+    </>
   );
 };
 
@@ -105,6 +148,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: theme.spacing.md,
     zIndex: 1,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  headerFilterButtonContainer: {
+    // Container for MonthFilter component
+  },
+  headerFilterButton: {
+    borderRadius: theme.borderRadius.md,
+    overflow: 'hidden',
+    minWidth: 120,
+    maxWidth: 160,
+    ...theme.shadows.md,
   },
   badge: {
     flexDirection: 'row',
@@ -177,5 +235,35 @@ const styles = StyleSheet.create({
   warningIcon: {
     ...(isRTL ? { marginRight: theme.spacing.sm } : { marginLeft: theme.spacing.sm }),
     opacity: 0.9,
+  },
+  filterButton: {
+    marginBottom: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    overflow: 'hidden',
+    ...theme.shadows.sm,
+  },
+  filterButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    gap: theme.spacing.xs,
+  },
+  filterButtonText: {
+    flex: 1,
+    color: theme.colors.textInverse,
+    fontSize: theme.typography.sizes.sm,
+    fontWeight: '600',
+    fontFamily: theme.typography.fontFamily,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  periodLabel: {
+    fontSize: theme.typography.sizes.xs,
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontFamily: theme.typography.fontFamily,
+    marginTop: theme.spacing.xs,
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
 });

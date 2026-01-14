@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -7,18 +7,20 @@ import {
   RefreshControl,
   Dimensions,
   I18nManager,
+  Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PieChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BalanceCard } from '../components/BalanceCard';
 import { SummaryCard } from '../components/SummaryCard';
 import { TransactionItem } from '../components/TransactionItem';
 import { theme, getTheme } from '../utils/theme';
-import { calculateFinancialSummary } from '../services/financialService';
+import { calculateFinancialSummary, getCurrentMonthData, getMonthData } from '../services/financialService';
 import { getExpenses, getIncome, getUserSettings, getFinancialGoals, getDebts, getChallenges, Challenge } from '../database/database';
 import { Expense, Income, FinancialGoal, Debt, EXPENSE_CATEGORIES } from '../types';
 import { updateAllChallenges } from '../services/challengeService';
+import { getUnlockedAchievementsCount, getTotalAchievementsCount } from '../services/achievementService';
 import { calculateBudgetStatus, BudgetStatus } from '../services/budgetService';
 import { Ionicons } from '@expo/vector-icons';
 import { TouchableOpacity } from 'react-native';
@@ -31,6 +33,22 @@ const { width } = Dimensions.get('window');
 
 export const DashboardScreen = ({ navigation }: any) => {
   const { formatCurrency, currencyCode } = useCurrency();
+  
+  // Month names in Arabic (consistent with BalanceCard)
+  const monthNames = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 
+                      'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+  
+  // Format month name consistently
+  const formatMonthName = (date: Date) => {
+    return `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+  };
+  
+  // Format full date consistently
+  const formatFullDate = (date: Date) => {
+    const weekdays = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+    return `${weekdays[date.getDay()]}، ${date.getDate()} ${monthNames[date.getMonth()]}، ${date.getFullYear()}`;
+  };
+  const insets = useSafeAreaInsets();
   const [summary, setSummary] = useState<any>(null);
   const [recentTransactions, setRecentTransactions] = useState<(Expense | Income)[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -42,6 +60,39 @@ export const DashboardScreen = ({ navigation }: any) => {
   const [budgetsSummary, setBudgetsSummary] = useState<{ total: number; spent: number; remaining: number; exceeded: number } | null>(null);
   const [activeChallenges, setActiveChallenges] = useState<Challenge[]>([]);
   const [customCategories, setCustomCategories] = useState<any[]>([]);
+  const [achievementsCount, setAchievementsCount] = useState<{ unlocked: number; total: number }>({ unlocked: 0, total: 0 });
+  const [currentMonthData, setCurrentMonthData] = useState<{ totalIncome: number; totalExpenses: number; balance: number } | null>(null);
+  // Initialize with current month by default
+  const [selectedBalanceMonth, setSelectedBalanceMonth] = useState<{ year: number; month: number }>(() => {
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() + 1 };
+  });
+  const [filteredBalance, setFilteredBalance] = useState<number | null>(null);
+  const [availableMonths, setAvailableMonths] = useState<Array<{ year: number; month: number }>>([]);
+
+  useLayoutEffect(() => {
+    const parent = navigation.getParent();
+    if (parent) {
+      parent.setOptions({
+        tabBarStyle: {
+          backgroundColor: theme.colors.surfaceCard,
+          borderTopColor: theme.colors.primary,
+          borderTopWidth: 1,
+          height: 70 + (Platform.OS === 'android' ? insets.bottom : 0),
+          paddingBottom: Platform.OS === 'android' ? insets.bottom + 8 : 20,
+          paddingTop: 4,
+          elevation: 8,
+          shadowColor: theme.colors.shadow,
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
+          flexDirection: 'row',
+          display: 'flex',
+        },
+        tabBarShowLabel: true,
+      });
+    }
+  }, [navigation, insets]);
 
   const loadData = async () => {
     try {
@@ -50,6 +101,29 @@ export const DashboardScreen = ({ navigation }: any) => {
 
       const expenses = await getExpenses();
       const income = await getIncome();
+      
+      // Get available months (months that have expenses or income)
+      const monthsSet = new Set<string>();
+      // Add months from expenses
+      expenses.forEach(expense => {
+        const date = new Date(expense.date);
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        monthsSet.add(`${year}-${month}`);
+      });
+      // Add months from income
+      income.forEach(inc => {
+        const date = new Date(inc.date);
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        monthsSet.add(`${year}-${month}`);
+      });
+      
+      const months = Array.from(monthsSet).map(key => {
+        const [year, month] = key.split('-').map(Number);
+        return { year, month };
+      });
+      setAvailableMonths(months);
       
       // Calculate today's data
       const today = new Date().toISOString().split('T')[0];
@@ -134,6 +208,54 @@ export const DashboardScreen = ({ navigation }: any) => {
       const activeChallengesList = allChallenges.filter(c => !c.completed);
       setActiveChallenges(activeChallengesList.slice(0, 3)); // Show only first 3
 
+      // Load achievements count
+      const unlocked = await getUnlockedAchievementsCount();
+      const total = await getTotalAchievementsCount();
+      setAchievementsCount({ unlocked, total });
+      
+      // Check achievements periodically (async, don't wait)
+      try {
+        const { checkAllAchievements } = await import('../services/achievementService');
+        checkAllAchievements().catch(err => console.error('Error checking achievements in Dashboard:', err));
+      } catch (error) {
+        // Ignore if achievementService is not available
+      }
+
+      // Load current month data
+      const monthData = await getCurrentMonthData();
+      const monthIncome = monthData.income.reduce((sum, item) => sum + item.amount, 0);
+      const monthExpenses = monthData.expenses.reduce((sum, item) => sum + item.amount, 0);
+      const monthBalance = monthIncome - monthExpenses;
+      setCurrentMonthData({
+        totalIncome: monthIncome,
+        totalExpenses: monthExpenses,
+        balance: monthBalance,
+      });
+
+      // Calculate filtered balance if month is selected
+      if (selectedBalanceMonth && (selectedBalanceMonth.year !== 0 || selectedBalanceMonth.month !== 0)) {
+        const filteredData = await getMonthData(selectedBalanceMonth.year, selectedBalanceMonth.month);
+        // Use the month balance (income - expenses for that month only)
+        // This should match currentMonthData.balance when the selected month is the current month
+        setFilteredBalance(filteredData.balance);
+        
+        // If selected month is current month, verify it matches currentMonthData
+        const now = new Date();
+        if (selectedBalanceMonth.year === now.getFullYear() && 
+            selectedBalanceMonth.month === now.getMonth() + 1) {
+          // They should match, but use filteredData to ensure consistency
+          if (Math.abs(filteredData.balance - monthBalance) > 0.01) {
+            console.warn('Balance mismatch between getMonthData and currentMonthData:', {
+              filtered: filteredData.balance,
+              current: monthBalance
+            });
+          }
+        }
+      } else {
+        // If no month selected, use total cumulative balance
+        setFilteredBalance(null);
+      }
+
       // Load custom categories
       const customCats = await getCustomCategories('expense');
       setCustomCategories(customCats);
@@ -153,6 +275,13 @@ export const DashboardScreen = ({ navigation }: any) => {
     const unsubscribe = navigation.addListener('focus', loadData);
     return unsubscribe;
   }, [navigation]);
+
+  // Reload data when selectedBalanceMonth changes
+  useEffect(() => {
+    if (selectedBalanceMonth !== null) {
+      loadData();
+    }
+  }, [selectedBalanceMonth]);
 
   const getCategoryName = (category: string) => {
     return EXPENSE_CATEGORIES[category as keyof typeof EXPENSE_CATEGORIES] || 
@@ -210,7 +339,79 @@ export const DashboardScreen = ({ navigation }: any) => {
       >
         {/* Balance Card */}
         {summary && (
-          <BalanceCard balance={summary.balance} userName={userName} />
+          <BalanceCard 
+            balance={filteredBalance !== null ? filteredBalance : summary.balance} 
+            userName={userName}
+            selectedMonth={selectedBalanceMonth || undefined}
+            onMonthChange={(year, month) => {
+              setSelectedBalanceMonth({ year, month });
+              // Reload data to update balance immediately
+              loadData();
+            }}
+            showFilter={true}
+            availableMonths={availableMonths}
+          />
+        )}
+
+        {/* Current Month Summary Card */}
+        {currentMonthData && (
+          <LinearGradient
+            colors={['#10B981', '#059669', '#047857']}
+            style={styles.todayCard}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <View style={styles.todayCardHeader}>
+              <View style={styles.todayCardHeaderLeft}>
+                <LinearGradient
+                  colors={['rgba(255, 255, 255, 0.3)', 'rgba(255, 255, 255, 0.15)']}
+                  style={styles.todayCardIconContainer}
+                >
+                  <Ionicons name="calendar" size={24} color={theme.colors.textInverse} />
+                </LinearGradient>
+                <View>
+                  <Text style={styles.todayCardTitle}>الشهر الحالي</Text>
+                  <Text style={styles.todayCardSubtitle}>
+                    {formatMonthName(new Date())}
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View style={styles.todayCardStats}>
+              <View style={styles.todayCardStatItem}>
+                <View style={styles.todayCardStatHeader}>
+                  <Ionicons name="arrow-up-circle" size={18} color="rgba(255, 255, 255, 0.9)" />
+                  <Text style={styles.todayCardStatLabel}>الدخل</Text>
+                </View>
+                <Text style={styles.todayCardStatValue}>{formatCurrency(currentMonthData.totalIncome)}</Text>
+              </View>
+              <View style={styles.todayCardStatDivider} />
+              <View style={styles.todayCardStatItem}>
+                <View style={styles.todayCardStatHeader}>
+                  <Ionicons name="arrow-down-circle" size={18} color="rgba(255, 255, 255, 0.9)" />
+                  <Text style={styles.todayCardStatLabel}>المصاريف</Text>
+                </View>
+                <Text style={styles.todayCardStatValue}>{formatCurrency(currentMonthData.totalExpenses)}</Text>
+              </View>
+              <View style={styles.todayCardStatDivider} />
+              <View style={styles.todayCardStatItem}>
+                <View style={styles.todayCardStatHeader}>
+                  <Ionicons 
+                    name={currentMonthData.balance >= 0 ? "wallet" : "alert-circle"} 
+                    size={18} 
+                    color="rgba(255, 255, 255, 0.9)" 
+                  />
+                  <Text style={styles.todayCardStatLabel}>الرصيد</Text>
+                </View>
+                <Text style={[
+                  styles.todayCardStatValue,
+                  { color: currentMonthData.balance >= 0 ? theme.colors.textInverse : '#FFE5E5' }
+                ]}>
+                  {formatCurrency(currentMonthData.balance)}
+                </Text>
+              </View>
+            </View>
+          </LinearGradient>
         )}
 
         {/* Today's Summary Card */}
@@ -232,12 +433,7 @@ export const DashboardScreen = ({ navigation }: any) => {
                 <View>
                   <Text style={styles.todayCardTitle}>اليوم</Text>
                   <Text style={styles.todayCardSubtitle}>
-                    {new Date().toLocaleDateString('ar-IQ', { 
-                      weekday: 'long', 
-                      year: 'numeric', 
-                      month: 'long', 
-                      day: 'numeric' 
-                    })}
+                    {formatFullDate(new Date())}
                   </Text>
                 </View>
               </View>
@@ -279,26 +475,6 @@ export const DashboardScreen = ({ navigation }: any) => {
           </LinearGradient>
         )}
 
-        {/* Summary Cards */}
-        {summary && (
-          <View style={styles.summaryGrid}>
-            <SummaryCard
-              label="إجمالي الدخل"
-              value={summary.totalIncome}
-              icon="trending-up"
-              gradient={theme.gradients.success}
-              formatCurrency={formatCurrency}
-            />
-            <View style={styles.summaryGap} />
-            <SummaryCard
-              label="إجمالي المصاريف"
-              value={summary.totalExpenses}
-              icon="trending-down"
-              gradient={theme.gradients.error}
-              formatCurrency={formatCurrency}
-            />
-          </View>
-        )}
 
         {/* Debts Status Card */}
         {debtsSummary && (
@@ -687,6 +863,51 @@ export const DashboardScreen = ({ navigation }: any) => {
           )}
         </View>
 
+        {/* Achievements Quick View */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>إنجازاتي</Text>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Achievements')}
+              style={styles.viewAllButton}
+            >
+              <Text style={styles.viewAllText}>عرض الكل</Text>
+              <Ionicons name="chevron-back" size={16} color={theme.colors.primary} />
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Achievements')}
+            style={styles.budgetQuickCard}
+          >
+            <LinearGradient
+              colors={['#F59E0B', '#D97706'] as any}
+              style={styles.budgetQuickGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Ionicons name="trophy" size={32} color={theme.colors.textInverse} />
+              <View style={styles.budgetQuickContent}>
+                <Text style={styles.budgetQuickTitle}>الإنجازات والشارات</Text>
+                <Text style={styles.budgetQuickText}>
+                  {achievementsCount.unlocked} من {achievementsCount.total} إنجاز مفتوح
+                </Text>
+                {achievementsCount.total > 0 && (
+                  <View style={styles.achievementProgressBar}>
+                    <View
+                      style={[
+                        styles.achievementProgressFill,
+                        {
+                          width: `${(achievementsCount.unlocked / achievementsCount.total) * 100}%`,
+                        },
+                      ]}
+                    />
+                  </View>
+                )}
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+
         {/* Expense Distribution Chart */}
         {chartData.length > 0 && (
           <View style={styles.chartCard}>
@@ -776,55 +997,56 @@ const styles = StyleSheet.create({
   },
   summaryGrid: {
     flexDirection: 'row',
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
+    gap: theme.spacing.sm,
   },
   summaryGap: {
-    width: theme.spacing.md,
+    width: theme.spacing.sm,
   },
-  todayCard: {
-    marginBottom: theme.spacing.lg,
-    borderRadius: theme.borderRadius.xl,
-    padding: theme.spacing.lg,
-    ...theme.shadows.lg,
-    overflow: 'hidden',
-  },
-  todayCardHeader: {
-    marginBottom: theme.spacing.lg,
-  },
+   todayCard: {
+     marginBottom: theme.spacing.md,
+     borderRadius: theme.borderRadius.lg,
+     padding: theme.spacing.md,
+     ...theme.shadows.md,
+     overflow: 'hidden',
+   },
+   todayCardHeader: {
+     marginBottom: theme.spacing.md,
+   },
   todayCardHeaderLeft: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: theme.spacing.md,
   },
-  todayCardIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...theme.shadows.sm,
-  },
-  todayCardTitle: {
-    fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
-    color: theme.colors.textInverse,
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
-    marginBottom: theme.spacing.xs,
-  },
-  todayCardSubtitle: {
-    fontSize: theme.typography.sizes.sm,
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
-  },
-  todayCardStats: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-around',
-    paddingTop: theme.spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.2)',
-  },
+   todayCardIconContainer: {
+     width: 40,
+     height: 40,
+     borderRadius: 20,
+     alignItems: 'center',
+     justifyContent: 'center',
+     ...theme.shadows.sm,
+   },
+   todayCardTitle: {
+     fontSize: theme.typography.sizes.lg,
+     fontWeight: '700',
+     color: theme.colors.textInverse,
+     fontFamily: theme.typography.fontFamily,
+     textAlign: 'right',
+     marginBottom: theme.spacing.xs / 2,
+   },
+   todayCardSubtitle: {
+     fontSize: theme.typography.sizes.xs,
+     color: 'rgba(255, 255, 255, 0.85)',
+     fontFamily: theme.typography.fontFamily,
+     textAlign: 'right',
+   },
+   todayCardStats: {
+     flexDirection: 'row-reverse',
+     justifyContent: 'space-around',
+     paddingTop: theme.spacing.md,
+     borderTopWidth: 1,
+     borderTopColor: 'rgba(255, 255, 255, 0.2)',
+   },
   todayCardStatItem: {
     flex: 1,
     alignItems: 'center',
@@ -841,13 +1063,13 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
   },
-  todayCardStatValue: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
-    color: theme.colors.textInverse,
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'center',
-  },
+   todayCardStatValue: {
+     fontSize: theme.typography.sizes.sm,
+     fontWeight: '700',
+     color: theme.colors.textInverse,
+     fontFamily: theme.typography.fontFamily,
+     textAlign: 'center',
+   },
   todayCardStatDivider: {
     width: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
@@ -1140,27 +1362,27 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   statusCard: {
-    borderRadius: theme.borderRadius.xl,
-    marginBottom: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
+    marginBottom: theme.spacing.sm,
     overflow: 'hidden',
     ...theme.shadows.md,
   },
   statusCardGradient: {
-    padding: theme.spacing.lg,
+    padding: theme.spacing.md,
   },
   statusCardHeader: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
   },
   statusCardIconContainer: {
-    width: 48,
-    height: 48,
+    width: 40,
+    height: 40,
     borderRadius: theme.borderRadius.md,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    ...(isRTL ? { marginLeft: theme.spacing.md } : { marginRight: theme.spacing.md }),
+    ...(isRTL ? { marginLeft: theme.spacing.sm } : { marginRight: theme.spacing.sm }),
   },
   statusCardTitleContainer: {
     flex: 1,
@@ -1316,6 +1538,19 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
     ...theme.shadows.sm,
+  },
+  achievementProgressBar: {
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: theme.borderRadius.round,
+    overflow: 'hidden',
+    marginTop: theme.spacing.sm,
+    width: '100%',
+  },
+  achievementProgressFill: {
+    height: '100%',
+    backgroundColor: theme.colors.textInverse,
+    borderRadius: theme.borderRadius.round,
   },
   emptyChallengeButtonText: {
     fontSize: theme.typography.sizes.md,

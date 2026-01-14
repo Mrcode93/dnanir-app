@@ -125,7 +125,6 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
 
     // First test the biometric authentication
     try {
-      const { authenticateWithBiometric } = await import('../services/authService');
       const testResult = await authenticateWithBiometric();
       
       if (!testResult) {

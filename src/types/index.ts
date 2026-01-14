@@ -350,3 +350,14 @@ export const CHALLENGE_CATEGORIES: Record<ChallengeCategory, { label: string; ic
   discipline: { label: 'الانضباط', icon: 'checkmark-circle-outline', color: '#3B82F6' },
   debt: { label: 'الديون', icon: 'link-outline', color: '#F59E0B' },
 };
+
+// Expense Shortcuts
+export interface ExpenseShortcut {
+  id: number;
+  title: string;
+  amount: number;
+  category: ExpenseCategory;
+  currency?: string;
+  description?: string;
+  createdAt: string;
+}

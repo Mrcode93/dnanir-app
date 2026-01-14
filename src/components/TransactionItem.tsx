@@ -330,6 +330,7 @@ const styles = StyleSheet.create({
   wrapper: {
     marginBottom: theme.spacing.md,
     marginHorizontal: theme.spacing.sm,
+    direction: 'rtl',
   },
   container: {
     width: '100%',
@@ -380,7 +381,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
     marginBottom: 4,
   },
@@ -399,7 +400,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontFamily: theme.typography.fontFamily,
     fontWeight: '500',
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
   },
   categoryTag: {
@@ -429,7 +430,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
   },
   convertedAmount: {
@@ -437,7 +438,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: 'rgba(255, 255, 255, 0.8)',
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
     marginTop: 2,
     fontStyle: 'italic',
@@ -474,7 +475,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     ...(isRTL ? { marginRight: theme.spacing.sm } : { marginLeft: theme.spacing.sm }),
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
   },
   menuItemTextDanger: {

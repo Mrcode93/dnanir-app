@@ -15,11 +15,12 @@ import { SettingsScreen } from '../screens/SettingsScreen';
 import { GoalsScreen } from '../screens/GoalsScreen';
 import { BudgetScreen } from '../screens/BudgetScreen';
 import { RecurringExpensesScreen } from '../screens/RecurringExpensesScreen';
-import { AdvancedReportsScreen } from '../screens/AdvancedReportsScreen';
+// import { AdvancedReportsScreen } from '../screens/AdvancedReportsScreen'; // Removed
 import { CurrencyConverterScreen } from '../screens/CurrencyConverterScreen';
 import { DebtsScreen } from '../screens/DebtsScreen';
 import { DebtDetailsScreen } from '../screens/DebtDetailsScreen';
 import { ChallengesScreen } from '../screens/ChallengesScreen';
+import { AchievementsScreen } from '../screens/AchievementsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -56,23 +57,7 @@ const IncomeStack = () => (
 const InsightsStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="InsightsMain" component={InsightsScreen} />
-    <Stack.Screen
-      name="AdvancedReports"
-      component={AdvancedReportsScreen}
-      options={{
-        headerShown: true,
-        headerTitle: 'التقارير المتقدمة',
-        headerTitleStyle: {
-          fontFamily: theme.typography.fontFamily,
-          fontSize: theme.typography.sizes.lg,
-          fontWeight: '700',
-        },
-        headerStyle: {
-          backgroundColor: theme.colors.surfaceCard,
-        },
-        headerTintColor: theme.colors.textPrimary,
-      }}
-    />
+    {/* Advanced Reports removed */}
   </Stack.Navigator>
 );
 
@@ -317,6 +302,42 @@ const DashboardStack = () => (
       }}
     />
     <Stack.Screen
+      name="Achievements"
+      component={AchievementsScreen}
+      options={({ navigation }) => ({
+        headerShown: true,
+        headerTitle: () => (
+          <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
+            <Ionicons name="trophy" size={24} color={theme.colors.primary} />
+            <Text style={{
+              fontFamily: theme.typography.fontFamily,
+              fontSize: theme.typography.sizes.lg,
+              fontWeight: '700',
+              color: theme.colors.textPrimary,
+            }}>
+              الإنجازات
+            </Text>
+          </View>
+        ),
+        headerTitleStyle: {
+          fontFamily: theme.typography.fontFamily,
+          fontSize: theme.typography.sizes.lg,
+          fontWeight: '700',
+        },
+        headerStyle: {
+          backgroundColor: theme.colors.surfaceCard,
+          elevation: 0,
+          shadowOpacity: 0,
+          borderBottomWidth: 1,
+          borderBottomColor: theme.colors.border,
+        },
+        headerTintColor: theme.colors.textPrimary,
+        headerBackTitleVisible: false,
+        headerBackTitle: '',
+        tabBarStyle: { display: 'none' },
+      })}
+    />
+    <Stack.Screen
       name="Challenges"
       component={ChallengesScreen}
       options={({ navigation }) => ({
@@ -372,18 +393,17 @@ const DashboardStack = () => (
 export const AppNavigator = () => {
   const insets = useSafeAreaInsets();
 
-  // Ensure RTL is always enabled
+  // Ensure LTR is always enabled
   React.useEffect(() => {
-    I18nManager.forceRTL(true);
-    I18nManager.allowRTL(true);
-    I18nManager.swapLeftAndRightInRTL(true);
+    I18nManager.forceRTL(false);
+    I18nManager.allowRTL(false);
+    I18nManager.swapLeftAndRightInRTL(false);
   }, []);
 
   return (
     <NavigationContainer 
       direction="ltr"
       onReady={() => {
-        console.log('NavigationContainer ready - LTR direction set');
       }}
     >
       <Tab.Navigator
@@ -406,8 +426,6 @@ export const AppNavigator = () => {
               iconName = focused ? 'settings' : 'settings-outline';
             } else if (route.name === 'RecurringExpenses') {
               iconName = focused ? 'repeat' : 'repeat-outline';
-            } else if (route.name === 'AdvancedReports') {
-              iconName = focused ? 'document-text' : 'document-text-outline';
             } else {
               iconName = 'help-outline';
             }

@@ -36,6 +36,7 @@ import {
 } from '../services/challengeService';
 import { ConfirmAlert } from '../components/ConfirmAlert';
 import { AddCustomChallengeModal } from '../components/AddCustomChallengeModal';
+import { shareChallengeCompletion } from '../services/shareService';
 
 export const ChallengesScreen = ({ navigation, route }: any) => {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
@@ -198,6 +199,14 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
       await loadChallenges();
       setShowMenuForChallenge(null);
       alertService.success('نجح', 'تم إكمال التحدي بنجاح! 🎉');
+      
+      // Offer to share
+      try {
+        await shareChallengeCompletion(challenge.title);
+      } catch (shareError) {
+        // User cancelled or error, ignore
+        console.log('Share cancelled or error:', shareError);
+      }
     } catch (error) {
       console.error('Error completing challenge:', error);
       alertService.error('خطأ', 'حدث خطأ أثناء إكمال التحدي');
@@ -560,7 +569,7 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={[]}>
       {/* Category Filter */}
       <View style={styles.header}>
         {/* Filter Buttons Row */}
