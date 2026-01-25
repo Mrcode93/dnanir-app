@@ -22,7 +22,7 @@
     },
     "production": {
       "android": {
-        "buildType": "app-bundle"
+        "buildType": "apk"
       }
     }
   },
@@ -31,7 +31,7 @@
       "ios": {
         "ascApiKeyPath": "./AuthKey.p8",
         "ascApiKeyId": "323B2YC34J",
-        "ascApiIssuer": "efe61021-7e42-4446-b470-75ee3f13cb3b",
+        "ascApiKeyIssuerId": "efe61021-7e42-4446-b470-75ee3f13cb3b",
         "ascAppId": "REPLACE_WITH_YOUR_APP_ID"
       },
       "android": {

@@ -213,6 +213,20 @@ export const initDatabase = async () => {
     `);
 
     await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS debt_payments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        debtId INTEGER NOT NULL,
+        amount REAL NOT NULL,
+        paymentDate TEXT NOT NULL,
+        installmentId INTEGER,
+        description TEXT,
+        createdAt TEXT NOT NULL,
+        FOREIGN KEY (debtId) REFERENCES debts(id) ON DELETE CASCADE,
+        FOREIGN KEY (installmentId) REFERENCES debt_installments(id) ON DELETE SET NULL
+      );
+    `);
+
+    await db.execAsync(`
       CREATE TABLE IF NOT EXISTS challenges (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         type TEXT NOT NULL,
@@ -283,6 +297,53 @@ export const initDatabase = async () => {
       );
     `);
 
+    // Bills table
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS bills (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        amount REAL NOT NULL,
+        category TEXT NOT NULL,
+        dueDate TEXT NOT NULL,
+        recurrenceType TEXT,
+        recurrenceValue INTEGER,
+        description TEXT,
+        currency TEXT DEFAULT 'IQD',
+        isPaid INTEGER DEFAULT 0,
+        paidDate TEXT,
+        reminderDaysBefore INTEGER DEFAULT 3,
+        image_path TEXT,
+        createdAt TEXT NOT NULL
+      );
+    `);
+
+    // Add image_path column if it doesn't exist (for existing databases)
+    try {
+      await db.execAsync('ALTER TABLE bills ADD COLUMN image_path TEXT;');
+    } catch (e) {
+      // Column already exists, ignore
+    }
+
+    // Bill payment history table
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS bill_payments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        billId INTEGER NOT NULL,
+        amount REAL NOT NULL,
+        paymentDate TEXT NOT NULL,
+        description TEXT,
+        createdAt TEXT NOT NULL,
+        FOREIGN KEY (billId) REFERENCES bills(id) ON DELETE CASCADE
+      );
+    `);
+
+    // Add receipt_image_path column to expenses if it doesn't exist
+    try {
+      await db.execAsync('ALTER TABLE expenses ADD COLUMN receipt_image_path TEXT;');
+    } catch (e) {
+      // Column already exists, ignore
+    }
+
     // Initialize default categories
     await initializeDefaultCategories(db);
   } catch (error) {
@@ -352,8 +413,8 @@ const getDb = () => {
 export const addExpense = async (expense: Omit<import('../types').Expense, 'id'>): Promise<number> => {
   const database = getDb();
   const result = await database.runAsync(
-    'INSERT INTO expenses (title, amount, category, date, description, currency) VALUES (?, ?, ?, ?, ?, ?)',
-    [expense.title, expense.amount, expense.category, expense.date, expense.description || null, expense.currency || 'IQD']
+    'INSERT INTO expenses (title, amount, category, date, description, currency, receipt_image_path) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [expense.title, expense.amount, expense.category, expense.date, expense.description || null, expense.currency || 'IQD', expense.receipt_image_path || null]
   );
   
   // Check achievements after adding expense (async, don't wait)
@@ -362,6 +423,14 @@ export const addExpense = async (expense: Omit<import('../types').Expense, 'id'>
     checkAllAchievements().catch(() => {});
   } catch (error) {
     // Ignore if achievementService is not available
+  }
+  
+  // Update widgets (async, don't wait)
+  try {
+    const { saveWidgetData } = await import('../services/widgetDataService');
+    saveWidgetData().catch(() => {});
+  } catch (error) {
+    // Ignore if widget service is not available
   }
   
   return result.lastInsertRowId;
@@ -378,14 +447,30 @@ export const getExpenses = async (): Promise<import('../types').Expense[]> => {
 export const updateExpense = async (id: number, expense: Omit<import('../types').Expense, 'id'>): Promise<void> => {
   const database = getDb();
   await database.runAsync(
-    'UPDATE expenses SET title = ?, amount = ?, category = ?, date = ?, description = ?, currency = ? WHERE id = ?',
-    [expense.title, expense.amount, expense.category, expense.date, expense.description || null, expense.currency || 'IQD', id]
+    'UPDATE expenses SET title = ?, amount = ?, category = ?, date = ?, description = ?, currency = ?, receipt_image_path = ? WHERE id = ?',
+    [expense.title, expense.amount, expense.category, expense.date, expense.description || null, expense.currency || 'IQD', expense.receipt_image_path || null, id]
   );
+  
+  // Update widgets (async, don't wait)
+  try {
+    const { saveWidgetData } = await import('../services/widgetDataService');
+    saveWidgetData().catch(() => {});
+  } catch (error) {
+    // Ignore if widget service is not available
+  }
 };
 
 export const deleteExpense = async (id: number): Promise<void> => {
   const database = getDb();
   await database.runAsync('DELETE FROM expenses WHERE id = ?', [id]);
+  
+  // Update widgets (async, don't wait)
+  try {
+    const { saveWidgetData } = await import('../services/widgetDataService');
+    saveWidgetData().catch(() => {});
+  } catch (error) {
+    // Ignore if widget service is not available
+  }
 };
 
 // Income operations
@@ -402,6 +487,14 @@ export const addIncome = async (income: Omit<import('../types').Income, 'id'>): 
     checkAllAchievements().catch(() => {});
   } catch (error) {
     // Ignore if achievementService is not available
+  }
+  
+  // Update widgets (async, don't wait)
+  try {
+    const { saveWidgetData } = await import('../services/widgetDataService');
+    saveWidgetData().catch(() => {});
+  } catch (error) {
+    // Ignore if widget service is not available
   }
   
   return result.lastInsertRowId;
@@ -421,11 +514,27 @@ export const updateIncome = async (id: number, income: Omit<import('../types').I
     'UPDATE income SET source = ?, amount = ?, date = ?, description = ?, currency = ? WHERE id = ?',
     [income.source, income.amount, income.date, income.description || null, income.currency || 'IQD', id]
   );
+  
+  // Update widgets (async, don't wait)
+  try {
+    const { saveWidgetData } = await import('../services/widgetDataService');
+    saveWidgetData().catch(() => {});
+  } catch (error) {
+    // Ignore if widget service is not available
+  }
 };
 
 export const deleteIncome = async (id: number): Promise<void> => {
   const database = getDb();
   await database.runAsync('DELETE FROM income WHERE id = ?', [id]);
+  
+  // Update widgets (async, don't wait)
+  try {
+    const { saveWidgetData } = await import('../services/widgetDataService');
+    saveWidgetData().catch(() => {});
+  } catch (error) {
+    // Ignore if widget service is not available
+  }
 };
 
 // User settings
@@ -1236,6 +1345,47 @@ export const deleteDebtInstallment = async (id: number): Promise<void> => {
   await database.runAsync('DELETE FROM debt_installments WHERE id = ?', [id]);
 };
 
+// Debt Payment History
+export interface DebtPayment {
+  id: number;
+  debtId: number;
+  amount: number;
+  paymentDate: string;
+  installmentId?: number;
+  description?: string;
+  createdAt: string;
+}
+
+export const addDebtPayment = async (payment: Omit<DebtPayment, 'id' | 'createdAt'>): Promise<number> => {
+  const database = getDb();
+  const createdAt = new Date().toISOString();
+  const result = await database.runAsync(
+    'INSERT INTO debt_payments (debtId, amount, paymentDate, installmentId, description, createdAt) VALUES (?, ?, ?, ?, ?, ?)',
+    [
+      payment.debtId,
+      payment.amount,
+      payment.paymentDate,
+      payment.installmentId || null,
+      payment.description || null,
+      createdAt,
+    ]
+  );
+  return result.lastInsertRowId;
+};
+
+export const getDebtPayments = async (debtId: number): Promise<DebtPayment[]> => {
+  const database = getDb();
+  const result = await database.getAllAsync<DebtPayment>(
+    'SELECT * FROM debt_payments WHERE debtId = ? ORDER BY paymentDate DESC, createdAt DESC',
+    [debtId]
+  );
+  return result.map(payment => ({
+    ...payment,
+    installmentId: payment.installmentId || undefined,
+    description: payment.description || undefined,
+  }));
+};
+
 export const getUpcomingDebtPayments = async (days: number = 7): Promise<{ debt: Debt; installment?: DebtInstallment }[]> => {
   const database = getDb();
   const today = new Date();
@@ -1711,4 +1861,191 @@ export const updateIncomeShortcut = async (id: number, shortcut: Partial<IncomeS
       values
     );
   }
+};
+
+// Bills operations
+export interface Bill {
+  id: number;
+  title: string;
+  amount: number;
+  category: string;
+  dueDate: string;
+  recurrenceType?: string;
+  recurrenceValue?: number;
+  description?: string;
+  currency?: string;
+  isPaid: boolean;
+  paidDate?: string;
+  reminderDaysBefore: number;
+  image_path?: string;
+  createdAt: string;
+}
+
+export interface BillPayment {
+  id: number;
+  billId: number;
+  amount: number;
+  paymentDate: string;
+  description?: string;
+  createdAt: string;
+}
+
+export const addBill = async (bill: Omit<Bill, 'id' | 'createdAt'>): Promise<number> => {
+  const database = getDb();
+  const createdAt = new Date().toISOString();
+  const result = await database.runAsync(
+    'INSERT INTO bills (title, amount, category, dueDate, recurrenceType, recurrenceValue, description, currency, isPaid, paidDate, reminderDaysBefore, image_path, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [
+      bill.title,
+      bill.amount,
+      bill.category,
+      bill.dueDate,
+      bill.recurrenceType || null,
+      bill.recurrenceValue || null,
+      bill.description || null,
+      bill.currency || 'IQD',
+      bill.isPaid ? 1 : 0,
+      bill.paidDate || null,
+      bill.reminderDaysBefore || 3,
+      bill.image_path || null,
+      createdAt,
+    ]
+  );
+  return result.lastInsertRowId;
+};
+
+export const getBills = async (): Promise<Bill[]> => {
+  const database = getDb();
+  const result = await database.getAllAsync<Bill>(
+    'SELECT * FROM bills ORDER BY dueDate ASC, createdAt DESC'
+  );
+  return result.map(bill => ({
+    ...bill,
+    isPaid: bill.isPaid === 1,
+  }));
+};
+
+export const getBillById = async (id: number): Promise<Bill | null> => {
+  const database = getDb();
+  const result = await database.getFirstAsync<Bill>(
+    'SELECT * FROM bills WHERE id = ?',
+    [id]
+  );
+  if (!result) return null;
+  return {
+    ...result,
+    isPaid: result.isPaid === 1,
+  };
+};
+
+export const updateBill = async (id: number, bill: Partial<Bill>): Promise<void> => {
+  const database = getDb();
+  const updates: string[] = [];
+  const values: any[] = [];
+
+  if (bill.title !== undefined) {
+    updates.push('title = ?');
+    values.push(bill.title);
+  }
+  if (bill.amount !== undefined) {
+    updates.push('amount = ?');
+    values.push(bill.amount);
+  }
+  if (bill.category !== undefined) {
+    updates.push('category = ?');
+    values.push(bill.category);
+  }
+  if (bill.dueDate !== undefined) {
+    updates.push('dueDate = ?');
+    values.push(bill.dueDate);
+  }
+  if (bill.recurrenceType !== undefined) {
+    updates.push('recurrenceType = ?');
+    values.push(bill.recurrenceType || null);
+  }
+  if (bill.recurrenceValue !== undefined) {
+    updates.push('recurrenceValue = ?');
+    values.push(bill.recurrenceValue || null);
+  }
+  if (bill.description !== undefined) {
+    updates.push('description = ?');
+    values.push(bill.description || null);
+  }
+  if (bill.currency !== undefined) {
+    updates.push('currency = ?');
+    values.push(bill.currency || 'IQD');
+  }
+  if (bill.isPaid !== undefined) {
+    updates.push('isPaid = ?');
+    values.push(bill.isPaid ? 1 : 0);
+  }
+  if (bill.paidDate !== undefined) {
+    updates.push('paidDate = ?');
+    values.push(bill.paidDate || null);
+  }
+  if (bill.reminderDaysBefore !== undefined) {
+    updates.push('reminderDaysBefore = ?');
+    values.push(bill.reminderDaysBefore);
+  }
+  if (bill.image_path !== undefined) {
+    updates.push('image_path = ?');
+    values.push(bill.image_path || null);
+  }
+
+  if (updates.length > 0) {
+    values.push(id);
+    await database.runAsync(
+      `UPDATE bills SET ${updates.join(', ')} WHERE id = ?`,
+      values
+    );
+  }
+};
+
+export const deleteBill = async (id: number): Promise<void> => {
+  const database = getDb();
+  await database.runAsync('DELETE FROM bills WHERE id = ?', [id]);
+};
+
+export const addBillPayment = async (payment: Omit<BillPayment, 'id' | 'createdAt'>): Promise<number> => {
+  const database = getDb();
+  const createdAt = new Date().toISOString();
+  const result = await database.runAsync(
+    'INSERT INTO bill_payments (billId, amount, paymentDate, description, createdAt) VALUES (?, ?, ?, ?, ?)',
+    [
+      payment.billId,
+      payment.amount,
+      payment.paymentDate,
+      payment.description || null,
+      createdAt,
+    ]
+  );
+  return result.lastInsertRowId;
+};
+
+export const getBillPayments = async (billId: number): Promise<BillPayment[]> => {
+  const database = getDb();
+  const result = await database.getAllAsync<BillPayment>(
+    'SELECT * FROM bill_payments WHERE billId = ? ORDER BY paymentDate DESC',
+    [billId]
+  );
+  return result;
+};
+
+export const getBillsDueSoon = async (days: number = 7): Promise<Bill[]> => {
+  const database = getDb();
+  const today = new Date();
+  const futureDate = new Date();
+  futureDate.setDate(today.getDate() + days);
+  
+  const result = await database.getAllAsync<Bill>(
+    `SELECT * FROM bills 
+     WHERE isPaid = 0 
+     AND dueDate BETWEEN ? AND ? 
+     ORDER BY dueDate ASC`,
+    [today.toISOString().split('T')[0], futureDate.toISOString().split('T')[0]]
+  );
+  return result.map(bill => ({
+    ...bill,
+    isPaid: bill.isPaid === 1,
+  }));
 };

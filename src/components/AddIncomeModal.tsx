@@ -17,7 +17,7 @@ import { TextInput, IconButton } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../utils/theme';
+import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { Income, IncomeSource, INCOME_SOURCES, CURRENCIES } from '../types';
 import { 
   addIncome, 
@@ -1056,7 +1056,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: 2,
@@ -1083,7 +1083,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     marginBottom: theme.spacing.sm,
     fontFamily: theme.typography.fontFamily,
@@ -1130,7 +1130,7 @@ const styles = StyleSheet.create({
     marginRight: theme.spacing.sm,
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   categoryGradient: {
     flexDirection: 'row',
@@ -1151,14 +1151,14 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.sm,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '500',
+    fontWeight: getPlatformFontWeight('500'),
     writingDirection: 'rtl',
   },
   categoryTextActive: {
     fontSize: theme.typography.sizes.sm,
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     writingDirection: 'rtl',
   },
   actions: {
@@ -1191,7 +1191,7 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     writingDirection: 'rtl',
@@ -1201,7 +1201,7 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   addShortcutActionGradient: {
     width: '100%',
@@ -1214,7 +1214,7 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   saveButtonGradient: {
     flexDirection: 'row',
@@ -1226,7 +1226,7 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     writingDirection: 'rtl',
@@ -1234,7 +1234,7 @@ const styles = StyleSheet.create({
   currencyButton: {
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   currencyButtonGradient: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -1245,7 +1245,7 @@ const styles = StyleSheet.create({
   currencyButtonText: {
     flex: 1,
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'right' : 'left',
@@ -1277,7 +1277,7 @@ const styles = StyleSheet.create({
   },
   currencyModalTitle: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'right' : 'left',
@@ -1317,7 +1317,7 @@ const styles = StyleSheet.create({
     textAlign: isRTL ? 'right' : 'left',
   },
   currencyOptionTextSelected: {
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.primary,
   },
   convertedAmountText: {
@@ -1355,7 +1355,7 @@ const styles = StyleSheet.create({
   },
   shortcutsTitle: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     writingDirection: 'rtl',
@@ -1378,7 +1378,7 @@ const styles = StyleSheet.create({
     width: 140,
     borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
-    ...theme.shadows.lg,
+    ...getPlatformShadow('lg'),
     marginRight: theme.spacing.xs,
   },
   shortcutCardFirst: {
@@ -1406,7 +1406,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(59, 130, 246, 0.9)',
     alignItems: 'center',
     justifyContent: 'center',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   shortcutDeleteButton: {
     width: 28,
@@ -1415,7 +1415,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(239, 68, 68, 0.9)',
     alignItems: 'center',
     justifyContent: 'center',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   shortcutIconContainer: {
     width: 56,
@@ -1428,7 +1428,7 @@ const styles = StyleSheet.create({
   },
   shortcutTitle: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
@@ -1437,7 +1437,7 @@ const styles = StyleSheet.create({
   },
   shortcutAmount: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '800',
+    fontWeight: getPlatformFontWeight('800'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
@@ -1466,7 +1466,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: theme.spacing.xs,
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   addShortcutContent: {
     alignItems: 'center',
@@ -1483,7 +1483,7 @@ const styles = StyleSheet.create({
   },
   addShortcutText: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily,
     writingDirection: 'rtl',
@@ -1492,7 +1492,7 @@ const styles = StyleSheet.create({
   addFirstShortcutButton: {
     borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   addFirstShortcutGradient: {
     flexDirection: 'row',
@@ -1515,7 +1515,7 @@ const styles = StyleSheet.create({
   },
   addFirstShortcutTitle: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     writingDirection: 'rtl',
@@ -1523,7 +1523,7 @@ const styles = StyleSheet.create({
   },
   addFirstShortcutSubtitle: {
     fontSize: theme.typography.sizes.xs,
-    fontWeight: '400',
+    fontWeight: getPlatformFontWeight('400'),
     color: 'rgba(255, 255, 255, 0.9)',
     fontFamily: theme.typography.fontFamily,
     writingDirection: 'rtl',
@@ -1550,7 +1550,7 @@ const styles = StyleSheet.create({
     maxWidth: 400,
     borderRadius: theme.borderRadius.xl,
     overflow: 'hidden',
-    ...theme.shadows.lg,
+    ...getPlatformShadow('lg'),
   },
   shortcutModalGradient: {
     padding: theme.spacing.lg,
@@ -1563,7 +1563,7 @@ const styles = StyleSheet.create({
   },
   shortcutModalTitle: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     writingDirection: 'rtl',
@@ -1576,7 +1576,7 @@ const styles = StyleSheet.create({
   },
   shortcutModalText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.sm,
@@ -1604,7 +1604,7 @@ const styles = StyleSheet.create({
   },
   shortcutModalCancelText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     writingDirection: 'rtl',
@@ -1613,7 +1613,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   shortcutModalSaveGradient: {
     paddingVertical: theme.spacing.md,
@@ -1622,7 +1622,7 @@ const styles = StyleSheet.create({
   },
   shortcutModalSaveText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     writingDirection: 'rtl',

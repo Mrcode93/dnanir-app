@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../utils/theme';
+import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { GoalCard } from '../components/GoalCard';
 import { AddGoalModal } from '../components/AddGoalModal';
 import {
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.xl,
     padding: theme.spacing.lg,
     marginBottom: theme.spacing.lg,
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   summaryHeader: {
     flexDirection: 'row',
@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
   },
   summaryTitle: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
   },
   summaryAmountValue: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
   },
@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     marginBottom: theme.spacing.md,
     fontFamily: theme.typography.fontFamily,
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
   },
   emptyStateTitle: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     marginTop: theme.spacing.lg,
     marginBottom: theme.spacing.sm,

@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Searchbar } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../utils/theme';
+import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { 
   getDebts, 
   deleteDebt,
@@ -31,6 +31,7 @@ import { DEBT_TYPES } from '../types';
 import { payDebt, payInstallment } from '../services/debtService';
 import { isRTL } from '../utils/rtl';
 import { alertService } from '../services/alertService';
+import { PayDebtModal } from '../components/PayDebtModal';
 
 export const DebtsScreen = ({ navigation, route }: any) => {
   const { formatCurrency } = useCurrency();
@@ -45,6 +46,8 @@ export const DebtsScreen = ({ navigation, route }: any) => {
   const [debtToDelete, setDebtToDelete] = useState<Debt | null>(null);
   const [installmentsMap, setInstallmentsMap] = useState<Record<number, DebtInstallment[]>>({});
   const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [showPayModal, setShowPayModal] = useState(false);
+  const [debtToPay, setDebtToPay] = useState<Debt | null>(null);
   const filterMenuAnim = useRef(new Animated.Value(0)).current;
 
   const loadDebts = async () => {
@@ -193,14 +196,26 @@ export const DebtsScreen = ({ navigation, route }: any) => {
     loadDebts();
   };
 
-  const handlePayDebt = async (debt: Debt) => {
+  const handlePayDebt = (debt: Debt) => {
+    setDebtToPay(debt);
+    setShowPayModal(true);
+  };
+
+  const handlePayDebtConfirm = async (amount: number) => {
+    if (!debtToPay) return;
     try {
-      await payDebt(debt.id);
+      await payDebt(debtToPay.id, amount);
       await loadDebts();
-      alertService.success('نجح', 'تم دفع الدين بنجاح');
+      const message = amount === debtToPay.remainingAmount
+        ? 'تم دفع الدين بالكامل بنجاح'
+        : `تم دفع ${formatCurrency(amount)} بنجاح`;
+      alertService.success('نجح', message);
+      setShowPayModal(false);
+      setDebtToPay(null);
     } catch (error) {
       console.error('Error paying debt:', error);
       alertService.error('خطأ', 'حدث خطأ أثناء دفع الدين');
+      throw error;
     }
   };
 
@@ -524,6 +539,16 @@ export const DebtsScreen = ({ navigation, route }: any) => {
         cancelText="إلغاء"
         type="danger"
       />
+
+      <PayDebtModal
+        visible={showPayModal}
+        debt={debtToPay}
+        onClose={() => {
+          setShowPayModal(false);
+          setDebtToPay(null);
+        }}
+        onPay={handlePayDebtConfirm}
+      />
     </SafeAreaView>
   );
 };
@@ -549,7 +574,7 @@ const styles = StyleSheet.create({
   },
   pageTitle: {
     fontSize: theme.typography.sizes.xxl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
@@ -587,7 +612,7 @@ const styles = StyleSheet.create({
   filterButton: {
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   filterButtonGradient: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -607,13 +632,13 @@ const styles = StyleSheet.create({
   },
   filterButtonText: {
     fontSize: theme.typography.sizes.xs,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
   },
   filterButtonTextActive: {
     fontSize: theme.typography.sizes.xs,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
   },
@@ -638,7 +663,7 @@ const styles = StyleSheet.create({
   },
   summaryAmount: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -655,7 +680,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     marginTop: theme.spacing.lg,
     fontFamily: theme.typography.fontFamily,
@@ -688,7 +713,7 @@ const styles = StyleSheet.create({
   },
   filterMenuTitle: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -707,7 +732,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   filterMenuItemActive: {
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   filterMenuItemGradient: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -731,7 +756,7 @@ const styles = StyleSheet.create({
   filterMenuItemTextActive: {
     flex: 1,
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
   },

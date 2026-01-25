@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../utils/theme';
+import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { isRTL } from '../utils/rtl';
 import {
   requestImagePermissions,
@@ -524,7 +524,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -558,11 +558,11 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.round,
     alignItems: 'center',
     justifyContent: 'center',
-    ...theme.shadows.lg,
+    ...getPlatformShadow('lg'),
   },
   emptyStateTitle: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
@@ -578,7 +578,7 @@ const styles = StyleSheet.create({
   selectButton: {
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   selectButtonGradient: {
     flexDirection: 'row',
@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
   },
   selectButtonText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
@@ -607,7 +607,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
     backgroundColor: theme.colors.surfaceLight,
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
     position: 'relative',
   },
   image: {
@@ -630,7 +630,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.md,
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     marginTop: theme.spacing.sm,
   },
   extractedDataSection: {
@@ -656,14 +656,14 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.round,
     alignItems: 'center',
     justifyContent: 'center',
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   successTextContainer: {
     flex: 1,
   },
   successTitle: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: '#10B981',
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
@@ -678,7 +678,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.xl,
     padding: theme.spacing.lg,
     gap: theme.spacing.md,
-    ...theme.shadows.lg,
+    ...getPlatformShadow('lg'),
     marginBottom: theme.spacing.lg,
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -726,20 +726,20 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   dataItemValue: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
   amountValue: {
     fontSize: theme.typography.sizes.xl,
     color: '#10B981',
-    fontWeight: '800',
+    fontWeight: getPlatformFontWeight('800'),
   },
   actionBanner: {
     marginTop: theme.spacing.sm,
@@ -760,7 +760,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.sm,
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     lineHeight: 20,
   },
   actions: {
@@ -786,7 +786,7 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -794,7 +794,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.lg,
+    ...getPlatformShadow('lg'),
   },
   saveButtonGradient: {
     flexDirection: 'row',
@@ -805,7 +805,7 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '800',
+    fontWeight: getPlatformFontWeight('800'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     letterSpacing: 0.5,
@@ -823,7 +823,7 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -859,7 +859,7 @@ const styles = StyleSheet.create({
   processButton: {
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   processButtonGradient: {
     flexDirection: 'row',
@@ -870,7 +870,7 @@ const styles = StyleSheet.create({
   },
   processButtonText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },

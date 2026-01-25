@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, I18nManager, Modal, Pressable } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, I18nManager, Modal, Pressable, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { theme } from '../utils/theme';
-import { Expense, Income } from '../types';
+import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { Expense, Income, IncomeSource, INCOME_SOURCES, ExpenseCategory, EXPENSE_CATEGORIES } from '../types';
 import { isRTL } from '../utils/rtl';
 import { ConfirmAlert } from './ConfirmAlert';
 import { useCurrency } from '../hooks/useCurrency';
 import { convertCurrency, formatCurrencyAmount } from '../services/currencyService';
+import { getCustomCategories, CustomCategory } from '../database/database';
 
 interface TransactionItemProps {
   item: Expense | Income;
@@ -31,58 +32,198 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
   const [showConfirmAlert, setShowConfirmAlert] = useState(false);
   const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
   const [showMenu, setShowMenu] = useState(false);
+  const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
 
   const isExpense = type === 'expense';
   const expense = isExpense ? (item as Expense) : null;
   const income = !isExpense ? (item as Income) : null;
 
-  const getCategoryIcon = (category?: string): keyof typeof Ionicons.glyphMap => {
-    if (!category) return 'wallet-outline';
-    const iconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
-      food: 'restaurant',
-      transport: 'car',
-      shopping: 'bag',
-      bills: 'receipt',
-      entertainment: 'musical-notes',
-      health: 'medical',
-      education: 'school',
-      other: 'ellipse',
+  // Load custom categories
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const categories = await getCustomCategories(isExpense ? 'expense' : 'income');
+        setCustomCategories(categories);
+      } catch (error) {
+        // Ignore error
+      }
     };
-    return iconMap[category] || 'wallet-outline';
+    loadCategories();
+  }, [isExpense]);
+
+  // Helper function to get expense category info
+  const getExpenseCategoryInfo = (category?: string) => {
+    if (!category) return { icon: 'ellipse', colors: ['#6B7280', '#4B5563'], label: 'أخرى' };
+    
+    // Check custom categories first
+    const customCat = customCategories.find(c => c.name === category);
+    if (customCat) {
+      return {
+        icon: customCat.icon,
+        colors: [customCat.color, customCat.color],
+        label: customCat.name,
+      };
+    }
+    
+    // Check default categories
+    const defaultKey = Object.keys(EXPENSE_CATEGORIES).find(
+      key => EXPENSE_CATEGORIES[key as ExpenseCategory] === category || key === category
+    ) as ExpenseCategory;
+    
+    if (defaultKey) {
+      const iconMap: Record<ExpenseCategory, keyof typeof Ionicons.glyphMap> = {
+        food: 'restaurant',
+        transport: 'car',
+        shopping: 'bag',
+        bills: 'receipt',
+        entertainment: 'musical-notes',
+        health: 'medical',
+        education: 'school',
+        other: 'ellipse',
+      };
+      const colorMap: Record<ExpenseCategory, string[]> = {
+        food: ['#F59E0B', '#D97706'],
+        transport: ['#3B82F6', '#2563EB'],
+        shopping: ['#EC4899', '#DB2777'],
+        bills: ['#EF4444', '#DC2626'],
+        entertainment: ['#8B5CF6', '#7C3AED'],
+        health: ['#10B981', '#059669'],
+        education: ['#06B6D4', '#0891B2'],
+        other: ['#6B7280', '#4B5563'],
+      };
+      return {
+        icon: iconMap[defaultKey] || 'ellipse',
+        colors: colorMap[defaultKey] || ['#6B7280', '#4B5563'],
+        label: EXPENSE_CATEGORIES[defaultKey] || category,
+      };
+    }
+    
+    return { icon: 'ellipse', colors: ['#6B7280', '#4B5563'], label: category };
+  };
+
+  // Helper function to get income source info
+  const getIncomeSourceInfo = (source?: string) => {
+    if (!source) {
+      return { icon: 'trending-up', colors: ['#10B981', '#059669'], label: '' };
+    }
+    
+    // Normalize source for comparison (lowercase, trimmed)
+    const normalizedSource = source.toLowerCase().trim();
+    
+    // Map common English names to keys
+    const englishToKeyMap: Record<string, IncomeSource> = {
+      'salary': 'salary',
+      'salaries': 'salary',
+      'wage': 'salary',
+      'wages': 'salary',
+      'pay': 'salary',
+      'income': 'salary',
+      'business': 'business',
+      'trade': 'business',
+      'trading': 'business',
+      'commerce': 'business',
+      'investment': 'investment',
+      'investments': 'investment',
+      'invest': 'investment',
+      'gift': 'gift',
+      'gifts': 'gift',
+      'present': 'gift',
+      'other': 'other',
+      'others': 'other',
+      'misc': 'other',
+      'miscellaneous': 'other',
+    };
+    
+    // Check if source matches an English name mapping
+    const mappedKey = englishToKeyMap[normalizedSource];
+    
+    // Check custom categories first - match by name (case-insensitive)
+    const customCat = customCategories.find(c => 
+      c.name.toLowerCase() === normalizedSource || 
+      c.name === source
+    );
+    if (customCat) {
+      return {
+        icon: customCat.icon,
+        colors: [customCat.color, customCat.color],
+        label: customCat.name,
+      };
+    }
+    
+    // Check default sources - match by:
+    // 1. Mapped English key
+    // 2. Arabic label (exact match)
+    // 3. English key (case-insensitive)
+    // 4. Key name (case-insensitive)
+    const defaultKey = mappedKey || Object.keys(INCOME_SOURCES).find(
+      key => {
+        const arabicLabel = INCOME_SOURCES[key as IncomeSource];
+        const keyLower = key.toLowerCase();
+        return (
+          arabicLabel === source || 
+          key === source || 
+          keyLower === normalizedSource ||
+          arabicLabel.toLowerCase() === normalizedSource
+        );
+      }
+    ) as IncomeSource;
+    
+    if (defaultKey) {
+      const sourceIcons: Record<IncomeSource, keyof typeof Ionicons.glyphMap> = {
+        salary: 'cash',
+        business: 'briefcase',
+        investment: 'trending-up',
+        gift: 'gift',
+        other: 'ellipse',
+      };
+      const sourceColors: Record<IncomeSource, string[]> = {
+        salary: ['#10B981', '#059669'],
+        business: ['#3B82F6', '#2563EB'],
+        investment: ['#8B5CF6', '#7C3AED'],
+        gift: ['#EC4899', '#DB2777'],
+        other: ['#6B7280', '#4B5563'],
+      };
+      return {
+        icon: sourceIcons[defaultKey] || 'trending-up',
+        colors: sourceColors[defaultKey] || ['#10B981', '#059669'],
+        label: INCOME_SOURCES[defaultKey] || source,
+      };
+    }
+    
+    // If no match found, return source as-is (for custom sources not in categories)
+    return { icon: 'trending-up', colors: ['#10B981', '#059669'], label: source };
+  };
+
+  const getCategoryIcon = (category?: string): keyof typeof Ionicons.glyphMap => {
+    if (isExpense) {
+      return getExpenseCategoryInfo(category).icon;
+    } else {
+      return getIncomeSourceInfo(income?.source).icon;
+    }
   };
 
   const getCategoryColor = (category?: string): string[] => {
-    if (!category) return ['#6B7280', '#4B5563'];
-    const colorMap: Record<string, string[]> = {
-      food: ['#F59E0B', '#D97706'],
-      transport: ['#3B82F6', '#2563EB'],
-      shopping: ['#EC4899', '#DB2777'],
-      bills: ['#EF4444', '#DC2626'],
-      entertainment: ['#8B5CF6', '#7C3AED'],
-      health: ['#10B981', '#059669'],
-      education: ['#06B6D4', '#0891B2'],
-      other: ['#6B7280', '#4B5563'],
-    };
-    return colorMap[category] || ['#6B7280', '#4B5563'];
+    if (isExpense) {
+      return getExpenseCategoryInfo(category).colors;
+    } else {
+      return getIncomeSourceInfo(income?.source).colors;
+    }
   };
 
   const getCategoryLabel = (category?: string): string => {
-    if (!category) return 'أخرى';
-    const labelMap: Record<string, string> = {
-      food: 'طعام',
-      transport: 'مواصلات',
-      shopping: 'تسوق',
-      bills: 'فواتير',
-      entertainment: 'ترفيه',
-      health: 'صحة',
-      education: 'تعليم',
-      other: 'أخرى',
-    };
-    return labelMap[category] || 'أخرى';
+    if (isExpense) {
+      return getExpenseCategoryInfo(category).label;
+    } else {
+      return getIncomeSourceInfo(income?.source).label;
+    }
   };
 
-  const icon = isExpense ? getCategoryIcon(expense?.category) : 'trending-up';
-  const title = isExpense ? expense!.title : income!.source;
+  const icon = getCategoryIcon(isExpense ? expense?.category : undefined);
+  // For income: show description if available, otherwise show source. Category tag will show source.
+  // For expense: show title as usual
+  const title = isExpense 
+    ? (expense?.title || '') 
+    : (income?.description || income?.source || '');
   const amount = item.amount;
   const itemCurrency = (item as Expense | Income).currency || currencyCode;
   const date = new Date(item.date);
@@ -94,8 +235,8 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
     hour: '2-digit',
     minute: '2-digit',
   });
-  const colors = isExpense ? getCategoryColor(expense?.category) : ['#10B981', '#059669'];
-  const categoryLabel = isExpense ? getCategoryLabel(expense?.category) : '';
+  const colors = getCategoryColor(isExpense ? expense?.category : undefined);
+  const categoryLabel = getCategoryLabel(isExpense ? expense?.category : undefined);
 
   // Convert amount if currency is different
   useEffect(() => {
@@ -330,15 +471,17 @@ const styles = StyleSheet.create({
   wrapper: {
     marginBottom: theme.spacing.md,
     marginHorizontal: theme.spacing.sm,
-    direction: 'rtl',
+    // Removed direction: 'rtl' - let flexDirection handle RTL layout
   },
   container: {
     width: '100%',
+    direction: 'rtl',
   },
   card: {
     borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
-    ...theme.shadows.md,
+    backgroundColor: theme.colors.surfaceCard, // Required for Android elevation to work
+    ...getPlatformShadow('md'),
   },
   cardGradient: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -356,7 +499,8 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
     borderWidth: 2,
-    ...theme.shadows.sm,
+    backgroundColor: theme.colors.surfaceCard, // Background for Android elevation
+    ...getPlatformShadow('sm'),
   },
   iconGradient: {
     width: '100%',
@@ -378,7 +522,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'left',
@@ -399,7 +543,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.xs,
     color: theme.colors.textMuted,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '500',
+    fontWeight: getPlatformFontWeight('500'),
     textAlign: 'left',
     writingDirection: 'rtl',
   },
@@ -410,7 +554,7 @@ const styles = StyleSheet.create({
   },
   categoryText: {
     fontSize: theme.typography.sizes.xs,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     fontFamily: theme.typography.fontFamily,
   },
   rightContent: {
@@ -419,7 +563,7 @@ const styles = StyleSheet.create({
   amountWrapper: {
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   amountBadge: {
     paddingHorizontal: theme.spacing.sm,
@@ -427,7 +571,7 @@ const styles = StyleSheet.create({
   },
   amount: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '800',
+    fontWeight: getPlatformFontWeight('800'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'left',
@@ -435,7 +579,7 @@ const styles = StyleSheet.create({
   },
   convertedAmount: {
     fontSize: theme.typography.sizes.xs,
-    fontWeight: '500',
+    fontWeight: getPlatformFontWeight('500'),
     color: 'rgba(255, 255, 255, 0.8)',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'left',
@@ -459,7 +603,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     padding: theme.spacing.xs,
     minWidth: 150,
-    ...theme.shadows.lg,
+    ...getPlatformShadow('lg'),
   },
   menuItem: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -495,7 +639,7 @@ const styles = StyleSheet.create({
     height: 64,
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   deleteGradient: {
     width: '100%',

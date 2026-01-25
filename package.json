@@ -1,6 +1,6 @@
 {
   "name": "dnanir",
-  "version": "1.0.4",
+  "version": "1.0.6",
   "description": "دنانير - Smart Iraqi-themed financial app for expense and income tracking",
   "main": "index.ts",
   "scripts": {
@@ -13,7 +13,9 @@
     "web": "expo start --web",
     "build:android": "expo build:android",
     "build:ios": "expo build:ios",
-    "eject": "expo eject"
+    "eject": "expo eject",
+    "copy:android-icons": "./copy-android-icons.sh",
+    "android:prebuild": "npx expo prebuild --platform android && npm run copy:android-icons"
   },
   "dependencies": {
     "@expo-google-fonts/cairo": "^0.4.2",

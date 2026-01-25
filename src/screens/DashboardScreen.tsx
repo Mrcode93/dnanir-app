@@ -15,9 +15,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BalanceCard } from '../components/BalanceCard';
 import { SummaryCard } from '../components/SummaryCard';
 import { TransactionItem } from '../components/TransactionItem';
-import { theme, getTheme } from '../utils/theme';
+import { theme, getTheme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { calculateFinancialSummary, getCurrentMonthData, getMonthData } from '../services/financialService';
-import { getExpenses, getIncome, getUserSettings, getFinancialGoals, getDebts, getChallenges, Challenge } from '../database/database';
+import { getExpenses, getIncome, getUserSettings, getFinancialGoals, getDebts, getChallenges, getBills, Challenge } from '../database/database';
 import { Expense, Income, FinancialGoal, Debt, EXPENSE_CATEGORIES } from '../types';
 import { updateAllChallenges } from '../services/challengeService';
 import { getUnlockedAchievementsCount, getTotalAchievementsCount } from '../services/achievementService';
@@ -57,6 +57,7 @@ export const DashboardScreen = ({ navigation }: any) => {
   const [convertedGoalAmounts, setConvertedGoalAmounts] = useState<Record<number, { current: number; target: number }>>({});
   const [todayData, setTodayData] = useState<{ income: number; expenses: number; balance: number } | null>(null);
   const [debtsSummary, setDebtsSummary] = useState<{ total: number; active: number; paid: number; remaining: number } | null>(null);
+  const [billsSummary, setBillsSummary] = useState<{ total: number; unpaid: number; paid: number; dueSoon: number } | null>(null);
   const [budgetsSummary, setBudgetsSummary] = useState<{ total: number; spent: number; remaining: number; exceeded: number } | null>(null);
   const [activeChallenges, setActiveChallenges] = useState<Challenge[]>([]);
   const [customCategories, setCustomCategories] = useState<any[]>([]);
@@ -565,6 +566,45 @@ export const DashboardScreen = ({ navigation }: any) => {
           </TouchableOpacity>
         )}
 
+      
+
+        {/* Bills Quick View */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>الفواتير</Text>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Bills')}
+              style={styles.viewAllButton}
+            >
+              <Text style={styles.viewAllText}>عرض الكل</Text>
+              <Ionicons name="chevron-back" size={16} color={theme.colors.primary} />
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Bills', { screen: 'BillsList' })}
+            style={styles.budgetQuickCard}
+          >
+            <LinearGradient
+              colors={['#EF4444', '#DC2626'] as any}
+              style={styles.budgetQuickGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Ionicons name="receipt" size={32} color={theme.colors.textInverse} />
+              <View style={styles.budgetQuickContent}>
+                <Text style={styles.budgetQuickTitle}>إدارة الفواتير</Text>
+                <Text style={styles.budgetQuickText}>
+                  {billsSummary ? (
+                    billsSummary.unpaid > 0 
+                      ? `${billsSummary.unpaid} فاتورة غير مدفوعة${billsSummary.dueSoon > 0 ? ` • ${billsSummary.dueSoon} مستحقة قريباً` : ''}`
+                      : 'لا توجد فواتير مستحقة'
+                  ) : 'تتبع فواتيرك وتذكيرات الدفع'}
+                </Text>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+
         {/* Debts Quick View */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -987,6 +1027,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
+    // ADD FONT FAMILY
+    fontFamily: theme.typography.fontFamily,
   },
   scrollView: {
     flex: 1,
@@ -1007,7 +1049,7 @@ const styles = StyleSheet.create({
      marginBottom: theme.spacing.md,
      borderRadius: theme.borderRadius.lg,
      padding: theme.spacing.md,
-     ...theme.shadows.md,
+     ...getPlatformShadow('md'),
      overflow: 'hidden',
    },
    todayCardHeader: {
@@ -1024,11 +1066,11 @@ const styles = StyleSheet.create({
      borderRadius: 20,
      alignItems: 'center',
      justifyContent: 'center',
-     ...theme.shadows.sm,
+     ...getPlatformShadow('sm'),
    },
    todayCardTitle: {
      fontSize: theme.typography.sizes.lg,
-     fontWeight: '700',
+     fontWeight: getPlatformFontWeight('700'),
      color: theme.colors.textInverse,
      fontFamily: theme.typography.fontFamily,
      textAlign: 'right',
@@ -1065,7 +1107,7 @@ const styles = StyleSheet.create({
   },
    todayCardStatValue: {
      fontSize: theme.typography.sizes.sm,
-     fontWeight: '700',
+     fontWeight: getPlatformFontWeight('700'),
      color: theme.colors.textInverse,
      fontFamily: theme.typography.fontFamily,
      textAlign: 'center',
@@ -1079,7 +1121,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surfaceCard,
     borderRadius: theme.borderRadius.lg,
     marginBottom: theme.spacing.lg,
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
@@ -1105,7 +1147,7 @@ const styles = StyleSheet.create({
   },
   chartTitle: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'right' : 'left',
@@ -1136,7 +1178,7 @@ const styles = StyleSheet.create({
   },
   legendItemName: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     flex: 1,
@@ -1149,13 +1191,13 @@ const styles = StyleSheet.create({
   },
   legendItemAmount: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
   legendItemPercentage: {
     fontSize: theme.typography.sizes.xs,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     backgroundColor: theme.colors.surfaceCard,
@@ -1176,7 +1218,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'left',
@@ -1199,7 +1241,7 @@ const styles = StyleSheet.create({
   goalPreviewCard: {
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.md,
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
     overflow: 'hidden',
   },
   goalPreviewHeader: {
@@ -1214,14 +1256,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     ...(isRTL ? { marginLeft: theme.spacing.sm } : { marginRight: theme.spacing.sm }),
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   goalPreviewContent: {
     flex: 1,
   },
   goalPreviewTitle: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
@@ -1246,7 +1288,7 @@ const styles = StyleSheet.create({
   },
   goalPreviewPercent: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
   },
@@ -1255,7 +1297,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
     borderRadius: theme.borderRadius.round,
     overflow: 'hidden',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   goalPreviewProgressFill: {
     height: '100%',
@@ -1268,11 +1310,11 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.xl,
     alignItems: 'center',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   emptyGoalTitle: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     marginTop: theme.spacing.md,
     marginBottom: theme.spacing.sm,
@@ -1296,11 +1338,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   emptyGoalButtonText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textInverse,
     ...(isRTL ? { marginRight: theme.spacing.sm } : { marginLeft: theme.spacing.sm }),
     fontFamily: theme.typography.fontFamily,
@@ -1314,14 +1356,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: theme.spacing.md,
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   budgetQuickContent: {
     flex: 1,
   },
   budgetQuickTitle: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
@@ -1342,14 +1384,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: theme.spacing.md,
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   currencyConverterContent: {
     flex: 1,
   },
   currencyConverterTitle: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
@@ -1365,7 +1407,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.lg,
     marginBottom: theme.spacing.sm,
     overflow: 'hidden',
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   statusCardGradient: {
     padding: theme.spacing.md,
@@ -1389,7 +1431,7 @@ const styles = StyleSheet.create({
   },
   statusCardTitle: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
@@ -1423,7 +1465,7 @@ const styles = StyleSheet.create({
   },
   statusCardStatValue: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
@@ -1437,7 +1479,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.sm,
     borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   challengePreviewCard: {
     borderRadius: theme.borderRadius.lg,
@@ -1462,7 +1504,7 @@ const styles = StyleSheet.create({
   },
   challengePreviewTitle: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
@@ -1478,7 +1520,7 @@ const styles = StyleSheet.create({
   },
   challengePreviewPercent: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
     marginRight: theme.spacing.sm,
@@ -1509,11 +1551,11 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.xl,
     alignItems: 'center',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   emptyChallengeTitle: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     marginTop: theme.spacing.md,
     marginBottom: theme.spacing.sm,
@@ -1537,7 +1579,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   achievementProgressBar: {
     height: 4,
@@ -1554,7 +1596,7 @@ const styles = StyleSheet.create({
   },
   emptyChallengeButtonText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textInverse,
     ...(isRTL ? { marginRight: theme.spacing.sm } : { marginLeft: theme.spacing.sm }),
     fontFamily: theme.typography.fontFamily,

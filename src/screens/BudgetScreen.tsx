@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Searchbar } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../utils/theme';
+import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { getBudgets, deleteBudget, Budget } from '../database/database';
 import { calculateBudgetStatus, BudgetStatus } from '../services/budgetService';
 import { useCurrency } from '../hooks/useCurrency';
@@ -744,7 +744,7 @@ const styles = StyleSheet.create({
   },
   pageTitle: {
     fontSize: theme.typography.sizes.xxl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
@@ -781,7 +781,7 @@ const styles = StyleSheet.create({
   filterButton: {
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   filterButtonGradient: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
@@ -801,13 +801,13 @@ const styles = StyleSheet.create({
   },
   filterButtonText: {
     fontSize: theme.typography.sizes.xs,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
   },
   filterButtonTextActive: {
     fontSize: theme.typography.sizes.xs,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
   },
@@ -832,7 +832,7 @@ const styles = StyleSheet.create({
   },
   summaryAmount: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -845,7 +845,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.xl,
     marginBottom: theme.spacing.md,
     backgroundColor: theme.colors.surfaceCard,
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   budgetCardExceeded: {
     borderWidth: 2,
@@ -879,7 +879,7 @@ const styles = StyleSheet.create({
   },
   budgetCategoryName: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
@@ -923,7 +923,7 @@ const styles = StyleSheet.create({
   },
   budgetDetailValue: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -942,7 +942,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     marginTop: theme.spacing.lg,
     fontFamily: theme.typography.fontFamily,
@@ -975,7 +975,7 @@ const styles = StyleSheet.create({
   },
   filterMenuTitle: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -994,7 +994,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   filterMenuItemActive: {
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   filterMenuItemGradient: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
@@ -1018,7 +1018,7 @@ const styles = StyleSheet.create({
   filterMenuItemTextActive: {
     flex: 1,
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
   },
@@ -1033,7 +1033,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     padding: theme.spacing.xs,
     minWidth: 150,
-    ...theme.shadows.lg,
+    ...getPlatformShadow('lg'),
   },
   menuItem: {
     flexDirection: isRTL ? 'row' : 'row-reverse',

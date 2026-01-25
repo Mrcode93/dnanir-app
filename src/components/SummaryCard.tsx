@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, I18nManager } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../utils/theme';
+import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { useCurrency } from '../hooks/useCurrency';
 
 interface SummaryCardProps {
@@ -47,7 +47,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   content: {
     padding: theme.spacing.md,
@@ -71,14 +71,14 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.xs,
     color: 'rgba(255, 255, 255, 0.8)',
     marginBottom: theme.spacing.xs,
-    fontWeight: '500',
+    fontWeight: getPlatformFontWeight('500'),
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',
   },
   value: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',

@@ -23,7 +23,7 @@ export const API_CONFIG = {
   BASE_URL: isDev ? DEV_API_URL : PROD_API_URL,
   TIMEOUT: 30000, // 30 seconds (default)
   OCR_TIMEOUT: 60000, // 60 seconds for OCR requests (longer processing time)
-  VERSION: '1.0.0',
+  VERSION: '1.0.6',
 };
 
 export const API_ENDPOINTS = {

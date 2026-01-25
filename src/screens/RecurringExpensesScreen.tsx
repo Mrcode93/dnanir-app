@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { FAB } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../utils/theme';
+import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { 
   getRecurringExpenses, 
   deleteRecurringExpense, 
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
     borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   cardContent: {
     padding: theme.spacing.md,
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
   },
   expenseTitle: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
   },
   expenseAmount: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.xs,
     color: '#DC2626',
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
   },
   cardActions: {
     flexDirection: 'row-reverse',
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.sm,
     color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
   },
   deleteText: {
     color: '#DC2626',
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     marginTop: theme.spacing.lg,
     fontFamily: theme.typography.fontFamily,

@@ -12,7 +12,7 @@ import { Searchbar, Button } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { theme } from '../utils/theme';
+import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { generateAdvancedReport, exportReportToCSV, AdvancedReportData } from '../services/advancedReportsService';
 import { useCurrency } from '../hooks/useCurrency';
 import { ReportFilter } from '../types';
@@ -342,23 +342,23 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     borderRadius: theme.borderRadius.xl,
     marginBottom: theme.spacing.md,
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   card: {
     padding: theme.spacing.lg,
     borderRadius: theme.borderRadius.xl,
     marginBottom: theme.spacing.md,
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   summaryCard: {
     padding: theme.spacing.lg,
     borderRadius: theme.borderRadius.xl,
     marginBottom: theme.spacing.md,
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   sectionTitle: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     marginBottom: theme.spacing.md,
     fontFamily: theme.typography.fontFamily,
@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
   },
   filterLabel: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
   },
   chipTextSelected: {
     color: theme.colors.textInverse,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
   },
   clearButton: {
     marginTop: theme.spacing.md,
@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
   },
   summaryValue: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -473,7 +473,7 @@ const styles = StyleSheet.create({
   },
   categoryName: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -488,7 +488,7 @@ const styles = StyleSheet.create({
   },
   categoryAmountText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -511,7 +511,7 @@ const styles = StyleSheet.create({
   },
   transactionTitle: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
   },
   transactionAmount: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -542,7 +542,7 @@ const styles = StyleSheet.create({
   },
   exportButtonText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
   },

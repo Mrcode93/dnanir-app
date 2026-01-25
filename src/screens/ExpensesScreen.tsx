@@ -18,9 +18,7 @@ import { Searchbar, FAB } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { TransactionItem } from '../components/TransactionItem';
-import { AddExpenseModal } from '../components/AddExpenseModal';
-import { AddCategoryModal } from '../components/AddCategoryModal';
-import { theme } from '../utils/theme';
+import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { getExpenses, deleteExpense, getCustomCategories, addCustomCategory, deleteCustomCategory, updateCustomCategory, CustomCategory } from '../database/database';
 import { Expense, ExpenseCategory, EXPENSE_CATEGORIES } from '../types';
 import { isRTL } from '../utils/rtl';
@@ -36,14 +34,8 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<ExpenseCategory | 'all'>('all');
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
-  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
-  const [showManageCategoriesModal, setShowManageCategoriesModal] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<CustomCategory | null>(null);
   const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
-  const [allCategories, setAllCategories] = useState<CustomCategory[]>([]);
   const filterMenuAnim = useRef(new Animated.Value(0)).current;
   // Month filter state - default to current month
   const [selectedMonth, setSelectedMonth] = useState<{ year: number; month: number }>(() => {
@@ -91,7 +83,6 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
     try {
       const categories = await getCustomCategories('expense');
       setCustomCategories(categories);
-      setAllCategories(categories);
     } catch (error) {
       // Ignore error
     }
@@ -109,8 +100,7 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
 
   useEffect(() => {
     if (route?.params?.expense) {
-      setEditingExpense(route.params.expense);
-      setShowAddModal(true);
+      navigation.navigate('AddExpense', { expense: route.params.expense });
       navigation.setParams({ expense: undefined });
     }
   }, [route?.params]);
@@ -126,11 +116,41 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
     }
 
     if (selectedCategory !== 'all') {
-      filtered = filtered.filter(expense => expense.category === selectedCategory);
+      filtered = filtered.filter(expense => {
+        // Direct match
+        if (expense.category === selectedCategory) {
+          return true;
+        }
+        
+        // Check if selectedCategory is an English key and match against Arabic label
+        if (EXPENSE_CATEGORIES[selectedCategory as ExpenseCategory]) {
+          const arabicLabel = EXPENSE_CATEGORIES[selectedCategory as ExpenseCategory];
+          // Check if expense.category matches the Arabic label
+          if (expense.category === arabicLabel) {
+            return true;
+          }
+        }
+        
+        // Check if selectedCategory is an Arabic label and match against English key
+        const englishKey = Object.keys(EXPENSE_CATEGORIES).find(
+          key => EXPENSE_CATEGORIES[key as ExpenseCategory] === selectedCategory
+        );
+        if (englishKey && expense.category === englishKey) {
+          return true;
+        }
+        
+        // Check custom categories
+        const customCategory = customCategories.find(c => c.name === selectedCategory);
+        if (customCategory && expense.category === customCategory.name) {
+          return true;
+        }
+        
+        return false;
+      });
     }
 
     setFilteredExpenses(filtered);
-  }, [expenses, searchQuery, selectedCategory]);
+  }, [expenses, searchQuery, selectedCategory, customCategories]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -209,7 +229,6 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
         alertService.success('نجح', 'تم إضافة الفئة بنجاح');
       }
       await loadCustomCategories();
-      setEditingCategory(null);
     } catch (error: any) {
       alertService.error('خطأ', error.message || 'حدث خطأ أثناء حفظ الفئة');
     }
@@ -267,7 +286,12 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
         <View style={styles.searchRow}>
           {/* Settings Button */}
           <TouchableOpacity
-            onPress={() => setShowManageCategoriesModal(true)}
+            onPress={() => navigation.navigate('ManageCategories', {
+              type: 'expense',
+              onCategoryChange: async () => {
+                await loadCustomCategories();
+              },
+            })}
             style={styles.headerManageCategoriesButton}
             activeOpacity={0.7}
           >
@@ -333,47 +357,7 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
               </View>
             )}
           </TouchableOpacity>
-          {Object.entries(EXPENSE_CATEGORIES).map(([key, label]) => {
-            const isSelected = selectedCategory === key;
-            return (
-              <TouchableOpacity
-                key={key}
-                onPress={() => handleCategorySelect(key as ExpenseCategory)}
-                style={styles.filterButton}
-                activeOpacity={0.7}
-              >
-                {isSelected ? (
-                  <LinearGradient
-                    colors={(categoryColors[key] || theme.gradients.primary) as any}
-                    style={styles.filterButtonGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  >
-                    <Ionicons
-                      name={categoryIcons[key] as any}
-                      size={16}
-                      color={theme.colors.textInverse}
-                    />
-                    <Text style={styles.filterButtonTextActive} numberOfLines={1}>
-                      {label}
-                    </Text>
-                  </LinearGradient>
-                ) : (
-                  <View style={styles.filterButtonDefault}>
-                    <Ionicons
-                      name={`${categoryIcons[key]}-outline` as any}
-                      size={16}
-                      color={theme.colors.textSecondary}
-                    />
-                    <Text style={styles.filterButtonText} numberOfLines={1}>
-                      {label}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-          {customCategories.slice(0, 5).map((category) => {
+          {customCategories.slice(0, 10).map((category) => {
             const isSelected = selectedCategory === category.name;
             return (
               <TouchableOpacity
@@ -483,46 +467,6 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
                       </View>
                     )}
                   </TouchableOpacity>
-                  {Object.entries(EXPENSE_CATEGORIES).map(([key, label]) => {
-                    const isSelected = selectedCategory === key;
-                    return (
-                      <TouchableOpacity
-                        key={key}
-                        onPress={() => handleCategorySelect(key as ExpenseCategory)}
-                        style={[
-                          styles.filterMenuItem,
-                          isSelected && styles.filterMenuItemActive,
-                        ]}
-                        activeOpacity={0.7}
-                      >
-                        {isSelected ? (
-                          <LinearGradient
-                            colors={(categoryColors[key] || theme.gradients.primary) as any}
-                            style={styles.filterMenuItemGradient}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                          >
-                            <Ionicons
-                              name={categoryIcons[key] as any}
-                              size={22}
-                              color={theme.colors.textInverse}
-                            />
-                            <Text style={styles.filterMenuItemTextActive}>{label}</Text>
-                            <Ionicons name="checkmark-circle" size={20} color={theme.colors.textInverse} />
-                          </LinearGradient>
-                        ) : (
-                          <View style={styles.filterMenuItemDefault}>
-                            <Ionicons
-                              name={`${categoryIcons[key]}-outline` as any}
-                              size={22}
-                              color={theme.colors.textSecondary}
-                            />
-                            <Text style={styles.filterMenuItemText}>{label}</Text>
-                          </View>
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })}
                   {customCategories.map((category) => {
                     const isSelected = selectedCategory === category.name;
                     return (
@@ -553,9 +497,12 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
                               <TouchableOpacity
                                 onPress={(e) => {
                                   e.stopPropagation();
-                                  setEditingCategory(category);
                                   setShowFilterMenu(false);
-                                  setShowAddCategoryModal(true);
+                                  navigation.navigate('AddCategory', {
+                                    category,
+                                    type: 'expense',
+                                    onSave: handleAddCategory,
+                                  });
                                 }}
                                 style={styles.editCategoryButton}
                               >
@@ -588,9 +535,12 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
                               <TouchableOpacity
                                 onPress={(e) => {
                                   e.stopPropagation();
-                                  setEditingCategory(category);
                                   setShowFilterMenu(false);
-                                  setShowAddCategoryModal(true);
+                                  navigation.navigate('AddCategory', {
+                                    category,
+                                    type: 'expense',
+                                    onSave: handleAddCategory,
+                                  });
                                 }}
                                 style={styles.editCategoryButtonDefault}
                               >
@@ -618,8 +568,10 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
                   <TouchableOpacity
                     onPress={() => {
                       setShowFilterMenu(false);
-                      setEditingCategory(null);
-                      setShowAddCategoryModal(true);
+                      navigation.navigate('AddCategory', {
+                        type: 'expense',
+                        onSave: handleAddCategory,
+                      });
                     }}
                     style={styles.addCategoryButton}
                     activeOpacity={0.7}
@@ -675,8 +627,7 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
             type="expense"
             formatCurrency={formatCurrency}
             onEdit={() => {
-              setEditingExpense(item);
-              setShowAddModal(true);
+              navigation.navigate('AddExpense', { expense: item });
             }}
             onDelete={async () => {
               try {
@@ -704,173 +655,20 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
         }
       />
 
-      <LinearGradient
-        colors={theme.gradients.primary as any}
-        style={styles.fabGradient}
-      >
-        <FAB
-          style={styles.fab}
-          icon="plus"
-          onPress={() => setShowAddModal(true)}
-          size="medium"
-          color={theme.colors.textInverse}
-        />
-      </LinearGradient>
-
-      <AddExpenseModal
-        visible={showAddModal}
-        onClose={() => {
-          setShowAddModal(false);
-          setEditingExpense(null);
-        }}
-        expense={editingExpense}
-        onSave={loadExpenses}
-      />
-
-      <AddCategoryModal
-        visible={showAddCategoryModal}
-        onClose={() => {
-          setShowAddCategoryModal(false);
-          setEditingCategory(null);
-        }}
-        onSave={handleAddCategory}
-        type="expense"
-        category={editingCategory}
-      />
-
-      {/* Manage Categories Modal */}
-      <Modal
-        visible={showManageCategoriesModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowManageCategoriesModal(false)}
-        onShow={() => {
-        }}
-      >
-        <Pressable
-          style={styles.manageCategoriesOverlay}
-          onPress={() => setShowManageCategoriesModal(false)}
+      <View style={styles.fabContainer}>
+        <LinearGradient
+          colors={theme.gradients.primary as any}
+          style={styles.fabGradient}
         >
-          <Pressable
-            style={styles.manageCategoriesContainer}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <LinearGradient
-              colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-              style={styles.manageCategoriesGradient}
-            >
-              <View style={styles.manageCategoriesHeader}>
-                <Text style={styles.manageCategoriesTitle}>إدارة الفئات</Text>
-                <TouchableOpacity
-                  onPress={() => setShowManageCategoriesModal(false)}
-                  style={styles.manageCategoriesCloseButton}
-                >
-                  <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.manageCategoriesScrollContainer}>
-                <ScrollView
-                  style={styles.manageCategoriesScroll}
-                  contentContainerStyle={styles.manageCategoriesContent}
-                  showsVerticalScrollIndicator={true}
-                >
-                {/* All Categories Section */}
-                <View style={styles.categoriesSection}>
-                  <Text style={styles.categoriesSectionTitle}>جميع الفئات</Text>
-                  {allCategories.length === 0 ? (
-                    <View style={styles.emptyCategoriesContainer}>
-                      <Ionicons name="folder-outline" size={64} color={theme.colors.textMuted} />
-                      <Text style={styles.emptyCategoriesText}>لا توجد فئات</Text>
-                      <Text style={styles.emptyCategoriesSubtext}>
-                        أضف فئات جديدة لتسهيل تصنيف مصاريفك
-                      </Text>
-                    </View>
-                  ) : (
-                    allCategories.map((category) => {
-                      const defaultNames = Object.values(EXPENSE_CATEGORIES);
-                      const isDefault = defaultNames.includes(category.name);
-                      return (
-                        <View key={category.id} style={styles.categoryManageItem}>
-                          <View style={styles.categoryManageItemLeft}>
-                            <View
-                              style={[
-                                styles.categoryManageIconContainer,
-                                { backgroundColor: category.color + '20' },
-                              ]}
-                            >
-                              <Ionicons
-                                name={category.icon as any}
-                                size={24}
-                                color={category.color}
-                              />
-                            </View>
-                            <View style={styles.categoryManageInfo}>
-                              <Text style={styles.categoryManageName}>{category.name}</Text>
-                              <Text style={styles.categoryManageType}>
-                                {isDefault ? 'فئة افتراضية' : 'فئة مخصصة'}
-                              </Text>
-                            </View>
-                          </View>
-                          <View style={styles.categoryManageActions}>
-                            <TouchableOpacity
-                              onPress={() => {
-                                setEditingCategory(category);
-                                setShowManageCategoriesModal(false);
-                                setShowAddCategoryModal(true);
-                              }}
-                              style={styles.categoryManageEditButton}
-                            >
-                              <Ionicons name="create-outline" size={20} color={theme.colors.primary} />
-                            </TouchableOpacity>
-                            {!isDefault && (
-                              <TouchableOpacity
-                                onPress={() => {
-                                  alertService.confirm(
-                                    'حذف الفئة',
-                                    `هل تريد حذف "${category.name}"؟`,
-                                    () => handleDeleteCategory(category.id)
-                                  );
-                                }}
-                                style={styles.categoryManageDeleteButton}
-                              >
-                                <Ionicons name="trash-outline" size={20} color={theme.colors.error} />
-                              </TouchableOpacity>
-                            )}
-                          </View>
-                        </View>
-                      );
-                    })
-                  )}
-                </View>
-                </ScrollView>
-              </View>
-
-              <View style={styles.manageCategoriesFooter}>
-                <TouchableOpacity
-                  onPress={() => {
-                    setShowManageCategoriesModal(false);
-                    setEditingCategory(null);
-                    setShowAddCategoryModal(true);
-                  }}
-                  style={styles.manageCategoriesAddButton}
-                  activeOpacity={0.8}
-                >
-                  <LinearGradient
-                    colors={['#10B981', '#059669'] as any}
-                    style={styles.manageCategoriesAddGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  >
-                    <Ionicons name="add-circle" size={20} color={theme.colors.textInverse} />
-                    <Text style={styles.manageCategoriesAddText}>إضافة فئة جديدة</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-            </LinearGradient>
-          </Pressable>
-        </Pressable>
-      </Modal>
+          <FAB
+            style={styles.fab}
+            icon="plus"
+            onPress={() => navigation.navigate('AddExpense')}
+            size="medium"
+            color={theme.colors.textInverse}
+          />
+        </LinearGradient>
+      </View>
     </SafeAreaView>
   );
 };
@@ -904,7 +702,8 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.md,
+    backgroundColor: theme.colors.surfaceCard, // Required for Android elevation
+    ...getPlatformShadow('md'),
   },
   headerManageCategoriesGradient: {
     width: '100%',
@@ -917,7 +716,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     width: 56,
     height: 56,
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   recurringButtonGradient: {
     flexDirection: 'row-reverse',
@@ -949,7 +748,9 @@ const styles = StyleSheet.create({
   filterButton: {
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.sm,
+    backgroundColor: theme.colors.surfaceCard, // Required for Android elevation
+    maxHeight: 30, // Ensure minimum height for proper elevation
+    ...getPlatformShadow('sm'),
     direction: 'rtl',
   },
   filterButtonGradient: {
@@ -958,6 +759,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing.xs,
     gap: theme.spacing.xs,
+    width: '100%',
+    height: '100%',
+    borderRadius: theme.borderRadius.md,
   },
   filterButtonDefault: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -966,17 +770,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing.xs,
     gap: theme.spacing.xs,
-    borderRadius: theme.borderRadius.md,
+    width: '100%',
+    height: '100%',
+    // borderRadius removed - parent already has it
   },
   filterButtonText: {
     fontSize: theme.typography.sizes.xs,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
   },
   filterButtonTextActive: {
     fontSize: theme.typography.sizes.xs,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
   },
@@ -994,7 +800,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surfaceCard,
     borderRadius: theme.borderRadius.xl,
     overflow: 'hidden',
-    ...theme.shadows.lg,
+    ...getPlatformShadow('lg'),
   },
   filterMenuHeader: {
     flexDirection: 'row-reverse',
@@ -1006,7 +812,7 @@ const styles = StyleSheet.create({
   },
   filterMenuTitle: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -1023,10 +829,11 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
     marginBottom: theme.spacing.sm,
-    ...theme.shadows.sm,
+    backgroundColor: theme.colors.surfaceCard, // Required for Android elevation
+    ...getPlatformShadow('sm'),
   },
   filterMenuItemActive: {
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   filterMenuItemGradient: {
     flexDirection: 'row-reverse',
@@ -1054,7 +861,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontSize: theme.typography.sizes.md,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     textAlign: 'right',
   },
   filterMenuItemTextActive: {
@@ -1062,7 +869,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textInverse,
     fontSize: theme.typography.sizes.md,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     textAlign: 'right',
   },
   filterMenuItemActions: {
@@ -1091,7 +898,8 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
     marginTop: theme.spacing.sm,
-    ...theme.shadows.sm,
+    backgroundColor: theme.colors.surfaceCard, // Required for Android elevation
+    ...getPlatformShadow('sm'),
   },
   addCategoryButtonGradient: {
     flexDirection: 'row-reverse',
@@ -1106,7 +914,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textInverse,
     fontSize: theme.typography.sizes.md,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
   },
   summaryCardContainer: {
     paddingHorizontal: theme.spacing.md,
@@ -1116,7 +924,7 @@ const styles = StyleSheet.create({
   summaryCard: {
     borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   summaryCardContent: {
     padding: theme.spacing.lg,
@@ -1129,7 +937,7 @@ const styles = StyleSheet.create({
   },
   summaryCardTitle: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
@@ -1137,7 +945,7 @@ const styles = StyleSheet.create({
   },
   summaryCardAmount: {
     fontSize: 32,
-    fontWeight: '800',
+    fontWeight: getPlatformFontWeight('800'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
@@ -1174,19 +982,26 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     backgroundColor: theme.colors.surfaceLight,
   },
-  fabGradient: {
+  fabContainer: {
     position: 'absolute',
     ...(I18nManager.isRTL ? { left: theme.spacing.lg } : { right: theme.spacing.lg }),
     bottom: theme.spacing.lg,
     width: 64,
     height: 64,
     borderRadius: 32,
+    backgroundColor: theme.gradients.primary[0], // Fallback color for Android elevation
+    ...getPlatformShadow('lg'),
+  },
+  fabGradient: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    ...theme.shadows.lg,
+    overflow: 'hidden',
   },
   fab: {
-    backgroundColor: 'transparent',
+    backgroundColor: theme.gradients.primary[0],
   },
   manageCategoriesButton: {
     flexDirection: 'row',
@@ -1201,7 +1016,7 @@ const styles = StyleSheet.create({
   },
   manageCategoriesButtonText: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily,
     writingDirection: 'rtl',
@@ -1239,7 +1054,7 @@ const styles = StyleSheet.create({
   },
   manageCategoriesTitle: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -1260,7 +1075,7 @@ const styles = StyleSheet.create({
   },
   emptyCategoriesText: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginTop: theme.spacing.md,
@@ -1302,7 +1117,7 @@ const styles = StyleSheet.create({
   },
   categoryManageName: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
@@ -1350,7 +1165,7 @@ const styles = StyleSheet.create({
   },
   manageCategoriesAddText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
   },
@@ -1359,7 +1174,7 @@ const styles = StyleSheet.create({
   },
   categoriesSectionTitle: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.md,

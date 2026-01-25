@@ -17,7 +17,7 @@ import { TextInput, IconButton } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../utils/theme';
+import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { DEBT_TYPES, Debt } from '../types';
 import { 
   addDebt,
@@ -617,7 +617,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: 2,
@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     marginBottom: theme.spacing.sm,
     fontFamily: theme.typography.fontFamily,
@@ -704,7 +704,7 @@ const styles = StyleSheet.create({
     marginRight: theme.spacing.sm,
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   categoryGradient: {
     flexDirection: 'row',
@@ -725,13 +725,13 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.sm,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '500',
+    fontWeight: getPlatformFontWeight('500'),
   },
   categoryTextActive: {
     fontSize: theme.typography.sizes.sm,
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
   },
   installmentRow: {
     flexDirection: 'row',
@@ -744,7 +744,7 @@ const styles = StyleSheet.create({
   frequencyButton: {
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   frequencyButtonGradient: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -755,7 +755,7 @@ const styles = StyleSheet.create({
   },
   frequencyButtonText: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
@@ -778,7 +778,7 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -786,7 +786,7 @@ const styles = StyleSheet.create({
     flex: 2,
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   saveButtonGradient: {
     flexDirection: 'row',
@@ -797,7 +797,7 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },

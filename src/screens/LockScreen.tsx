@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -7,132 +7,28 @@ import {
   TouchableOpacity,
   Animated,
   KeyboardAvoidingView,
-  Platform,
+  Platform as RNPlatform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../utils/theme';
-import { authenticateWithBiometric, verifyPassword, getAuthenticationMethod, getBiometricType, isBiometricAvailable } from '../services/authService';
-import { alertService } from '../services/alertService';
+import { theme, getPlatformFontWeight } from '../utils/theme';
+import { useLockScreen } from '../hooks/useLockScreen';
 
 interface LockScreenProps {
   onUnlock: () => void;
 }
 
 export const LockScreen: React.FC<LockScreenProps> = ({ onUnlock }) => {
-  const [password, setPassword] = useState('');
-  const [authMethod, setAuthMethod] = useState<'password' | 'biometric'>('password');
-  const [biometricType, setBiometricType] = useState<string>('');
-  const [shakeAnim] = useState(new Animated.Value(0));
-  const [attempts, setAttempts] = useState(0);
-  const maxAttempts = 5;
-
-  useEffect(() => {
-    const initialize = async () => {
-      await loadAuthMethod();
-    };
-    initialize();
-  }, []);
-
-  // Auto-trigger biometric when method is set to biometric
-  useEffect(() => {
-    if (authMethod === 'biometric' && biometricType) {
-      // Small delay to ensure UI is ready and biometric prompt can show
-      const timer = setTimeout(() => {
-        handleBiometricAuth();
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [authMethod, biometricType]);
-
-  const loadAuthMethod = async () => {
-    try {
-      const method = await getAuthenticationMethod();
-      if (method === 'biometric') {
-        const type = await getBiometricType();
-        setBiometricType(type);
-        setAuthMethod('biometric');
-      } else if (method === 'password') {
-        setAuthMethod('password');
-        // Also check if biometric is available as fallback
-        const available = await isBiometricAvailable();
-        if (available) {
-          const type = await getBiometricType();
-          setBiometricType(type);
-        }
-      } else {
-        setAuthMethod('password');
-      }
-    } catch (error) {
-      console.error('Error loading auth method:', error);
-      setAuthMethod('password');
-    }
-  };
-
-  const handleBiometricAuth = async () => {
-    try {
-      const success = await authenticateWithBiometric();
-      
-      if (success) {
-        // Call onUnlock immediately when biometric succeeds
-        onUnlock();
-      } else {
-        // If biometric fails, show password option
-        if (authMethod === 'biometric') {
-          // Allow fallback to password if biometric is set but fails
-          const method = await getAuthenticationMethod();
-          if (method === 'password' || method === 'biometric') {
-            setAuthMethod('password');
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Biometric auth error:', error);
-      // Fallback to password on error
-      const method = await getAuthenticationMethod();
-      if (method === 'password' || method === 'biometric') {
-        setAuthMethod('password');
-      }
-    }
-  };
-
-  const handlePasswordSubmit = async () => {
-    if (!password.trim()) {
-      alertService.warning('تنبيه', 'يرجى إدخال كلمة المرور');
-      return;
-    }
-
-    const isValid = await verifyPassword(password);
-    if (isValid) {
-      setPassword('');
-      setAttempts(0);
-      onUnlock();
-    } else {
-      setAttempts(attempts + 1);
-      setPassword('');
-      
-      // Shake animation
-      Animated.sequence([
-        Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
-      ]).start();
-
-      if (attempts + 1 >= maxAttempts) {
-        alertService.error(
-          'تم تجاوز المحاولات',
-          `لقد تجاوزت عدد المحاولات المسموح بها (${maxAttempts}). يرجى المحاولة لاحقاً.`
-        );
-      } else {
-        alertService.error(
-          'كلمة مرور خاطئة',
-          `كلمة المرور غير صحيحة. المحاولات المتبقية: ${maxAttempts - attempts - 1}`
-        );
-      }
-    }
-  };
+  const {
+    password,
+    setPassword,
+    authMethod,
+    biometricType,
+    shakeAnim,
+    handlePasswordSubmit,
+    handleBiometricAuth,
+  } = useLockScreen(onUnlock);
 
   const translateX = shakeAnim;
 
@@ -143,7 +39,7 @@ export const LockScreen: React.FC<LockScreenProps> = ({ onUnlock }) => {
         style={styles.gradient}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={RNPlatform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
         >
           <View style={styles.content}>
@@ -202,7 +98,7 @@ export const LockScreen: React.FC<LockScreenProps> = ({ onUnlock }) => {
               </TouchableOpacity>
             )}
 
-            {authMethod === 'password' && (
+            {authMethod === 'password' && biometricType && RNPlatform.OS !== 'android' && (
               <TouchableOpacity
                 onPress={handleBiometricAuth}
                 style={styles.biometricFallback}
@@ -255,7 +151,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: theme.typography.sizes.xxl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     marginBottom: theme.spacing.sm,
     fontFamily: theme.typography.fontFamily,
@@ -311,7 +207,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textInverse,
     marginTop: theme.spacing.md,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
   },
   biometricFallback: {
     flexDirection: 'row-reverse',

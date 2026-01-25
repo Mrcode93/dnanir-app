@@ -10,6 +10,7 @@ import {
   deleteDebtInstallment,
   getUpcomingDebtPayments,
   addExpense,
+  addDebtPayment,
   Debt,
   DebtInstallment,
 } from '../database/database';
@@ -104,6 +105,15 @@ export const payInstallment = async (
     isPaid: newRemainingAmount === 0,
   });
 
+  // Record payment in history
+  await addDebtPayment({
+    debtId: debt.id,
+    amount: paidAmount,
+    paymentDate: paidDate,
+    installmentId: installmentId,
+    description: `دفع القسط رقم ${installment.installmentNumber}`,
+  });
+
   // Add expense automatically
   try {
     await addExpense({
@@ -135,6 +145,14 @@ export const payDebt = async (debtId: number, amount?: number): Promise<void> =>
   await updateDebt(debtId, {
     remainingAmount: Math.max(0, debt.remainingAmount - paidAmount),
     isPaid: debt.remainingAmount - paidAmount <= 0,
+  });
+
+  // Record payment in history
+  await addDebtPayment({
+    debtId: debtId,
+    amount: paidAmount,
+    paymentDate: paidDate,
+    description: amount === debt.remainingAmount ? 'دفع الدين بالكامل' : `دفع جزئي - ${paidAmount}`,
   });
 
   // Add expense automatically

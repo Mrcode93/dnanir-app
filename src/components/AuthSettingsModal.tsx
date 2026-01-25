@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,29 +9,13 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../utils/theme';
-import {
-  setupPassword,
-  setupBiometric,
-  disableAuthentication,
-  disablePassword,
-  disableBiometric,
-  isBiometricAvailable,
-  getBiometricType,
-  getAuthenticationMethod,
-  isPasswordEnabled,
-  isBiometricEnabled,
-  authenticateWithBiometric,
-  verifyPassword,
-} from '../services/authService';
-import { alertService } from '../services/alertService';
-import { authEventService } from '../services/authEventService';
+import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { useAuthSettings } from '../hooks/useAuthSettings';
 
 interface AuthSettingsModalProps {
   visible: boolean;
@@ -45,17 +29,30 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
   onAuthChanged,
 }) => {
   const insets = useSafeAreaInsets();
-  const [currentMethod, setCurrentMethod] = useState<'none' | 'password' | 'biometric'>('none');
-  const [passwordEnabled, setPasswordEnabled] = useState(false);
-  const [biometricEnabled, setBiometricEnabled] = useState(false);
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [biometricAvailable, setBiometricAvailable] = useState(false);
-  const [biometricType, setBiometricType] = useState<string>('');
   const [slideAnim] = useState(new Animated.Value(0));
-  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
-  const [promptPassword, setPromptPassword] = useState('');
-  const [pendingAction, setPendingAction] = useState<((value: boolean) => void) | null>(null);
+
+  const {
+    currentMethod,
+    passwordEnabled,
+    biometricEnabled,
+    biometricAvailable,
+    biometricType,
+    password,
+    setPassword,
+    confirmPassword,
+    setConfirmPassword,
+    showPasswordPrompt,
+    promptPassword,
+    setPromptPassword,
+    loadAuthStatus,
+    handleSetupPassword,
+    handleSetupBiometric,
+    handleDisableAuth,
+    handleDisablePassword,
+    handleDisableBiometric,
+    handlePasswordPromptSubmit,
+    closePasswordPrompt,
+  } = useAuthSettings(onAuthChanged);
 
   useEffect(() => {
     if (visible) {
@@ -68,245 +65,7 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
     } else {
       slideAnim.setValue(0);
     }
-  }, [visible]);
-
-  const loadAuthStatus = async () => {
-    const method = await getAuthenticationMethod();
-    setCurrentMethod(method);
-    
-    const passwordStatus = await isPasswordEnabled();
-    setPasswordEnabled(passwordStatus);
-    
-    const biometricStatus = await isBiometricEnabled();
-    setBiometricEnabled(biometricStatus);
-    
-    const available = await isBiometricAvailable();
-    setBiometricAvailable(available);
-    
-    if (available) {
-      const type = await getBiometricType();
-      setBiometricType(type);
-    }
-  };
-
-  const handleSetupPassword = async () => {
-    if (!password.trim()) {
-      alertService.warning('تنبيه', 'يرجى إدخال كلمة مرور');
-      return;
-    }
-
-    if (password.length < 4) {
-      alertService.warning('تنبيه', 'كلمة المرور يجب أن تكون 4 أحرف على الأقل');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      alertService.warning('تنبيه', 'كلمات المرور غير متطابقة');
-      return;
-    }
-
-    const success = await setupPassword(password);
-    if (success) {
-      alertService.success('نجح', 'تم تفعيل قفل كلمة المرور بنجاح');
-      setPassword('');
-      setConfirmPassword('');
-      onAuthChanged();
-      loadAuthStatus();
-    } else {
-      alertService.error('خطأ', 'حدث خطأ أثناء إعداد كلمة المرور');
-    }
-  };
-
-  const handleSetupBiometric = async () => {
-    if (!biometricAvailable) {
-      alertService.warning('غير متاح', 'المصادقة البيومترية غير متاحة على هذا الجهاز');
-      return;
-    }
-
-    // First test the biometric authentication
-    try {
-      const testResult = await authenticateWithBiometric();
-      
-      if (!testResult) {
-        alertService.error('فشل المصادقة', 'لم يتم التحقق من المصادقة البيومترية. يرجى المحاولة مرة أخرى.');
-        return;
-      }
-    } catch (error) {
-      console.error('Biometric test error:', error);
-      alertService.error('خطأ', 'حدث خطأ أثناء اختبار المصادقة البيومترية');
-      return;
-    }
-
-    // If test passes, save the settings
-    const success = await setupBiometric();
-    if (success) {
-      alertService.success('نجح', `تم تفعيل ${biometricType} بنجاح`);
-      onAuthChanged();
-      loadAuthStatus();
-    } else {
-      alertService.error('خطأ', 'حدث خطأ أثناء إعداد المصادقة البيومترية');
-    }
-  };
-
-  const handleDisableAuth = async () => {
-    // Request to keep app unlocked during this operation (60 seconds should be enough)
-    authEventService.requestKeepUnlocked(60000);
-    
-    // Authenticate before allowing disable
-    const authenticated = await authenticateBeforeDisable();
-    if (!authenticated) {
-      return;
-    }
-    
-    // Ensure app stays unlocked after authentication
-    authEventService.requestKeepUnlocked(60000);
-
-    alertService.confirm(
-      'تعطيل القفل',
-      'هل أنت متأكد من تعطيل القفل؟',
-      async () => {
-        try {
-        await disableAuthentication();
-          
-          // Wait for database to commit
-          await new Promise(resolve => setTimeout(resolve, 200));
-          
-          // Verify the change was saved
-          const authMethod = await getAuthenticationMethod();
-          if (authMethod !== 'none') {
-            alertService.error('خطأ', 'فشل تعطيل القفل. يرجى المحاولة مرة أخرى.');
-            return;
-          }
-          
-          // Notify App.tsx that authentication has changed
-          authEventService.notifyAuthChanged();
-          
-          alertService.success('نجح', 'تم تعطيل القفل بنجاح');
-        onAuthChanged();
-        loadAuthStatus();
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'حدث خطأ غير متوقع';
-          alertService.error('خطأ', `حدث خطأ أثناء تعطيل القفل: ${errorMessage}`);
-        }
-      }
-    );
-  };
-
-  const handleDisablePassword = async () => {
-    authEventService.requestKeepUnlocked(60000);
-    
-    const authenticated = await authenticateBeforeDisable();
-    if (!authenticated) {
-      return;
-    }
-
-    authEventService.requestKeepUnlocked(60000);
-
-    alertService.confirm(
-      'تعطيل كلمة المرور',
-      'هل أنت متأكد من تعطيل قفل كلمة المرور؟',
-      async () => {
-        try {
-        await disablePassword();
-          
-          const authMethod = await getAuthenticationMethod();
-          if (authMethod === 'none') {
-            authEventService.notifyAuthChanged();
-          }
-          
-          alertService.success('نجح', 'تم تعطيل قفل كلمة المرور بنجاح');
-        onAuthChanged();
-        loadAuthStatus();
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'حدث خطأ غير متوقع';
-          alertService.error('خطأ', `حدث خطأ أثناء تعطيل كلمة المرور: ${errorMessage}`);
-        }
-      }
-    );
-  };
-
-  const handleDisableBiometric = async () => {
-    authEventService.requestKeepUnlocked(60000);
-    
-    const authenticated = await authenticateBeforeDisable();
-    if (!authenticated) {
-      return;
-    }
-
-    authEventService.requestKeepUnlocked(60000);
-
-    alertService.confirm(
-      `تعطيل ${biometricType}`,
-      `هل أنت متأكد من تعطيل ${biometricType}؟`,
-      async () => {
-        try {
-        await disableBiometric();
-          
-          const authMethod = await getAuthenticationMethod();
-          if (authMethod === 'none') {
-            authEventService.notifyAuthChanged();
-          }
-          
-          alertService.success('نجح', `تم تعطيل ${biometricType} بنجاح`);
-        onAuthChanged();
-        loadAuthStatus();
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'حدث خطأ غير متوقع';
-          alertService.error('خطأ', `حدث خطأ أثناء تعطيل ${biometricType}: ${errorMessage}`);
-        }
-      }
-    );
-  };
-
-  const authenticateBeforeDisable = async (): Promise<boolean> => {
-    try {
-      // Try biometric first if enabled
-      if (biometricEnabled && biometricAvailable) {
-        const success = await authenticateWithBiometric();
-        if (success) {
-          // Request to keep unlocked after successful biometric
-          authEventService.requestKeepUnlocked(60000);
-          return true;
-        }
-      }
-
-      // If password is enabled, show password prompt modal
-      if (passwordEnabled) {
-        return new Promise((resolve) => {
-          setPendingAction(() => resolve);
-          setShowPasswordPrompt(true);
-        });
-      }
-
-      // If neither is enabled, allow (shouldn't happen)
-      return true;
-    } catch (error) {
-      console.error('Authentication error:', error);
-      return false;
-    }
-  };
-
-  const handlePasswordPromptSubmit = async () => {
-    if (!promptPassword.trim()) {
-      alertService.warning('تنبيه', 'يرجى إدخال كلمة المرور');
-      return;
-    }
-
-    const isValid = await verifyPassword(promptPassword);
-    if (isValid) {
-      // Request to keep unlocked after successful password verification
-      authEventService.requestKeepUnlocked(60000);
-      setPromptPassword('');
-      setShowPasswordPrompt(false);
-      if (pendingAction) {
-        pendingAction(true);
-        setPendingAction(null);
-      }
-    } else {
-      alertService.error('خطأ', 'كلمة المرور غير صحيحة');
-      setPromptPassword('');
-    }
-  };
+  }, [visible, loadAuthStatus, slideAnim]);
 
   const opacityAnim = slideAnim.interpolate({
     inputRange: [0, 1],
@@ -597,14 +356,7 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
         visible={showPasswordPrompt}
         transparent
         animationType="fade"
-        onRequestClose={() => {
-          setShowPasswordPrompt(false);
-          setPromptPassword('');
-          if (pendingAction) {
-            pendingAction(false);
-            setPendingAction(null);
-          }
-        }}
+        onRequestClose={closePasswordPrompt}
       >
         <View style={styles.passwordPromptOverlay}>
           <View style={styles.passwordPromptContainer}>
@@ -627,14 +379,7 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
             </View>
             <View style={styles.passwordPromptActions}>
               <TouchableOpacity
-                onPress={() => {
-                  setShowPasswordPrompt(false);
-                  setPromptPassword('');
-                  if (pendingAction) {
-                    pendingAction(false);
-                    setPendingAction(null);
-                  }
-                }}
+                onPress={closePasswordPrompt}
                 style={styles.passwordPromptCancelButton}
               >
                 <Text style={styles.passwordPromptCancelText}>إلغاء</Text>
@@ -692,7 +437,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
@@ -712,7 +457,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.xl,
     marginBottom: theme.spacing.lg,
     overflow: 'hidden',
-    ...theme.shadows.lg,
+    ...getPlatformShadow('lg'),
   },
   statusCardContent: {
     flexDirection: 'row-reverse',
@@ -746,7 +491,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
@@ -759,7 +504,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.lg,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   methodHeader: {
     flexDirection: 'row-reverse',
@@ -779,7 +524,7 @@ const styles = StyleSheet.create({
   },
   methodTitle: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
@@ -814,7 +559,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     marginBottom: theme.spacing.md,
     fontFamily: theme.typography.fontFamily,
@@ -844,7 +589,7 @@ const styles = StyleSheet.create({
   },
   setupButtonText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
@@ -862,7 +607,7 @@ const styles = StyleSheet.create({
   },
   biometricButtonText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
@@ -873,7 +618,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FECACA',
     marginTop: theme.spacing.md,
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   disableButtonContent: {
     flexDirection: 'row-reverse',
@@ -894,7 +639,7 @@ const styles = StyleSheet.create({
   },
   disableButtonTitle: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: '#EF4444',
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
@@ -946,11 +691,11 @@ const styles = StyleSheet.create({
     padding: theme.spacing.xl,
     width: '100%',
     maxWidth: 400,
-    ...theme.shadows.lg,
+    ...getPlatformShadow('lg'),
   },
   passwordPromptTitle: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
@@ -1002,7 +747,7 @@ const styles = StyleSheet.create({
   },
   passwordPromptCancelText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
@@ -1018,7 +763,7 @@ const styles = StyleSheet.create({
   },
   passwordPromptConfirmText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',

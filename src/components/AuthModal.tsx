@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../utils/theme';
+import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { isRTL } from '../utils/rtl';
 import { authApiService } from '../services/authApiService';
 import { alertService } from '../services/alertService';
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
     maxHeight: '90%',
     borderRadius: theme.borderRadius.xl,
     overflow: 'hidden',
-    ...theme.shadows.lg,
+    ...getPlatformShadow('lg'),
   },
   modalContent: {
     width: '100%',
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     marginBottom: theme.spacing.sm,
     fontFamily: theme.typography.fontFamily,
@@ -404,7 +404,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
     marginTop: theme.spacing.md,
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   submitButtonGradient: {
     flexDirection: 'row-reverse',
@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
   },
   switchLink: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily,
   },

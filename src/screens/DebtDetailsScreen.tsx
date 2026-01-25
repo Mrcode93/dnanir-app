@@ -10,13 +10,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../utils/theme';
+import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { 
   getDebt,
   getDebtInstallments,
   deleteDebt,
+  getDebtPayments,
   Debt,
   DebtInstallment,
+  DebtPayment,
 } from '../database/database';
 import { useCurrency } from '../hooks/useCurrency';
 import { DEBT_TYPES } from '../types';
@@ -24,13 +26,16 @@ import { payDebt, payInstallment } from '../services/debtService';
 import { isRTL } from '../utils/rtl';
 import { alertService } from '../services/alertService';
 import { ConfirmAlert } from '../components/ConfirmAlert';
+import { PayDebtModal } from '../components/PayDebtModal';
 
 export const DebtDetailsScreen = ({ navigation, route }: any) => {
   const { formatCurrency } = useCurrency();
   const [debt, setDebt] = useState<Debt | null>(null);
   const [installments, setInstallments] = useState<DebtInstallment[]>([]);
+  const [payments, setPayments] = useState<DebtPayment[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
+  const [showPayModal, setShowPayModal] = useState(false);
   const debtId = route.params?.debtId;
 
   const loadDebtData = async () => {
@@ -42,6 +47,8 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
         setDebt(debtData);
         const installmentsData = await getDebtInstallments(debtId);
         setInstallments(installmentsData.sort((a, b) => a.installmentNumber - b.installmentNumber));
+        const paymentsData = await getDebtPayments(debtId);
+        setPayments(paymentsData);
       }
     } catch (error) {
       console.error('Error loading debt data:', error);
@@ -95,15 +102,25 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
     setRefreshing(false);
   };
 
-  const handlePayDebt = async () => {
+  const handlePayDebt = () => {
+    if (!debt) return;
+    setShowPayModal(true);
+  };
+
+  const handlePayDebtConfirm = async (amount: number) => {
     if (!debt) return;
     try {
-      await payDebt(debt.id);
+      await payDebt(debt.id, amount);
       await loadDebtData();
-      alertService.success('نجح', 'تم دفع الدين بنجاح');
+      const message = amount === debt.remainingAmount
+        ? 'تم دفع الدين بالكامل بنجاح'
+        : `تم دفع ${formatCurrency(amount)} بنجاح`;
+      alertService.success('نجح', message);
+      setShowPayModal(false);
     } catch (error) {
       console.error('Error paying debt:', error);
       alertService.error('خطأ', 'حدث خطأ أثناء دفع الدين');
+      throw error;
     }
   };
 
@@ -375,7 +392,7 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
               ]}>
                 <Text style={[
                   styles.installmentsSummaryText,
-                  debt.isPaid && { color: '#059669', fontWeight: '700' }
+                  debt.isPaid && { color: '#059669', fontWeight: getPlatformFontWeight('700') }
                 ]}>
                   {debt.isPaid 
                     ? `✓ ${paidInstallments.length}/${installments.length} مدفوعة بالكامل`
@@ -478,6 +495,45 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
           </View>
         )}
 
+        {/* Payment History Card */}
+        {payments.length > 0 && (
+          <View style={styles.paymentHistoryCard}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>سجل المدفوعات</Text>
+              <View style={styles.paymentHistorySummary}>
+                <Text style={styles.paymentHistorySummaryText}>
+                  {payments.length} {payments.length === 1 ? 'دفعة' : 'دفعة'}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.paymentHistoryList}>
+              {payments.map((payment) => {
+                const installment = installments.find(inst => inst.id === payment.installmentId);
+                return (
+                  <View key={payment.id} style={styles.paymentHistoryItem}>
+                    <View style={styles.paymentHistoryLeft}>
+                      <View style={[styles.paymentHistoryIcon, { backgroundColor: '#10B98120' }]}>
+                        <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                      </View>
+                      <View style={styles.paymentHistoryInfo}>
+                        <Text style={styles.paymentHistoryAmount}>
+                          {formatCurrency(payment.amount)}
+                        </Text>
+                        <Text style={styles.paymentHistoryDescription}>
+                          {payment.description || (installment ? `القسط رقم ${installment.installmentNumber}` : 'دفع الدين')}
+                        </Text>
+                        <Text style={styles.paymentHistoryDate}>
+                          {formatDate(payment.paymentDate)}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
         {/* Actions - Only show for unpaid debts */}
         {!debt.isPaid && (
           <View style={styles.actionsCard}>
@@ -491,7 +547,7 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
                 style={styles.payFullButtonGradient}
               >
                 <Ionicons name="checkmark-circle" size={24} color="#FFFFFF" />
-                <Text style={styles.payFullButtonText}>دفع الدين بالكامل</Text>
+                <Text style={styles.payFullButtonText}>دفع الدين</Text>
               </LinearGradient>
             </TouchableOpacity>
             <TouchableOpacity
@@ -533,6 +589,13 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
         cancelText="إلغاء"
         type="danger"
       />
+
+      <PayDebtModal
+        visible={showPayModal}
+        debt={debt}
+        onClose={() => setShowPayModal(false)}
+        onPay={handlePayDebtConfirm}
+      />
     </SafeAreaView>
   );
 };
@@ -563,7 +626,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.xl,
     padding: theme.spacing.xl,
     marginBottom: theme.spacing.md,
-    ...theme.shadows.lg,
+    ...getPlatformShadow('lg'),
   },
   headerContent: {
     alignItems: 'center',
@@ -579,7 +642,7 @@ const styles = StyleSheet.create({
   },
   debtorName: {
     fontSize: theme.typography.sizes.xxl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
@@ -596,7 +659,7 @@ const styles = StyleSheet.create({
   },
   totalAmount: {
     fontSize: theme.typography.sizes.xxl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
@@ -614,7 +677,7 @@ const styles = StyleSheet.create({
   },
   paidStatusText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
@@ -629,7 +692,7 @@ const styles = StyleSheet.create({
   },
   paidTextHeader: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
@@ -638,7 +701,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.lg,
     marginBottom: theme.spacing.md,
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   paymentSummaryCard: {
     backgroundColor: theme.colors.surfaceCard,
@@ -647,7 +710,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
     borderWidth: 2,
     borderColor: '#10B981',
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   paymentSummaryHeader: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -657,7 +720,7 @@ const styles = StyleSheet.create({
   },
   paymentSummaryTitle: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: '#10B981',
     fontFamily: theme.typography.fontFamily,
   },
@@ -679,7 +742,7 @@ const styles = StyleSheet.create({
   },
   paymentSummaryValue: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -691,13 +754,13 @@ const styles = StyleSheet.create({
   },
   progressTitle: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
   progressPercentage: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -729,7 +792,7 @@ const styles = StyleSheet.create({
   },
   progressStatValue: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -738,18 +801,21 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.lg,
     marginBottom: theme.spacing.md,
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
+    direction: 'rtl',
   },
   sectionTitle: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.md,
-    textAlign: 'right',
+    textAlign: 'left',
+    writingDirection: 'rtl',
   },
   detailRow: {
     gap: theme.spacing.md,
+    direction: 'rtl',
   },
   detailItem: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -764,7 +830,8 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
-    textAlign: 'right',
+    textAlign: 'left',
+    writingDirection: 'rtl',
   },
   detailValue: {
     fontSize: theme.typography.sizes.md,
@@ -773,22 +840,22 @@ const styles = StyleSheet.create({
   },
   overdueText: {
     color: '#DC2626',
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
   },
   dueSoonText: {
     color: '#F59E0B',
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
   },
   paidText: {
     color: '#10B981',
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
   },
   installmentsCard: {
     backgroundColor: theme.colors.surfaceCard,
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.lg,
     marginBottom: theme.spacing.md,
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   sectionHeader: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -804,7 +871,7 @@ const styles = StyleSheet.create({
   },
   installmentsSummaryText: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -813,7 +880,7 @@ const styles = StyleSheet.create({
   },
   installmentsSubtitle: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.md,
@@ -845,7 +912,7 @@ const styles = StyleSheet.create({
   },
   installmentNumber: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     fontFamily: theme.typography.fontFamily,
   },
   installmentInfo: {
@@ -853,7 +920,7 @@ const styles = StyleSheet.create({
   },
   installmentAmount: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
@@ -866,7 +933,7 @@ const styles = StyleSheet.create({
   payInstallmentButton: {
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   payInstallmentButtonGradient: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -877,7 +944,7 @@ const styles = StyleSheet.create({
   },
   payInstallmentButtonText: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
@@ -889,7 +956,7 @@ const styles = StyleSheet.create({
   },
   paidBadgeText: {
     fontSize: theme.typography.sizes.xs,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: '#059669',
     fontFamily: theme.typography.fontFamily,
   },
@@ -900,10 +967,10 @@ const styles = StyleSheet.create({
   payFullButton: {
     borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   payFullButtonGradient: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
     padding: theme.spacing.lg,
@@ -911,12 +978,12 @@ const styles = StyleSheet.create({
   },
   payFullButtonText: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
   editButton: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
     padding: theme.spacing.md,
@@ -928,7 +995,7 @@ const styles = StyleSheet.create({
   },
   editButtonText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -948,7 +1015,7 @@ const styles = StyleSheet.create({
   },
   deleteButtonText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     fontFamily: theme.typography.fontFamily,
   },
   deleteButtonTextPaid: {
@@ -964,5 +1031,74 @@ const styles = StyleSheet.create({
     padding: theme.spacing.sm,
     backgroundColor: theme.colors.error + '10',
     borderRadius: theme.borderRadius.md,
+  },
+  paymentHistoryCard: {
+    backgroundColor: theme.colors.surfaceCard,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
+    ...getPlatformShadow('md'),
+    direction: 'rtl',
+  },
+  paymentHistorySummary: {
+    backgroundColor: theme.colors.surfaceLight,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.borderRadius.md,
+    direction: 'rtl',
+  },
+  paymentHistorySummaryText: {
+    fontSize: theme.typography.sizes.sm,
+    fontWeight: getPlatformFontWeight('600'),
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
+    writingDirection: 'rtl',
+  },
+  paymentHistoryList: {
+    marginTop: theme.spacing.md,
+    gap: theme.spacing.sm,
+    direction: 'rtl',
+  },
+  paymentHistoryItem: {
+    flexDirection: isRTL ? 'row' : 'row',
+    alignItems: 'center',
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.surfaceLight,
+    borderRadius: theme.borderRadius.md,
+  },
+  paymentHistoryLeft: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: theme.spacing.md,
+  },
+  paymentHistoryIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paymentHistoryInfo: {
+    flex: 1,
+  },
+  paymentHistoryAmount: {
+    fontSize: theme.typography.sizes.lg,
+    fontWeight: getPlatformFontWeight('700'),
+    color: '#10B981',
+    fontFamily: theme.typography.fontFamily,
+    marginBottom: theme.spacing.xs,
+  },
+  paymentHistoryDescription: {
+    fontSize: theme.typography.sizes.md,
+    fontWeight: getPlatformFontWeight('600'),
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
+    marginBottom: theme.spacing.xs,
+  },
+  paymentHistoryDate: {
+    fontSize: theme.typography.sizes.sm,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
   },
 });

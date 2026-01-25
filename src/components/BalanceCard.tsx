@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, I18nManager } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../utils/theme';
+import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { isRTL } from '../utils/rtl';
 import { useCurrency } from '../hooks/useCurrency';
 import { MonthFilter } from './MonthFilter';
@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
     marginBottom: theme.spacing.lg,
     minHeight: 140,
-    ...theme.shadows.lg,
+    ...getPlatformShadow('lg'),
     overflow: 'hidden',
     position: 'relative',
     direction: 'rtl',
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     minWidth: 120,
     maxWidth: 160,
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   badge: {
     flexDirection: 'row',
@@ -170,12 +170,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
     borderRadius: theme.borderRadius.md,
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   badgeText: {
     color: theme.colors.textInverse,
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     fontFamily: theme.typography.fontFamily,
     letterSpacing: 1,
     ...(isRTL ? { marginRight: theme.spacing.xs } : { marginLeft: theme.spacing.xs }),
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   body: {
     alignItems: isRTL ? 'flex-start' : 'flex-start',
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: theme.typography.sizes.lg,
     color: 'rgba(255, 255, 255, 0.95)',
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',
@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.sm,
     color: 'rgba(255, 255, 255, 0.8)',
     marginBottom: theme.spacing.sm,
-    fontWeight: '500',
+    fontWeight: getPlatformFontWeight('500'),
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
   },
   balance: {
     fontSize: 32,
-    fontWeight: '800',
+    fontWeight: getPlatformFontWeight('800'),
     color: theme.colors.textInverse,
     letterSpacing: -1.5,
     fontFamily: theme.typography.fontFamily,
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   filterButtonGradient: {
     flexDirection: 'row',
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: theme.colors.textInverse,
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',

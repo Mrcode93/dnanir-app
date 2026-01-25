@@ -13,13 +13,14 @@ import {
   Platform,
   Dimensions,
   Image,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { List, Switch, Button } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { theme } from '../utils/theme';
+import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { isRTL } from '../utils/rtl';
 import { getUserSettings, getAppSettings, upsertAppSettings, getNotificationSettings, upsertNotificationSettings, upsertUserSettings } from '../database/database';
 import { initializeNotifications, requestPermissions, scheduleDailyReminder, sendExpenseReminder, cancelNotification, rescheduleAllNotifications, sendTestNotification, verifyScheduledNotifications } from '../services/notificationService';
@@ -33,6 +34,7 @@ import { getExchangeRate, upsertExchangeRate } from '../database/database';
 import * as Notifications from 'expo-notifications';
 import { authApiService } from '../services/authApiService';
 import { generateMockData } from '../utils/mockData';
+import { CONTACT_INFO } from '../constants/contactConstants';
 
 export const SettingsScreen = ({ navigation }: any) => {
   const [userName, setUserName] = useState<string>('');
@@ -663,6 +665,47 @@ export const SettingsScreen = ({ navigation }: any) => {
     }
   };
 
+  const handleContactEmail = async () => {
+    const subject = encodeURIComponent(CONTACT_INFO.emailSubject);
+    const body = encodeURIComponent(CONTACT_INFO.emailBody);
+    const mailtoUrl = `mailto:${CONTACT_INFO.email}?subject=${subject}&body=${body}`;
+    
+    try {
+      const canOpen = await Linking.canOpenURL(mailtoUrl);
+      if (canOpen) {
+        await Linking.openURL(mailtoUrl);
+      } else {
+        alertService.warning('تنبيه', 'لا يمكن فتح تطبيق البريد الإلكتروني');
+      }
+    } catch (error) {
+      console.error('Error opening email:', error);
+      alertService.error('خطأ', 'حدث خطأ أثناء فتح البريد الإلكتروني');
+    }
+  };
+
+  const handleContactWhatsApp = async () => {
+    const message = encodeURIComponent(CONTACT_INFO.whatsappMessage);
+    const whatsappUrl = `https://wa.me/${CONTACT_INFO.whatsappNumber}?text=${message}`;
+    
+    try {
+      const canOpen = await Linking.canOpenURL(whatsappUrl);
+      if (canOpen) {
+        await Linking.openURL(whatsappUrl);
+      } else {
+        // Fallback: try to open WhatsApp app directly
+        const whatsappAppUrl = `whatsapp://send?phone=${CONTACT_INFO.whatsappNumber}&text=${message}`;
+        try {
+          await Linking.openURL(whatsappAppUrl);
+        } catch {
+          alertService.warning('تنبيه', 'يرجى تثبيت تطبيق WhatsApp');
+        }
+      }
+    } catch (error) {
+      console.error('Error opening WhatsApp:', error);
+      alertService.error('خطأ', 'حدث خطأ أثناء فتح WhatsApp');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <ScrollView 
@@ -971,6 +1014,70 @@ export const SettingsScreen = ({ navigation }: any) => {
           </View>
         </LinearGradient>
 
+        {/* Contact Us Section */}
+        <LinearGradient
+          colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
+          style={styles.sectionCard}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <View style={styles.sectionContent}>
+            <Text style={styles.sectionTitle}>تواصل معنا</Text>
+            
+            <TouchableOpacity
+              onPress={handleContactEmail}
+              style={styles.contactItem}
+              activeOpacity={0.7}
+            >
+              <LinearGradient
+                colors={['#3B82F6', '#2563EB']}
+                style={styles.contactItemGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <View style={styles.contactItemLeft}>
+                  <View style={styles.contactIconContainer}>
+                    <Ionicons name="mail" size={24} color="#FFFFFF" />
+                  </View>
+                  <View style={styles.contactItemInfo}>
+                    <Text style={styles.contactItemTitleWhite}>البريد الإلكتروني</Text>
+                    <Text style={styles.contactItemDescriptionWhite}>
+                      {CONTACT_INFO.email}
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleContactWhatsApp}
+              style={styles.contactItem}
+              activeOpacity={0.7}
+            >
+              <LinearGradient
+                colors={['#25D366', '#128C7E']}
+                style={styles.contactItemGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <View style={styles.contactItemLeft}>
+                  <View style={styles.contactIconContainer}>
+                    <Ionicons name="logo-whatsapp" size={24} color="#FFFFFF" />
+                  </View>
+                  <View style={styles.contactItemInfo}>
+                    <Text style={styles.contactItemTitleWhite}>WhatsApp</Text>
+                    <Text style={styles.contactItemDescriptionWhite}>
+                      تواصل معنا عبر WhatsApp
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
+
         {/* Copyright Section */}
         <View style={styles.copyrightWrapper}>
           <LinearGradient
@@ -985,6 +1092,7 @@ export const SettingsScreen = ({ navigation }: any) => {
               resizeMode="contain"
             />
             <Text style={styles.copyrightText}>© 2025 URUX. جميع الحقوق محفوظة.</Text>
+            <Text style={styles.versionText}>v.1.0.6</Text>
           </LinearGradient>
         </View>
       </ScrollView>
@@ -1185,7 +1293,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.lg,
     borderRadius: theme.borderRadius.xl,
     overflow: 'hidden',
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   sectionContent: {
     padding: theme.spacing.lg,
@@ -1195,7 +1303,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.xl,
     marginBottom: theme.spacing.lg,
     overflow: 'hidden',
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   appNameSection: {
     flexDirection:  'row',
@@ -1214,14 +1322,14 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   appNameInfo: {
     flex: 1,
   },
   appName: {
     fontSize: theme.typography.sizes.xxl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
@@ -1244,7 +1352,7 @@ const styles = StyleSheet.create({
   },
   userNameLabel: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: 'rgba(255, 255, 255, 0.9)',
     fontFamily: theme.typography.fontFamily,
     textAlign:  'left',
@@ -1266,7 +1374,7 @@ const styles = StyleSheet.create({
   userNameText: {
     flex: 1,
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'left',
@@ -1282,7 +1390,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.md,
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
   },
   modalOverlay: {
     flex: 1,
@@ -1298,7 +1406,7 @@ const styles = StyleSheet.create({
   modalContent: {
     borderRadius: theme.borderRadius.xl,
     overflow: 'hidden',
-    ...theme.shadows.lg,
+    ...getPlatformShadow('lg'),
   },
   modalHeader: {
     flexDirection: 'row-reverse',
@@ -1310,7 +1418,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -1327,7 +1435,7 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.sm,
@@ -1364,7 +1472,7 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -1378,13 +1486,13 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
   },
   sectionTitle: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     marginBottom: theme.spacing.md,
     fontFamily: theme.typography.fontFamily,
@@ -1414,7 +1522,7 @@ const styles = StyleSheet.create({
   },
   accountStatusText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
@@ -1427,7 +1535,7 @@ const styles = StyleSheet.create({
   loginButton: {
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   loginButtonGradient: {
     flexDirection: 'row-reverse',
@@ -1438,7 +1546,7 @@ const styles = StyleSheet.create({
   },
   loginButtonText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
@@ -1446,7 +1554,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
     marginTop: theme.spacing.md,
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   logoutButtonGradient: {
     flexDirection: 'row-reverse',
@@ -1457,14 +1565,14 @@ const styles = StyleSheet.create({
   },
   logoutButtonText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
   listItemTitle: {
     fontFamily: theme.typography.fontFamily,
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
   },
   listItemDescription: {
@@ -1502,7 +1610,7 @@ const styles = StyleSheet.create({
   },
   notificationItemTitle: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
@@ -1530,7 +1638,7 @@ const styles = StyleSheet.create({
   timePickerText: {
     flex: 1,
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
@@ -1540,7 +1648,7 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   testNotificationButtonGradient: {
     flexDirection: 'row-reverse',
@@ -1552,14 +1660,14 @@ const styles = StyleSheet.create({
   },
   testNotificationButtonText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
   },
   exportButton: {
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   exportButtonGradient: {
     flexDirection: 'row-reverse',
@@ -1570,7 +1678,7 @@ const styles = StyleSheet.create({
   },
   exportButtonText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     fontFamily: theme.typography.fontFamily,
     color: theme.colors.textInverse,
   },
@@ -1578,7 +1686,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
     marginTop: theme.spacing.sm,
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   currencyItemGradient: {
     flexDirection: 'row',
@@ -1606,7 +1714,7 @@ const styles = StyleSheet.create({
   },
   currencyItemTitle: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
@@ -1615,7 +1723,7 @@ const styles = StyleSheet.create({
   },
   currencyItemTitleWhite: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
@@ -1669,13 +1777,13 @@ const styles = StyleSheet.create({
   },
   currencyOptionTextSelected: {
     color: theme.colors.primary,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
   },
   authItem: {
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
     marginTop: theme.spacing.sm,
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   authItemGradient: {
     flexDirection: 'row',
@@ -1703,7 +1811,7 @@ const styles = StyleSheet.create({
   },
   authItemTitle: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
@@ -1712,7 +1820,7 @@ const styles = StyleSheet.create({
   },
   authItemTitleWhite: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
@@ -1737,7 +1845,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
     marginTop: theme.spacing.sm,
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   exchangeRateItemGradient: {
     flexDirection: 'row',
@@ -1765,7 +1873,7 @@ const styles = StyleSheet.create({
   },
   exchangeRateItemTitleWhite: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
@@ -1795,7 +1903,7 @@ const styles = StyleSheet.create({
     maxWidth: 400,
     borderRadius: theme.borderRadius.xl,
     overflow: 'hidden',
-    ...theme.shadows.lg,
+    ...getPlatformShadow('lg'),
     zIndex: 2,
     position: 'relative',
   },
@@ -1824,7 +1932,7 @@ const styles = StyleSheet.create({
   },
   exchangeRateModalTitle: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
@@ -1837,7 +1945,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
     marginBottom: theme.spacing.lg,
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   exchangeRateInfoCardGradient: {
     padding: theme.spacing.lg,
@@ -1850,7 +1958,7 @@ const styles = StyleSheet.create({
   },
   exchangeRateInfoCardText: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
@@ -1859,7 +1967,7 @@ const styles = StyleSheet.create({
   },
   exchangeRateInputLabel: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.sm,
@@ -1874,12 +1982,12 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.sm,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   exchangeRateInput: {
     flex: 1,
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'right' : 'left',
@@ -1887,7 +1995,7 @@ const styles = StyleSheet.create({
   },
   exchangeRateInputUnit: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     ...(isRTL ? { marginLeft: theme.spacing.sm } : { marginRight: theme.spacing.sm }),
@@ -1917,7 +2025,7 @@ const styles = StyleSheet.create({
   },
   exchangeRateCancelButtonText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -1925,7 +2033,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   exchangeRateSaveButtonGradient: {
     padding: theme.spacing.md,
@@ -1934,7 +2042,7 @@ const styles = StyleSheet.create({
   },
   exchangeRateSaveButtonText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
@@ -1952,7 +2060,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: theme.borderRadius.xl,
     paddingBottom: Platform.OS === 'ios' ? 40 : theme.spacing.lg,
     maxHeight: '50%',
-    ...theme.shadows.lg,
+    ...getPlatformShadow('lg'),
     direction: 'rtl' as const,
   },
   timePickerModalHeader: {
@@ -1965,7 +2073,7 @@ const styles = StyleSheet.create({
   },
   timePickerModalTitle: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     flex: 1,
@@ -1980,7 +2088,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.md,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
   },
   timePickerConfirmButton: {
     padding: theme.spacing.sm,
@@ -1991,7 +2099,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.md,
     color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
   },
   customTimePickerContainer: {
     flexDirection: 'row-reverse',
@@ -2020,18 +2128,18 @@ const styles = StyleSheet.create({
   },
   timePickerItemText: {
     fontSize: 24,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textMuted,
     fontFamily: theme.typography.fontFamily,
   },
   timePickerItemTextSelected: {
     fontSize: 28,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.primary,
   },
   timePickerSeparator: {
     fontSize: 32,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginHorizontal: theme.spacing.md,
@@ -2051,7 +2159,7 @@ const styles = StyleSheet.create({
   copyrightWrapper: {
     marginTop: theme.spacing.lg,
     marginBottom: theme.spacing.md,
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   copyrightCard: {
     borderRadius: theme.borderRadius.xl,
@@ -2071,6 +2179,60 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
     opacity: 0.9,
+  },
+  versionText: {
+    fontSize: theme.typography.sizes.xs,
+    color: theme.colors.textInverse,
+    fontFamily: theme.typography.fontFamily,
+    textAlign: 'center',
+    opacity: 0.7,
+    marginTop: 4,
+  },
+  contactItem: {
+    borderRadius: theme.borderRadius.md,
+    overflow: 'hidden',
+    marginTop: theme.spacing.sm,
+    ...getPlatformShadow('sm'),
+  },
+  contactItemGradient: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: theme.spacing.md,
+    direction: 'rtl' as const,
+  },
+  contactItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: theme.spacing.md,
+  },
+  contactIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  contactItemInfo: {
+    flex: 1,
+  },
+  contactItemTitleWhite: {
+    fontSize: theme.typography.sizes.md,
+    fontWeight: getPlatformFontWeight('600'),
+    color: '#FFFFFF',
+    fontFamily: theme.typography.fontFamily,
+    marginBottom: theme.spacing.xs,
+    textAlign: 'left',
+    writingDirection: 'rtl',
+  },
+  contactItemDescriptionWhite: {
+    fontSize: theme.typography.sizes.sm,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontFamily: theme.typography.fontFamily,
+    textAlign: 'left',
+    writingDirection: 'rtl',
   },
 });
 

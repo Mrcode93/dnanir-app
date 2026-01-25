@@ -16,7 +16,7 @@ import { TextInput, IconButton } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../utils/theme';
+import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { isRTL } from '../utils/rtl';
 import { FinancialGoal, GoalCategory, GOAL_CATEGORIES, CURRENCIES } from '../types';
 import { useCurrency } from '../hooks/useCurrency';
@@ -651,7 +651,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: 2,
@@ -682,7 +682,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     marginBottom: theme.spacing.sm,
     fontFamily: theme.typography.fontFamily,
@@ -737,7 +737,7 @@ const styles = StyleSheet.create({
     maxWidth: '48%',
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
     marginBottom: theme.spacing.sm,
   },
   categoryGradient: {
@@ -763,13 +763,13 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.md,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '500',
+    fontWeight: getPlatformFontWeight('500'),
   },
   categoryTextActive: {
     fontSize: theme.typography.sizes.md,
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
   },
   checkboxContainer: {
     flexDirection: 'row',
@@ -802,7 +802,7 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -810,7 +810,7 @@ const styles = StyleSheet.create({
     flex: 2,
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   saveButtonGradient: {
     flexDirection: 'row',
@@ -821,14 +821,14 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
   currencyButton: {
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   currencyButtonGradient: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -839,7 +839,7 @@ const styles = StyleSheet.create({
   currencyButtonText: {
     flex: 1,
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'right' : 'left',
@@ -871,7 +871,7 @@ const styles = StyleSheet.create({
   },
   currencyModalTitle: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'right' : 'left',
@@ -904,7 +904,7 @@ const styles = StyleSheet.create({
     textAlign: isRTL ? 'right' : 'left',
   },
   currencyOptionTextSelected: {
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.primary,
   },
   convertedAmountText: {

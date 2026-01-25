@@ -7,6 +7,7 @@ export interface Expense {
   date: string;
   description?: string;
   currency?: string;
+  receipt_image_path?: string; // Path to stored receipt image
 }
 
 export interface Income {
@@ -361,3 +362,52 @@ export interface ExpenseShortcut {
   description?: string;
   createdAt: string;
 }
+
+// Bills
+export interface Bill {
+  id: number;
+  title: string;
+  amount: number;
+  category: BillCategory;
+  dueDate: string; // ISO date string
+  recurrenceType?: 'monthly' | 'yearly' | 'quarterly' | 'weekly';
+  recurrenceValue?: number;
+  description?: string;
+  currency?: string;
+  isPaid: boolean;
+  paidDate?: string;
+  reminderDaysBefore: number;
+  image_path?: string; // Path to stored bill image
+  createdAt: string;
+}
+
+export type BillCategory = 
+  | 'utilities'      // فواتير الخدمات
+  | 'rent'           // إيجار
+  | 'insurance'      // تأمين
+  | 'internet'        // إنترنت
+  | 'phone'          // هاتف
+  | 'subscription'   // اشتراكات
+  | 'loan'           // قرض
+  | 'other';         // أخرى
+
+export const BILL_CATEGORIES: Record<BillCategory, { label: string; icon: string }> = {
+  utilities: { label: 'فواتير الخدمات', icon: 'flash' },
+  rent: { label: 'إيجار', icon: 'home' },
+  insurance: { label: 'تأمين', icon: 'shield' },
+  internet: { label: 'إنترنت', icon: 'wifi' },
+  phone: { label: 'هاتف', icon: 'call' },
+  subscription: { label: 'اشتراكات', icon: 'card' },
+  loan: { label: 'قرض', icon: 'document' },
+  other: { label: 'أخرى', icon: 'ellipse' },
+};
+
+export interface BillPayment {
+  id: number;
+  billId: number;
+  amount: number;
+  paymentDate: string;
+  description?: string;
+  createdAt: string;
+}
+

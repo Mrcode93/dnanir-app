@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../utils/theme';
+import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { isRTL } from '../utils/rtl';
 import { CURRENCIES, Currency } from '../types';
 import { convertCurrency, getOrFetchExchangeRate, formatCurrencyAmount } from '../services/currencyService';
@@ -363,13 +363,13 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     padding: theme.spacing.md,
     marginBottom: theme.spacing.md,
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
   cardLabel: {
     fontSize: theme.typography.sizes.xs,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.sm,
@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.sm,
     overflow: 'hidden',
     marginBottom: theme.spacing.sm,
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   currencySelectorGradient: {
     paddingVertical: theme.spacing.xs,
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
   },
   currencyCode: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     marginBottom: 1,
@@ -428,7 +428,7 @@ const styles = StyleSheet.create({
   amountInput: {
     flex: 1,
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'right' : 'left',
@@ -436,7 +436,7 @@ const styles = StyleSheet.create({
   },
   currencySymbol: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.primary,
     ...(isRTL ? { marginLeft: theme.spacing.sm } : { marginRight: theme.spacing.sm }),
     fontFamily: theme.typography.fontFamily,
@@ -448,7 +448,7 @@ const styles = StyleSheet.create({
   swapButton: {
     borderRadius: 25,
     overflow: 'hidden',
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   swapButtonGradient: {
     width: 50,
@@ -479,7 +479,7 @@ const styles = StyleSheet.create({
   },
   convertedAmount: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     opacity: 0.3,
@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
   },
   pickerTitle: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'right' : 'left',
@@ -573,7 +573,7 @@ const styles = StyleSheet.create({
   },
   pickerItemCode: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: 2,

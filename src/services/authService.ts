@@ -1,4 +1,5 @@
 import * as LocalAuthentication from 'expo-local-authentication';
+import { Platform } from 'react-native';
 import { getUserSettings, upsertUserSettings } from '../database/database';
 import { alertService } from './alertService';
 
@@ -9,9 +10,15 @@ export interface AuthMethod {
 
 /**
  * Check if biometric authentication is available
+ * Note: On Android, biometric is disabled - only password is used
  */
 export const isBiometricAvailable = async (): Promise<boolean> => {
   try {
+    // Disable biometric on Android devices - use password only
+    if (Platform.OS === 'android') {
+      return false;
+    }
+
     const compatible = await LocalAuthentication.hasHardwareAsync();
     if (!compatible) {
       return false;
@@ -115,9 +122,16 @@ export const verifyPassword = async (password: string): Promise<boolean> => {
 
 /**
  * Set up biometric authentication
+ * Note: On Android, biometric setup is disabled - only password is used
  */
 export const setupBiometric = async (): Promise<boolean> => {
   try {
+    // Disable biometric on Android devices
+    if (Platform.OS === 'android') {
+      alertService.warning('غير متاح', 'المصادقة البيومترية غير متاحة على أجهزة Android. يرجى استخدام كلمة المرور');
+      return false;
+    }
+
     const available = await isBiometricAvailable();
     if (!available) {
       alertService.warning('غير متاح', 'المصادقة البيومترية غير متاحة على هذا الجهاز');
@@ -219,12 +233,22 @@ export const isAuthenticationEnabled = async (): Promise<boolean> => {
 
 /**
  * Get authentication method
+ * Note: On Android, always returns 'password' if enabled, never 'biometric'
  */
 export const getAuthenticationMethod = async (): Promise<'none' | 'password' | 'biometric'> => {
   try {
     const settings = await getUserSettings();
     if (!settings) return 'none';
     
+    // On Android, only use password - ignore biometric even if enabled
+    if (Platform.OS === 'android') {
+      if (settings.passwordHash) {
+        return 'password';
+      }
+      return 'none';
+    }
+    
+    // On iOS, use biometric if available, otherwise password
     // If both are enabled, prefer biometric
     if (settings.biometricsEnabled && settings.passwordHash) {
       return 'biometric';
@@ -257,9 +281,15 @@ export const isPasswordEnabled = async (): Promise<boolean> => {
 
 /**
  * Check if biometric is enabled
+ * Note: On Android, always returns false even if enabled in settings
  */
 export const isBiometricEnabled = async (): Promise<boolean> => {
   try {
+    // On Android, biometric is always disabled
+    if (Platform.OS === 'android') {
+      return false;
+    }
+
     const settings = await getUserSettings();
     return !!(settings?.biometricsEnabled);
   } catch (error) {

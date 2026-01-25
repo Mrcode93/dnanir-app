@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../utils/theme';
+import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import {
   getChallenges,
   deleteChallenge,
@@ -785,7 +785,7 @@ const styles = StyleSheet.create({
   filterButton: {
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   filterButtonGradient: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -805,13 +805,13 @@ const styles = StyleSheet.create({
   },
   filterButtonText: {
     fontSize: theme.typography.sizes.xs,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
   },
   filterButtonTextActive: {
     fontSize: theme.typography.sizes.xs,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
   },
@@ -827,7 +827,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     marginBottom: theme.spacing.md,
     fontFamily: theme.typography.fontFamily,
@@ -842,7 +842,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surfaceCard,
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.md,
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
     borderWidth: 1,
     borderColor: theme.colors.border,
     direction: 'ltr',
@@ -883,7 +883,7 @@ const styles = StyleSheet.create({
     minWidth: 120,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    ...theme.shadows.lg,
+    ...getPlatformShadow('lg'),
     zIndex: 101,
     elevation: 101,
   },
@@ -926,7 +926,7 @@ const styles = StyleSheet.create({
   },
   challengeTitle: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
@@ -978,7 +978,7 @@ const styles = StyleSheet.create({
   },
   categoryText: {
     fontSize: theme.typography.sizes.xs,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     fontFamily: theme.typography.fontFamily,
   },
   footerRight: {
@@ -989,7 +989,7 @@ const styles = StyleSheet.create({
   completeButton: {
     borderRadius: theme.borderRadius.sm,
     overflow: 'hidden',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   completeButtonGradient: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -1000,7 +1000,7 @@ const styles = StyleSheet.create({
   },
   completeButtonText: {
     fontSize: theme.typography.sizes.xs,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
   },
@@ -1017,7 +1017,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.xs,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
   },
   emptyState: {
     alignItems: 'center',
@@ -1027,7 +1027,7 @@ const styles = StyleSheet.create({
   },
   emptyStateTitle: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     marginTop: theme.spacing.lg,
     marginBottom: theme.spacing.sm,
@@ -1053,7 +1053,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: theme.borderRadius.xl,
     borderTopRightRadius: theme.borderRadius.xl,
     maxHeight: '80%',
-    ...theme.shadows.lg,
+    ...getPlatformShadow('lg'),
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1065,7 +1065,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
@@ -1082,7 +1082,7 @@ const styles = StyleSheet.create({
   },
   categorySectionTitle: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
@@ -1105,7 +1105,7 @@ const styles = StyleSheet.create({
   },
   challengeOptionTitle: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,

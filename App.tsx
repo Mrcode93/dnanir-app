@@ -93,6 +93,14 @@ export default function App() {
           console.error('Error initializing achievements:', error);
         }
         
+        // Initialize widget data
+        try {
+          const { initializeWidgetData } = await import('./src/services/widgetDataService');
+          await initializeWidgetData();
+        } catch (error) {
+          console.error('Error initializing widget data:', error);
+        }
+        
         const authEnabled = await isAuthenticationEnabled();
         setIsLocked(authEnabled);
         

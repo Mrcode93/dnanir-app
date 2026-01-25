@@ -14,7 +14,7 @@ import { FAB } from 'react-native-paper';
 import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../utils/theme';
+import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { 
   calculateFinancialSummary, 
   getCurrentMonthData, 
@@ -834,7 +834,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: theme.typography.sizes.xxl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'left',
@@ -849,7 +849,7 @@ const styles = StyleSheet.create({
   advancedReportsButton: {
     borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   advancedReportsButtonGradient: {
     flexDirection: 'row',
@@ -861,7 +861,7 @@ const styles = StyleSheet.create({
   },
   advancedReportsButtonText: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
   },
@@ -875,7 +875,7 @@ const styles = StyleSheet.create({
   },
   healthCardWrapper: {
     marginBottom: theme.spacing.lg,
-    ...theme.shadows.lg,
+    ...getPlatformShadow('lg'),
   },
   healthCard: {
     borderRadius: theme.borderRadius.xl,
@@ -898,14 +898,14 @@ const styles = StyleSheet.create({
     borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   healthTextContainer: {
     flex: 1,
   },
   healthTitle: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textInverse,
     marginBottom: theme.spacing.sm,
     fontFamily: theme.typography.fontFamily,
@@ -917,7 +917,7 @@ const styles = StyleSheet.create({
   },
   healthScore: {
     fontSize: 56,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
@@ -936,7 +936,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.round,
     overflow: 'hidden',
     marginBottom: theme.spacing.lg,
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   healthProgressFill: {
     height: '100%',
@@ -971,7 +971,7 @@ const styles = StyleSheet.create({
   },
   healthStatValue: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
@@ -1001,11 +1001,11 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   sectionTitle: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
@@ -1014,7 +1014,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.sm,
     borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   insightCardGradient: {
     flexDirection: 'row-reverse',
@@ -1032,7 +1032,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   insightText: {
     flex: 1,
@@ -1046,7 +1046,7 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     borderRadius: theme.borderRadius.xl,
     marginBottom: theme.spacing.lg,
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   chartHeader: {
     flexDirection: 'row-reverse',
@@ -1066,11 +1066,11 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   chartTitle: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
@@ -1090,7 +1090,7 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     borderRadius: theme.borderRadius.xl,
     marginBottom: theme.spacing.lg,
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   categoryItem: {
     flexDirection: 'row-reverse',
@@ -1113,11 +1113,11 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surfaceLight,
     alignItems: 'center',
     justifyContent: 'center',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   categoryRankText: {
     fontSize: theme.typography.sizes.xs,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -1125,13 +1125,13 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   categoryName: {
     fontSize: theme.typography.sizes.md,
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     flex: 1,
   },
   categoryRight: {
@@ -1157,7 +1157,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.md,
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
   },
   categoryPercentage: {
     fontSize: theme.typography.sizes.xs,
@@ -1169,7 +1169,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
     borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   comparisonToggleGradient: {
     flexDirection: 'row-reverse',
@@ -1180,7 +1180,7 @@ const styles = StyleSheet.create({
   },
   comparisonToggleText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
   },
@@ -1207,7 +1207,7 @@ const styles = StyleSheet.create({
   },
   comparisonPeriodValue: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -1227,7 +1227,7 @@ const styles = StyleSheet.create({
   },
   comparisonChangeValue: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     fontFamily: theme.typography.fontFamily,
   },
   predictionContent: {
@@ -1248,7 +1248,7 @@ const styles = StyleSheet.create({
   },
   predictionAmount: {
     fontSize: theme.typography.sizes.xxl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -1257,7 +1257,7 @@ const styles = StyleSheet.create({
   },
   predictionCategoriesTitle: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.sm,
@@ -1275,7 +1275,7 @@ const styles = StyleSheet.create({
   },
   predictionCategoryAmount: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -1287,7 +1287,7 @@ const styles = StyleSheet.create({
   },
   confidenceText: {
     fontSize: theme.typography.sizes.xs,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },

@@ -5,7 +5,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import { I18nManager, Platform, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { theme } from '../utils/theme';
+import { theme, getPlatformFontWeight } from '../utils/theme';
 import { isRTL } from '../utils/rtl';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { ExpensesScreen } from '../screens/ExpensesScreen';
@@ -21,6 +21,13 @@ import { DebtsScreen } from '../screens/DebtsScreen';
 import { DebtDetailsScreen } from '../screens/DebtDetailsScreen';
 import { ChallengesScreen } from '../screens/ChallengesScreen';
 import { AchievementsScreen } from '../screens/AchievementsScreen';
+import { AddIncomeScreen } from '../screens/AddIncomeScreen';
+import { AddExpenseScreen } from '../screens/AddExpenseScreen';
+import { AddCategoryScreen } from '../screens/AddCategoryScreen';
+import { ManageCategoriesScreen } from '../screens/ManageCategoriesScreen';
+import { BillsScreen } from '../screens/BillsScreen';
+import { AddBillScreen } from '../screens/AddBillScreen';
+import { BillDetailsScreen } from '../screens/BillDetailsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -37,12 +44,36 @@ const ExpensesStack = () => (
         headerTitleStyle: {
           fontFamily: theme.typography.fontFamily,
           fontSize: theme.typography.sizes.lg,
-          fontWeight: '700',
+          fontWeight: getPlatformFontWeight('700'),
         },
         headerStyle: {
           backgroundColor: theme.colors.surfaceCard,
         },
         headerTintColor: theme.colors.textPrimary,
+      }}
+    />
+    <Stack.Screen
+      name="AddExpense"
+      component={AddExpenseScreen}
+      options={{
+        headerShown: false,
+        presentation: 'card',
+      }}
+    />
+    <Stack.Screen
+      name="AddCategory"
+      component={AddCategoryScreen}
+      options={{
+        headerShown: false,
+        presentation: 'card',
+      }}
+    />
+    <Stack.Screen
+      name="ManageCategories"
+      component={ManageCategoriesScreen}
+      options={{
+        headerShown: false,
+        presentation: 'card',
       }}
     />
   </Stack.Navigator>
@@ -51,6 +82,30 @@ const ExpensesStack = () => (
 const IncomeStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="IncomeList" component={IncomeScreen} />
+    <Stack.Screen
+      name="AddIncome"
+      component={AddIncomeScreen}
+      options={{
+        headerShown: false,
+        presentation: 'card',
+      }}
+    />
+    <Stack.Screen
+      name="AddCategory"
+      component={AddCategoryScreen}
+      options={{
+        headerShown: false,
+        presentation: 'card',
+      }}
+    />
+    <Stack.Screen
+      name="ManageCategories"
+      component={ManageCategoriesScreen}
+      options={{
+        headerShown: false,
+        presentation: 'card',
+      }}
+    />
   </Stack.Navigator>
 );
 
@@ -74,7 +129,7 @@ const DebtsStack = () => (
             <Text style={{
               fontFamily: theme.typography.fontFamily,
               fontSize: theme.typography.sizes.lg,
-              fontWeight: '700',
+              fontWeight: getPlatformFontWeight('700'),
               color: theme.colors.textPrimary,
             }}>
               الديون والأقساط
@@ -84,7 +139,7 @@ const DebtsStack = () => (
         headerTitleStyle: {
           fontFamily: theme.typography.fontFamily,
           fontSize: theme.typography.sizes.lg,
-          fontWeight: '700',
+          fontWeight: getPlatformFontWeight('700'),
         },
         headerStyle: {
           backgroundColor: theme.colors.surfaceCard,
@@ -105,6 +160,9 @@ const DebtsStack = () => (
               marginRight: isRTL ? 0 : 16,
               marginLeft: isRTL ? 16 : 0,
               padding: 8,
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: 44,
             }}
           >
             <Ionicons name="add-circle" size={28} color={theme.colors.primary} />
@@ -123,7 +181,7 @@ const DebtsStack = () => (
             <Text style={{
               fontFamily: theme.typography.fontFamily,
               fontSize: theme.typography.sizes.lg,
-              fontWeight: '700',
+              fontWeight: getPlatformFontWeight('700'),
               color: theme.colors.textPrimary,
             }}>
               تفاصيل الدين
@@ -133,7 +191,7 @@ const DebtsStack = () => (
         headerTitleStyle: {
           fontFamily: theme.typography.fontFamily,
           fontSize: theme.typography.sizes.lg,
-          fontWeight: '700',
+          fontWeight: getPlatformFontWeight('700'),
         },
         headerStyle: {
           backgroundColor: theme.colors.surfaceCard,
@@ -145,6 +203,80 @@ const DebtsStack = () => (
         headerTintColor: theme.colors.textPrimary,
         headerBackTitleVisible: false,
         headerBackTitle: '',
+        tabBarStyle: { display: 'none' },
+      })}
+    />
+  </Stack.Navigator>
+);
+
+const BillsStack = () => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen 
+      name="BillsList" 
+      component={BillsScreen}
+      options={({ navigation }) => ({
+        headerShown: true,
+        headerTitle: () => (
+          <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
+            <Ionicons name="receipt" size={24} color={theme.colors.primary} />
+            <Text style={{
+              fontFamily: theme.typography.fontFamily,
+              fontSize: theme.typography.sizes.lg,
+              fontWeight: getPlatformFontWeight('700'),
+              color: theme.colors.textPrimary,
+            }}>
+              الفواتير
+            </Text>
+          </View>
+        ),
+        headerTitleStyle: {
+          fontFamily: theme.typography.fontFamily,
+          fontSize: theme.typography.sizes.lg,
+          fontWeight: getPlatformFontWeight('700'),
+        },
+        headerStyle: {
+          backgroundColor: theme.colors.surfaceCard,
+          elevation: 0,
+          shadowOpacity: 0,
+          borderBottomWidth: 1,
+          borderBottomColor: theme.colors.border,
+        },
+        headerTintColor: theme.colors.textPrimary,
+        headerBackTitleVisible: false,
+        headerBackTitle: '',
+        headerRight: () => (
+          <TouchableOpacity
+            onPress={() => {
+              navigation.navigate('AddBill');
+            }}
+            style={{
+              marginRight: isRTL ? 0 : 16,
+              marginLeft: isRTL ? 16 : 0,
+              padding: 8,
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: 44,
+            }}
+          >
+            <Ionicons name="add-circle" size={28} color={theme.colors.primary} />
+          </TouchableOpacity>
+        ),
+      })}
+    />
+    <Stack.Screen
+      name="BillDetails"
+      component={BillDetailsScreen}
+      options={({ navigation }) => ({
+        headerShown: false,
+        tabBarStyle: { display: 'none' },
+      })}
+    />
+    <Stack.Screen
+      name="AddBill"
+      component={AddBillScreen}
+      options={({ navigation }) => ({
+        headerShown: false,
+        presentation: 'card',
         tabBarStyle: { display: 'none' },
       })}
     />
@@ -169,7 +301,7 @@ const DashboardStack = () => (
             <Text style={{
               fontFamily: theme.typography.fontFamily,
               fontSize: theme.typography.sizes.lg,
-              fontWeight: '700',
+              fontWeight: getPlatformFontWeight('700'),
               color: theme.colors.textPrimary,
             }}>
               الأهداف المالية
@@ -179,7 +311,7 @@ const DashboardStack = () => (
         headerTitleStyle: {
           fontFamily: theme.typography.fontFamily,
           fontSize: theme.typography.sizes.lg,
-          fontWeight: '700',
+          fontWeight: getPlatformFontWeight('700'),
         },
         headerStyle: {
           backgroundColor: theme.colors.surfaceCard,
@@ -201,6 +333,9 @@ const DashboardStack = () => (
               marginRight: isRTL ? 0 : 16,
               marginLeft: isRTL ? 16 : 0,
               padding: 8,
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: 44,
             }}
           >
             <Ionicons name="add-circle" size={28} color={theme.colors.primary} />
@@ -219,7 +354,7 @@ const DashboardStack = () => (
             <Text style={{
               fontFamily: theme.typography.fontFamily,
               fontSize: theme.typography.sizes.lg,
-              fontWeight: '700',
+              fontWeight: getPlatformFontWeight('700'),
               color: theme.colors.textPrimary,
             }}>
               الميزانية
@@ -229,7 +364,7 @@ const DashboardStack = () => (
         headerTitleStyle: {
           fontFamily: theme.typography.fontFamily,
           fontSize: theme.typography.sizes.lg,
-          fontWeight: '700',
+          fontWeight: getPlatformFontWeight('700'),
         },
         headerStyle: {
           backgroundColor: theme.colors.surfaceCard,
@@ -250,6 +385,9 @@ const DashboardStack = () => (
               marginRight: isRTL ? 0 : 16,
               marginLeft: isRTL ? 16 : 0,
               padding: 8,
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: 44,
             }}
           >
             <Ionicons name="add-circle" size={28} color={theme.colors.primary} />
@@ -269,7 +407,7 @@ const DashboardStack = () => (
             <Text style={{
               fontFamily: theme.typography.fontFamily,
               fontSize: theme.typography.sizes.lg,
-              fontWeight: '700',
+              fontWeight: getPlatformFontWeight('700'),
               color: theme.colors.textPrimary,
             }}>
               محول العملات
@@ -279,7 +417,7 @@ const DashboardStack = () => (
         headerTitleStyle: {
           fontFamily: theme.typography.fontFamily,
           fontSize: theme.typography.sizes.lg,
-          fontWeight: '700',
+          fontWeight: getPlatformFontWeight('700'),
         },
         headerStyle: {
           backgroundColor: theme.colors.surfaceCard,
@@ -312,7 +450,7 @@ const DashboardStack = () => (
             <Text style={{
               fontFamily: theme.typography.fontFamily,
               fontSize: theme.typography.sizes.lg,
-              fontWeight: '700',
+              fontWeight: getPlatformFontWeight('700'),
               color: theme.colors.textPrimary,
             }}>
               الإنجازات
@@ -322,7 +460,7 @@ const DashboardStack = () => (
         headerTitleStyle: {
           fontFamily: theme.typography.fontFamily,
           fontSize: theme.typography.sizes.lg,
-          fontWeight: '700',
+          fontWeight: getPlatformFontWeight('700'),
         },
         headerStyle: {
           backgroundColor: theme.colors.surfaceCard,
@@ -338,6 +476,13 @@ const DashboardStack = () => (
       })}
     />
     <Stack.Screen
+      name="Bills"
+      component={BillsStack}
+      options={{
+        headerShown: false,
+      }}
+    />
+    <Stack.Screen
       name="Challenges"
       component={ChallengesScreen}
       options={({ navigation }) => ({
@@ -348,7 +493,7 @@ const DashboardStack = () => (
             <Text style={{
               fontFamily: theme.typography.fontFamily,
               fontSize: theme.typography.sizes.lg,
-              fontWeight: '700',
+              fontWeight: getPlatformFontWeight('700'),
               color: theme.colors.textPrimary,
             }}>
               التحديات
@@ -358,7 +503,7 @@ const DashboardStack = () => (
         headerTitleStyle: {
           fontFamily: theme.typography.fontFamily,
           fontSize: theme.typography.sizes.lg,
-          fontWeight: '700',
+          fontWeight: getPlatformFontWeight('700'),
         },
         headerStyle: {
           backgroundColor: theme.colors.surfaceCard,
@@ -379,6 +524,9 @@ const DashboardStack = () => (
               marginRight: isRTL ? 0 : 16,
               marginLeft: isRTL ? 16 : 0,
               padding: 8,
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: 44,
             }}
           >
             <Ionicons name="add-circle" size={28} color={theme.colors.primary} />
@@ -451,13 +599,13 @@ export const AppNavigator = () => {
           },
           tabBarLabelStyle: {
             fontFamily: theme.typography.fontFamily,
-            fontSize: theme.typography.sizes.xs,
-            marginTop: 2,
+            fontSize: 10,
+            marginTop: 0,
             textAlign: 'right',
             writingDirection: 'rtl',
           },
           tabBarIconStyle: {
-            marginTop: 2,
+            marginTop: 0,
           },
         })}
       >

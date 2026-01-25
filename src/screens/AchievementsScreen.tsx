@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../utils/theme';
+import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import {
   getAchievements,
   Achievement,
@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     margin: theme.spacing.md,
     marginBottom: theme.spacing.sm,
-    ...theme.shadows.lg,
+    ...getPlatformShadow('lg'),
   },
   headerGradient: {
     padding: theme.spacing.lg,
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: theme.typography.sizes.xxl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
   },
@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
   filterButton: {
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   filterButtonGradient: {
     paddingHorizontal: theme.spacing.md,
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
   },
   filterButtonText: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     paddingHorizontal: theme.spacing.md,
@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
   },
   filterButtonTextActive: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
   },
@@ -428,7 +428,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     marginBottom: theme.spacing.md,
     fontFamily: theme.typography.fontFamily,
@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
     opacity: 0.7,
   },
   achievementCardUnlocked: {
@@ -473,14 +473,14 @@ const styles = StyleSheet.create({
     right: -4,
     backgroundColor: theme.colors.surfaceCard,
     borderRadius: 12,
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   achievementInfo: {
     flex: 1,
   },
   achievementTitle: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
@@ -539,7 +539,7 @@ const styles = StyleSheet.create({
   },
   emptyStateTitle: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     marginTop: theme.spacing.lg,
     marginBottom: theme.spacing.sm,

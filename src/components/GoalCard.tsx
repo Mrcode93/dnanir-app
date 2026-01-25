@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, I18nManager, Modal, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../utils/theme';
+import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { isRTL } from '../utils/rtl';
 import { FinancialGoal, GOAL_CATEGORIES } from '../types';
 import { useCurrency } from '../hooks/useCurrency';
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: theme.borderRadius.xl,
     padding: theme.spacing.lg,
-    ...theme.shadows.lg,
+    ...getPlatformShadow('lg'),
     overflow: 'hidden',
     direction: 'ltr',
   },
@@ -340,14 +340,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     ...(isRTL ? { marginLeft: theme.spacing.md } : { marginRight: theme.spacing.md }),
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   titleContainer: {
     flex: 1,
   },
   title: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     padding: theme.spacing.xs,
     minWidth: 150,
-    ...theme.shadows.lg,
+    ...getPlatformShadow('lg'),
   },
   menuItem: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.round,
     overflow: 'hidden',
     marginBottom: theme.spacing.xs,
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   progressFill: {
     height: '100%',
@@ -427,7 +427,7 @@ const styles = StyleSheet.create({
   },
   progressPercent: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
   },
@@ -447,13 +447,13 @@ const styles = StyleSheet.create({
   },
   amountValue: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
   },
   convertedAmount: {
     fontSize: theme.typography.sizes.xs,
-    fontWeight: '500',
+    fontWeight: getPlatformFontWeight('500'),
     color: 'rgba(255, 255, 255, 0.7)',
     fontFamily: theme.typography.fontFamily,
     marginTop: 2,
@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
   },
   convertedRemainingText: {
     fontSize: theme.typography.sizes.xs,
-    fontWeight: '500',
+    fontWeight: getPlatformFontWeight('500'),
     color: 'rgba(255, 255, 255, 0.7)',
     fontFamily: theme.typography.fontFamily,
     marginTop: 2,
@@ -509,7 +509,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.xs,
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     textAlign: 'right',
     writingDirection: 'rtl',
     marginBottom: 2,
@@ -534,7 +534,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.sm,
     color: theme.colors.textInverse,
     ...(isRTL ? { marginRight: theme.spacing.xs } : { marginLeft: theme.spacing.xs }),
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',

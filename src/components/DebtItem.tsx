@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Modal, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { theme } from '../utils/theme';
+import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { Debt } from '../types';
 import { isRTL } from '../utils/rtl';
 import { ConfirmAlert } from './ConfirmAlert';
@@ -365,7 +365,8 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
-    ...theme.shadows.md,
+    backgroundColor: theme.colors.surfaceCard, // Required for Android elevation
+    ...getPlatformShadow('md'),
   },
   cardGradient: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -383,7 +384,8 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
     borderWidth: 2,
-    ...theme.shadows.sm,
+    backgroundColor: theme.colors.surfaceCard, // Background for Android elevation
+    ...getPlatformShadow('sm'),
   },
   iconGradient: {
     width: '100%',
@@ -405,7 +407,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
@@ -427,7 +429,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.xs,
     color: theme.colors.textMuted,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '500',
+    fontWeight: getPlatformFontWeight('500'),
     textAlign: 'right',
     writingDirection: 'rtl',
   },
@@ -441,7 +443,7 @@ const styles = StyleSheet.create({
   },
   categoryText: {
     fontSize: theme.typography.sizes.xs,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     fontFamily: theme.typography.fontFamily,
   },
   rightContent: {
@@ -450,7 +452,7 @@ const styles = StyleSheet.create({
   amountWrapper: {
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.sm,
+    ...getPlatformShadow('sm'),
   },
   amountBadge: {
     paddingHorizontal: theme.spacing.sm,
@@ -458,7 +460,7 @@ const styles = StyleSheet.create({
   },
   amount: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '800',
+    fontWeight: getPlatformFontWeight('800'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
@@ -466,7 +468,7 @@ const styles = StyleSheet.create({
   },
   remainingAmount: {
     fontSize: theme.typography.sizes.xs,
-    fontWeight: '500',
+    fontWeight: getPlatformFontWeight('500'),
     color: 'rgba(255, 255, 255, 0.9)',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
@@ -489,7 +491,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     padding: theme.spacing.xs,
     minWidth: 150,
-    ...theme.shadows.lg,
+    ...getPlatformShadow('lg'),
   },
   menuItem: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -525,7 +527,7 @@ const styles = StyleSheet.create({
     height: 64,
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   deleteGradient: {
     width: '100%',

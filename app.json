@@ -2,7 +2,7 @@
   "expo": {
     "name": "دنانير",
     "slug": "dnanir",
-    "version": "1.0.4",
+    "version": "1.0.6",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "light",
@@ -18,13 +18,15 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.mrcodeiq.dinar",
-      "buildNumber": "4",
+      "buildNumber": "6",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleDisplayName": "دنانير",
         "CFBundleName": "دنانير",
         "CFBundleDevelopmentRegion": "ar",
-        "CFBundleLocalizations": ["ar"],
+        "CFBundleLocalizations": [
+          "ar"
+        ],
         "NSUserNotificationsUsageDescription": "نحتاج إلى الإشعارات لتذكيرك بتسجيل المصاريف والدخل",
         "NSFaceIDUsageDescription": "نستخدم Face ID لتأمين بياناتك المالية",
         "UIUserInterfaceStyle": "Light",
@@ -60,7 +62,7 @@
       "predictiveBackGestureEnabled": false,
       "locale": "ar",
       "package": "com.mrcodeiq.dinar",
-      "versionCode": 4,
+      "versionCode": 6,
       "fonts": [
         "./assets/fonts/Cairo-Regular.ttf",
         "./assets/fonts/Cairo-Regular.ttf"
@@ -82,17 +84,13 @@
     "web": {
       "favicon": "./assets/logo.png"
     },
-    "extra": {
-      "eas": {
-        "projectId": "286a1138-789a-48d6-9925-e0dc64b24ee1"
-      }
-    },
-    "owner": "mrcodeiq",
     "runtimeVersion": {
       "policy": "appVersion"
     },
-    "updates": {
-      "url": "https://u.expo.dev/286a1138-789a-48d6-9925-e0dc64b24ee1"
+    "extra": {
+      "eas": {
+        "projectId": "84527916-7a14-4070-bd36-1035bfd146ec"
+      }
     }
   }
 }

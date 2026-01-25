@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 // Modern Light Theme Configuration
 const lightTheme = {
   colors: {
@@ -148,3 +150,40 @@ export const getTheme = () => {
 };
 
 export const theme = lightTheme; // Default export for backward compatibility
+
+// Helper function for platform-specific shadows
+// Android uses elevation, iOS uses shadow properties
+export const getPlatformShadow = (size: 'sm' | 'md' | 'lg') => {
+  const shadow = theme.shadows[size];
+  if (Platform.OS === 'android') {
+    return {
+      elevation: shadow.elevation,
+      // Disable iOS shadow properties on Android to avoid conflicts
+      shadowColor: 'transparent',
+    };
+  }
+  // iOS uses shadow properties
+  return {
+    shadowColor: shadow.shadowColor,
+    shadowOffset: shadow.shadowOffset,
+    shadowOpacity: shadow.shadowOpacity,
+    shadowRadius: shadow.shadowRadius,
+    elevation: shadow.elevation, // Keep for compatibility
+  };
+};
+
+// Helper function to get font weight that works with Cairo-Regular on Android
+// On Android, using fontWeight '700' or '800' with a Regular font causes fallback to system font
+// This function returns 'normal' or '400' on Android for bold weights to keep the custom font
+export const getPlatformFontWeight = (weight: '400' | '500' | '600' | '700' | '800' | 'normal' | 'bold' = '400') => {
+  if (Platform.OS === 'android') {
+    // On Android, Cairo-Regular doesn't support bold weights, so use 'normal' to keep the font
+    // iOS can synthesize bold from Regular font, so we can use the weight there
+    if (weight === '700' || weight === '800' || weight === 'bold') {
+      return 'normal' as const; // Use normal weight to keep Cairo-Regular font
+    }
+    return weight;
+  }
+  // iOS can handle fontWeight with Regular fonts
+  return weight;
+};

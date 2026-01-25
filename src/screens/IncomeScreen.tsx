@@ -18,9 +18,7 @@ import { Searchbar, FAB } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { TransactionItem } from '../components/TransactionItem';
-import { AddIncomeModal } from '../components/AddIncomeModal';
-import { AddCategoryModal } from '../components/AddCategoryModal';
-import { theme } from '../utils/theme';
+import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { getIncome, deleteIncome, getCustomCategories, addCustomCategory, deleteCustomCategory, updateCustomCategory, CustomCategory } from '../database/database';
 import { Income, IncomeSource, INCOME_SOURCES } from '../types';
 import { isRTL } from '../utils/rtl';
@@ -35,14 +33,8 @@ export const IncomeScreen = ({ navigation, route }: any) => {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSource, setSelectedSource] = useState<IncomeSource | 'all'>('all');
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingIncome, setEditingIncome] = useState<Income | null>(null);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
-  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
-  const [showManageCategoriesModal, setShowManageCategoriesModal] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<CustomCategory | null>(null);
   const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
-  const [allCategories, setAllCategories] = useState<CustomCategory[]>([]);
   const filterMenuAnim = useRef(new Animated.Value(0)).current;
   // Month filter state - default to current month
   const [selectedMonth, setSelectedMonth] = useState<{ year: number; month: number }>(() => {
@@ -90,7 +82,6 @@ export const IncomeScreen = ({ navigation, route }: any) => {
     try {
       const categories = await getCustomCategories('income');
       setCustomCategories(categories);
-      setAllCategories(categories);
     } catch (error) {
       // Ignore error
     }
@@ -108,8 +99,7 @@ export const IncomeScreen = ({ navigation, route }: any) => {
 
   useEffect(() => {
     if (route?.params?.income) {
-      setEditingIncome(route.params.income);
-      setShowAddModal(true);
+      navigation.navigate('AddIncome', { income: route.params.income });
       navigation.setParams({ income: undefined });
     }
   }, [route?.params]);
@@ -125,11 +115,40 @@ export const IncomeScreen = ({ navigation, route }: any) => {
     }
 
     if (selectedSource !== 'all') {
-      filtered = filtered.filter(incomeItem => incomeItem.source === selectedSource);
+      filtered = filtered.filter(incomeItem => {
+        // Direct match
+        if (incomeItem.source === selectedSource) {
+          return true;
+        }
+        
+        // Check if selectedSource is an English key and match against Arabic label
+        if (INCOME_SOURCES[selectedSource as IncomeSource]) {
+          const arabicLabel = INCOME_SOURCES[selectedSource as IncomeSource];
+          if (incomeItem.source === arabicLabel) {
+            return true;
+          }
+        }
+        
+        // Check if selectedSource is an Arabic label and match against English key
+        const englishKey = Object.keys(INCOME_SOURCES).find(
+          key => INCOME_SOURCES[key as IncomeSource] === selectedSource
+        );
+        if (englishKey && incomeItem.source === englishKey) {
+          return true;
+        }
+        
+        // Check custom categories
+        const customCategory = customCategories.find(c => c.name === selectedSource);
+        if (customCategory && incomeItem.source === customCategory.name) {
+          return true;
+        }
+        
+        return false;
+      });
     }
 
     setFilteredIncome(filtered);
-  }, [income, searchQuery, selectedSource]);
+  }, [income, searchQuery, selectedSource, customCategories]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -202,7 +221,6 @@ export const IncomeScreen = ({ navigation, route }: any) => {
         alertService.success('نجح', 'تم إضافة المصدر بنجاح');
       }
       await loadCustomCategories();
-      setEditingCategory(null);
     } catch (error: any) {
       alertService.error('خطأ', error.message || 'حدث خطأ أثناء حفظ المصدر');
     }
@@ -248,7 +266,12 @@ export const IncomeScreen = ({ navigation, route }: any) => {
           
           {/* Manage Categories Button */}
           <TouchableOpacity
-            onPress={() => setShowManageCategoriesModal(true)}
+            onPress={() => navigation.navigate('ManageCategories', {
+              type: 'income',
+              onCategoryChange: async () => {
+                await loadCustomCategories();
+              },
+            })}
             style={styles.headerManageCategoriesButton}
             activeOpacity={0.7}
           >
@@ -292,47 +315,7 @@ export const IncomeScreen = ({ navigation, route }: any) => {
               </View>
             )}
           </TouchableOpacity>
-          {Object.entries(INCOME_SOURCES).map(([key, label]) => {
-            const isSelected = selectedSource === key;
-            return (
-              <TouchableOpacity
-                key={key}
-                onPress={() => handleSourceSelect(key as IncomeSource)}
-                style={styles.filterButton}
-                activeOpacity={0.7}
-              >
-                {isSelected ? (
-                  <LinearGradient
-                    colors={(sourceColors[key] || theme.gradients.primary) as any}
-                    style={styles.filterButtonGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  >
-                    <Ionicons
-                      name={sourceIcons[key] as any}
-                      size={16}
-                      color={theme.colors.textInverse}
-                    />
-                    <Text style={styles.filterButtonTextActive} numberOfLines={1}>
-                      {label}
-                    </Text>
-                  </LinearGradient>
-                ) : (
-                  <View style={styles.filterButtonDefault}>
-                    <Ionicons
-                      name={`${sourceIcons[key]}-outline` as any}
-                      size={16}
-                      color={theme.colors.textSecondary}
-                    />
-                    <Text style={styles.filterButtonText} numberOfLines={1}>
-                      {label}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-          {customCategories.slice(0, 5).map((category) => {
+          {customCategories.slice(0, 10).map((category) => {
             const isSelected = selectedSource === category.name;
             return (
               <TouchableOpacity
@@ -442,46 +425,6 @@ export const IncomeScreen = ({ navigation, route }: any) => {
                       </View>
                     )}
                   </TouchableOpacity>
-                  {Object.entries(INCOME_SOURCES).map(([key, label]) => {
-                    const isSelected = selectedSource === key;
-                    return (
-                      <TouchableOpacity
-                        key={key}
-                        onPress={() => handleSourceSelect(key as IncomeSource)}
-                        style={[
-                          styles.filterMenuItem,
-                          isSelected && styles.filterMenuItemActive,
-                        ]}
-                        activeOpacity={0.7}
-                      >
-                        {isSelected ? (
-                          <LinearGradient
-                            colors={(sourceColors[key] || theme.gradients.primary) as any}
-                            style={styles.filterMenuItemGradient}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                          >
-                            <Ionicons
-                              name={sourceIcons[key] as any}
-                              size={22}
-                              color={theme.colors.textInverse}
-                            />
-                            <Text style={styles.filterMenuItemTextActive}>{label}</Text>
-                            <Ionicons name="checkmark-circle" size={20} color={theme.colors.textInverse} />
-                          </LinearGradient>
-                        ) : (
-                          <View style={styles.filterMenuItemDefault}>
-                            <Ionicons
-                              name={`${sourceIcons[key]}-outline` as any}
-                              size={22}
-                              color={theme.colors.textSecondary}
-                            />
-                            <Text style={styles.filterMenuItemText}>{label}</Text>
-                          </View>
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })}
                   {customCategories.map((category) => {
                     const isSelected = selectedSource === category.name;
                     return (
@@ -512,9 +455,12 @@ export const IncomeScreen = ({ navigation, route }: any) => {
                               <TouchableOpacity
                                 onPress={(e) => {
                                   e.stopPropagation();
-                                  setEditingCategory(category);
                                   setShowFilterMenu(false);
-                                  setShowAddCategoryModal(true);
+                                  navigation.navigate('AddCategory', {
+                                    category,
+                                    type: 'income',
+                                    onSave: handleAddCategory,
+                                  });
                                 }}
                                 style={styles.editCategoryButton}
                               >
@@ -547,9 +493,12 @@ export const IncomeScreen = ({ navigation, route }: any) => {
                               <TouchableOpacity
                                 onPress={(e) => {
                                   e.stopPropagation();
-                                  setEditingCategory(category);
                                   setShowFilterMenu(false);
-                                  setShowAddCategoryModal(true);
+                                  navigation.navigate('AddCategory', {
+                                    category,
+                                    type: 'income',
+                                    onSave: handleAddCategory,
+                                  });
                                 }}
                                 style={styles.editCategoryButtonDefault}
                               >
@@ -577,8 +526,10 @@ export const IncomeScreen = ({ navigation, route }: any) => {
                   <TouchableOpacity
                     onPress={() => {
                       setShowFilterMenu(false);
-                      setEditingCategory(null);
-                      setShowAddCategoryModal(true);
+                      navigation.navigate('AddCategory', {
+                        type: 'income',
+                        onSave: handleAddCategory,
+                      });
                     }}
                     style={styles.addCategoryButton}
                     activeOpacity={0.7}
@@ -634,8 +585,7 @@ export const IncomeScreen = ({ navigation, route }: any) => {
             type="income"
             formatCurrency={formatCurrency}
             onEdit={() => {
-              setEditingIncome(item);
-              setShowAddModal(true);
+              navigation.navigate('AddIncome', { income: item });
             }}
             onDelete={async () => {
               try {
@@ -661,171 +611,20 @@ export const IncomeScreen = ({ navigation, route }: any) => {
         }
       />
 
-      <LinearGradient
-        colors={theme.gradients.primary as any}
-        style={styles.fabGradient}
-      >
-        <FAB
-          style={styles.fab}
-          icon="plus"
-          onPress={() => setShowAddModal(true)}
-          size="medium"
-          color={theme.colors.textInverse}
-        />
-      </LinearGradient>
-
-      <AddIncomeModal
-        visible={showAddModal}
-        onClose={() => {
-          setShowAddModal(false);
-          setEditingIncome(null);
-        }}
-        income={editingIncome}
-        onSave={loadIncome}
-      />
-
-      <AddCategoryModal
-        visible={showAddCategoryModal}
-        onClose={() => {
-          setShowAddCategoryModal(false);
-          setEditingCategory(null);
-        }}
-        onSave={handleAddCategory}
-        type="income"
-        category={editingCategory}
-      />
-
-      {/* Manage Categories Modal */}
-      <Modal
-        visible={showManageCategoriesModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowManageCategoriesModal(false)}
-      >
-        <Pressable
-          style={styles.manageCategoriesOverlay}
-          onPress={() => setShowManageCategoriesModal(false)}
+      <View style={styles.fabContainer}>
+        <LinearGradient
+          colors={theme.gradients.primary as any}
+          style={styles.fabGradient}
         >
-          <Pressable
-            style={styles.manageCategoriesContainer}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <LinearGradient
-              colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-              style={styles.manageCategoriesGradient}
-            >
-              <View style={styles.manageCategoriesHeader}>
-                <Text style={styles.manageCategoriesTitle}>إدارة مصادر الدخل</Text>
-                <TouchableOpacity
-                  onPress={() => setShowManageCategoriesModal(false)}
-                  style={styles.manageCategoriesCloseButton}
-                >
-                  <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.manageCategoriesScrollContainer}>
-                <ScrollView
-                  style={styles.manageCategoriesScroll}
-                  contentContainerStyle={styles.manageCategoriesContent}
-                  showsVerticalScrollIndicator={true}
-                >
-                {/* All Categories Section */}
-                <View style={styles.categoriesSection}>
-                  <Text style={styles.categoriesSectionTitle}>جميع المصادر</Text>
-                  {allCategories.length === 0 ? (
-                    <View style={styles.emptyCategoriesContainer}>
-                      <Ionicons name="folder-outline" size={64} color={theme.colors.textMuted} />
-                      <Text style={styles.emptyCategoriesText}>لا توجد مصادر</Text>
-                      <Text style={styles.emptyCategoriesSubtext}>
-                        أضف مصادر دخل جديدة لتسهيل تصنيف دخلك
-                      </Text>
-                    </View>
-                  ) : (
-                    allCategories.map((category) => {
-                      const defaultNames = Object.values(INCOME_SOURCES);
-                      const isDefault = defaultNames.includes(category.name);
-                      return (
-                        <View key={category.id} style={styles.categoryManageItem}>
-                          <View style={styles.categoryManageItemLeft}>
-                            <View
-                              style={[
-                                styles.categoryManageIconContainer,
-                                { backgroundColor: category.color + '20' },
-                              ]}
-                            >
-                              <Ionicons
-                                name={category.icon as any}
-                                size={24}
-                                color={category.color}
-                              />
-                            </View>
-                            <View style={styles.categoryManageInfo}>
-                              <Text style={styles.categoryManageName}>{category.name}</Text>
-                              <Text style={styles.categoryManageType}>
-                                {isDefault ? 'مصدر افتراضي' : 'مصدر مخصص'}
-                              </Text>
-                            </View>
-                          </View>
-                          <View style={styles.categoryManageActions}>
-                            <TouchableOpacity
-                              onPress={() => {
-                                setEditingCategory(category);
-                                setShowManageCategoriesModal(false);
-                                setShowAddCategoryModal(true);
-                              }}
-                              style={styles.categoryManageEditButton}
-                            >
-                              <Ionicons name="create-outline" size={20} color={theme.colors.primary} />
-                            </TouchableOpacity>
-                            {!isDefault && (
-                              <TouchableOpacity
-                                onPress={() => {
-                                  alertService.confirm(
-                                    'حذف المصدر',
-                                    `هل تريد حذف "${category.name}"؟`,
-                                    () => handleDeleteCategory(category.id)
-                                  );
-                                }}
-                                style={styles.categoryManageDeleteButton}
-                              >
-                                <Ionicons name="trash-outline" size={20} color={theme.colors.error} />
-                              </TouchableOpacity>
-                            )}
-                          </View>
-                        </View>
-                      );
-                    })
-                  )}
-                </View>
-                </ScrollView>
-              </View>
-
-              <View style={styles.manageCategoriesFooter}>
-                <TouchableOpacity
-                  onPress={() => {
-                    setShowManageCategoriesModal(false);
-                    setEditingCategory(null);
-                    setShowAddCategoryModal(true);
-                  }}
-                  style={styles.manageCategoriesAddButton}
-                  activeOpacity={0.8}
-                >
-                  <LinearGradient
-                    colors={['#10B981', '#059669'] as any}
-                    style={styles.manageCategoriesAddGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  >
-                    <Ionicons name="add-circle" size={20} color={theme.colors.textInverse} />
-                    <Text style={styles.manageCategoriesAddText}>إضافة مصدر جديد</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-            </LinearGradient>
-          </Pressable>
-        </Pressable>
-      </Modal>
+          <FAB
+            style={styles.fab}
+            icon="plus"
+            onPress={() => navigation.navigate('AddIncome')}
+            size="medium"
+            color={theme.colors.textInverse}
+          />
+        </LinearGradient>
+      </View>
     </SafeAreaView>
   );
 };
@@ -859,7 +658,8 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.md,
+    backgroundColor: theme.colors.surfaceCard, // Required for Android elevation
+    ...getPlatformShadow('md'),
   },
   headerManageCategoriesGradient: {
     width: '100%',
@@ -888,7 +688,9 @@ const styles = StyleSheet.create({
   filterButton: {
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...theme.shadows.sm,
+    backgroundColor: theme.colors.surfaceCard, // Required for Android elevation
+    maxHeight: 30, // Ensure minimum height for proper elevation
+    ...getPlatformShadow('sm'),
   },
   filterButtonGradient: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -896,6 +698,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing.xs,
     gap: theme.spacing.xs,
+    width: '100%',
+    height: '100%',
+    borderRadius: theme.borderRadius.md,
   },
   filterButtonDefault: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -904,17 +709,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing.xs,
     gap: theme.spacing.xs,
-    borderRadius: theme.borderRadius.md,
+    width: '100%',
+    height: '100%',
+    // borderRadius removed - parent already has it
   },
   filterButtonText: {
     fontSize: theme.typography.sizes.xs,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
   },
   filterButtonTextActive: {
     fontSize: theme.typography.sizes.xs,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
   },
@@ -932,7 +739,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surfaceCard,
     borderRadius: theme.borderRadius.xl,
     overflow: 'hidden',
-    ...theme.shadows.lg,
+    ...getPlatformShadow('lg'),
   },
   filterMenuHeader: {
     flexDirection: 'row-reverse',
@@ -944,7 +751,7 @@ const styles = StyleSheet.create({
   },
   filterMenuTitle: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -961,10 +768,11 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
     marginBottom: theme.spacing.sm,
-    ...theme.shadows.sm,
+    backgroundColor: theme.colors.surfaceCard, // Required for Android elevation
+    ...getPlatformShadow('sm'),
   },
   filterMenuItemActive: {
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   filterMenuItemGradient: {
     flexDirection: 'row-reverse',
@@ -992,7 +800,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontSize: theme.typography.sizes.md,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     textAlign: 'right',
   },
   filterMenuItemTextActive: {
@@ -1000,7 +808,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textInverse,
     fontSize: theme.typography.sizes.md,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     textAlign: 'right',
   },
   filterMenuItemActions: {
@@ -1029,7 +837,8 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
     marginTop: theme.spacing.sm,
-    ...theme.shadows.sm,
+    backgroundColor: theme.colors.surfaceCard, // Required for Android elevation
+    ...getPlatformShadow('sm'),
   },
   addCategoryButtonGradient: {
     flexDirection: 'row-reverse',
@@ -1044,7 +853,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textInverse,
     fontSize: theme.typography.sizes.md,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
   },
   summaryCardContainer: {
     paddingHorizontal: theme.spacing.md,
@@ -1054,7 +863,7 @@ const styles = StyleSheet.create({
   summaryCard: {
     borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
-    ...theme.shadows.md,
+    ...getPlatformShadow('md'),
   },
   summaryCardContent: {
     padding: theme.spacing.lg,
@@ -1067,7 +876,7 @@ const styles = StyleSheet.create({
   },
   summaryCardTitle: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
@@ -1075,7 +884,7 @@ const styles = StyleSheet.create({
   },
   summaryCardAmount: {
     fontSize: 32,
-    fontWeight: '800',
+    fontWeight: getPlatformFontWeight('800'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
@@ -1111,19 +920,26 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     backgroundColor: theme.colors.surfaceLight,
   },
-  fabGradient: {
+  fabContainer: {
     position: 'absolute',
     ...(I18nManager.isRTL ? { left: theme.spacing.lg } : { right: theme.spacing.lg }),
     bottom: theme.spacing.lg,
     width: 64,
     height: 64,
     borderRadius: 32,
+    backgroundColor: theme.gradients.primary[0], // Fallback color for Android elevation
+    ...getPlatformShadow('lg'),
+  },
+  fabGradient: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    ...theme.shadows.lg,
+    overflow: 'hidden',
   },
   fab: {
-    backgroundColor: 'transparent',
+    backgroundColor: theme.gradients.primary[0],
   },
   manageCategoriesButton: {
     flexDirection: 'row',
@@ -1138,7 +954,7 @@ const styles = StyleSheet.create({
   },
   manageCategoriesButtonText: {
     fontSize: theme.typography.sizes.sm,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily,
     writingDirection: 'rtl',
@@ -1177,7 +993,7 @@ const styles = StyleSheet.create({
   },
   manageCategoriesTitle: {
     fontSize: theme.typography.sizes.xl,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
    
@@ -1200,7 +1016,7 @@ const styles = StyleSheet.create({
   },
   emptyCategoriesText: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginTop: theme.spacing.md,
@@ -1243,7 +1059,7 @@ const styles = StyleSheet.create({
   },
   categoryManageName: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
@@ -1292,7 +1108,7 @@ const styles = StyleSheet.create({
   },
   manageCategoriesAddText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
   },
@@ -1302,7 +1118,7 @@ const styles = StyleSheet.create({
   },
   categoriesSectionTitle: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.md,
