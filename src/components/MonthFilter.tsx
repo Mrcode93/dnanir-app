@@ -23,8 +23,8 @@ export const MonthFilter: React.FC<MonthFilterProps> = ({
   const [showMonthPicker, setShowMonthPicker] = useState(false);
 
   // Month names in Arabic
-  const monthNames = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 
-                      'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+  const monthNames = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+    'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
 
   // Get month label
   const getMonthLabel = () => {
@@ -40,12 +40,12 @@ export const MonthFilter: React.FC<MonthFilterProps> = ({
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth() + 1;
-    
+
     // Add "All" option if enabled
     if (showAllOption) {
       months.push({ year: 0, month: 0, label: 'الكل (جميع البيانات)' });
     }
-    
+
     // Create a Set of available months for quick lookup
     const availableMonthsSet = new Set<string>();
     if (availableMonths) {
@@ -53,13 +53,13 @@ export const MonthFilter: React.FC<MonthFilterProps> = ({
         availableMonthsSet.add(`${m.year}-${m.month}`);
       });
     }
-    
+
     // Always include current month
     const currentMonthKey = `${currentYear}-${currentMonth}`;
     if (!availableMonthsSet.has(currentMonthKey)) {
       availableMonthsSet.add(currentMonthKey);
     }
-    
+
     // Convert available months to array and sort by date (newest first)
     const monthsArray: Array<{ year: number; month: number }> = Array.from(availableMonthsSet).map(key => {
       const [year, month] = key.split('-').map(Number);
@@ -70,7 +70,7 @@ export const MonthFilter: React.FC<MonthFilterProps> = ({
       }
       return b.month - a.month; // Newer month first
     });
-    
+
     // Add months to list
     monthsArray.forEach(({ year, month }) => {
       const isCurrent = year === currentYear && month === currentMonth;
@@ -80,7 +80,7 @@ export const MonthFilter: React.FC<MonthFilterProps> = ({
         label: `${monthNames[month - 1]} ${year}${isCurrent ? ' (الحالي)' : ''}`,
       });
     });
-    
+
     return months;
   };
 
@@ -112,7 +112,7 @@ export const MonthFilter: React.FC<MonthFilterProps> = ({
         </LinearGradient>
       </TouchableOpacity>
 
-      {/* Month Picker Modal */}
+      {/* Pro Month Picker Modal */}
       <Modal
         visible={showMonthPicker}
         transparent={true}
@@ -121,46 +121,71 @@ export const MonthFilter: React.FC<MonthFilterProps> = ({
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
+            <View style={styles.dragHandle} />
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>اختر الفترة</Text>
-              <TouchableOpacity onPress={() => setShowMonthPicker(false)}>
-                <Ionicons name="close" size={28} color={theme.colors.textPrimary} />
+              <Text style={styles.modalTitle}>تصفية حسب الفترة</Text>
+              <TouchableOpacity
+                onPress={() => setShowMonthPicker(false)}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.monthList}>
+
+            <ScrollView style={styles.monthList} contentContainerStyle={styles.monthListContent}>
               {getMonthsList().map((item, index) => {
                 const isSelected = selectedMonth
                   ? (item.year === 0 && item.month === 0 && selectedMonth.year === 0 && selectedMonth.month === 0)
-                    || (item.year === selectedMonth.year && item.month === selectedMonth.month)
+                  || (item.year === selectedMonth.year && item.month === selectedMonth.month)
                   : (item.year === 0 && item.month === 0);
-                
+
+                const isAllOption = item.year === 0 && item.month === 0;
+
                 return (
                   <TouchableOpacity
                     key={index}
                     style={[
-                      styles.monthItem,
-                      isSelected && styles.monthItemSelected,
+                      styles.monthCard,
+                      isSelected && styles.monthCardSelected,
+                      isAllOption && !isSelected && styles.allDataCard
                     ]}
                     onPress={() => handleMonthSelect(item.year, item.month)}
-                    activeOpacity={0.7}
+                    activeOpacity={0.9}
                   >
                     {isSelected ? (
                       <LinearGradient
                         colors={theme.gradients.primary as any}
-                        style={styles.monthItemGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.selectedGradient}
                       >
-                        <Text style={styles.monthItemTextSelected}>{item.label}</Text>
-                        <Ionicons name="checkmark-circle" size={20} color={theme.colors.textInverse} />
+                        <View style={styles.cardContent}>
+                          <View style={styles.iconBoxSelected}>
+                            <Ionicons name={isAllOption ? "layers" : "calendar"} size={22} color={theme.colors.primary} />
+                          </View>
+                          <Text style={styles.textSelected}>{item.label}</Text>
+                          <View style={styles.checkCircle}>
+                            <Ionicons name="checkmark" size={16} color={theme.colors.primary} />
+                          </View>
+                        </View>
                       </LinearGradient>
                     ) : (
-                      <>
-                        <Text style={styles.monthItemText}>{item.label}</Text>
-                        <Ionicons name="chevron-back" size={20} color={theme.colors.textSecondary} />
-                      </>
+                      <View style={styles.cardContent}>
+                        <View style={[styles.iconBox, isAllOption && { backgroundColor: '#F1F5F9' }]}>
+                          <Ionicons
+                            name={isAllOption ? "layers-outline" : "calendar-outline"}
+                            size={22}
+                            color={isAllOption ? '#64748B' : theme.colors.textSecondary}
+                          />
+                        </View>
+                        <Text style={[styles.textNormal, isAllOption && { fontWeight: '700' }]}>{item.label}</Text>
+                        {isAllOption && <View style={styles.allBadge}><Text style={styles.allBadgeText}>الكل</Text></View>}
+                      </View>
                     )}
                   </TouchableOpacity>
                 );
               })}
+              <View style={{ height: 40 }} />
             </ScrollView>
           </View>
         </View>
@@ -195,66 +220,133 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: theme.colors.surfaceCard,
-    borderTopLeftRadius: theme.borderRadius.xl,
-    borderTopRightRadius: theme.borderRadius.xl,
-    maxHeight: '70%',
-    ...getPlatformShadow('lg'),
+    backgroundColor: '#FFFFFF', // Clean white
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    maxHeight: '80%',
+    ...getPlatformShadow('xl'),
+    paddingBottom: 20
+  },
+  dragHandle: {
+    width: 48,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#E2E8F0',
+    alignSelf: 'center',
+    marginTop: 12,
   },
   modalHeader: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: theme.spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 16,
   },
   modalTitle: {
-    fontSize: theme.typography.sizes.xl,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0F172A', // Slate 900
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
+    textAlign: 'right', // Explicitly aligned
     writingDirection: 'rtl',
+  },
+  closeButton: {
+    padding: 8,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 50,
   },
   monthList: {
-    maxHeight: 400,
+    maxHeight: 500,
   },
-  monthItem: {
-    padding: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    direction: 'ltr',
+  monthListContent: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
   },
-  monthItemSelected: {
-    borderRadius: 0,
+  monthCard: {
+    marginBottom: 12,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
   },
-  monthItemGradient: {
-    flexDirection: 'row',
+  allDataCard: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#CBD5E1',
+  },
+  monthCardSelected: {
+    borderWidth: 0,
+    ...getPlatformShadow('md'),
+  },
+  selectedGradient: {
+    padding: 16,
+  },
+  cardContent: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: theme.spacing.sm,
-    borderRadius: theme.borderRadius.md,
+    padding: 16,
   },
-  monthItemText: {
+  iconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: isRTL ? 12 : 0,
+    marginRight: isRTL ? 0 : 12,
+  },
+  iconBoxSelected: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF', // White background for icon inside gradient
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: isRTL ? 12 : 0,
+    marginRight: isRTL ? 0 : 12,
+  },
+  textNormal: {
     flex: 1,
-    fontSize: theme.typography.sizes.md,
-    color: theme.colors.textPrimary,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#334155',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  monthItemTextSelected: {
+  textSelected: {
     flex: 1,
-    fontSize: theme.typography.sizes.md,
-    color: theme.colors.textInverse,
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
-    fontWeight: getPlatformFontWeight('600'),
     textAlign: 'right',
     writingDirection: 'rtl',
   },
+  checkCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  allBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 8,
+  },
+  allBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#475569',
+    fontFamily: theme.typography.fontFamily,
+  }
 });

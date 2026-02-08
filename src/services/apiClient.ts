@@ -408,12 +408,12 @@ class ApiClient {
   }> {
     console.log('🧪 Testing API Connection...');
     console.log('📍 API Base URL:', this.baseURL);
-    
+
     try {
       // Test 1: Health check
       console.log('1️⃣ Testing health endpoint...');
       const healthResult = await this.healthCheck();
-      
+
       if (!healthResult) {
         return {
           success: false,

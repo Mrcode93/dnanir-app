@@ -11,6 +11,7 @@ import {
   Switch,
   Image,
   Alert,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TextInput, IconButton } from 'react-native-paper';
@@ -26,6 +27,7 @@ import { alertService } from '../services/alertService';
 import { isRTL } from '../utils/rtl';
 import { useCurrency } from '../hooks/useCurrency';
 import { requestImagePermissions, pickImageFromLibrary, takePhotoWithCamera } from '../services/receiptOCRService';
+import { convertArabicToEnglish } from '../utils/numbers';
 
 interface AddBillScreenProps {
   navigation: any;
@@ -159,7 +161,7 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
           onPress: () => {
             if (imageUri) {
               // Delete file if it exists
-              FileSystem.deleteAsync(imageUri, { idempotent: true }).catch(() => {});
+              FileSystem.deleteAsync(imageUri, { idempotent: true }).catch(() => { });
             }
             setImageUri(null);
           },
@@ -173,6 +175,8 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
       alertService.warning('تنبيه', 'يرجى إدخال عنوان الفاتورة');
       return;
     }
+
+    Keyboard.dismiss();
 
     if (!amount.trim() || isNaN(Number(amount)) || Number(amount) <= 0) {
       alertService.warning('تنبيه', 'يرجى إدخال مبلغ صحيح');
@@ -313,7 +317,7 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
               <Text style={styles.label}>المبلغ *</Text>
               <TextInput
                 value={amount}
-                onChangeText={setAmount}
+                onChangeText={(val) => setAmount(convertArabicToEnglish(val))}
                 placeholder="0"
                 mode="outlined"
                 keyboardType="numeric"
@@ -417,8 +421,8 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
                 >
                   <Text style={styles.recurrenceButtonText}>
                     {recurrenceType === 'monthly' ? 'شهري' :
-                     recurrenceType === 'weekly' ? 'أسبوعي' :
-                     recurrenceType === 'quarterly' ? 'ربع سنوي' : 'سنوي'}
+                      recurrenceType === 'weekly' ? 'أسبوعي' :
+                        recurrenceType === 'quarterly' ? 'ربع سنوي' : 'سنوي'}
                   </Text>
                   <Ionicons name="chevron-down" size={20} color={theme.colors.textSecondary} />
                 </Pressable>
@@ -430,7 +434,7 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
               <Text style={styles.label}>التذكير قبل (أيام)</Text>
               <TextInput
                 value={reminderDaysBefore}
-                onChangeText={setReminderDaysBefore}
+                onChangeText={(val) => setReminderDaysBefore(convertArabicToEnglish(val))}
                 placeholder="3"
                 mode="outlined"
                 keyboardType="numeric"

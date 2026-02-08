@@ -34,57 +34,69 @@ export const formatCurrency = (amount: number, currencyCode: string = 'IQD'): st
 };
 
 export const calculateFinancialSummary = async (): Promise<FinancialSummary> => {
-  const expenses = await getExpenses();
-  const income = await getIncome();
+  const { getFinancialStatsAggregated, getExpensesByCategoryAggregated } = await import('../database/database');
 
-  const totalIncome = income.reduce((sum, item) => sum + item.amount, 0);
-  const totalExpenses = expenses.reduce((sum, item) => sum + item.amount, 0);
-  const balance = totalIncome - totalExpenses;
+  const stats = await getFinancialStatsAggregated();
+  const categories = await getExpensesByCategoryAggregated();
 
-  // Calculate expense categories
-  const categoryMap = new Map<string, number>();
-  expenses.forEach((expense) => {
-    const current = categoryMap.get(expense.category) || 0;
-    categoryMap.set(expense.category, current + expense.amount);
-  });
-
-  const topExpenseCategories = Array.from(categoryMap.entries())
-    .map(([category, amount]) => ({
-      category,
-      amount,
-      percentage: totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0,
+  const topExpenseCategories = categories
+    .map((item) => ({
+      category: item.category,
+      amount: item.amount,
+      percentage: stats.totalExpenses > 0 ? (item.amount / stats.totalExpenses) * 100 : 0,
     }))
-    .sort((a, b) => b.amount - a.amount)
     .slice(0, 5);
 
   return {
-    totalIncome,
-    totalExpenses,
-    balance,
+    totalIncome: stats.totalIncome,
+    totalExpenses: stats.totalExpenses,
+    balance: stats.balance,
     topExpenseCategories,
   };
 };
 
 export const generateFinancialInsights = (summary: FinancialSummary): string[] => {
   const insights: string[] = [];
+  const savingsRate = summary.totalIncome > 0 ? (summary.balance / summary.totalIncome) * 100 : 0;
+  const expenseRate = summary.totalIncome > 0 ? (summary.totalExpenses / summary.totalIncome) * 100 : 0;
 
+  // Balance & Savings Insights
   if (summary.balance < 0) {
-    insights.push('رصيدك سالب! حاول تقليل المصاريف أو زيادة الدخل.');
+    insights.push('⚠️ تنبيه: إجمالي المصاريف يتجاوز الدخل هذا الشهر. راجع نفقاتك لتجنب العجز المالي.');
+  } else if (savingsRate >= 30) {
+    insights.push('🌟 أداء مالي ممتاز! تدخر أكثر من 30% من دخلك. فكر في استثمار الفائض لتنمية ثروتك.');
+  } else if (savingsRate >= 20) {
+    insights.push('✅ وضعك المالي جيد. استمر في الحفاظ على معدل ادخار 20% لضمان الاستقرار المالي.');
+  } else if (savingsRate > 0 && savingsRate < 10) {
+    insights.push('💡 لديك فائض بسيط. حاول تقليل النفقات غير الضرورية لزيادة معدل مدخراتك.');
   }
 
-  if (summary.totalExpenses > summary.totalIncome * 0.8) {
-    insights.push('مصاريفك عالية جداً. حاول توفر 20% على الأقل من دخلك.');
+  // Expense Analysis
+  if (expenseRate > 90) {
+    insights.push('📉 المصاريف تلتهم معظم دخلك. حاول اتباع قاعدة 50/30/20 لتحسين التوازن المالي.');
   }
 
-  if (summary.balance > summary.totalIncome * 0.2) {
-    insights.push('ممتاز! أنت موفر جيد. استمر في ذلك!');
-  }
-
+  // Category Insights
   if (summary.topExpenseCategories.length > 0) {
     const topCategory = summary.topExpenseCategories[0];
-    if (topCategory.percentage > 50) {
-      insights.push(`فئة "${topCategory.category}" تأخذ أكثر من 50% من مصاريفك.`);
+    if (topCategory.percentage > 40) {
+      insights.push(`📊 إنفاقك على "${topCategory.category}" مرتفع جداً (${topCategory.percentage.toFixed(1)}%). هل يمكن تقليله؟`);
+    } else if (topCategory.percentage > 25) {
+      insights.push(`ℹ️ تعتبر "${topCategory.category}" أعلى فئة إنفاق لديك. راقب هذه المصاريف عن كثب.`);
     }
+  }
+
+  // General Advice (Randomized to keep it fresh)
+  const tips = [
+    '💡 نصيحة: تسجيل المصاريف يومياً يساعدك على اكتشاف عادات الإنفاق الخفية.',
+    '💡 نصيحة: خصص مبلغاً للطوارئ يعادل مصاريف 3-6 أشهر.',
+    '💡 نصيحة: راجع اشتراكاتك الشهرية، قد تدفع مقابل خدمات لا تستخدمها.',
+    '💡 نصيحة: قارن الأسعار قبل الشراء، العروض قد توفر لك الكثير.',
+  ];
+
+  // Add a random tip if we don't have too many insights
+  if (insights.length < 3) {
+    insights.push(tips[Math.floor(Math.random() * tips.length)]);
   }
 
   return insights;
@@ -92,18 +104,16 @@ export const generateFinancialInsights = (summary: FinancialSummary): string[] =
 
 export const getCurrentMonthData = async () => {
   const now = new Date();
-  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const lastDayObj = new Date(year, month + 1, 0);
 
-  const allExpenses = await getExpenses();
-  const allIncome = await getIncome();
+  const firstDay = `${year}-${(month + 1).toString().padStart(2, '0')}-01`;
+  const lastDay = `${year}-${(month + 1).toString().padStart(2, '0')}-${lastDayObj.getDate().toString().padStart(2, '0')}`;
 
-  const expenses = allExpenses.filter(
-    (e) => e.date >= firstDay && e.date <= lastDay
-  );
-  const income = allIncome.filter(
-    (i) => i.date >= firstDay && i.date <= lastDay
-  );
+  const { getExpensesByRange, getIncomeByRange } = await import('../database/database');
+  const expenses = await getExpensesByRange(firstDay, lastDay);
+  const income = await getIncomeByRange(firstDay, lastDay);
 
   return { expenses, income };
 };
@@ -118,27 +128,25 @@ export const calculateAverageMonthlySavings = async (months: number = 6): Promis
     const allExpenses = await getExpenses();
     const allIncome = await getIncome();
     const now = new Date();
-    
+
     // Calculate savings for each of the last N months
     const monthlySavings: number[] = [];
-    
+
     for (let i = 0; i < months; i++) {
       const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const firstDay = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1).toISOString().split('T')[0];
-      const lastDay = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).toISOString().split('T')[0];
-      
-      const monthIncome = allIncome
-        .filter((inc) => inc.date >= firstDay && inc.date <= lastDay)
-        .reduce((sum, inc) => sum + inc.amount, 0);
-      
-      const monthExpenses = allExpenses
-        .filter((exp) => exp.date >= firstDay && exp.date <= lastDay)
-        .reduce((sum, exp) => sum + exp.amount, 0);
-      
-      const savings = monthIncome - monthExpenses;
-      monthlySavings.push(savings);
+      const year = monthDate.getFullYear();
+      const month = monthDate.getMonth(); // 0-indexed
+
+      const firstDay = `${year}-${(month + 1).toString().padStart(2, '0')}-01`;
+      const lastDayObj = new Date(year, month + 1, 0);
+      const lastDay = `${year}-${(month + 1).toString().padStart(2, '0')}-${lastDayObj.getDate().toString().padStart(2, '0')}`;
+
+      const { getFinancialStatsAggregated } = await import('../database/database');
+      const stats = await getFinancialStatsAggregated(firstDay, lastDay);
+
+      monthlySavings.push(stats.balance);
     }
-    
+
     // Calculate average (only from months with positive savings)
     const positiveSavings = monthlySavings.filter(s => s > 0);
     if (positiveSavings.length === 0) {
@@ -146,7 +154,7 @@ export const calculateAverageMonthlySavings = async (months: number = 6): Promis
       const avg = monthlySavings.reduce((sum, s) => sum + s, 0) / monthlySavings.length;
       return Math.max(0, avg); // Return 0 if average is negative
     }
-    
+
     return positiveSavings.reduce((sum, s) => sum + s, 0) / positiveSavings.length;
   } catch (error) {
     console.error('Error calculating average monthly savings:', error);
@@ -171,7 +179,7 @@ export const calculateTimeToReachGoal = (
       formatted: 'مكتمل',
     };
   }
-  
+
   if (averageMonthlySavings <= 0) {
     return {
       months: null,
@@ -179,10 +187,10 @@ export const calculateTimeToReachGoal = (
       formatted: 'غير متاح (لا يوجد ادخار شهري)',
     };
   }
-  
+
   const monthsNeeded = remainingAmount / averageMonthlySavings;
   const daysNeeded = Math.ceil(monthsNeeded * 30);
-  
+
   // Format the result
   let formatted = '';
   if (monthsNeeded < 1) {
@@ -204,7 +212,7 @@ export const calculateTimeToReachGoal = (
       formatted = `${years} سنة`;
     }
   }
-  
+
   return {
     months: Math.ceil(monthsNeeded),
     days: daysNeeded,
@@ -216,44 +224,31 @@ export const calculateTimeToReachGoal = (
  * Get data for a specific month
  */
 export const getMonthData = async (year: number, month: number) => {
-  const firstDay = new Date(year, month - 1, 1).toISOString().split('T')[0];
-  const lastDay = new Date(year, month, 0).toISOString().split('T')[0];
+  const lastDayObj = new Date(year, month, 0);
+  const firstDay = `${year}-${month.toString().padStart(2, '0')}-01`;
+  const lastDay = `${year}-${month.toString().padStart(2, '0')}-${lastDayObj.getDate().toString().padStart(2, '0')}`;
 
-  const allExpenses = await getExpenses();
-  const allIncome = await getIncome();
+  const { getExpensesByRange, getIncomeByRange, getFinancialStatsAggregated, getExpensesByCategoryAggregated } = await import('../database/database');
 
-  const expenses = allExpenses.filter(
-    (e) => e.date >= firstDay && e.date <= lastDay
-  );
-  const income = allIncome.filter(
-    (i) => i.date >= firstDay && i.date <= lastDay
-  );
+  const [expenses, income, stats, categories] = await Promise.all([
+    getExpensesByRange(firstDay, lastDay),
+    getIncomeByRange(firstDay, lastDay),
+    getFinancialStatsAggregated(firstDay, lastDay),
+    getExpensesByCategoryAggregated(firstDay, lastDay)
+  ]);
 
-  const totalIncome = income.reduce((sum, item) => sum + item.amount, 0);
-  const totalExpenses = expenses.reduce((sum, item) => sum + item.amount, 0);
-  const balance = totalIncome - totalExpenses;
-
-  // Calculate expense categories
-  const categoryMap = new Map<string, number>();
-  expenses.forEach((expense) => {
-    const current = categoryMap.get(expense.category) || 0;
-    categoryMap.set(expense.category, current + expense.amount);
-  });
-
-  const topExpenseCategories = Array.from(categoryMap.entries())
-    .map(([category, amount]) => ({
-      category,
-      amount,
-      percentage: totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0,
-    }))
-    .sort((a, b) => b.amount - a.amount);
+  const topExpenseCategories = categories.map((item) => ({
+    category: item.category,
+    amount: item.amount,
+    percentage: stats.totalExpenses > 0 ? (item.amount / stats.totalExpenses) * 100 : 0,
+  }));
 
   return {
     expenses,
     income,
-    totalIncome,
-    totalExpenses,
-    balance,
+    totalIncome: stats.totalIncome,
+    totalExpenses: stats.totalExpenses,
+    balance: stats.balance,
     topExpenseCategories,
   };
 };
@@ -349,38 +344,45 @@ export const predictNextMonthExpenses = async (monthsToAnalyze: number = 3): Pro
 }> => {
   try {
     const now = new Date();
-    const allExpenses = await getExpenses();
-    
-    // Get expenses for last N months
-    const monthlyExpenses: Array<{ month: string; total: number; byCategory: Map<string, number> }> = [];
-    
+
+    // Use Promise.all to fetch data for all months in parallel for better performance
+    const promises = [];
+    const { getExpensesByRange } = await import('../database/database');
+
     for (let i = 0; i < monthsToAnalyze; i++) {
       const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const firstDay = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1).toISOString().split('T')[0];
-      const lastDay = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).toISOString().split('T')[0];
-      
-      const monthExpenses = allExpenses.filter(
-        (e) => e.date >= firstDay && e.date <= lastDay
+      const year = monthDate.getFullYear();
+      const month = monthDate.getMonth();
+      const lastDayObj = new Date(year, month + 1, 0);
+
+      const firstDay = `${year}-${(month + 1).toString().padStart(2, '0')}-01`;
+      const lastDay = `${year}-${(month + 1).toString().padStart(2, '0')}-${lastDayObj.getDate().toString().padStart(2, '0')}`;
+
+      // Push the promise immediately
+      promises.push(
+        getExpensesByRange(firstDay, lastDay).then(monthExpenses => {
+          const total = monthExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+          const byCategory = new Map<string, number>();
+
+          monthExpenses.forEach((exp) => {
+            const current = byCategory.get(exp.category) || 0;
+            byCategory.set(exp.category, current + exp.amount);
+          });
+
+          return {
+            month: `${year}-${month + 1}`,
+            total,
+            byCategory
+          };
+        })
       );
-      
-      const total = monthExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-      const byCategory = new Map<string, number>();
-      
-      monthExpenses.forEach((exp) => {
-        const current = byCategory.get(exp.category) || 0;
-        byCategory.set(exp.category, current + exp.amount);
-      });
-      
-      monthlyExpenses.push({
-        month: `${monthDate.getFullYear()}-${monthDate.getMonth() + 1}`,
-        total,
-        byCategory,
-      });
     }
-    
+
+    const monthlyExpenses = await Promise.all(promises);
+
     // Calculate average
     const avgTotal = monthlyExpenses.reduce((sum, m) => sum + m.total, 0) / monthlyExpenses.length;
-    
+
     // Calculate average by category
     const categoryTotals = new Map<string, number[]>();
     monthlyExpenses.forEach((month) => {
@@ -391,25 +393,25 @@ export const predictNextMonthExpenses = async (monthsToAnalyze: number = 3): Pro
         categoryTotals.get(category)!.push(amount);
       });
     });
-    
+
     const predictedByCategory = Array.from(categoryTotals.entries()).map(([category, amounts]) => {
       const avg = amounts.reduce((sum, a) => sum + a, 0) / amounts.length;
       return { category, amount: Math.round(avg) };
     });
-    
+
     // Determine confidence based on data consistency
     const totals = monthlyExpenses.map(m => m.total);
     const variance = totals.reduce((sum, t) => sum + Math.pow(t - avgTotal, 2), 0) / totals.length;
     const stdDev = Math.sqrt(variance);
-    const coefficientOfVariation = stdDev / avgTotal;
-    
+    const coefficientOfVariation = avgTotal > 0 ? stdDev / avgTotal : 0; // Prevent division by zero
+
     let confidence: 'high' | 'medium' | 'low' = 'medium';
-    if (coefficientOfVariation < 0.15) {
+    if (coefficientOfVariation < 0.15 && monthlyExpenses.length >= 3) {
       confidence = 'high';
-    } else if (coefficientOfVariation > 0.3) {
+    } else if (coefficientOfVariation > 0.3 || monthlyExpenses.length < 2) {
       confidence = 'low';
     }
-    
+
     return {
       predictedTotal: Math.round(avgTotal),
       predictedByCategory: predictedByCategory.sort((a, b) => b.amount - a.amount),
@@ -446,35 +448,45 @@ export const getMonthlyTrendData = async (months: number = 6): Promise<Array<{
       totalExpenses: number;
       balance: number;
     }> = [];
-    
-    const allExpenses = await getExpenses();
-    const allIncome = await getIncome();
-    
+
+
+    const { getExpensesByRange, getIncomeByRange } = await import('../database/database');
+    const promises = [];
+
     for (let i = 0; i < months; i++) {
       const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const firstDay = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1).toISOString().split('T')[0];
-      const lastDay = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).toISOString().split('T')[0];
-      
-      const monthIncome = allIncome
-        .filter((inc) => inc.date >= firstDay && inc.date <= lastDay)
-        .reduce((sum, inc) => sum + inc.amount, 0);
-      
-      const monthExpenses = allExpenses
-        .filter((exp) => exp.date >= firstDay && exp.date <= lastDay)
-        .reduce((sum, exp) => sum + exp.amount, 0);
-      
-      const monthNames = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
-      
-      trendData.push({
-        month: monthNames[monthDate.getMonth()],
-        year: monthDate.getFullYear(),
-        monthNumber: monthDate.getMonth() + 1,
-        totalIncome: monthIncome,
-        totalExpenses: monthExpenses,
-        balance: monthIncome - monthExpenses,
+      const year = monthDate.getFullYear();
+      const month = monthDate.getMonth();
+      const lastDayObj = new Date(year, month + 1, 0);
+
+      const firstDay = `${year}-${(month + 1).toString().padStart(2, '0')}-01`;
+      const lastDay = `${year}-${(month + 1).toString().padStart(2, '0')}-${lastDayObj.getDate().toString().padStart(2, '0')}`;
+
+      // Create a promise for this month's data
+      const monthPromise = Promise.all([
+        getExpensesByRange(firstDay, lastDay),
+        getIncomeByRange(firstDay, lastDay)
+      ]).then(([expenses, income]) => {
+        const totalIncome = income.reduce((sum, inc) => sum + inc.amount, 0);
+        const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+        const monthNames = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+
+        return {
+          month: monthNames[month],
+          year: year,
+          monthNumber: month + 1,
+          totalIncome,
+          totalExpenses,
+          balance: totalIncome - totalExpenses,
+        };
       });
+
+      promises.push(monthPromise);
     }
-    
+
+    const results = await Promise.all(promises);
+    return results.reverse(); // Reverse to show oldest first
+
     return trendData.reverse(); // Reverse to show oldest first
   } catch (error) {
     console.error('Error getting monthly trend data:', error);

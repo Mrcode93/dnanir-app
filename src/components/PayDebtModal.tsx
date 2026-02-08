@@ -9,6 +9,7 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +18,7 @@ import { Debt } from '../types';
 import { useCurrency } from '../hooks/useCurrency';
 import { isRTL } from '../utils/rtl';
 import { alertService } from '../services/alertService';
+import { convertArabicToEnglish } from '../utils/numbers';
 
 interface PayDebtModalProps {
   visible: boolean;
@@ -61,8 +63,10 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
   const handlePay = async () => {
     if (!debt) return;
 
+    Keyboard.dismiss();
+
     const paymentAmount = Number(amount);
-    
+
     if (!amount.trim() || isNaN(paymentAmount) || paymentAmount <= 0) {
       alertService.warning('تنبيه', 'يرجى إدخال مبلغ صحيح');
       return;
@@ -212,7 +216,7 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
                   <View style={styles.amountInputWrapper}>
                     <TextInput
                       value={amount}
-                      onChangeText={setAmount}
+                      onChangeText={(val) => setAmount(convertArabicToEnglish(val))}
                       placeholder="0.00"
                       keyboardType="numeric"
                       style={styles.amountInput}

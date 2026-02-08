@@ -19,6 +19,7 @@ import { CURRENCIES, Currency } from '../types';
 import { convertCurrency, getOrFetchExchangeRate, formatCurrencyAmount } from '../services/currencyService';
 import { useCurrency } from '../hooks/useCurrency';
 import { alertService } from '../services/alertService';
+import { convertArabicToEnglish } from '../utils/numbers';
 
 interface CurrencyConverterModalProps {
   visible: boolean;
@@ -75,7 +76,7 @@ export const CurrencyConverterModal: React.FC<CurrencyConverterModalProps> = ({
     try {
       const rate = await getOrFetchExchangeRate(fromCurrency, toCurrency);
       const converted = await convertCurrency(numAmount, fromCurrency, toCurrency);
-      
+
       setExchangeRate(rate);
       setConvertedAmount(converted);
     } catch (error) {
@@ -176,7 +177,7 @@ export const CurrencyConverterModal: React.FC<CurrencyConverterModalProps> = ({
                     <TextInput
                       style={styles.amountInput}
                       value={amount}
-                      onChangeText={setAmount}
+                      onChangeText={(val) => setAmount(convertArabicToEnglish(val))}
                       placeholder="0.00"
                       placeholderTextColor={theme.colors.textSecondary}
                       keyboardType="decimal-pad"

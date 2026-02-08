@@ -7,37 +7,37 @@ const lightTheme = {
     primary: '#003459',
     primaryLight: '#60A5FA',
     primaryDark: '#1D4ED8',
-    
+
     // Background colors - light theme
     background: '#F8F9FA',
     backgroundSecondary: '#FFFFFF',
     surface: '#FFFFFF',
     surfaceLight: '#F8F9FA',
     surfaceCard: '#FFFFFF',
-    
+
     // Text colors
     text: '#1F2937',
     textPrimary: '#111827',
     textSecondary: '#6B7280',
     textMuted: '#9CA3AF',
     textInverse: '#FFFFFF',
-    
+
     // Status colors
     success: '#10B981',
     warning: '#F59E0B',
     error: '#EF4444',
     info: '#3B82F6',
-    
+
     // Border and divider
     border: '#E5E7EB',
     borderLight: '#D1D5DB',
     divider: 'rgba(0, 0, 0, 0.1)',
-    
+
     // Shadow
     shadow: '#000000',
     overlay: 'rgba(0, 0, 0, 0.5)',
   },
-  
+
   gradients: {
     primary: ['#003459', '#004D73', '#006699'],
     success: ['#10B981', '#059669'],
@@ -53,7 +53,7 @@ const lightTheme = {
     goalEmerald: ['#34D399', '#10B981', '#059669'],
     goalRose: ['#FB7185', '#F43F5E', '#E11D48'],
   },
-  
+
   spacing: {
     xs: 4,
     sm: 8,
@@ -62,7 +62,7 @@ const lightTheme = {
     xl: 32,
     xxl: 48,
   },
-  
+
   borderRadius: {
     sm: 8,
     md: 12,
@@ -70,7 +70,7 @@ const lightTheme = {
     xl: 20,
     round: 9999,
   },
-  
+
   shadows: {
     sm: {
       shadowColor: '#000000',
@@ -93,8 +93,15 @@ const lightTheme = {
       shadowRadius: 16,
       elevation: 8,
     },
+    xl: {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 12 },
+      shadowOpacity: 0.25,
+      shadowRadius: 24,
+      elevation: 12,
+    },
   },
-  
+
   typography: {
     fontFamily: 'Cairo-Regular',
     sizes: {
@@ -120,19 +127,19 @@ const darkTheme = {
     surface: '#1E293B',
     surfaceLight: '#334155',
     surfaceCard: '#1E293B',
-    
+
     // Text colors
     text: '#F1F5F9',
     textPrimary: '#FFFFFF',
     textSecondary: '#94A3B8',
     textMuted: '#64748B',
     textInverse: '#0F172A',
-    
+
     // Border and divider
     border: '#334155',
     borderLight: '#475569',
     divider: 'rgba(255, 255, 255, 0.1)',
-    
+
     // Shadow
     shadow: '#000000',
     overlay: 'rgba(0, 0, 0, 0.7)',
@@ -153,7 +160,7 @@ export const theme = lightTheme; // Default export for backward compatibility
 
 // Helper function for platform-specific shadows
 // Android uses elevation, iOS uses shadow properties
-export const getPlatformShadow = (size: 'sm' | 'md' | 'lg') => {
+export const getPlatformShadow = (size: 'sm' | 'md' | 'lg' | 'xl') => {
   const shadow = theme.shadows[size];
   if (Platform.OS === 'android') {
     return {

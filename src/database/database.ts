@@ -5,10 +5,10 @@ let db: SQLite.SQLiteDatabase | null = null;
 export const initDatabase = async () => {
   try {
     db = await SQLite.openDatabaseAsync('dnanir.db');
-    
+
     // Enable foreign keys
     await db.execAsync('PRAGMA foreign_keys = ON;');
-    
+
     // Create tables
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS expenses (
@@ -20,8 +20,9 @@ export const initDatabase = async () => {
         description TEXT,
         currency TEXT DEFAULT 'IQD'
       );
+      CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);
     `);
-    
+
     // Add currency column if it doesn't exist (for existing databases)
     try {
       await db.execAsync('ALTER TABLE expenses ADD COLUMN currency TEXT DEFAULT "IQD";');
@@ -38,11 +39,19 @@ export const initDatabase = async () => {
         description TEXT,
         currency TEXT DEFAULT 'IQD'
       );
+      CREATE INDEX IF NOT EXISTS idx_income_date ON income(date);
     `);
-    
+
     // Add currency column if it doesn't exist (for existing databases)
     try {
       await db.execAsync('ALTER TABLE income ADD COLUMN currency TEXT DEFAULT "IQD";');
+    } catch (e) {
+      // Column already exists, ignore
+    }
+
+    // Add category column if it doesn't exist (for existing databases)
+    try {
+      await db.execAsync('ALTER TABLE income ADD COLUMN category TEXT;');
     } catch (e) {
       // Column already exists, ignore
     }
@@ -115,7 +124,7 @@ export const initDatabase = async () => {
         currency TEXT DEFAULT 'IQD'
       );
     `);
-    
+
     // Add currency column if it doesn't exist (for existing databases)
     try {
       await db.execAsync('ALTER TABLE financial_goals ADD COLUMN currency TEXT DEFAULT "IQD";');
@@ -146,7 +155,7 @@ export const initDatabase = async () => {
         UNIQUE(category, month, year)
       );
     `);
-    
+
     // Add currency column if it doesn't exist (for existing databases)
     try {
       await db.execAsync('ALTER TABLE budgets ADD COLUMN currency TEXT DEFAULT "IQD";');
@@ -247,7 +256,7 @@ export const initDatabase = async () => {
         createdAt TEXT NOT NULL
       );
     `);
-    
+
     // Add isCustom column if it doesn't exist (for existing databases)
     try {
       await db.execAsync('ALTER TABLE challenges ADD COLUMN isCustom INTEGER DEFAULT 0;');
@@ -416,32 +425,69 @@ export const addExpense = async (expense: Omit<import('../types').Expense, 'id'>
     'INSERT INTO expenses (title, amount, category, date, description, currency, receipt_image_path) VALUES (?, ?, ?, ?, ?, ?, ?)',
     [expense.title, expense.amount, expense.category, expense.date, expense.description || null, expense.currency || 'IQD', expense.receipt_image_path || null]
   );
-  
+
   // Check achievements after adding expense (async, don't wait)
   try {
     const { checkAllAchievements } = await import('../services/achievementService');
-    checkAllAchievements().catch(() => {});
+    checkAllAchievements().catch(() => { });
   } catch (error) {
     // Ignore if achievementService is not available
   }
-  
+
   // Update widgets (async, don't wait)
   try {
     const { saveWidgetData } = await import('../services/widgetDataService');
-    saveWidgetData().catch(() => {});
+    saveWidgetData().catch(() => { });
   } catch (error) {
     // Ignore if widget service is not available
   }
-  
+
   return result.lastInsertRowId;
 };
 
 export const getExpenses = async (): Promise<import('../types').Expense[]> => {
   const database = getDb();
   const result = await database.getAllAsync<import('../types').Expense>(
-    'SELECT * FROM expenses ORDER BY date DESC'
+    'SELECT * FROM expenses ORDER BY date DESC, id DESC'
   );
   return result;
+};
+
+export const getExpensesCount = async (): Promise<number> => {
+  const database = getDb();
+  const result = await database.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM expenses');
+  return result?.count || 0;
+};
+
+export const getExpensesByRange = async (startDate: string, endDate: string): Promise<import('../types').Expense[]> => {
+  const database = getDb();
+  const result = await database.getAllAsync<import('../types').Expense>(
+    'SELECT * FROM expenses WHERE date >= ? AND date <= ? ORDER BY date DESC, id DESC',
+    [startDate, endDate]
+  );
+  return result;
+};
+
+export const getRecentTransactions = async (limit: number = 5): Promise<(import('../types').Expense | import('../types').Income | any)[]> => {
+  const database = getDb();
+
+  // Get expenses and income separately with limits to keep it fast
+  const expenses = await database.getAllAsync<any>(
+    'SELECT "expense" as type, * FROM expenses ORDER BY date DESC, id DESC LIMIT ?',
+    [limit]
+  );
+  const income = await database.getAllAsync<any>(
+    'SELECT "income" as type, * FROM income ORDER BY date DESC, id DESC LIMIT ?',
+    [limit]
+  );
+
+  // Combine and sort in memory (since we only have 2*limit items, this is very fast)
+  const combined = [...expenses, ...income].sort((a, b) => {
+    if (b.date !== a.date) return b.date > a.date ? 1 : -1;
+    return (b.id || 0) - (a.id || 0);
+  });
+
+  return combined.slice(0, limit);
 };
 
 export const updateExpense = async (id: number, expense: Omit<import('../types').Expense, 'id'>): Promise<void> => {
@@ -450,11 +496,11 @@ export const updateExpense = async (id: number, expense: Omit<import('../types')
     'UPDATE expenses SET title = ?, amount = ?, category = ?, date = ?, description = ?, currency = ?, receipt_image_path = ? WHERE id = ?',
     [expense.title, expense.amount, expense.category, expense.date, expense.description || null, expense.currency || 'IQD', expense.receipt_image_path || null, id]
   );
-  
+
   // Update widgets (async, don't wait)
   try {
     const { saveWidgetData } = await import('../services/widgetDataService');
-    saveWidgetData().catch(() => {});
+    saveWidgetData().catch(() => { });
   } catch (error) {
     // Ignore if widget service is not available
   }
@@ -463,11 +509,11 @@ export const updateExpense = async (id: number, expense: Omit<import('../types')
 export const deleteExpense = async (id: number): Promise<void> => {
   const database = getDb();
   await database.runAsync('DELETE FROM expenses WHERE id = ?', [id]);
-  
+
   // Update widgets (async, don't wait)
   try {
     const { saveWidgetData } = await import('../services/widgetDataService');
-    saveWidgetData().catch(() => {});
+    saveWidgetData().catch(() => { });
   } catch (error) {
     // Ignore if widget service is not available
   }
@@ -477,33 +523,48 @@ export const deleteExpense = async (id: number): Promise<void> => {
 export const addIncome = async (income: Omit<import('../types').Income, 'id'>): Promise<number> => {
   const database = getDb();
   const result = await database.runAsync(
-    'INSERT INTO income (source, amount, date, description, currency) VALUES (?, ?, ?, ?, ?)',
-    [income.source, income.amount, income.date, income.description || null, income.currency || 'IQD']
+    'INSERT INTO income (source, amount, date, description, currency, category) VALUES (?, ?, ?, ?, ?, ?)',
+    [income.source, income.amount, income.date, income.description || null, income.currency || 'IQD', income.category || 'other']
   );
-  
+
   // Check achievements after adding income (async, don't wait)
   try {
     const { checkAllAchievements } = await import('../services/achievementService');
-    checkAllAchievements().catch(() => {});
+    checkAllAchievements().catch(() => { });
   } catch (error) {
     // Ignore if achievementService is not available
   }
-  
+
   // Update widgets (async, don't wait)
   try {
     const { saveWidgetData } = await import('../services/widgetDataService');
-    saveWidgetData().catch(() => {});
+    saveWidgetData().catch(() => { });
   } catch (error) {
     // Ignore if widget service is not available
   }
-  
+
   return result.lastInsertRowId;
 };
 
 export const getIncome = async (): Promise<import('../types').Income[]> => {
   const database = getDb();
   const result = await database.getAllAsync<import('../types').Income>(
-    'SELECT * FROM income ORDER BY date DESC'
+    'SELECT * FROM income ORDER BY date DESC, id DESC'
+  );
+  return result;
+};
+
+export const getIncomeCount = async (): Promise<number> => {
+  const database = getDb();
+  const result = await database.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM income');
+  return result?.count || 0;
+};
+
+export const getIncomeByRange = async (startDate: string, endDate: string): Promise<import('../types').Income[]> => {
+  const database = getDb();
+  const result = await database.getAllAsync<import('../types').Income>(
+    'SELECT * FROM income WHERE date >= ? AND date <= ? ORDER BY date DESC, id DESC',
+    [startDate, endDate]
   );
   return result;
 };
@@ -511,14 +572,14 @@ export const getIncome = async (): Promise<import('../types').Income[]> => {
 export const updateIncome = async (id: number, income: Omit<import('../types').Income, 'id'>): Promise<void> => {
   const database = getDb();
   await database.runAsync(
-    'UPDATE income SET source = ?, amount = ?, date = ?, description = ?, currency = ? WHERE id = ?',
-    [income.source, income.amount, income.date, income.description || null, income.currency || 'IQD', id]
+    'UPDATE income SET source = ?, amount = ?, date = ?, description = ?, currency = ?, category = ? WHERE id = ?',
+    [income.source, income.amount, income.date, income.description || null, income.currency || 'IQD', income.category || 'other', id]
   );
-  
+
   // Update widgets (async, don't wait)
   try {
     const { saveWidgetData } = await import('../services/widgetDataService');
-    saveWidgetData().catch(() => {});
+    saveWidgetData().catch(() => { });
   } catch (error) {
     // Ignore if widget service is not available
   }
@@ -527,20 +588,79 @@ export const updateIncome = async (id: number, income: Omit<import('../types').I
 export const deleteIncome = async (id: number): Promise<void> => {
   const database = getDb();
   await database.runAsync('DELETE FROM income WHERE id = ?', [id]);
-  
+
   // Update widgets (async, don't wait)
   try {
     const { saveWidgetData } = await import('../services/widgetDataService');
-    saveWidgetData().catch(() => {});
+    saveWidgetData().catch(() => { });
   } catch (error) {
     // Ignore if widget service is not available
   }
 };
 
+export const getAvailableMonths = async (): Promise<{ year: number; month: number }[]> => {
+  const database = getDb();
+
+  // Use SQLite to get unique year-month strings directly
+  // substr(date, 1, 7) extracts YYYY-MM
+  const query = `
+    SELECT DISTINCT SUBSTR(date, 1, 7) as month_key FROM expenses
+    UNION
+    SELECT DISTINCT SUBSTR(date, 1, 7) as month_key FROM income
+    ORDER BY month_key DESC
+  `;
+
+  const results = await database.getAllAsync<{ month_key: string }>(query);
+
+  return results.map(row => {
+    const [year, month] = row.month_key.split('-').map(Number);
+    return { year, month };
+  });
+};
+
+export const getFinancialStatsAggregated = async (startDate?: string, endDate?: string) => {
+  const database = getDb();
+  let expenseQuery = 'SELECT SUM(amount) as total FROM expenses';
+  let incomeQuery = 'SELECT SUM(amount) as total FROM income';
+  const params: string[] = [];
+
+  if (startDate && endDate) {
+    expenseQuery += ' WHERE date >= ? AND date <= ?';
+    incomeQuery += ' WHERE date >= ? AND date <= ?';
+    params.push(startDate, endDate);
+    params.push(startDate, endDate); // Two pairs of params for two queries
+  }
+
+  const expenseResult = await database.getFirstAsync<{ total: number }>(expenseQuery, params.slice(0, 2));
+  const incomeResult = await database.getFirstAsync<{ total: number }>(incomeQuery, params.slice(0, 2));
+
+  return {
+    totalExpenses: expenseResult?.total || 0,
+    totalIncome: incomeResult?.total || 0,
+    balance: (incomeResult?.total || 0) - (expenseResult?.total || 0),
+  };
+};
+
+export const getExpensesByCategoryAggregated = async (startDate?: string, endDate?: string) => {
+  const database = getDb();
+  let query = 'SELECT category, SUM(amount) as amount FROM expenses';
+  const params: string[] = [];
+
+  if (startDate && endDate) {
+    query += ' WHERE date >= ? AND date <= ?';
+    params.push(startDate, endDate);
+  }
+
+  query += ' GROUP BY category ORDER BY amount DESC';
+
+  const results = await database.getAllAsync<{ category: string; amount: number }>(query, params);
+  return results;
+};
+
 // User settings
 export const getUserSettings = async (): Promise<import('../types').UserSettings | null> => {
   const database = getDb();
-  const result = await database.getFirstAsync<import('../types').UserSettings & { biometricsEnabled: number }>(
+  const result = await database.getFirstAsync<any>(
     'SELECT * FROM user_settings LIMIT 1'
   );
   if (result) {
@@ -555,10 +675,10 @@ export const getUserSettings = async (): Promise<import('../types').UserSettings
 export const upsertUserSettings = async (settings: import('../types').UserSettings): Promise<void> => {
   const database = getDb();
   const existing = await database.getFirstAsync<{ id: number }>('SELECT id FROM user_settings LIMIT 1');
-  
+
   const passwordHash = settings.passwordHash === undefined ? null : (settings.passwordHash || null);
   const authMethod = settings.authMethod || 'none';
-  
+
   if (existing) {
     await database.runAsync(
       'UPDATE user_settings SET name = ?, authMethod = ?, passwordHash = ?, biometricsEnabled = ? WHERE id = ?',
@@ -586,19 +706,15 @@ export const upsertUserSettings = async (settings: import('../types').UserSettin
 // App settings
 export const getAppSettings = async (): Promise<import('../types').AppSettings | null> => {
   const database = getDb();
-  const result = await database.getFirstAsync<import('../types').AppSettings & {
-    notificationsEnabled: number;
-    darkModeEnabled: number;
-    autoBackupEnabled: number;
-  }>('SELECT * FROM app_settings LIMIT 1');
-  
+  const result = await database.getFirstAsync<any>(
+    'SELECT * FROM app_settings LIMIT 1'
+  );
   if (result) {
     return {
-      notificationsEnabled: Boolean(result.notificationsEnabled),
-      darkModeEnabled: Boolean(result.darkModeEnabled),
-      autoBackupEnabled: Boolean(result.autoBackupEnabled),
-      currency: result.currency,
-      language: result.language,
+      ...result,
+      notificationsEnabled: result.notificationsEnabled === 1,
+      darkModeEnabled: result.darkModeEnabled === 1,
+      autoBackupEnabled: result.autoBackupEnabled === 1,
     };
   }
   return null;
@@ -607,7 +723,7 @@ export const getAppSettings = async (): Promise<import('../types').AppSettings |
 export const upsertAppSettings = async (settings: import('../types').AppSettings): Promise<void> => {
   const database = getDb();
   const existing = await database.getFirstAsync<{ id: number }>('SELECT id FROM app_settings LIMIT 1');
-  
+
   if (existing) {
     await database.runAsync(
       'UPDATE app_settings SET notificationsEnabled = ?, darkModeEnabled = ?, autoBackupEnabled = ?, currency = ?, language = ? WHERE id = ?',
@@ -648,16 +764,26 @@ export interface NotificationSettings {
 
 export const getNotificationSettings = async (): Promise<NotificationSettings | null> => {
   const database = getDb();
-  const result = await database.getFirstAsync<NotificationSettings>(
+  const result = await database.getFirstAsync<any>(
     'SELECT * FROM notification_settings LIMIT 1'
   );
-  return result || null;
+  if (result) {
+    return {
+      ...result,
+      dailyReminder: result.dailyReminder === 1,
+      expenseReminder: result.expenseReminder === 1,
+      incomeReminder: result.incomeReminder === 1,
+      weeklySummary: result.weeklySummary === 1,
+      monthlySummary: result.monthlySummary === 1,
+    };
+  }
+  return null;
 };
 
 export const upsertNotificationSettings = async (settings: NotificationSettings): Promise<void> => {
   const database = getDb();
   const existing = await database.getFirstAsync<{ id: number }>('SELECT id FROM notification_settings LIMIT 1');
-  
+
   if (existing) {
     await database.runAsync(
       'UPDATE notification_settings SET dailyReminder = ?, dailyReminderTime = ?, expenseReminder = ?, expenseReminderTime = ?, incomeReminder = ?, weeklySummary = ?, monthlySummary = ? WHERE id = ?',
@@ -722,25 +848,25 @@ export const addFinancialGoal = async (goal: Omit<import('../types').FinancialGo
 
 export const getFinancialGoals = async (): Promise<import('../types').FinancialGoal[]> => {
   const database = getDb();
-  const result = await database.getAllAsync<import('../types').FinancialGoal & { completed: number }>(
-    'SELECT * FROM financial_goals ORDER BY createdAt DESC'
+  const result = await database.getAllAsync<any>(
+    'SELECT * FROM financial_goals ORDER BY targetDate ASC'
   );
-  return result.map(goal => ({
-    ...goal,
-    completed: Boolean(goal.completed),
+  return result.map((item: any) => ({
+    ...item,
+    completed: item.completed === 1,
   }));
 };
 
 export const getFinancialGoal = async (id: number): Promise<import('../types').FinancialGoal | null> => {
   const database = getDb();
-  const result = await database.getFirstAsync<import('../types').FinancialGoal & { completed: number }>(
+  const result = await database.getFirstAsync<any>(
     'SELECT * FROM financial_goals WHERE id = ?',
     [id]
   );
   if (result) {
     return {
       ...result,
-      completed: Boolean(result.completed),
+      completed: result.completed === 1,
     };
   }
   return null;
@@ -904,7 +1030,7 @@ export const getBudgets = async (month?: string, year?: number): Promise<Budget[
   const database = getDb();
   let query = 'SELECT * FROM budgets';
   const params: any[] = [];
-  
+
   if (month && year) {
     query += ' WHERE month = ? AND year = ?';
     params.push(month, year);
@@ -912,7 +1038,7 @@ export const getBudgets = async (month?: string, year?: number): Promise<Budget[
     query += ' WHERE year = ?';
     params.push(year);
   }
-  
+
   query += ' ORDER BY createdAt DESC';
   const result = await database.getAllAsync<Budget>(query, params);
   return result;
@@ -1013,23 +1139,23 @@ export const getRecurringExpenses = async (activeOnly?: boolean): Promise<Recurr
     query += ' WHERE isActive = 1';
   }
   query += ' ORDER BY createdAt DESC';
-  const result = await database.getAllAsync<RecurringExpense & { isActive: number }>(query, params);
-  return result.map(exp => ({
+  const result = await database.getAllAsync<any>(query, params);
+  return result.map((exp: any) => ({
     ...exp,
-    isActive: Boolean(exp.isActive),
+    isActive: exp.isActive === 1,
   }));
 };
 
 export const getRecurringExpense = async (id: number): Promise<RecurringExpense | null> => {
   const database = getDb();
-  const result = await database.getFirstAsync<RecurringExpense & { isActive: number }>(
+  const result = await database.getFirstAsync<any>(
     'SELECT * FROM recurring_expenses WHERE id = ?',
     [id]
   );
   if (result) {
     return {
       ...result,
-      isActive: Boolean(result.isActive),
+      isActive: result.isActive === 1,
     };
   }
   return null;
@@ -1198,25 +1324,25 @@ export const addDebt = async (debt: Omit<Debt, 'id' | 'createdAt'>): Promise<num
 
 export const getDebts = async (): Promise<Debt[]> => {
   const database = getDb();
-  const result = await database.getAllAsync<Debt & { isPaid: number }>(
-    'SELECT * FROM debts ORDER BY createdAt DESC'
+  const result = await database.getAllAsync<any>(
+    'SELECT * FROM debts ORDER BY dueDate ASC'
   );
-  return result.map(debt => ({
-    ...debt,
-    isPaid: Boolean(debt.isPaid),
+  return result.map((item: any) => ({
+    ...item,
+    isPaid: item.isPaid === 1,
   }));
 };
 
-export const getDebt = async (id: number): Promise<Debt | null> => {
+export const getDebt = async (id: number): Promise<import('../types').Debt | null> => {
   const database = getDb();
-  const result = await database.getFirstAsync<Debt & { isPaid: number }>(
+  const result = await database.getFirstAsync<any>(
     'SELECT * FROM debts WHERE id = ?',
     [id]
   );
   if (result) {
     return {
       ...result,
-      isPaid: Boolean(result.isPaid),
+      isPaid: result.isPaid === 1,
     };
   }
   return null;
@@ -1297,15 +1423,15 @@ export const addDebtInstallment = async (installment: Omit<DebtInstallment, 'id'
   return result.lastInsertRowId;
 };
 
-export const getDebtInstallments = async (debtId: number): Promise<DebtInstallment[]> => {
+export const getDebtInstallments = async (debtId: number): Promise<import('../types').DebtInstallment[]> => {
   const database = getDb();
-  const result = await database.getAllAsync<DebtInstallment & { isPaid: number }>(
-    'SELECT * FROM debt_installments WHERE debtId = ? ORDER BY installmentNumber ASC',
+  const result = await database.getAllAsync<any>(
+    'SELECT * FROM debt_installments WHERE debtId = ? ORDER BY dueDate ASC',
     [debtId]
   );
-  return result.map(inst => ({
-    ...inst,
-    isPaid: Boolean(inst.isPaid),
+  return result.map((item: any) => ({
+    ...item,
+    isPaid: item.isPaid === 1,
   }));
 };
 
@@ -1394,21 +1520,18 @@ export const getUpcomingDebtPayments = async (days: number = 7): Promise<{ debt:
   const todayStr = today.toISOString().split('T')[0];
   const futureStr = futureDate.toISOString().split('T')[0];
 
-  // Get debts with due dates in the range
-  const debts = await database.getAllAsync<Debt & { isPaid: number }>(
-    `SELECT * FROM debts 
-     WHERE isPaid = 0 
-     AND (dueDate IS NOT NULL AND dueDate >= ? AND dueDate <= ?)
-     ORDER BY dueDate ASC`,
+  // Get debts that are not paid and have a due date in the range
+  const debts = await database.getAllAsync<any>(
+    'SELECT * FROM debts WHERE isPaid = 0 AND dueDate >= ? AND dueDate <= ? ORDER BY dueDate ASC',
     [todayStr, futureStr]
   );
 
   // Get installments with due dates in the range
-  const installments = await database.getAllAsync<DebtInstallment & { isPaid: number }>(
-    `SELECT di.*, d.debtorName, d.type, d.currency 
+  const installments = await database.getAllAsync<any>(
+    `SELECT di.*, d.debtorName, d.type, d.currency
      FROM debt_installments di
      JOIN debts d ON di.debtId = d.id
-     WHERE di.isPaid = 0 
+     WHERE di.isPaid = 0
      AND d.isPaid = 0
      AND di.dueDate >= ? AND di.dueDate <= ?
      ORDER BY di.dueDate ASC`,
@@ -1489,29 +1612,29 @@ export const addChallenge = async (challenge: Omit<Challenge, 'id' | 'createdAt'
   return result.lastInsertRowId;
 };
 
-export const getChallenges = async (): Promise<Challenge[]> => {
+export const getChallenges = async (): Promise<import('../types').Challenge[]> => {
   const database = getDb();
-  const result = await database.getAllAsync<Challenge & { completed: number; isCustom?: number }>(
+  const result = await database.getAllAsync<any>(
     'SELECT * FROM challenges ORDER BY createdAt DESC'
   );
-  return result.map(challenge => ({
-    ...challenge,
-    completed: Boolean(challenge.completed),
-    isCustom: challenge.isCustom !== undefined ? Boolean(challenge.isCustom) : challenge.type === 'custom',
+  return result.map((item: any) => ({
+    ...item,
+    completed: item.completed === 1,
+    isCustom: item.isCustom === 1,
   }));
 };
 
 export const getChallenge = async (id: number): Promise<Challenge | null> => {
   const database = getDb();
-  const result = await database.getFirstAsync<Challenge & { completed: number; isCustom?: number }>(
+  const result = await database.getFirstAsync<any>(
     'SELECT * FROM challenges WHERE id = ?',
     [id]
   );
   if (result) {
     return {
       ...result,
-      completed: Boolean(result.completed),
-      isCustom: result.isCustom !== undefined ? Boolean(result.isCustom) : result.type === 'custom',
+      completed: result.completed === 1,
+      isCustom: result.isCustom === 1,
     };
   }
   return null;
@@ -1632,18 +1755,18 @@ export const addAchievement = async (achievement: Omit<Achievement, 'id'>): Prom
 
 export const getAchievements = async (): Promise<Achievement[]> => {
   const database = getDb();
-  const result = await database.getAllAsync<Achievement & { isUnlocked: number }>(
+  const result = await database.getAllAsync<any>(
     'SELECT * FROM achievements ORDER BY isUnlocked DESC, category ASC'
   );
   return result.map(achievement => ({
     ...achievement,
-    isUnlocked: Boolean(achievement.isUnlocked),
+    isUnlocked: achievement.isUnlocked === 1,
   }));
 };
 
 export const getAchievement = async (type: string): Promise<Achievement | null> => {
   const database = getDb();
-  const result = await database.getFirstAsync<Achievement & { isUnlocked: number }>(
+  const result = await database.getFirstAsync<any>(
     'SELECT * FROM achievements WHERE type = ?',
     [type]
   );
@@ -1916,7 +2039,7 @@ export const addBill = async (bill: Omit<Bill, 'id' | 'createdAt'>): Promise<num
 
 export const getBills = async (): Promise<Bill[]> => {
   const database = getDb();
-  const result = await database.getAllAsync<Bill>(
+  const result = await database.getAllAsync<any>(
     'SELECT * FROM bills ORDER BY dueDate ASC, createdAt DESC'
   );
   return result.map(bill => ({
@@ -1927,7 +2050,7 @@ export const getBills = async (): Promise<Bill[]> => {
 
 export const getBillById = async (id: number): Promise<Bill | null> => {
   const database = getDb();
-  const result = await database.getFirstAsync<Bill>(
+  const result = await database.getFirstAsync<any>(
     'SELECT * FROM bills WHERE id = ?',
     [id]
   );
@@ -2036,8 +2159,8 @@ export const getBillsDueSoon = async (days: number = 7): Promise<Bill[]> => {
   const today = new Date();
   const futureDate = new Date();
   futureDate.setDate(today.getDate() + days);
-  
-  const result = await database.getAllAsync<Bill>(
+
+  const result = await database.getAllAsync<any>(
     `SELECT * FROM bills 
      WHERE isPaid = 0 
      AND dueDate BETWEEN ? AND ? 

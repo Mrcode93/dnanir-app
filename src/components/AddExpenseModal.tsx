@@ -21,11 +21,13 @@ import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme'
 import { Expense, ExpenseCategory, EXPENSE_CATEGORIES, CURRENCIES } from '../types';
 import { addExpense, updateExpense, getExpenseShortcuts, addExpenseShortcut, deleteExpenseShortcut, updateExpenseShortcut, ExpenseShortcut, getCustomCategories, CustomCategory } from '../database/database';
 import { alertService } from '../services/alertService';
+import { formatDateLocal } from '../utils/date';
 import { useCurrency } from '../hooks/useCurrency';
 import { isRTL } from '../utils/rtl';
 import { convertCurrency } from '../services/currencyService';
 import { ReceiptScannerModal } from './ReceiptScannerModal';
 import { ReceiptData } from '../services/receiptOCRService';
+import { convertArabicToEnglish } from '../utils/numbers';
 
 interface AddExpenseModalProps {
   visible: boolean;
@@ -168,7 +170,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
         title: title.trim(),
         amount: Number(amount),
         category: category,
-        date: date.toISOString().split('T')[0],
+        date: formatDateLocal(date),
         description: description.trim(),
         currency: currency,
       };
@@ -195,7 +197,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
         title: shortcut.title,
         amount: shortcut.amount,
         category: shortcut.category as ExpenseCategory,
-        date: new Date().toISOString().split('T')[0],
+        date: formatDateLocal(new Date()),
         description: shortcut.description || '',
         currency: shortcut.currency || currencyCode,
       };
@@ -382,8 +384,9 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
       statusBarTranslucent
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
         style={styles.keyboardView}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -500}
       >
         <TouchableOpacity
           style={styles.overlay}
@@ -399,12 +402,12 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
             ]}
           >
             <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
-        <LinearGradient
-          colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
+              <LinearGradient
+                colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
                 style={[styles.modalGradient, { paddingBottom: insets.bottom }]}
-        >
+              >
                 {/* Header */}
-          <View style={styles.header}>
+                <View style={styles.header}>
                   <View style={styles.headerLeft}>
                     <View style={[styles.iconBadge, { backgroundColor: getCategoryInfo(category).color + '20' }]}>
                       <Ionicons
@@ -414,20 +417,20 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                       />
                     </View>
                     <View style={styles.headerText}>
-            <Text style={styles.title}>
+                      <Text style={styles.title}>
                         {expense ? 'تعديل المصروف' : 'مصروف جديد'}
-            </Text>
+                      </Text>
                       <Text style={styles.subtitle}>أضف تفاصيل المصروف</Text>
                     </View>
                   </View>
-            <IconButton
-              icon="close"
-              size={24}
-              onPress={handleClose}
+                  <IconButton
+                    icon="close"
+                    size={24}
+                    onPress={handleClose}
                     iconColor={theme.colors.textSecondary}
                     style={styles.closeButton}
-            />
-          </View>
+                  />
+                </View>
 
                 <ScrollView
                   style={styles.scrollView}
@@ -610,16 +613,16 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>عنوان المصروف</Text>
                     <View style={styles.inputWrapper}>
-            <TextInput
-              value={title}
-              onChangeText={setTitle}
+                      <TextInput
+                        value={title}
+                        onChangeText={setTitle}
                         placeholder="مثال: عشاء في المطعم"
                         mode="flat"
-              style={styles.input}
-              contentStyle={styles.inputContent}
+                        style={styles.input}
+                        contentStyle={styles.inputContent}
                         underlineColor="transparent"
                         activeUnderlineColor={theme.colors.primary}
-            />
+                      />
                     </View>
                   </View>
 
@@ -627,14 +630,14 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>المبلغ ({CURRENCIES.find(c => c.code === currency)?.symbol})</Text>
                     <View style={styles.inputWrapper}>
-            <TextInput
-              value={amount}
-              onChangeText={setAmount}
+                      <TextInput
+                        value={amount}
+                        onChangeText={(val) => setAmount(convertArabicToEnglish(val))}
                         placeholder="0.00"
-              keyboardType="numeric"
+                        keyboardType="numeric"
                         mode="flat"
-              style={styles.input}
-              contentStyle={styles.inputContent}
+                        style={styles.input}
+                        contentStyle={styles.inputContent}
                         underlineColor="transparent"
                         activeUnderlineColor={theme.colors.primary}
                         left={
@@ -680,8 +683,8 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>التاريخ</Text>
                     <TouchableOpacity
-              onPress={() => setShowDatePicker(true)}
-              style={styles.dateButton}
+                      onPress={() => setShowDatePicker(true)}
+                      style={styles.dateButton}
                     >
                       <Ionicons name="calendar-outline" size={20} color={theme.colors.primary} />
                       <Text style={styles.dateButtonText}>
@@ -693,17 +696,17 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                       </Text>
                       <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
                     </TouchableOpacity>
-            {showDatePicker && (
-              <DateTimePicker
-                value={date}
-                mode="date"
-                display="default"
-                onChange={(event, selectedDate) => {
-                  setShowDatePicker(false);
-                  if (selectedDate) {
-                    setDate(selectedDate);
-                  }
-                }}
+                    {showDatePicker && (
+                      <DateTimePicker
+                        value={date}
+                        mode="date"
+                        display="default"
+                        onChange={(event, selectedDate) => {
+                          setShowDatePicker(false);
+                          if (selectedDate) {
+                            setDate(selectedDate);
+                          }
+                        }}
                       />
                     )}
                   </View>
@@ -722,7 +725,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                         const color1 = cat.color;
                         const color2 = cat.color; // Use same color or create darker shade
                         const colors = [color1, color2];
-                        
+
                         return (
                           <TouchableOpacity
                             key={cat.id}
@@ -758,33 +761,33 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                         );
                       })}
                     </ScrollView>
-            </View>
+                  </View>
 
                   {/* Description Input */}
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>وصف (اختياري)</Text>
                     <View style={styles.inputWrapper}>
-            <TextInput
-              value={description}
-              onChangeText={setDescription}
+                      <TextInput
+                        value={description}
+                        onChangeText={setDescription}
                         placeholder="أضف ملاحظات إضافية..."
-              multiline
+                        multiline
                         numberOfLines={4}
                         mode="flat"
-              style={styles.input}
+                        style={styles.input}
                         contentStyle={[styles.inputContent, styles.textAreaContent]}
                         underlineColor="transparent"
                         activeUnderlineColor={theme.colors.primary}
                       />
                     </View>
                   </View>
-          </ScrollView>
+                </ScrollView>
 
                 {/* Actions */}
-          <View style={styles.actions}>
+                <View style={styles.actions}>
                   <TouchableOpacity
-              onPress={handleClose}
-              style={styles.cancelButton}
+                    onPress={handleClose}
+                    style={styles.cancelButton}
                     activeOpacity={0.7}
                   >
                     <View style={styles.cancelButtonContent}>
@@ -809,9 +812,9 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                     </TouchableOpacity>
                   )}
                   <TouchableOpacity
-              onPress={handleSave}
-              disabled={loading}
-              style={styles.saveButton}
+                    onPress={handleSave}
+                    disabled={loading}
+                    style={styles.saveButton}
                     activeOpacity={0.8}
                   >
                     <LinearGradient
@@ -829,14 +832,14 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                         <>
                           <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
                           <Text style={styles.saveButtonText}>
-              {expense ? 'تحديث' : 'حفظ'}
+                            {expense ? 'تحديث' : 'حفظ'}
                           </Text>
                         </>
                       )}
                     </LinearGradient>
                   </TouchableOpacity>
-          </View>
-        </LinearGradient>
+                </View>
+              </LinearGradient>
             </TouchableOpacity>
           </Animated.View>
         </TouchableOpacity>
@@ -869,7 +872,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                 >
                   <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
                 </TouchableOpacity>
-      </View>
+              </View>
               <ScrollView
                 style={styles.currencyModalScrollView}
                 contentContainerStyle={styles.currencyModalScrollContent}
@@ -1121,7 +1124,7 @@ const styles = StyleSheet.create({
     margin: 0,
   },
   scrollView: {
-    maxHeight: 500,
+    flexGrow: 0,
   },
   scrollContent: {
     padding: theme.spacing.lg,

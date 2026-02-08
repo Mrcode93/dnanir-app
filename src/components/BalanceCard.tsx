@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { isRTL } from '../utils/rtl';
 import { useCurrency } from '../hooks/useCurrency';
+import { usePrivacy } from '../context/PrivacyContext';
 import { MonthFilter } from './MonthFilter';
 
 interface BalanceCardProps {
@@ -16,22 +17,23 @@ interface BalanceCardProps {
   availableMonths?: Array<{ year: number; month: number }>;
 }
 
-export const BalanceCard: React.FC<BalanceCardProps> = ({ 
-  balance, 
-  userName, 
+export const BalanceCard: React.FC<BalanceCardProps> = ({
+  balance,
+  userName,
   selectedMonth,
   onMonthChange,
   showFilter = true,
   availableMonths,
 }) => {
   const { formatCurrency } = useCurrency();
+  const { isPrivacyEnabled } = usePrivacy();
   const isPositive = balance >= 0;
-  
+
   // Use theme gradients based on #003459
-  const gradientColors = isPositive 
+  const gradientColors = isPositive
     ? theme.gradients.primary // Primary gradient (positive)
     : ['#004D73', '#003459', '#002640'] as const; // Darker gradient (negative)
-  
+
   const formattedBalance = formatCurrency(balance);
 
   // Get month label
@@ -39,8 +41,8 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
     if (!selectedMonth || (selectedMonth.year === 0 && selectedMonth.month === 0)) {
       return 'الكل';
     }
-    const monthNames = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 
-                        'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+    const monthNames = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+      'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
     return `${monthNames[selectedMonth.month - 1]} ${selectedMonth.year}`;
   };
 
@@ -55,7 +57,7 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
         {/* Decorative circles */}
         <View style={styles.decorativeCircle1} />
         <View style={styles.decorativeCircle2} />
-        
+
         <View style={styles.header}>
           <LinearGradient
             colors={['rgba(255, 255, 255, 0.3)', 'rgba(255, 255, 255, 0.15)']}
@@ -84,17 +86,17 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
             )}
           </View>
         </View>
-        
+
         <View style={styles.body}>
           {userName && (
             <View style={styles.greetingContainer}>
               <Text style={styles.greeting}>مرحباً، {userName}</Text>
             </View>
           )}
-          
+
           <View style={styles.balanceContainer}>
             <Text style={styles.balance}>
-              {formattedBalance}
+              {isPrivacyEnabled ? '****' : formattedBalance}
             </Text>
             {!isPositive && (
               <View style={styles.warningIcon}>
@@ -122,7 +124,7 @@ const styles = StyleSheet.create({
     ...getPlatformShadow('lg'),
     overflow: 'hidden',
     position: 'relative',
-    direction: 'rtl',
+    direction: isRTL ? 'rtl' : 'ltr',
   },
   decorativeCircle1: {
     position: 'absolute',
@@ -143,14 +145,14 @@ const styles = StyleSheet.create({
     ...(isRTL ? { right: -20 } : { left: -20 }),
   },
   header: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: theme.spacing.md,
     zIndex: 1,
   },
   headerRight: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     gap: theme.spacing.sm,
   },
@@ -165,7 +167,7 @@ const styles = StyleSheet.create({
     ...getPlatformShadow('md'),
   },
   badge: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
@@ -217,7 +219,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   balanceContainer: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
   },
   balance: {
@@ -243,7 +245,7 @@ const styles = StyleSheet.create({
     ...getPlatformShadow('sm'),
   },
   filterButtonGradient: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,

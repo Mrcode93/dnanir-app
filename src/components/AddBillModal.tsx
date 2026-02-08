@@ -11,6 +11,7 @@ import {
   Platform,
   Switch,
   Pressable,
+  Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextInput, IconButton } from 'react-native-paper';
@@ -24,6 +25,7 @@ import { scheduleBillReminder } from '../services/billService';
 import { alertService } from '../services/alertService';
 import { isRTL } from '../utils/rtl';
 import { useCurrency } from '../hooks/useCurrency';
+import { convertArabicToEnglish } from '../utils/numbers';
 
 interface AddBillModalProps {
   visible: boolean;
@@ -94,6 +96,8 @@ export const AddBillModal: React.FC<AddBillModalProps> = ({
       alertService.warning('تنبيه', 'يرجى إدخال عنوان الفاتورة');
       return;
     }
+
+    Keyboard.dismiss();
 
     if (!amount.trim() || isNaN(Number(amount)) || Number(amount) <= 0) {
       alertService.warning('تنبيه', 'يرجى إدخال مبلغ صحيح');
@@ -166,6 +170,7 @@ export const AddBillModal: React.FC<AddBillModalProps> = ({
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
         <TouchableOpacity
           style={styles.overlay}
@@ -236,7 +241,7 @@ export const AddBillModal: React.FC<AddBillModalProps> = ({
                     <Text style={styles.label}>المبلغ *</Text>
                     <TextInput
                       value={amount}
-                      onChangeText={setAmount}
+                      onChangeText={(val) => setAmount(convertArabicToEnglish(val))}
                       placeholder="0"
                       mode="outlined"
                       keyboardType="numeric"
@@ -335,8 +340,8 @@ export const AddBillModal: React.FC<AddBillModalProps> = ({
                       >
                         <Text style={styles.recurrenceButtonText}>
                           {recurrenceType === 'monthly' ? 'شهري' :
-                           recurrenceType === 'weekly' ? 'أسبوعي' :
-                           recurrenceType === 'quarterly' ? 'ربع سنوي' : 'سنوي'}
+                            recurrenceType === 'weekly' ? 'أسبوعي' :
+                              recurrenceType === 'quarterly' ? 'ربع سنوي' : 'سنوي'}
                         </Text>
                         <Ionicons name="chevron-down" size={20} color={theme.colors.textSecondary} />
                       </Pressable>
@@ -348,7 +353,7 @@ export const AddBillModal: React.FC<AddBillModalProps> = ({
                     <Text style={styles.label}>التذكير قبل (أيام)</Text>
                     <TextInput
                       value={reminderDaysBefore}
-                      onChangeText={setReminderDaysBefore}
+                      onChangeText={(val) => setReminderDaysBefore(convertArabicToEnglish(val))}
                       placeholder="3"
                       mode="outlined"
                       keyboardType="numeric"
@@ -467,7 +472,7 @@ const styles = StyleSheet.create({
     margin: 0,
   },
   scrollView: {
-    maxHeight: 600,
+    flex: 1,
     paddingHorizontal: 20,
   },
   inputGroup: {

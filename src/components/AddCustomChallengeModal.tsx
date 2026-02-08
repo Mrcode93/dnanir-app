@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { ChallengeCategory, CHALLENGE_CATEGORIES } from '../types';
 import { isRTL } from '../utils/rtl';
+import { convertArabicToEnglish } from '../utils/numbers';
 
 interface AddCustomChallengeModalProps {
   visible: boolean;
@@ -236,7 +237,7 @@ export const AddCustomChallengeModal = ({
               <TextInput
                 style={styles.input}
                 value={duration}
-                onChangeText={setDuration}
+                onChangeText={(val) => setDuration(convertArabicToEnglish(val))}
                 placeholder="7"
                 placeholderTextColor={theme.colors.textMuted}
                 keyboardType="numeric"
@@ -250,7 +251,7 @@ export const AddCustomChallengeModal = ({
               <TextInput
                 style={styles.input}
                 value={targetValue}
-                onChangeText={setTargetValue}
+                onChangeText={(val) => setTargetValue(convertArabicToEnglish(val))}
                 placeholder="مثال: 50000"
                 placeholderTextColor={theme.colors.textMuted}
                 keyboardType="numeric"
@@ -264,7 +265,7 @@ export const AddCustomChallengeModal = ({
               <TextInput
                 style={styles.input}
                 value={targetProgress}
-                onChangeText={setTargetProgress}
+                onChangeText={(val) => setTargetProgress(convertArabicToEnglish(val))}
                 placeholder="1"
                 placeholderTextColor={theme.colors.textMuted}
                 keyboardType="numeric"

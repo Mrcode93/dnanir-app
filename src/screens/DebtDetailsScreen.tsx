@@ -604,7 +604,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
-    direction: 'rtl',
   },
   loadingContainer: {
     flex: 1,
@@ -802,7 +801,6 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     marginBottom: theme.spacing.md,
     ...getPlatformShadow('md'),
-    direction: 'rtl',
   },
   sectionTitle: {
     fontSize: theme.typography.sizes.lg,
@@ -810,12 +808,10 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.md,
-    textAlign: 'left',
-    writingDirection: 'rtl',
+    textAlign: isRTL ? 'right' : 'left',
   },
   detailRow: {
     gap: theme.spacing.md,
-    direction: 'rtl',
   },
   detailItem: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -830,8 +826,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
-    textAlign: 'left',
-    writingDirection: 'rtl',
+    textAlign: isRTL ? 'right' : 'left',
   },
   detailValue: {
     fontSize: theme.typography.sizes.md,
@@ -970,7 +965,7 @@ const styles = StyleSheet.create({
     ...getPlatformShadow('md'),
   },
   payFullButtonGradient: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
     padding: theme.spacing.lg,
@@ -983,7 +978,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   editButton: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
     padding: theme.spacing.md,
@@ -1038,29 +1033,26 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     marginBottom: theme.spacing.md,
     ...getPlatformShadow('md'),
-    direction: 'rtl',
   },
   paymentHistorySummary: {
     backgroundColor: theme.colors.surfaceLight,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.xs,
     borderRadius: theme.borderRadius.md,
-    direction: 'rtl',
   },
   paymentHistorySummaryText: {
     fontSize: theme.typography.sizes.sm,
     fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    writingDirection: 'rtl',
+    textAlign: isRTL ? 'right' : 'left',
   },
   paymentHistoryList: {
     marginTop: theme.spacing.md,
     gap: theme.spacing.sm,
-    direction: 'rtl',
   },
   paymentHistoryItem: {
-    flexDirection: isRTL ? 'row' : 'row',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     padding: theme.spacing.md,
     backgroundColor: theme.colors.surfaceLight,

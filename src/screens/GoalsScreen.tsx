@@ -12,7 +12,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { GoalCard } from '../components/GoalCard';
-import { AddGoalModal } from '../components/AddGoalModal';
 import {
   getFinancialGoals,
   addFinancialGoal,
@@ -30,8 +29,6 @@ export const GoalsScreen = ({ navigation, route }: any) => {
   const { formatCurrency, currencyCode } = useCurrency();
   const [goals, setGoals] = useState<FinancialGoal[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [editingGoal, setEditingGoal] = useState<FinancialGoal | null>(null);
   const [convertedTotals, setConvertedTotals] = useState<{ current: number; target: number } | null>(null);
   const [currencyBreakdown, setCurrencyBreakdown] = useState<Record<string, { current: number; target: number }>>({});
 
@@ -127,7 +124,7 @@ export const GoalsScreen = ({ navigation, route }: any) => {
 
   useEffect(() => {
     if (route?.params?.action === 'add') {
-      handleAddGoal();
+      navigation.navigate('AddGoal');
       navigation.setParams({ action: undefined });
     }
   }, [route?.params]);
@@ -139,26 +136,11 @@ export const GoalsScreen = ({ navigation, route }: any) => {
   };
 
   const handleAddGoal = () => {
-    setEditingGoal(null);
-    setModalVisible(true);
+    navigation.navigate('AddGoal');
   };
 
   const handleEditGoal = (goal: FinancialGoal) => {
-    setEditingGoal(goal);
-    setModalVisible(true);
-  };
-
-  const handleSaveGoal = async (goalData: Omit<FinancialGoal, 'id' | 'createdAt'>) => {
-    try {
-      if (editingGoal) {
-        await updateFinancialGoal(editingGoal.id, goalData);
-      } else {
-        await addFinancialGoal(goalData);
-      }
-      await loadGoals();
-    } catch (error) {
-      console.error('Error saving goal:', error);
-    }
+    navigation.navigate('AddGoal', { goal });
   };
 
   const handleDeleteGoal = async (goalId: number) => {
@@ -316,17 +298,6 @@ export const GoalsScreen = ({ navigation, route }: any) => {
           </View>
         )}
       </ScrollView>
-
-      {/* Add/Edit Goal Modal */}
-      <AddGoalModal
-        visible={modalVisible}
-        onDismiss={() => {
-          setModalVisible(false);
-          setEditingGoal(null);
-        }}
-        onSave={handleSaveGoal}
-        editingGoal={editingGoal}
-      />
     </SafeAreaView>
   );
 };

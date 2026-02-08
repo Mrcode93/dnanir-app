@@ -11,10 +11,12 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
+  Switch,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getTheme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Budget, getCustomCategories, addBudget, updateBudget } from '../database/database';
 import { EXPENSE_CATEGORIES, CURRENCIES } from '../types';
@@ -22,6 +24,7 @@ import { useCurrency } from '../hooks/useCurrency';
 import { isRTL } from '../utils/rtl';
 import { convertCurrency } from '../services/currencyService';
 import { alertService } from '../services/alertService';
+import { convertArabicToEnglish } from '../utils/numbers';
 
 interface AddBudgetModalProps {
   visible: boolean;
@@ -29,6 +32,18 @@ interface AddBudgetModalProps {
   onSave: () => void;
   budget?: Budget | null;
 }
+
+// Category icons mapping
+const CATEGORY_ICONS: Record<string, string> = {
+  food: 'restaurant',
+  transport: 'car',
+  shopping: 'cart',
+  bills: 'receipt',
+  health: 'medical',
+  education: 'school',
+  entertainment: 'game-controller',
+  other: 'ellipsis-horizontal',
+};
 
 export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
   visible,
@@ -45,7 +60,6 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
   const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
   const slideAnim = useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();
-  const currentTheme = getTheme();
 
   useEffect(() => {
     loadCustomCategories();
@@ -109,6 +123,8 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
   };
 
   const handleSave = async () => {
+    Keyboard.dismiss();
+
     if (!amount.trim()) {
       alertService.warning('تنبيه', 'يرجى إدخال مبلغ الميزانية');
       return;
@@ -158,9 +174,15 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
   };
 
   const getCategoryName = (category: string) => {
-    return EXPENSE_CATEGORIES[category as keyof typeof EXPENSE_CATEGORIES] || 
-           customCategories.find(c => c.name === category)?.name || 
-           category;
+    return EXPENSE_CATEGORIES[category as keyof typeof EXPENSE_CATEGORIES] ||
+      customCategories.find(c => c.name === category)?.name ||
+      category;
+  };
+
+  const getCategoryIcon = (category: string) => {
+    const customCat = customCategories.find(c => c.name === category);
+    if (customCat?.icon) return customCat.icon;
+    return CATEGORY_ICONS[category] || 'wallet';
   };
 
   const allCategories = [
@@ -172,10 +194,10 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
     <Modal
       visible={visible}
       transparent={true}
-      animationType="fade"
+      animationType="slide"
       onRequestClose={onClose}
     >
-      <Pressable style={styles.overlay} onPress={onClose}>
+      <View style={styles.container}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
@@ -184,174 +206,159 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
             style={[
               styles.modalContainer,
               {
+                paddingBottom: insets.bottom,
                 opacity: slideAnim,
                 transform: [
                   {
                     translateY: slideAnim.interpolate({
                       inputRange: [0, 1],
-                      outputRange: [50, 0],
+                      outputRange: [100, 0],
                     }),
                   },
                 ],
               },
             ]}
           >
-            <Pressable onPress={(e) => e.stopPropagation()}>
-              <LinearGradient
-                colors={theme.gradients.primary as any}
-                style={[styles.modalGradient, { paddingBottom: insets.bottom + theme.spacing.xl }]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <View style={[styles.modalContent, { backgroundColor: currentTheme.colors.surfaceCard }]}>
-                  <View style={styles.header}>
-                    <Text style={[styles.title, { color: currentTheme.colors.textPrimary }]}>
-                      {budget ? 'تعديل الميزانية' : 'إضافة ميزانية جديدة'}
+            {/* Header */}
+            <View style={styles.header}>
+              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
+              </TouchableOpacity>
+              <View style={styles.headerTitleContainer}>
+                <Text style={styles.headerTitle}>
+                  {budget ? 'تعديل الميزانية' : 'إضافة ميزانية جديدة'}
+                </Text>
+                <Text style={styles.headerSubtitle}>حدد ميزانيتك الشهرية</Text>
+              </View>
+              <View style={{ width: 40 }} />
+            </View>
+
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* Amount Card */}
+              <View style={styles.amountCard}>
+                <Text style={styles.amountLabel}>المبلغ الشهري</Text>
+                <View style={styles.amountInputRow}>
+                  <TextInput
+                    style={styles.amountInput}
+                    value={amount}
+                    onChangeText={(val) => setAmount(convertArabicToEnglish(val))}
+                    placeholder="0"
+                    placeholderTextColor={theme.colors.textMuted}
+                    keyboardType="numeric"
+                    autoFocus
+                  />
+                  <TouchableOpacity 
+                    onPress={() => setShowCurrencyPicker(true)}
+                    style={styles.currencyButton}
+                  >
+                    <Text style={styles.currencyText}>
+                      {CURRENCIES.find(c => c.code === currency)?.symbol}
                     </Text>
-                    <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                      <Ionicons name="close" size={24} color={currentTheme.colors.textPrimary} />
-                    </TouchableOpacity>
-                  </View>
-
-                  <View style={styles.inputContainer}>
-                    <Text style={[styles.label, { color: currentTheme.colors.textPrimary }]}>
-                      المبلغ ({CURRENCIES.find(c => c.code === currency)?.symbol})
-                    </Text>
-                    <TextInput
-                      style={[styles.input, { 
-                        backgroundColor: currentTheme.colors.surfaceLight,
-                        color: currentTheme.colors.textPrimary,
-                        borderColor: currentTheme.colors.border,
-                      }]}
-                      value={amount}
-                      onChangeText={setAmount}
-                      placeholder="أدخل المبلغ"
-                      placeholderTextColor={currentTheme.colors.textMuted}
-                      keyboardType="numeric"
-                      autoFocus
-                    />
-                    {convertedAmount !== null && currency !== currencyCode && (
-                      <Text style={[styles.convertedAmountText, { color: currentTheme.colors.textSecondary }]}>
-                        ≈ {formatCurrency(convertedAmount)}
-                      </Text>
-                    )}
-                  </View>
-
-                  {/* Currency Selection */}
-                  <View style={styles.inputContainer}>
-                    <Text style={[styles.label, { color: currentTheme.colors.textPrimary }]}>العملة</Text>
-                    <TouchableOpacity
-                      onPress={() => setShowCurrencyPicker(true)}
-                      style={styles.currencyButton}
-                      activeOpacity={0.7}
-                    >
-                      <LinearGradient
-                        colors={theme.gradients.primary as any}
-                        style={styles.currencyButtonGradient}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                      >
-                        <Ionicons name="cash" size={20} color="#FFFFFF" />
-                        <Text style={styles.currencyButtonText}>
-                          {CURRENCIES.find(c => c.code === currency)?.symbol} {CURRENCIES.find(c => c.code === currency)?.name}
-                        </Text>
-                        <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color="#FFFFFF" />
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  </View>
-
-                  <View style={styles.section}>
-                    <Text style={[styles.label, { color: currentTheme.colors.textPrimary }]}>الفئة</Text>
-                    <ScrollView
-                      style={styles.categoriesScroll}
-                      showsVerticalScrollIndicator={true}
-                    >
-                      {allCategories.map((category) => {
-                        const isSelected = selectedCategory === category;
-                        return (
-                          <TouchableOpacity
-                            key={category}
-                            onPress={() => setSelectedCategory(category)}
-                            style={[
-                              styles.categoryButton,
-                              { 
-                                backgroundColor: isSelected 
-                                  ? currentTheme.colors.primary 
-                                  : currentTheme.colors.surfaceLight,
-                                borderColor: currentTheme.colors.border,
-                              },
-                            ]}
-                            activeOpacity={0.7}
-                          >
-                            <Text
-                              style={[
-                                styles.categoryButtonText,
-                                {
-                                  color: isSelected
-                                    ? currentTheme.colors.textInverse
-                                    : currentTheme.colors.textPrimary,
-                                },
-                              ]}
-                            >
-                              {getCategoryName(category)}
-                            </Text>
-                            {isSelected && (
-                              <Ionicons
-                                name="checkmark-circle"
-                                size={20}
-                                color={currentTheme.colors.textInverse}
-                              />
-                            )}
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </ScrollView>
-                  </View>
-
-                  <View style={styles.actions}>
-                    <TouchableOpacity
-                      onPress={onClose}
-                      style={[
-                        styles.cancelButton,
-                        {
-                          backgroundColor: currentTheme.colors.surfaceLight,
-                          borderColor: currentTheme.colors.border,
-                        },
-                      ]}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.cancelButtonText, { color: currentTheme.colors.textSecondary }]}>
-                        إلغاء
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={handleSave}
-                      style={styles.saveButton}
-                      activeOpacity={0.7}
-                      disabled={!amount || !selectedCategory}
-                    >
-                      <LinearGradient
-                        colors={
-                          amount && selectedCategory
-                            ? (theme.gradients.primary as any)
-                            : ['#9CA3AF', '#6B7280']
-                        }
-                        style={styles.saveButtonGradient}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                      >
-                        <Text style={styles.saveButtonText}>
-                          {budget ? 'تحديث' : 'حفظ'}
-                        </Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  </View>
+                    <Ionicons name="chevron-down" size={16} color={theme.colors.primary} />
+                  </TouchableOpacity>
                 </View>
-              </LinearGradient>
-            </Pressable>
+                {convertedAmount !== null && currency !== currencyCode && (
+                  <Text style={styles.convertedAmountText}>
+                    ≈ {formatCurrency(convertedAmount)}
+                  </Text>
+                )}
+              </View>
+
+              {/* Category Selection */}
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>اختر الفئة</Text>
+                <View style={styles.categoriesGrid}>
+                  {allCategories.map((category) => {
+                    const isSelected = selectedCategory === category;
+                    const customCat = customCategories.find(c => c.name === category);
+                    const categoryColor = customCat?.color || theme.colors.primary;
+                    
+                    return (
+                      <TouchableOpacity
+                        key={category}
+                        onPress={() => setSelectedCategory(category)}
+                        activeOpacity={0.7}
+                        style={[
+                          styles.categoryCard,
+                          isSelected && { borderColor: categoryColor, borderWidth: 2 }
+                        ]}
+                      >
+                        <LinearGradient
+                          colors={isSelected 
+                            ? [categoryColor, categoryColor + 'DD'] as any
+                            : [theme.colors.surfaceLight, theme.colors.surfaceLight] as any
+                          }
+                          style={styles.categoryCardGradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                        >
+                          <View style={[
+                            styles.categoryIconContainer,
+                            { backgroundColor: isSelected ? 'rgba(255,255,255,0.2)' : theme.colors.surface }
+                          ]}>
+                            <Ionicons
+                              name={getCategoryIcon(category) as any}
+                              size={22}
+                              color={isSelected ? '#FFF' : categoryColor}
+                            />
+                          </View>
+                          <Text style={[
+                            styles.categoryCardLabel,
+                            isSelected && styles.categoryCardLabelActive
+                          ]} numberOfLines={1}>
+                            {getCategoryName(category)}
+                          </Text>
+                          {isSelected && (
+                            <Ionicons name="checkmark-circle" size={18} color="#FFF" style={styles.checkIcon} />
+                          )}
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            </ScrollView>
+
+            {/* Actions */}
+            <View style={styles.actions}>
+              <TouchableOpacity
+                onPress={onClose}
+                style={styles.cancelButton}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.cancelButtonText}>إلغاء</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSave}
+                style={styles.saveButton}
+                activeOpacity={0.7}
+                disabled={!amount || !selectedCategory}
+              >
+                <LinearGradient
+                  colors={
+                    amount && selectedCategory
+                      ? (theme.gradients.primary as any)
+                      : ['#9CA3AF', '#6B7280']
+                  }
+                  style={styles.saveButtonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <Ionicons name="checkmark" size={20} color="#FFF" />
+                  <Text style={styles.saveButtonText}>
+                    {budget ? 'تحديث' : 'حفظ الميزانية'}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
           </Animated.View>
         </KeyboardAvoidingView>
-      </Pressable>
+      </View>
 
       {/* Currency Picker Modal */}
       <Modal
@@ -368,35 +375,28 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
             style={styles.currencyModalContainer}
             onPress={(e) => e.stopPropagation()}
           >
-            <LinearGradient
-              colors={[currentTheme.colors.surfaceCard, currentTheme.colors.surfaceLight]}
-              style={styles.currencyModalGradient}
-            >
-              <View style={styles.currencyModalHeader}>
-                <Text style={[styles.currencyModalTitle, { color: currentTheme.colors.textPrimary }]}>اختر العملة</Text>
-                <TouchableOpacity
-                  onPress={() => setShowCurrencyPicker(false)}
-                  style={styles.currencyModalCloseButton}
-                >
-                  <Ionicons name="close" size={24} color={currentTheme.colors.textPrimary} />
-                </TouchableOpacity>
-              </View>
-              <ScrollView
-                style={styles.currencyModalScrollView}
-                contentContainerStyle={styles.currencyModalScrollContent}
-                showsVerticalScrollIndicator={true}
-                nestedScrollEnabled={true}
+            <View style={styles.currencyModalHeader}>
+              <Text style={styles.currencyModalTitle}>اختر العملة</Text>
+              <TouchableOpacity
+                onPress={() => setShowCurrencyPicker(false)}
+                style={styles.currencyModalCloseButton}
               >
-                {CURRENCIES.map((curr) => (
+                <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              style={styles.currencyModalScrollView}
+              contentContainerStyle={styles.currencyModalScrollContent}
+              showsVerticalScrollIndicator={true}
+            >
+              {CURRENCIES.map((curr) => {
+                const isSelected = currency === curr.code;
+                return (
                   <TouchableOpacity
                     key={curr.code}
                     style={[
                       styles.currencyOption,
-                      { 
-                        backgroundColor: currency === curr.code 
-                          ? currentTheme.colors.primaryLight 
-                          : currentTheme.colors.surfaceCard,
-                      },
+                      isSelected && styles.currencyOptionSelected,
                     ]}
                     onPress={() => {
                       setCurrency(curr.code);
@@ -404,24 +404,22 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
                     }}
                     activeOpacity={0.7}
                   >
-                    <Text style={[
-                      styles.currencyOptionText,
-                      { 
-                        color: currency === curr.code 
-                          ? currentTheme.colors.primary 
-                          : currentTheme.colors.textPrimary,
-                        fontWeight: currency === curr.code ? '700' : '400',
-                      },
-                    ]}>
-                      {curr.symbol} {curr.name}
-                    </Text>
-                    {currency === curr.code && (
-                      <Ionicons name="checkmark-circle" size={20} color={currentTheme.colors.primary} />
+                    <View style={styles.currencyOptionContent}>
+                      <Text style={styles.currencySymbol}>{curr.symbol}</Text>
+                      <Text style={[
+                        styles.currencyOptionText,
+                        isSelected && styles.currencyOptionTextSelected,
+                      ]}>
+                        {curr.name}
+                      </Text>
+                    </View>
+                    {isSelected && (
+                      <Ionicons name="checkmark-circle" size={22} color={theme.colors.primary} />
                     )}
                   </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </LinearGradient>
+                );
+              })}
+            </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>
@@ -430,162 +428,218 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
 };
 
 const styles = StyleSheet.create({
-  overlay: {
+  container: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
   keyboardView: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: '100%',
+    justifyContent: 'flex-end',
   },
   modalContainer: {
-    width: '90%',
-    maxWidth: 500,
+    backgroundColor: theme.colors.surfaceCard,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     maxHeight: '90%',
-  },
-  modalGradient: {
-    borderRadius: theme.borderRadius.xl,
-    overflow: 'hidden',
     ...getPlatformShadow('lg'),
   },
-  modalContent: {
-    padding: theme.spacing.lg,
-  },
   header: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    marginBottom: theme.spacing.lg,
-  },
-  title: {
-    fontSize: theme.typography.sizes.xl,
-    fontWeight: getPlatformFontWeight('700'),
-    fontFamily: theme.typography.fontFamily,
+    justifyContent: 'space-between',
+    padding: theme.spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
   closeButton: {
-    padding: theme.spacing.xs,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: theme.colors.surfaceLight,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  inputContainer: {
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: theme.typography.sizes.lg,
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
+  },
+  headerSubtitle: {
+    fontSize: theme.typography.sizes.sm,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+    marginTop: 2,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: theme.spacing.lg,
+  },
+  amountCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 20,
+    padding: theme.spacing.xl,
     marginBottom: theme.spacing.lg,
+    ...getPlatformShadow('sm'),
   },
-  label: {
+  amountLabel: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('600'),
+    color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.sm,
-    textAlign: 'right',
+    textAlign: 'center',
+    marginBottom: theme.spacing.md,
   },
-  input: {
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
-    fontSize: theme.typography.sizes.md,
+  amountInputRow: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.md,
+  },
+  amountInput: {
+    fontSize: 40,
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
-    borderWidth: 1,
+    textAlign: 'center',
+    minWidth: 120,
+  },
+  currencyButton: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.primaryLight,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: 12,
+    gap: 4,
+  },
+  currencyText: {
+    fontSize: theme.typography.sizes.lg,
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.primary,
+    fontFamily: theme.typography.fontFamily,
+  },
+  convertedAmountText: {
+    fontSize: theme.typography.sizes.sm,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+    textAlign: 'center',
+    marginTop: theme.spacing.sm,
+    fontStyle: 'italic',
   },
   section: {
     marginBottom: theme.spacing.lg,
   },
-  categoriesScroll: {
-    maxHeight: 200,
-    marginTop: theme.spacing.sm,
-  },
-  categoryButton: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    marginBottom: theme.spacing.sm,
-    borderWidth: 1,
-  },
-  categoryButtonText: {
+  sectionLabel: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('600'),
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
+    marginBottom: theme.spacing.md,
+    textAlign: isRTL ? 'right' : 'left',
+  },
+  categoriesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+  },
+  categoryCard: {
+    width: '31%',
+    borderRadius: 16,
+    overflow: 'hidden',
+    ...getPlatformShadow('sm'),
+  },
+  categoryCardGradient: {
+    padding: theme.spacing.md,
+    alignItems: 'center',
+    minHeight: 90,
+  },
+  categoryIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  categoryCardLabel: {
+    fontSize: theme.typography.sizes.sm,
+    fontWeight: getPlatformFontWeight('600'),
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+    textAlign: 'center',
+  },
+  categoryCardLabelActive: {
+    color: '#FFFFFF',
+  },
+  checkIcon: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
   },
   actions: {
-    flexDirection: 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     gap: theme.spacing.md,
-    marginTop: theme.spacing.lg,
-    paddingBottom: theme.spacing.xl,
+    padding: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
   },
   cancelButton: {
     flex: 1,
     paddingVertical: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
-    borderRadius: theme.borderRadius.md,
+    borderRadius: 14,
     alignItems: 'center',
+    backgroundColor: theme.colors.surfaceLight,
     borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   cancelButtonText: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('600'),
+    color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
   },
   saveButton: {
-    flex: 1,
-    borderRadius: theme.borderRadius.md,
+    flex: 2,
+    borderRadius: 14,
     overflow: 'hidden',
   },
   saveButtonGradient: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     paddingVertical: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.sm,
   },
   saveButtonText: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textInverse,
-    fontFamily: theme.typography.fontFamily,
-  },
-  convertedAmountText: {
-    fontSize: theme.typography.sizes.xs,
-    fontFamily: theme.typography.fontFamily,
-    marginTop: theme.spacing.xs,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-    fontStyle: 'italic',
-  },
-  currencyButton: {
-    borderRadius: theme.borderRadius.md,
-    overflow: 'hidden',
-    ...getPlatformShadow('sm'),
-  },
-  currencyButtonGradient: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: theme.spacing.md,
-  },
-  currencyButtonText: {
-    flex: 1,
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('600'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
-    textAlign: isRTL ? 'right' : 'left',
-    ...(isRTL ? { marginRight: theme.spacing.sm } : { marginLeft: theme.spacing.sm }),
   },
+
+  // Currency Modal Styles
   currencyModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
-    position: 'relative',
   },
   currencyModalContainer: {
+    backgroundColor: theme.colors.surfaceCard,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     maxHeight: '70%',
-    borderTopLeftRadius: theme.borderRadius.xl,
-    borderTopRightRadius: theme.borderRadius.xl,
-    overflow: 'hidden',
-    zIndex: 1000,
-  },
-  currencyModalGradient: {
-    maxHeight: '100%',
+    ...getPlatformShadow('lg'),
   },
   currencyModalHeader: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -596,10 +650,10 @@ const styles = StyleSheet.create({
     borderBottomColor: theme.colors.border,
   },
   currencyModalTitle: {
-    fontSize: theme.typography.sizes.xl,
+    fontSize: theme.typography.sizes.lg,
     fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: isRTL ? 'right' : 'left',
   },
   currencyModalCloseButton: {
     padding: theme.spacing.xs,
@@ -614,13 +668,36 @@ const styles = StyleSheet.create({
     flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: theme.spacing.sm,
-    borderRadius: theme.borderRadius.sm,
-    marginBottom: theme.spacing.xs,
+    padding: theme.spacing.md,
+    borderRadius: 12,
+    marginBottom: theme.spacing.sm,
+    backgroundColor: theme.colors.surfaceLight,
+  },
+  currencyOptionSelected: {
+    backgroundColor: theme.colors.primaryLight,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+  },
+  currencyOptionContent: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+  },
+  currencySymbol: {
+    fontSize: theme.typography.sizes.xl,
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.primary,
+    fontFamily: theme.typography.fontFamily,
+    width: 40,
+    textAlign: 'center',
   },
   currencyOptionText: {
-    fontSize: theme.typography.sizes.sm,
+    fontSize: theme.typography.sizes.md,
+    color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: isRTL ? 'right' : 'left',
+  },
+  currencyOptionTextSelected: {
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.primary,
   },
 });

@@ -3,12 +3,13 @@ import { I18nManager, Platform } from 'react-native';
 // Force LTR for app - always return false
 // Note: On iOS, I18nManager.forceRTL() doesn't work dynamically,
 // so we always use LTR layout regardless of I18nManager.isRTL value
-export const isRTL = false; // Always LTR for this app
+// Enable RTL for app
+export const isRTL = true;
 
 export const rtlStyles = {
-  flexDirection: 'row' as const,
-  textAlign: 'left' as const,
-  writingDirection: 'ltr' as const,
+  flexDirection: 'row-reverse' as const,
+  textAlign: 'right' as const,
+  writingDirection: 'rtl' as const,
 };
 
 export const getFlexDirection = (reverse: boolean = false) => {

@@ -33,8 +33,10 @@ import { alertService } from '../services/alertService';
 import { getExchangeRate, upsertExchangeRate } from '../database/database';
 import * as Notifications from 'expo-notifications';
 import { authApiService } from '../services/authApiService';
-import { generateMockData } from '../utils/mockData';
+
 import { CONTACT_INFO } from '../constants/contactConstants';
+import { convertArabicToEnglish } from '../utils/numbers';
+import Constants from 'expo-constants';
 
 export const SettingsScreen = ({ navigation }: any) => {
   const [userName, setUserName] = useState<string>('');
@@ -47,13 +49,13 @@ export const SettingsScreen = ({ navigation }: any) => {
   const [showDailyTimePicker, setShowDailyTimePicker] = useState(false);
   const [showExpenseTimePicker, setShowExpenseTimePicker] = useState(false);
   const [exportingPDF, setExportingPDF] = useState(false);
-  const [generatingMockData, setGeneratingMockData] = useState(false);
+
   const [selectedCurrency, setSelectedCurrency] = useState<string>('IQD');
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [showAuthSettings, setShowAuthSettings] = useState(false);
   const [showExchangeRateModal, setShowExchangeRateModal] = useState(false);
   const [usdToIqdRate, setUsdToIqdRate] = useState<string>('1315');
-  const [showMockDataConfirm, setShowMockDataConfirm] = useState(false);
+
   const [showCurrencyConverter, setShowCurrencyConverter] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
   const [editingName, setEditingName] = useState<string>('');
@@ -129,7 +131,7 @@ export const SettingsScreen = ({ navigation }: any) => {
       if (notificationSettings) {
         setDailyReminder(notificationSettings.dailyReminder === 1);
         setExpenseReminder(notificationSettings.expenseReminder === 1);
-        
+
         // Parse daily reminder time
         if (notificationSettings.dailyReminderTime) {
           const [hours, minutes] = notificationSettings.dailyReminderTime.split(':').map(Number);
@@ -137,7 +139,7 @@ export const SettingsScreen = ({ navigation }: any) => {
           dailyTime.setHours(hours, minutes, 0, 0);
           setDailyReminderTime(dailyTime);
         }
-        
+
         // Parse expense reminder time
         if (notificationSettings.expenseReminderTime) {
           const [hours, minutes] = notificationSettings.expenseReminderTime.split(':').map(Number);
@@ -197,7 +199,7 @@ export const SettingsScreen = ({ navigation }: any) => {
   const handleDailyReminderToggle = async (value: boolean) => {
     setDailyReminder(value);
     let notificationSettings = await getNotificationSettings();
-    
+
     // Create default settings if they don't exist
     if (!notificationSettings) {
       notificationSettings = {
@@ -210,12 +212,12 @@ export const SettingsScreen = ({ navigation }: any) => {
         monthlySummary: 1,
       };
     }
-    
+
     await upsertNotificationSettings({
       ...notificationSettings,
       dailyReminder: value ? 1 : 0,
     });
-    
+
     if (value) {
       try {
         await scheduleDailyReminder();
@@ -232,7 +234,7 @@ export const SettingsScreen = ({ navigation }: any) => {
   const handleExpenseReminderToggle = async (value: boolean) => {
     setExpenseReminder(value);
     let notificationSettings = await getNotificationSettings();
-    
+
     // Create default settings if they don't exist
     if (!notificationSettings) {
       notificationSettings = {
@@ -245,12 +247,12 @@ export const SettingsScreen = ({ navigation }: any) => {
         monthlySummary: 1,
       };
     }
-    
+
     await upsertNotificationSettings({
       ...notificationSettings,
       expenseReminder: value ? 1 : 0,
     });
-    
+
     if (value) {
       try {
         await sendExpenseReminder();
@@ -272,7 +274,7 @@ export const SettingsScreen = ({ navigation }: any) => {
         const hours = selectedTime.getHours().toString().padStart(2, '0');
         const minutes = selectedTime.getMinutes().toString().padStart(2, '0');
         const timeString = `${hours}:${minutes}`;
-        
+
         const notificationSettings = await getNotificationSettings();
         if (notificationSettings) {
           await upsertNotificationSettings({
@@ -295,7 +297,7 @@ export const SettingsScreen = ({ navigation }: any) => {
         const hours = selectedTime.getHours().toString().padStart(2, '0');
         const minutes = selectedTime.getMinutes().toString().padStart(2, '0');
         const timeString = `${hours}:${minutes}`;
-        
+
         const notificationSettings = await getNotificationSettings();
         if (notificationSettings) {
           await upsertNotificationSettings({
@@ -313,12 +315,12 @@ export const SettingsScreen = ({ navigation }: any) => {
   const handleOpenDailyTimePicker = () => {
     const hour24 = dailyReminderTime.getHours();
     const minute = dailyReminderTime.getMinutes();
-    
+
     // Convert 24-hour to 12-hour format
     let hour12 = hour24 % 12;
     if (hour12 === 0) hour12 = 12;
     const amPm: 'ص' | 'م' = hour24 >= 12 ? 'م' : 'ص';
-    
+
     setTempHour(hour12);
     setTempMinute(minute);
     setTempAmPm(amPm);
@@ -333,12 +335,12 @@ export const SettingsScreen = ({ navigation }: any) => {
   const handleOpenExpenseTimePicker = () => {
     const hour24 = expenseReminderTime.getHours();
     const minute = expenseReminderTime.getMinutes();
-    
+
     // Convert 24-hour to 12-hour format
     let hour12 = hour24 % 12;
     if (hour12 === 0) hour12 = 12;
     const amPm: 'ص' | 'م' = hour24 >= 12 ? 'م' : 'ص';
-    
+
     setTempHour(hour12);
     setTempMinute(minute);
     setTempAmPm(amPm);
@@ -352,7 +354,7 @@ export const SettingsScreen = ({ navigation }: any) => {
 
   const handleDailyTimeConfirm = async () => {
     setShowDailyTimePicker(false);
-    
+
     // Convert 12-hour to 24-hour format
     let hour24 = tempHour;
     if (tempAmPm === 'م' && tempHour !== 12) {
@@ -360,15 +362,15 @@ export const SettingsScreen = ({ navigation }: any) => {
     } else if (tempAmPm === 'ص' && tempHour === 12) {
       hour24 = 0;
     }
-    
+
     const newTime = new Date();
     newTime.setHours(hour24, tempMinute, 0, 0);
     setDailyReminderTime(newTime);
-    
+
     const timeString = `${hour24.toString().padStart(2, '0')}:${tempMinute.toString().padStart(2, '0')}`;
-    
+
     let notificationSettings = await getNotificationSettings();
-    
+
     // Create default settings if they don't exist
     if (!notificationSettings) {
       notificationSettings = {
@@ -381,12 +383,12 @@ export const SettingsScreen = ({ navigation }: any) => {
         monthlySummary: 1,
       };
     }
-    
+
     await upsertNotificationSettings({
       ...notificationSettings,
       dailyReminderTime: timeString,
     });
-    
+
     if (dailyReminder) {
       try {
         await scheduleDailyReminder();
@@ -399,7 +401,7 @@ export const SettingsScreen = ({ navigation }: any) => {
 
   const handleExpenseTimeConfirm = async () => {
     setShowExpenseTimePicker(false);
-    
+
     // Convert 12-hour to 24-hour format
     let hour24 = tempHour;
     if (tempAmPm === 'م' && tempHour !== 12) {
@@ -407,15 +409,15 @@ export const SettingsScreen = ({ navigation }: any) => {
     } else if (tempAmPm === 'ص' && tempHour === 12) {
       hour24 = 0;
     }
-    
+
     const newTime = new Date();
     newTime.setHours(hour24, tempMinute, 0, 0);
     setExpenseReminderTime(newTime);
-    
+
     const timeString = `${hour24.toString().padStart(2, '0')}:${tempMinute.toString().padStart(2, '0')}`;
-    
+
     let notificationSettings = await getNotificationSettings();
-    
+
     // Create default settings if they don't exist
     if (!notificationSettings) {
       notificationSettings = {
@@ -428,12 +430,12 @@ export const SettingsScreen = ({ navigation }: any) => {
         monthlySummary: 1,
       };
     }
-    
+
     await upsertNotificationSettings({
       ...notificationSettings,
       expenseReminderTime: timeString,
     });
-    
+
     if (expenseReminder) {
       try {
         await sendExpenseReminder();
@@ -501,9 +503,9 @@ export const SettingsScreen = ({ navigation }: any) => {
             ))}
           </ScrollView>
         </View>
-        
+
         <Text style={styles.timePickerSeparator}>:</Text>
-        
+
         <View style={styles.timePickerWheel}>
           <View style={styles.timePickerSelectionIndicator} />
           <ScrollView
@@ -582,7 +584,7 @@ export const SettingsScreen = ({ navigation }: any) => {
       await upsertAppSettings({ ...settingsToSave, currency: currency.name });
       setShowCurrencyPicker(false);
       alertService.success('نجح', `تم تغيير العملة إلى ${currency.name}`);
-      
+
       // Reload exchange rate for new currency
       if (currencyCode !== 'USD') {
         const exchangeRate = await getExchangeRate('USD', currencyCode);
@@ -610,27 +612,7 @@ export const SettingsScreen = ({ navigation }: any) => {
     }
   };
 
-  const handleGenerateMockData = async () => {
-    setShowMockDataConfirm(true);
-  };
 
-  const confirmGenerateMockData = async () => {
-    setShowMockDataConfirm(false);
-    try {
-      setGeneratingMockData(true);
-      await generateMockData();
-      alertService.success('نجح', 'تم إنشاء البيانات التجريبية بنجاح!');
-      
-      // Reload the app or navigate to dashboard
-      setTimeout(() => {
-        navigation.navigate('Dashboard');
-      }, 1000);
-    } catch (error) {
-      alertService.error('خطأ', 'حدث خطأ أثناء إنشاء البيانات التجريبية');
-    } finally {
-      setGeneratingMockData(false);
-    }
-  };
 
   const handleSaveExchangeRate = async () => {
     if (selectedCurrency === 'USD') {
@@ -650,7 +632,7 @@ export const SettingsScreen = ({ navigation }: any) => {
         toCurrency: selectedCurrency,
         rate: rate,
       });
-      
+
       // Also update reverse rate
       await upsertExchangeRate({
         fromCurrency: selectedCurrency,
@@ -669,7 +651,7 @@ export const SettingsScreen = ({ navigation }: any) => {
     const subject = encodeURIComponent(CONTACT_INFO.emailSubject);
     const body = encodeURIComponent(CONTACT_INFO.emailBody);
     const mailtoUrl = `mailto:${CONTACT_INFO.email}?subject=${subject}&body=${body}`;
-    
+
     try {
       const canOpen = await Linking.canOpenURL(mailtoUrl);
       if (canOpen) {
@@ -686,7 +668,7 @@ export const SettingsScreen = ({ navigation }: any) => {
   const handleContactWhatsApp = async () => {
     const message = encodeURIComponent(CONTACT_INFO.whatsappMessage);
     const whatsappUrl = `https://wa.me/${CONTACT_INFO.whatsappNumber}?text=${message}`;
-    
+
     try {
       const canOpen = await Linking.canOpenURL(whatsappUrl);
       if (canOpen) {
@@ -708,8 +690,8 @@ export const SettingsScreen = ({ navigation }: any) => {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <ScrollView 
-        style={styles.scrollView} 
+      <ScrollView
+        style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -780,7 +762,7 @@ export const SettingsScreen = ({ navigation }: any) => {
         >
           <View style={styles.sectionContent}>
             <Text style={styles.sectionTitle}>الإعدادات العامة</Text>
-            
+
             <List.Item
               title="الإشعارات"
               description="تلقي تنبيهات حول المصاريف والأهداف"
@@ -913,7 +895,7 @@ export const SettingsScreen = ({ navigation }: any) => {
           >
             <View style={styles.sectionContent}>
               <Text style={styles.sectionTitle}>إعدادات الإشعارات</Text>
-              
+
               {/* Daily Reminder */}
               <View style={styles.notificationItem}>
                 <View style={styles.notificationItemHeader}>
@@ -933,11 +915,11 @@ export const SettingsScreen = ({ navigation }: any) => {
                   />
                 </View>
                 {dailyReminder && (
-                    <TouchableOpacity
-                      onPress={handleOpenDailyTimePicker}
-                      style={styles.timePickerButton}
-                      activeOpacity={0.7}
-                    >
+                  <TouchableOpacity
+                    onPress={handleOpenDailyTimePicker}
+                    style={styles.timePickerButton}
+                    activeOpacity={0.7}
+                  >
                     <Ionicons name="time-outline" size={18} color={theme.colors.primary} />
                     <Text style={styles.timePickerText}>اختر الوقت: {formatTime(dailyReminderTime)}</Text>
                     <Ionicons name="chevron-back" size={16} color={theme.colors.textMuted} />
@@ -945,9 +927,9 @@ export const SettingsScreen = ({ navigation }: any) => {
                 )}
               </View>
 
-            
 
-            
+
+
             </View>
           </LinearGradient>
         )}
@@ -961,7 +943,7 @@ export const SettingsScreen = ({ navigation }: any) => {
         >
           <View style={styles.sectionContent}>
             <Text style={styles.sectionTitle}>التصدير</Text>
-            
+
             <TouchableOpacity
               onPress={handleExportPDF}
               disabled={exportingPDF}
@@ -987,30 +969,7 @@ export const SettingsScreen = ({ navigation }: any) => {
               </LinearGradient>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={handleGenerateMockData}
-              disabled={generatingMockData}
-              style={[styles.exportButton, { marginTop: theme.spacing.md }]}
-              activeOpacity={0.8}
-            >
-              <LinearGradient
-                colors={['#F59E0B', '#D97706'] as any}
-                style={styles.exportButtonGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                {generatingMockData ? (
-                  <ActivityIndicator color={theme.colors.textInverse} />
-                ) : (
-                  <>
-                    <Ionicons name="refresh" size={20} color={theme.colors.textInverse} />
-                    <Text style={styles.exportButtonText}>
-                      إنشاء بيانات تجريبية
-                    </Text>
-                  </>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
+
           </View>
         </LinearGradient>
 
@@ -1023,7 +982,7 @@ export const SettingsScreen = ({ navigation }: any) => {
         >
           <View style={styles.sectionContent}>
             <Text style={styles.sectionTitle}>تواصل معنا</Text>
-            
+
             <TouchableOpacity
               onPress={handleContactEmail}
               style={styles.contactItem}
@@ -1086,13 +1045,13 @@ export const SettingsScreen = ({ navigation }: any) => {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
-            <Image 
-              source={require('../../assets/letters-logo.png')} 
+            <Image
+              source={require('../../assets/letters-logo.png')}
               style={styles.copyrightLogo}
               resizeMode="contain"
             />
             <Text style={styles.copyrightText}>© 2025 URUX. جميع الحقوق محفوظة.</Text>
-            <Text style={styles.versionText}>v.1.0.6</Text>
+            <Text style={styles.versionText}>v.{Constants.expoConfig?.version ?? '1.1.1'}</Text>
           </LinearGradient>
         </View>
       </ScrollView>
@@ -1265,14 +1224,7 @@ export const SettingsScreen = ({ navigation }: any) => {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Mock Data Confirmation */}
-      <ConfirmAlert
-        visible={showMockDataConfirm}
-        title="تأكيد"
-        message="سيتم مسح جميع البيانات الحالية (المصاريف والدخل) وإضافة بيانات تجريبية للفترات التالية:\n\n• نوفمبر 2025\n• ديسمبر 2025\n• يناير 2026 (حتى اليوم 12)\n\nهل أنت متأكد؟"
-        onConfirm={confirmGenerateMockData}
-        onCancel={() => setShowMockDataConfirm(false)}
-      />
+
     </SafeAreaView>
   );
 };
@@ -1306,7 +1258,7 @@ const styles = StyleSheet.create({
     ...getPlatformShadow('md'),
   },
   appNameSection: {
-    flexDirection:  'row',
+    flexDirection: 'row',
     alignItems: 'center',
     padding: theme.spacing.lg,
     borderBottomWidth: 1,
@@ -1333,13 +1285,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
-    textAlign:'left',
+    textAlign: 'left',
   },
   appDescription: {
     fontSize: theme.typography.sizes.sm,
     color: 'rgba(255, 255, 255, 0.9)',
     fontFamily: theme.typography.fontFamily,
-    textAlign:  'left',
+    textAlign: 'left',
   },
   userNameSection: {
     padding: theme.spacing.lg,
@@ -1355,7 +1307,7 @@ const styles = StyleSheet.create({
     fontWeight: getPlatformFontWeight('600'),
     color: 'rgba(255, 255, 255, 0.9)',
     fontFamily: theme.typography.fontFamily,
-    textAlign:  'left',
+    textAlign: 'left',
   },
   userNameButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
@@ -2158,7 +2110,7 @@ const styles = StyleSheet.create({
   },
   copyrightWrapper: {
     marginTop: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.xxl,
     ...getPlatformShadow('md'),
   },
   copyrightCard: {
@@ -2271,94 +2223,94 @@ const ExchangeRateModal: React.FC<ExchangeRateModalProps> = ({
           style={{ width: '100%', alignItems: 'center' }}
         >
           <View style={styles.exchangeRateModalContainer}>
-          <LinearGradient
-            colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-            style={styles.exchangeRateModalGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <SafeAreaView edges={['top']} style={styles.exchangeRateModalSafeArea}>
-              {/* Header */}
-              <View style={styles.exchangeRateModalHeader}>
-                <TouchableOpacity
-                  onPress={onClose}
-                  style={styles.exchangeRateModalCloseButton}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
-                </TouchableOpacity>
-                <Text style={styles.exchangeRateModalTitle}>تعديل سعر الصرف</Text>
-                <View style={styles.placeholder} />
-              </View>
-
-              {/* Content */}
-              <View style={styles.exchangeRateModalContent}>
-                <View style={styles.exchangeRateInfoCard}>
-                  <LinearGradient
-                    colors={theme.gradients.primary as any}
-                    style={styles.exchangeRateInfoCardGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                  >
-                    <View style={styles.exchangeRateInfoCardContent}>
-                      <Ionicons name="cash" size={32} color="#FFFFFF" />
-                      <Text style={styles.exchangeRateInfoCardText}>
-                        1 USD = ? IQD
-                      </Text>
-                    </View>
-                  </LinearGradient>
-                </View>
-
-                <View style={styles.exchangeRateInputSection}>
-                  <Text style={styles.exchangeRateInputLabel}>
-                    سعر الصرف (1 دولار = ? {CURRENCIES.find(c => c.code === selectedCurrency)?.name || 'دينار عراقي'})
-                  </Text>
-                  <View style={styles.exchangeRateInputContainer}>
-                    <TextInput
-                      style={styles.exchangeRateInput}
-                      value={rate}
-                      onChangeText={onRateChange}
-                      placeholder="1315"
-                      placeholderTextColor={theme.colors.textSecondary}
-                      keyboardType="decimal-pad"
-                      textAlign={isRTL ? 'right' : 'left'}
-                    />
-                    <Text style={styles.exchangeRateInputUnit}>
-                      {selectedCurrency}
-                    </Text>
-                  </View>
-                  <Text style={styles.exchangeRateHint}>
-                    أدخل سعر الصرف الحالي للدولار مقابل {CURRENCIES.find(c => c.code === selectedCurrency)?.name || 'الدينار العراقي'}
-                  </Text>
-                </View>
-
-                {/* Actions */}
-                <View style={styles.exchangeRateModalActions}>
+            <LinearGradient
+              colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
+              style={styles.exchangeRateModalGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <SafeAreaView edges={['top']} style={styles.exchangeRateModalSafeArea}>
+                {/* Header */}
+                <View style={styles.exchangeRateModalHeader}>
                   <TouchableOpacity
                     onPress={onClose}
-                    style={styles.exchangeRateCancelButton}
+                    style={styles.exchangeRateModalCloseButton}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.exchangeRateCancelButtonText}>إلغاء</Text>
+                    <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={onSave}
-                    style={styles.exchangeRateSaveButton}
-                    activeOpacity={0.7}
-                  >
+                  <Text style={styles.exchangeRateModalTitle}>تعديل سعر الصرف</Text>
+                  <View style={styles.placeholder} />
+                </View>
+
+                {/* Content */}
+                <View style={styles.exchangeRateModalContent}>
+                  <View style={styles.exchangeRateInfoCard}>
                     <LinearGradient
                       colors={theme.gradients.primary as any}
-                      style={styles.exchangeRateSaveButtonGradient}
+                      style={styles.exchangeRateInfoCardGradient}
                       start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
+                      end={{ x: 1, y: 1 }}
                     >
-                      <Text style={styles.exchangeRateSaveButtonText}>حفظ</Text>
+                      <View style={styles.exchangeRateInfoCardContent}>
+                        <Ionicons name="cash" size={32} color="#FFFFFF" />
+                        <Text style={styles.exchangeRateInfoCardText}>
+                          1 USD = ? IQD
+                        </Text>
+                      </View>
                     </LinearGradient>
-                  </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.exchangeRateInputSection}>
+                    <Text style={styles.exchangeRateInputLabel}>
+                      سعر الصرف (1 دولار = ? {CURRENCIES.find(c => c.code === selectedCurrency)?.name || 'دينار عراقي'})
+                    </Text>
+                    <View style={styles.exchangeRateInputContainer}>
+                      <TextInput
+                        style={styles.exchangeRateInput}
+                        value={rate}
+                        onChangeText={(val) => onRateChange(convertArabicToEnglish(val))}
+                        placeholder="1315"
+                        placeholderTextColor={theme.colors.textSecondary}
+                        keyboardType="decimal-pad"
+                        textAlign={isRTL ? 'right' : 'left'}
+                      />
+                      <Text style={styles.exchangeRateInputUnit}>
+                        {selectedCurrency}
+                      </Text>
+                    </View>
+                    <Text style={styles.exchangeRateHint}>
+                      أدخل سعر الصرف الحالي للدولار مقابل {CURRENCIES.find(c => c.code === selectedCurrency)?.name || 'الدينار العراقي'}
+                    </Text>
+                  </View>
+
+                  {/* Actions */}
+                  <View style={styles.exchangeRateModalActions}>
+                    <TouchableOpacity
+                      onPress={onClose}
+                      style={styles.exchangeRateCancelButton}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.exchangeRateCancelButtonText}>إلغاء</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={onSave}
+                      style={styles.exchangeRateSaveButton}
+                      activeOpacity={0.7}
+                    >
+                      <LinearGradient
+                        colors={theme.gradients.primary as any}
+                        style={styles.exchangeRateSaveButtonGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                      >
+                        <Text style={styles.exchangeRateSaveButtonText}>حفظ</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
-            </SafeAreaView>
-          </LinearGradient>
+              </SafeAreaView>
+            </LinearGradient>
           </View>
         </KeyboardAvoidingView>
       </View>

@@ -18,12 +18,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme, getPlatformFontWeight } from '../utils/theme';
 import { ExpenseCategory, EXPENSE_CATEGORIES, RECURRENCE_TYPES } from '../types';
-import { 
-  addRecurringExpense, 
-  updateRecurringExpense, 
-  RecurringExpense 
+import {
+  addRecurringExpense,
+  updateRecurringExpense,
+  RecurringExpense
 } from '../database/database';
 import { getCustomCategories } from '../database/database';
+import { convertArabicToEnglish } from '../utils/numbers';
 
 interface AddRecurringExpenseModalProps {
   visible: boolean;
@@ -164,9 +165,9 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
   };
 
   const getCategoryName = (cat: ExpenseCategory) => {
-    return EXPENSE_CATEGORIES[cat as keyof typeof EXPENSE_CATEGORIES] || 
-           customCategories.find(c => c.name === cat)?.name || 
-           cat;
+    return EXPENSE_CATEGORIES[cat as keyof typeof EXPENSE_CATEGORIES] ||
+      customCategories.find(c => c.name === cat)?.name ||
+      cat;
   };
 
   const allCategories = [
@@ -242,7 +243,7 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
                 <Text style={styles.label}>المبلغ</Text>
                 <TextInput
                   value={amount}
-                  onChangeText={setAmount}
+                  onChangeText={(val) => setAmount(convertArabicToEnglish(val))}
                   placeholder="0.00"
                   keyboardType="decimal-pad"
                   mode="outlined"
@@ -330,7 +331,7 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
                 <Text style={styles.label}>قيمة التكرار</Text>
                 <TextInput
                   value={recurrenceValue}
-                  onChangeText={setRecurrenceValue}
+                  onChangeText={(val) => setRecurrenceValue(convertArabicToEnglish(val))}
                   placeholder="1"
                   keyboardType="number-pad"
                   mode="outlined"

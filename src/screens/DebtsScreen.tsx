@@ -16,15 +16,14 @@ import { Searchbar } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
-import { 
-  getDebts, 
+import {
+  getDebts,
   deleteDebt,
   getDebtInstallments,
   Debt,
   DebtInstallment,
 } from '../database/database';
 import { useCurrency } from '../hooks/useCurrency';
-import { AddDebtModal } from '../components/AddDebtModal';
 import { ConfirmAlert } from '../components/ConfirmAlert';
 import { DebtItem } from '../components/DebtItem';
 import { DEBT_TYPES } from '../types';
@@ -40,8 +39,6 @@ export const DebtsScreen = ({ navigation, route }: any) => {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<'debt' | 'installment' | 'advance' | 'all'>('all');
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [debtToDelete, setDebtToDelete] = useState<Debt | null>(null);
   const [installmentsMap, setInstallmentsMap] = useState<Record<number, DebtInstallment[]>>({});
@@ -54,7 +51,7 @@ export const DebtsScreen = ({ navigation, route }: any) => {
     try {
       const allDebts = await getDebts();
       setDebts(allDebts);
-      
+
       // Load installments for each debt
       const installments: Record<number, DebtInstallment[]> = {};
       for (const debt of allDebts) {
@@ -126,7 +123,7 @@ export const DebtsScreen = ({ navigation, route }: any) => {
 
   useEffect(() => {
     if (route?.params?.action === 'add') {
-      handleAdd();
+      navigation.navigate('AddDebt');
       navigation.setParams({ action: undefined });
     }
   }, [route?.params]);
@@ -181,18 +178,14 @@ export const DebtsScreen = ({ navigation, route }: any) => {
   };
 
   const handleEdit = (debt: Debt) => {
-    setEditingDebt(debt);
-    setShowAddModal(true);
+    navigation.navigate('AddDebt', { debt });
   };
 
   const handleAdd = () => {
-    setEditingDebt(null);
-    setShowAddModal(true);
+    navigation.navigate('AddDebt');
   };
 
   const handleModalClose = () => {
-    setShowAddModal(false);
-    setEditingDebt(null);
     loadDebts();
   };
 
@@ -278,7 +271,7 @@ export const DebtsScreen = ({ navigation, route }: any) => {
   const renderDebt = ({ item }: { item: Debt }) => {
     const installments = installmentsMap[item.id] || [];
     const unpaidInstallments = installments.filter(inst => !inst.isPaid);
-    
+
     return (
       <DebtItem
         item={item}
@@ -309,8 +302,8 @@ export const DebtsScreen = ({ navigation, route }: any) => {
         </View>
 
         {/* Filter Buttons Row */}
-        <ScrollView 
-          horizontal 
+        <ScrollView
+          horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.filterRow}
           contentContainerStyle={styles.filterRowContent}
@@ -326,7 +319,7 @@ export const DebtsScreen = ({ navigation, route }: any) => {
               >
                 {isSelected ? (
                   <LinearGradient
-                    colors={type === 'all' 
+                    colors={type === 'all'
                       ? (theme.gradients.primary as any)
                       : (typeColors[type] as any)}
                     style={styles.filterButtonGradient}
@@ -334,8 +327,8 @@ export const DebtsScreen = ({ navigation, route }: any) => {
                     end={{ x: 1, y: 0 }}
                   >
                     <Ionicons
-                      name={type === 'all' 
-                        ? 'apps' 
+                      name={type === 'all'
+                        ? 'apps'
                         : (typeIcons[type] as any)}
                       size={16}
                       color={theme.colors.textInverse}
@@ -347,8 +340,8 @@ export const DebtsScreen = ({ navigation, route }: any) => {
                 ) : (
                   <View style={styles.filterButtonDefault}>
                     <Ionicons
-                      name={type === 'all' 
-                        ? 'apps-outline' 
+                      name={type === 'all'
+                        ? 'apps-outline'
                         : (typeIcons[type] as any)}
                       size={16}
                       color={theme.colors.textSecondary}
@@ -510,7 +503,7 @@ export const DebtsScreen = ({ navigation, route }: any) => {
               {searchQuery || selectedType !== 'all' ? 'لا توجد نتائج' : 'لا توجد ديون مستحقة عليك'}
             </Text>
             <Text style={styles.emptySubtext}>
-              {searchQuery || selectedType !== 'all' 
+              {searchQuery || selectedType !== 'all'
                 ? 'جرب البحث بكلمات مختلفة أو تغيير الفلتر'
                 : 'أضف دين مستحق عليك أو قسط لتتبعه'}
             </Text>
@@ -518,12 +511,6 @@ export const DebtsScreen = ({ navigation, route }: any) => {
         }
       />
 
-      <AddDebtModal
-        visible={showAddModal}
-        onClose={handleModalClose}
-        editingDebt={editingDebt}
-      />
-      
       <ConfirmAlert
         visible={showDeleteAlert}
         onCancel={() => {
@@ -557,7 +544,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
-    
+
   },
   header: {
     padding: theme.spacing.md,
@@ -606,6 +593,7 @@ const styles = StyleSheet.create({
     direction: 'rtl' as const,
   },
   filterRowContent: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     gap: theme.spacing.xs,
     paddingHorizontal: theme.spacing.xs,
   },
@@ -670,7 +658,6 @@ const styles = StyleSheet.create({
   listContent: {
     padding: theme.spacing.md,
     paddingTop: 0,
-    direction: 'rtl',
   },
   emptyContainer: {
     flex: 1,
@@ -684,12 +671,13 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
     marginTop: theme.spacing.lg,
     fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'right' : 'left',
   },
   emptySubtext: {
     fontSize: theme.typography.sizes.md,
     color: theme.colors.textSecondary,
     marginTop: theme.spacing.sm,
-    textAlign: 'right',
+    textAlign: isRTL ? 'right' : 'left',
     fontFamily: theme.typography.fontFamily,
   },
   filterMenuOverlay: {

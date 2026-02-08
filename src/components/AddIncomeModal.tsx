@@ -19,11 +19,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { Income, IncomeSource, INCOME_SOURCES, CURRENCIES } from '../types';
-import { 
-  addIncome, 
-  updateIncome, 
-  getIncomeShortcuts, 
-  addIncomeShortcut, 
+import {
+  addIncome,
+  updateIncome,
+  getIncomeShortcuts,
+  addIncomeShortcut,
   deleteIncomeShortcut,
   updateIncomeShortcut,
   IncomeShortcut,
@@ -31,9 +31,11 @@ import {
   CustomCategory
 } from '../database/database';
 import { alertService } from '../services/alertService';
+import { formatDateLocal } from '../utils/date';
 import { useCurrency } from '../hooks/useCurrency';
 import { isRTL } from '../utils/rtl';
 import { convertCurrency } from '../services/currencyService';
+import { convertArabicToEnglish } from '../utils/numbers';
 
 interface AddIncomeModalProps {
   visible: boolean;
@@ -116,6 +118,30 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
       setDate(new Date(income.date));
       setDescription(income.description || '');
       setCurrency(income.currency || currencyCode);
+
+      // Set income source (category)
+      if (income.category) {
+        setIncomeSource(income.category as IncomeSource);
+      } else {
+        // Try to infer from source name for legacy data
+        const normalizedSource = income.source.toLowerCase().trim();
+        // Check custom categories
+        const customCat = categories.find(c =>
+          c.name.toLowerCase() === normalizedSource ||
+          c.name === income.source
+        );
+        if (customCat) {
+          setIncomeSource(customCat.name);
+        } else {
+          // Check default sources
+          const defaultSrc = Object.keys(INCOME_SOURCES).find(key =>
+            INCOME_SOURCES[key as IncomeSource] === income.source
+          );
+          if (defaultSrc) {
+            setIncomeSource(defaultSrc as IncomeSource);
+          }
+        }
+      }
       setShowShortcuts(false);
     } else {
       resetForm();
@@ -173,9 +199,10 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
       const incomeData = {
         source: source.trim(),
         amount: Number(amount),
-        date: date.toISOString().split('T')[0],
+        date: formatDateLocal(date),
         description: description.trim(),
         currency: currency,
+        category: incomeSource,
       };
 
       if (income) {
@@ -204,7 +231,7 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
       const incomeData = {
         source: shortcut.source,
         amount: shortcut.amount,
-        date: new Date().toISOString().split('T')[0],
+        date: formatDateLocal(new Date()),
         description: shortcut.description || '',
         currency: shortcut.currency || currencyCode,
       };
@@ -235,7 +262,7 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
         alertService.error('خطأ', 'الدالة غير متاحة. يرجى إعادة تشغيل التطبيق');
         return;
       }
-      
+
       await addIncomeShortcut({
         source: source.trim(),
         amount: Number(amount),
@@ -360,8 +387,9 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
       statusBarTranslucent
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
         style={styles.keyboardView}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -500}
       >
         <TouchableOpacity
           style={styles.overlay}
@@ -377,12 +405,12 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
             ]}
           >
             <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
-        <LinearGradient
-          colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
+              <LinearGradient
+                colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
                 style={[styles.modalGradient, { paddingBottom: insets.bottom }]}
-        >
+              >
                 {/* Header */}
-          <View style={styles.header}>
+                <View style={styles.header}>
                   <View style={styles.headerLeft}>
                     <View style={[styles.iconBadge, { backgroundColor: getSourceInfo(incomeSource).color + '20' }]}>
                       <Ionicons
@@ -392,20 +420,20 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
                       />
                     </View>
                     <View style={styles.headerText}>
-            <Text style={styles.title}>
+                      <Text style={styles.title}>
                         {income ? 'تعديل الدخل' : 'دخل جديد'}
-            </Text>
+                      </Text>
                       <Text style={styles.subtitle}>أضف تفاصيل الدخل</Text>
                     </View>
                   </View>
-            <IconButton
-              icon="close"
-              size={24}
-              onPress={handleClose}
+                  <IconButton
+                    icon="close"
+                    size={24}
+                    onPress={handleClose}
                     iconColor={theme.colors.textSecondary}
                     style={styles.closeButton}
-            />
-          </View>
+                  />
+                </View>
 
                 <ScrollView
                   style={styles.scrollView}
@@ -568,16 +596,16 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>مصدر الدخل</Text>
                     <View style={styles.inputWrapper}>
-            <TextInput
-              value={source}
-              onChangeText={setSource}
+                      <TextInput
+                        value={source}
+                        onChangeText={setSource}
                         placeholder="مثال: راتب شهري"
                         mode="flat"
-              style={styles.input}
-              contentStyle={styles.inputContent}
+                        style={styles.input}
+                        contentStyle={styles.inputContent}
                         underlineColor="transparent"
                         activeUnderlineColor={theme.colors.primary}
-            />
+                      />
                     </View>
                   </View>
 
@@ -585,14 +613,14 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>المبلغ ({CURRENCIES.find(c => c.code === currency)?.symbol})</Text>
                     <View style={styles.inputWrapper}>
-            <TextInput
-              value={amount}
-              onChangeText={setAmount}
+                      <TextInput
+                        value={amount}
+                        onChangeText={(val) => setAmount(convertArabicToEnglish(val))}
                         placeholder="0.00"
-              keyboardType="numeric"
+                        keyboardType="numeric"
                         mode="flat"
-              style={styles.input}
-              contentStyle={styles.inputContent}
+                        style={styles.input}
+                        contentStyle={styles.inputContent}
                         underlineColor="transparent"
                         activeUnderlineColor={theme.colors.primary}
                         left={
@@ -638,8 +666,8 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>التاريخ</Text>
                     <TouchableOpacity
-              onPress={() => setShowDatePicker(true)}
-              style={styles.dateButton}
+                      onPress={() => setShowDatePicker(true)}
+                      style={styles.dateButton}
                     >
                       <Ionicons name="calendar-outline" size={20} color={theme.colors.primary} />
                       <Text style={styles.dateButtonText}>
@@ -651,17 +679,17 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
                       </Text>
                       <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
                     </TouchableOpacity>
-            {showDatePicker && (
-              <DateTimePicker
-                value={date}
-                mode="date"
-                display="default"
-                onChange={(event, selectedDate) => {
-                  setShowDatePicker(false);
-                  if (selectedDate) {
-                    setDate(selectedDate);
-                  }
-                }}
+                    {showDatePicker && (
+                      <DateTimePicker
+                        value={date}
+                        mode="date"
+                        display="default"
+                        onChange={(event, selectedDate) => {
+                          setShowDatePicker(false);
+                          if (selectedDate) {
+                            setDate(selectedDate);
+                          }
+                        }}
                       />
                     )}
                   </View>
@@ -680,7 +708,7 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
                         const color1 = cat.color;
                         const color2 = cat.color; // Use same color or create darker shade
                         const colors = [color1, color2];
-                        
+
                         return (
                           <TouchableOpacity
                             key={cat.id}
@@ -716,33 +744,33 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
                         );
                       })}
                     </ScrollView>
-            </View>
+                  </View>
 
                   {/* Description Input */}
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>وصف (اختياري)</Text>
                     <View style={styles.inputWrapper}>
-            <TextInput
-              value={description}
-              onChangeText={setDescription}
+                      <TextInput
+                        value={description}
+                        onChangeText={setDescription}
                         placeholder="أضف ملاحظات إضافية..."
-              multiline
+                        multiline
                         numberOfLines={4}
                         mode="flat"
-              style={styles.input}
+                        style={styles.input}
                         contentStyle={[styles.inputContent, styles.textAreaContent]}
                         underlineColor="transparent"
                         activeUnderlineColor={theme.colors.primary}
                       />
                     </View>
                   </View>
-          </ScrollView>
+                </ScrollView>
 
                 {/* Actions */}
-          <View style={styles.actions}>
+                <View style={styles.actions}>
                   <TouchableOpacity
-              onPress={handleClose}
-              style={styles.cancelButton}
+                    onPress={handleClose}
+                    style={styles.cancelButton}
                     activeOpacity={0.7}
                   >
                     <View style={styles.cancelButtonContent}>
@@ -767,9 +795,9 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
                     </TouchableOpacity>
                   )}
                   <TouchableOpacity
-              onPress={handleSave}
-              disabled={loading}
-              style={styles.saveButton}
+                    onPress={handleSave}
+                    disabled={loading}
+                    style={styles.saveButton}
                     activeOpacity={0.8}
                   >
                     <LinearGradient
@@ -787,14 +815,14 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
                         <>
                           <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
                           <Text style={styles.saveButtonText}>
-              {income ? 'تحديث' : 'حفظ'}
+                            {income ? 'تحديث' : 'حفظ'}
                           </Text>
                         </>
                       )}
                     </LinearGradient>
                   </TouchableOpacity>
-          </View>
-        </LinearGradient>
+                </View>
+              </LinearGradient>
             </TouchableOpacity>
           </Animated.View>
         </TouchableOpacity>
@@ -827,7 +855,7 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
                 >
                   <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
                 </TouchableOpacity>
-      </View>
+              </View>
               <ScrollView
                 style={styles.currencyModalScrollView}
                 contentContainerStyle={styles.currencyModalScrollContent}
@@ -1072,7 +1100,7 @@ const styles = StyleSheet.create({
     margin: 0,
   },
   scrollView: {
-    maxHeight: 500,
+    flexGrow: 0,
   },
   scrollContent: {
     padding: theme.spacing.lg,
@@ -1384,6 +1412,13 @@ const styles = StyleSheet.create({
   shortcutCardFirst: {
     marginRight: 0,
   },
+  shortcutCardPressable: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: theme.spacing.md,
+  },
   shortcutGradient: {
     padding: theme.spacing.lg,
     alignItems: 'center',
@@ -1529,15 +1564,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
     lineHeight: 18,
   },
-  addShortcutActionButton: {
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.surfaceLight,
-    marginRight: theme.spacing.sm,
-  },
+
   shortcutModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

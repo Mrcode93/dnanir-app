@@ -1,8 +1,11 @@
 {
   "expo": {
+    "plugins": [
+      "./plugins/withAndroidIcons.js"
+    ],
     "name": "دنانير",
     "slug": "dnanir",
-    "version": "1.0.6",
+    "version": "1.1.2",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "light",
@@ -18,7 +21,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.mrcodeiq.dinar",
-      "buildNumber": "6",
+      "buildNumber": "8",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleDisplayName": "دنانير",
@@ -62,9 +65,8 @@
       "predictiveBackGestureEnabled": false,
       "locale": "ar",
       "package": "com.mrcodeiq.dinar",
-      "versionCode": 6,
+      "versionCode": 9,
       "fonts": [
-        "./assets/fonts/Cairo-Regular.ttf",
         "./assets/fonts/Cairo-Regular.ttf"
       ],
       "permissions": [

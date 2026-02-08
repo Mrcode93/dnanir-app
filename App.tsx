@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { StatusBar } from 'expo-status-bar';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StyleSheet, View, Text, Image, I18nManager, Platform, AppState } from 'react-native';
 import { Provider as PaperProvider, Portal, DefaultTheme, configureFonts } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -13,6 +14,7 @@ import { initializeNotifications } from './src/services/notificationService';
 import { isAuthenticationEnabled } from './src/services/authService';
 import { authEventService } from './src/services/authEventService';
 import { AlertProvider } from './src/components/AlertProvider';
+import { PrivacyProvider } from './src/context/PrivacyContext';
 
 const fontConfig = {
   config: {
@@ -58,9 +60,11 @@ export default function App() {
 
   useEffect(() => {
     try {
-      I18nManager.allowRTL(false);
-      I18nManager.forceRTL(false);
-      I18nManager.swapLeftAndRightInRTL(false);
+      if (I18nManager.isRTL) {
+        I18nManager.allowRTL(false);
+        I18nManager.forceRTL(false);
+        I18nManager.swapLeftAndRightInRTL(false);
+      }
 
       if (Platform.OS === 'android') {
         (Text as any).defaultProps = {
@@ -68,8 +72,8 @@ export default function App() {
           style: [
             {
               fontFamily: 'Cairo-Regular',
-              textAlign: 'left',
-              writingDirection: 'ltr',
+              textAlign: 'right',
+              writingDirection: 'rtl',
             },
             (Text as any).defaultProps?.style,
           ],
@@ -83,7 +87,7 @@ export default function App() {
       try {
         await initDatabase();
         await initializeNotifications();
-        
+
         // Initialize achievements
         try {
           const { initializeAchievements, checkAllAchievements } = await import('./src/services/achievementService');
@@ -92,7 +96,7 @@ export default function App() {
         } catch (error) {
           console.error('Error initializing achievements:', error);
         }
-        
+
         // Initialize widget data
         try {
           const { initializeWidgetData } = await import('./src/services/widgetDataService');
@@ -100,10 +104,10 @@ export default function App() {
         } catch (error) {
           console.error('Error initializing widget data:', error);
         }
-        
+
         const authEnabled = await isAuthenticationEnabled();
         setIsLocked(authEnabled);
-        
+
         setIsLoading(false);
       } catch (error) {
         console.error('Failed to initialize app:', error);
@@ -123,7 +127,7 @@ export default function App() {
       }
 
       const authEnabled = await isAuthenticationEnabled();
-      
+
       if (!authEnabled) {
         isUnlockedRef.current = true;
         setIsLocked(false);
@@ -155,7 +159,7 @@ export default function App() {
       } else if (!isUnlockedRef.current) {
         setIsLocked(true);
       }
-      
+
       // Re-initialize notifications when app comes to foreground
       try {
         await initializeNotifications();
@@ -193,6 +197,9 @@ export default function App() {
     return unsubscribe;
   }, [checkAndUpdateAuthStatus]);
 
+  // Check auth on focus is already handled by subscription and navigation listeners
+  // Removing interval to prevent performance degradation on Android
+  /*
   useEffect(() => {
     const interval = setInterval(() => {
       checkAndUpdateAuthStatus();
@@ -200,6 +207,7 @@ export default function App() {
 
     return () => clearInterval(interval);
   }, [checkAndUpdateAuthStatus]);
+  */
 
   const handleUnlock = () => {
     isUnlockedRef.current = true;
@@ -209,7 +217,7 @@ export default function App() {
   if (isLoading || !fontsLoaded) {
     return (
       <LinearGradient
-        colors={theme.gradients.primary}
+        colors={theme.gradients.primary as any}
         style={styles.loadingContainer}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -232,16 +240,20 @@ export default function App() {
   }
 
   return (
-    <SafeAreaProvider>
-      <AlertProvider>
-      <PaperProvider theme={paperTheme}>
-          <Portal.Host>
-        <AppNavigator />
-        <StatusBar style="dark" backgroundColor={theme.colors.background} />
-          </Portal.Host>
-      </PaperProvider>
-      </AlertProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <AlertProvider>
+          <PrivacyProvider>
+            <PaperProvider theme={paperTheme}>
+              <Portal.Host>
+                <AppNavigator />
+                <StatusBar style="dark" backgroundColor={theme.colors.background} />
+              </Portal.Host>
+            </PaperProvider>
+          </PrivacyProvider>
+        </AlertProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

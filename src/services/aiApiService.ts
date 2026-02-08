@@ -66,11 +66,11 @@ export const aiApiService = {
     try {
       // Read image file and convert to base64 using legacy API
       console.log('📸 Reading image file:', imageUri);
-      
+
       const base64 = await FileSystem.readAsStringAsync(imageUri, {
         encoding: FileSystem.EncodingType.Base64,
       });
-      
+
       console.log('✅ Image converted to base64, length:', base64.length);
 
       const request: ReceiptOCRRequest = {

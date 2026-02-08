@@ -47,8 +47,9 @@ export const ACHIEVEMENT_DEFINITIONS: Record<AchievementType, AchievementDefinit
     category: 'tracking',
     targetProgress: 1,
     checkCondition: async () => {
-      const expenses = await getExpenses();
-      return expenses.length > 0 ? 1 : 0;
+      const { getExpensesCount } = await import('../database/database');
+      const count = await getExpensesCount();
+      return count > 0 ? 1 : 0;
     },
   },
   first_income: {
@@ -59,8 +60,9 @@ export const ACHIEVEMENT_DEFINITIONS: Record<AchievementType, AchievementDefinit
     category: 'tracking',
     targetProgress: 1,
     checkCondition: async () => {
-      const income = await getIncome();
-      return income.length > 0 ? 1 : 0;
+      const { getIncomeCount } = await import('../database/database');
+      const count = await getIncomeCount();
+      return count > 0 ? 1 : 0;
     },
   },
   first_challenge: {
@@ -97,12 +99,9 @@ export const ACHIEVEMENT_DEFINITIONS: Record<AchievementType, AchievementDefinit
     category: 'saving',
     targetProgress: 100000,
     checkCondition: async () => {
-      const income = await getIncome();
-      const expenses = await getExpenses();
-      const totalIncome = income.reduce((sum, inc) => sum + inc.amount, 0);
-      const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-      const saved = totalIncome - totalExpenses;
-      return Math.max(0, saved);
+      const { getFinancialStatsAggregated } = await import('../database/database');
+      const stats = await getFinancialStatsAggregated();
+      return Math.max(0, stats.balance);
     },
   },
   budget_keeper: {
@@ -139,8 +138,8 @@ export const ACHIEVEMENT_DEFINITIONS: Record<AchievementType, AchievementDefinit
     category: 'tracking',
     targetProgress: 100,
     checkCondition: async () => {
-      const expenses = await getExpenses();
-      return expenses.length;
+      const { getExpensesCount } = await import('../database/database');
+      return await getExpensesCount();
     },
   },
   goal_achiever: {
@@ -258,7 +257,7 @@ export const checkAllAchievements = async (): Promise<void> => {
   } finally {
     // Release lock
     isCheckingAchievements = false;
-    
+
     // If there was a pending check, run it now
     if (pendingCheck) {
       // Use setTimeout to avoid immediate recursion

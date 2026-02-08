@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextInput, IconButton } from 'react-native-paper';
@@ -22,6 +23,7 @@ import { FinancialGoal, GoalCategory, GOAL_CATEGORIES, CURRENCIES } from '../typ
 import { useCurrency } from '../hooks/useCurrency';
 import { alertService } from '../services/alertService';
 import { convertCurrency, formatCurrencyAmount } from '../services/currencyService';
+import { convertArabicToEnglish } from '../utils/numbers';
 
 interface AddGoalModalProps {
   visible: boolean;
@@ -130,6 +132,8 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
       alertService.warning('تنبيه', 'يرجى إدخال عنوان الهدف');
       return;
     }
+
+    Keyboard.dismiss();
 
     if (!targetAmount.trim() || isNaN(Number(targetAmount)) || Number(targetAmount) <= 0) {
       alertService.warning('تنبيه', 'يرجى إدخال مبلغ مستهدف صحيح');
@@ -290,7 +294,7 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
                       <View style={styles.inputWrapper}>
                         <TextInput
                           value={targetAmount}
-                          onChangeText={setTargetAmount}
+                          onChangeText={(val) => setTargetAmount(convertArabicToEnglish(val))}
                           placeholder="0.00"
                           keyboardType="numeric"
                           mode="flat"
@@ -319,7 +323,7 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
                       <View style={styles.inputWrapper}>
                         <TextInput
                           value={currentAmount}
-                          onChangeText={setCurrentAmount}
+                          onChangeText={(val) => setCurrentAmount(convertArabicToEnglish(val))}
                           placeholder="0.00"
                           keyboardType="numeric"
                           mode="flat"
@@ -421,10 +425,10 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
                       <Text style={styles.dateButtonText}>
                         {targetDate
                           ? targetDate.toLocaleDateString('ar-IQ', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric',
-                            })
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                          })
                           : 'اختر التاريخ'}
                       </Text>
                       {targetDate ? (

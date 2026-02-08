@@ -28,9 +28,24 @@ import { ManageCategoriesScreen } from '../screens/ManageCategoriesScreen';
 import { BillsScreen } from '../screens/BillsScreen';
 import { AddBillScreen } from '../screens/AddBillScreen';
 import { BillDetailsScreen } from '../screens/BillDetailsScreen';
+import { AddBudgetScreen } from '../screens/AddBudgetScreen';
+import { AddGoalScreen } from '../screens/AddGoalScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
+
+const renderHeaderLeft = (navigation: any) => (
+  <TouchableOpacity
+    onPress={() => navigation.goBack()}
+    style={{
+      marginLeft: isRTL ? 0 : 16,
+      marginRight: isRTL ? 16 : 0,
+      padding: 8,
+    }}
+  >
+    <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={28} color={theme.colors.primary} />
+  </TouchableOpacity>
+);
 
 const ExpensesStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -38,8 +53,9 @@ const ExpensesStack = () => (
     <Stack.Screen
       name="RecurringExpenses"
       component={RecurringExpensesScreen}
-      options={{
+      options={({ navigation }) => ({
         headerShown: true,
+        headerLeft: () => renderHeaderLeft(navigation),
         headerTitle: 'المصاريف المتكررة',
         headerTitleStyle: {
           fontFamily: theme.typography.fontFamily,
@@ -50,7 +66,7 @@ const ExpensesStack = () => (
           backgroundColor: theme.colors.surfaceCard,
         },
         headerTintColor: theme.colors.textPrimary,
-      }}
+      })}
     />
     <Stack.Screen
       name="AddExpense"
@@ -116,13 +132,16 @@ const InsightsStack = () => (
   </Stack.Navigator>
 );
 
+import { AddDebtScreen } from '../screens/AddDebtScreen';
+
 const DebtsStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
-    <Stack.Screen 
-      name="DebtsList" 
+    <Stack.Screen
+      name="DebtsList"
       component={DebtsScreen}
       options={({ navigation }) => ({
         headerShown: true,
+        headerLeft: () => renderHeaderLeft(navigation),
         headerTitle: () => (
           <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
             <Ionicons name="document-text" size={24} color={theme.colors.primary} />
@@ -154,7 +173,7 @@ const DebtsStack = () => (
         headerRight: () => (
           <TouchableOpacity
             onPress={() => {
-              navigation.navigate('DebtsList', { action: 'add' });
+              navigation.navigate('AddDebt');
             }}
             style={{
               marginRight: isRTL ? 0 : 16,
@@ -175,6 +194,7 @@ const DebtsStack = () => (
       component={DebtDetailsScreen}
       options={({ navigation }) => ({
         headerShown: true,
+        headerLeft: () => renderHeaderLeft(navigation),
         headerTitle: () => (
           <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
             <Ionicons name="document" size={24} color={theme.colors.primary} />
@@ -206,16 +226,25 @@ const DebtsStack = () => (
         tabBarStyle: { display: 'none' },
       })}
     />
+    <Stack.Screen
+      name="AddDebt"
+      component={AddDebtScreen}
+      options={{
+        headerShown: false,
+        presentation: 'card',
+      }}
+    />
   </Stack.Navigator>
 );
 
 const BillsStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
-    <Stack.Screen 
-      name="BillsList" 
+    <Stack.Screen
+      name="BillsList"
       component={BillsScreen}
       options={({ navigation }) => ({
         headerShown: true,
+        headerLeft: () => renderHeaderLeft(navigation),
         headerTitle: () => (
           <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
             <Ionicons name="receipt" size={24} color={theme.colors.primary} />
@@ -295,6 +324,7 @@ const DashboardStack = () => (
       component={GoalsScreen}
       options={({ navigation }) => ({
         headerShown: true,
+        headerLeft: () => renderHeaderLeft(navigation),
         headerTitle: () => (
           <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
             <Ionicons name="flag" size={24} color={theme.colors.primary} />
@@ -326,8 +356,7 @@ const DashboardStack = () => (
         headerRight: () => (
           <TouchableOpacity
             onPress={() => {
-              // Navigate to Goals screen and trigger add
-              navigation.navigate('Goals', { action: 'add' });
+              navigation.navigate('AddGoal');
             }}
             style={{
               marginRight: isRTL ? 0 : 16,
@@ -344,10 +373,19 @@ const DashboardStack = () => (
       })}
     />
     <Stack.Screen
+      name="AddGoal"
+      component={AddGoalScreen}
+      options={{
+        headerShown: false,
+        presentation: 'card',
+      }}
+    />
+    <Stack.Screen
       name="Budget"
       component={BudgetScreen}
       options={({ navigation }) => ({
         headerShown: true,
+        headerLeft: () => renderHeaderLeft(navigation),
         headerTitle: () => (
           <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
             <Ionicons name="wallet" size={24} color={theme.colors.primary} />
@@ -379,7 +417,7 @@ const DashboardStack = () => (
         headerRight: () => (
           <TouchableOpacity
             onPress={() => {
-              navigation.navigate('Budget', { action: 'add' });
+              navigation.navigate('AddBudget');
             }}
             style={{
               marginRight: isRTL ? 0 : 16,
@@ -397,10 +435,19 @@ const DashboardStack = () => (
       })}
     />
     <Stack.Screen
+      name="AddBudget"
+      component={AddBudgetScreen}
+      options={{
+        headerShown: false,
+        presentation: 'card',
+      }}
+    />
+    <Stack.Screen
       name="CurrencyConverter"
       component={CurrencyConverterScreen}
       options={({ navigation }) => ({
         headerShown: true,
+        headerLeft: () => renderHeaderLeft(navigation),
         headerTitle: () => (
           <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
             <Ionicons name="swap-horizontal" size={24} color={theme.colors.primary} />
@@ -444,6 +491,7 @@ const DashboardStack = () => (
       component={AchievementsScreen}
       options={({ navigation }) => ({
         headerShown: true,
+        headerLeft: () => renderHeaderLeft(navigation),
         headerTitle: () => (
           <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
             <Ionicons name="trophy" size={24} color={theme.colors.primary} />
@@ -487,6 +535,7 @@ const DashboardStack = () => (
       component={ChallengesScreen}
       options={({ navigation }) => ({
         headerShown: true,
+        headerLeft: () => renderHeaderLeft(navigation),
         headerTitle: () => (
           <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
             <Ionicons name="trophy" size={24} color={theme.colors.primary} />
@@ -541,16 +590,11 @@ const DashboardStack = () => (
 export const AppNavigator = () => {
   const insets = useSafeAreaInsets();
 
-  // Ensure LTR is always enabled
-  React.useEffect(() => {
-    I18nManager.forceRTL(false);
-    I18nManager.allowRTL(false);
-    I18nManager.swapLeftAndRightInRTL(false);
-  }, []);
+  // I18nManager setup is handled in App.tsx to avoid reload loops
 
   return (
-    <NavigationContainer 
-      direction="ltr"
+    <NavigationContainer
+      direction={isRTL ? 'rtl' : 'ltr'}
       onReady={() => {
       }}
     >
@@ -563,46 +607,68 @@ export const AppNavigator = () => {
             let iconName: keyof typeof Ionicons.glyphMap;
 
             if (route.name === 'Dashboard') {
-              iconName = focused ? 'home' : 'home-outline';
+              iconName = focused ? 'grid' : 'grid-outline';
             } else if (route.name === 'Expenses') {
-              iconName = focused ? 'card' : 'card-outline';
+              iconName = focused ? 'file-tray-full' : 'file-tray-full-outline';
             } else if (route.name === 'Income') {
-              iconName = focused ? 'trending-up' : 'trending-up-outline';
+              iconName = focused ? 'wallet' : 'wallet-outline';
             } else if (route.name === 'Insights') {
-              iconName = focused ? 'analytics' : 'analytics-outline';
+              iconName = focused ? 'pie-chart' : 'pie-chart-outline';
             } else if (route.name === 'Settings') {
-              iconName = focused ? 'settings' : 'settings-outline';
-            } else if (route.name === 'RecurringExpenses') {
-              iconName = focused ? 'repeat' : 'repeat-outline';
+              iconName = focused ? 'cog' : 'cog-outline';
             } else {
               iconName = 'help-outline';
             }
 
-            return <Ionicons name={iconName} size={size} color={color} />;
+            // Pro Active State: Icon inside a soft pill background
+            if (focused) {
+              return (
+                <View style={{
+                  backgroundColor: isRTL ? theme.colors.primary + '15' : theme.colors.primary + '15', // Ultra light background
+                  width: 48, // Fixed width
+                  height: 32, // Fixed height
+                  borderRadius: 16,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 4 // Push it up slightly
+                }}>
+                  <Ionicons name={iconName} size={20} color={theme.colors.primary} />
+                </View>
+              );
+            }
+
+            return <Ionicons name={iconName} size={24} color={'#94A3B8'} />;
           },
           tabBarActiveTintColor: theme.colors.primary,
-          tabBarInactiveTintColor: theme.colors.textSecondary,
+          tabBarInactiveTintColor: '#94A3B8',
           tabBarStyle: {
-            backgroundColor: theme.colors.surfaceCard,
-            borderTopColor: theme.colors.primary,
-            borderTopWidth: 1,
-            height: 70 + (Platform.OS === 'android' ? insets.bottom : 0),
-            paddingBottom: Platform.OS === 'android' ? insets.bottom + 8 : 20,
-            paddingTop: 4,
-            elevation: 8,
-            shadowColor: theme.colors.shadow,
-            shadowOffset: { width: 0, height: -2 },
+            backgroundColor: '#FFFFFF',
+            borderTopWidth: 0,
+            height: Platform.OS === 'ios' ? 85 + insets.bottom : 70 + insets.bottom,
+            paddingBottom: insets.bottom + 8,
+            paddingTop: 12,
+            elevation: 20,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: -4 },
             shadowOpacity: 0.1,
-            shadowRadius: 8,
-            flexDirection: 'row',
+            shadowRadius: 12,
+            flexDirection: isRTL ? 'row-reverse' : 'row',
             display: 'flex',
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
           },
           tabBarLabelStyle: {
             fontFamily: theme.typography.fontFamily,
-            fontSize: 10,
-            marginTop: 0,
-            textAlign: 'right',
-            writingDirection: 'rtl',
+            fontSize: 11,
+            fontWeight: '600',
+            marginTop: 4,
+            textAlign: 'center',
+          },
+          // Hide label for active item if desired, or keep it. Let's keep it for now but make it cleaner.
+          tabBarItemStyle: {
+            // Add some spacing or style to the touchable area
           },
           tabBarIconStyle: {
             marginTop: 0,

@@ -17,9 +17,10 @@ export interface Income {
   date: string;
   description?: string;
   currency?: string;
+  category?: IncomeSource;
 }
 
-export type ExpenseCategory = 
+export type ExpenseCategory =
   | 'food'
   | 'transport'
   | 'shopping'
@@ -30,7 +31,7 @@ export type ExpenseCategory =
   | 'other'
   | string; // Allow custom categories
 
-export type IncomeSource = 
+export type IncomeSource =
   | 'salary'
   | 'business'
   | 'investment'
@@ -97,7 +98,7 @@ export interface FinancialGoal {
   currency?: string;
 }
 
-export type GoalCategory = 
+export type GoalCategory =
   | 'emergency'
   | 'vacation'
   | 'car'
@@ -209,7 +210,7 @@ export const DEBT_TYPES = {
 };
 
 // Challenges
-export type ChallengeType = 
+export type ChallengeType =
   | 'no_coffee'           // بدون كوفي
   | 'no_delivery'         // لا دليفري
   | 'daily_budget'        // اقتصاد
@@ -246,9 +247,9 @@ export interface Challenge {
   isCustom?: boolean; // Flag to indicate custom challenge
 }
 
-export const CHALLENGE_TYPES: Record<Exclude<ChallengeType, 'custom'>, { 
-  title: string; 
-  description: string; 
+export const CHALLENGE_TYPES: Record<Exclude<ChallengeType, 'custom'>, {
+  title: string;
+  description: string;
   category: ChallengeCategory;
   icon: keyof typeof import('@expo/vector-icons').Ionicons.glyphMap;
   defaultDuration: number; // days
@@ -381,7 +382,7 @@ export interface Bill {
   createdAt: string;
 }
 
-export type BillCategory = 
+export type BillCategory =
   | 'utilities'      // فواتير الخدمات
   | 'rent'           // إيجار
   | 'insurance'      // تأمين

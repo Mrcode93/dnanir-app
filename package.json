@@ -1,6 +1,6 @@
 {
   "name": "dnanir",
-  "version": "1.0.6",
+  "version": "1.1.1",
   "description": "دنانير - Smart Iraqi-themed financial app for expense and income tracking",
   "main": "index.ts",
   "scripts": {
@@ -26,6 +26,7 @@
     "@react-navigation/native": "^7.1.18",
     "@react-navigation/stack": "^7.4.9",
     "expo": "~54.0.12",
+    "expo-av": "~16.0.8",
     "expo-dev-client": "~6.0.13",
     "expo-file-system": "^19.0.21",
     "expo-font": "^14.0.8",
@@ -40,16 +41,21 @@
     "expo-text-recognition": "^0.1.1",
     "expo-updates": "^29.0.12",
     "lucide-react-native": "^0.544.0",
+    "openai": "^6.17.0",
     "react": "19.1.0",
     "react-native": "0.81.4",
     "react-native-chart-kit": "^6.12.0",
+    "react-native-copilot": "^3.3.3",
+    "react-native-gesture-handler": "^2.30.0",
     "react-native-paper": "^5.14.5",
+    "react-native-reanimated": "^4.2.1",
     "react-native-safe-area-context": "^5.6.1",
     "react-native-screens": "^4.16.0",
     "react-native-svg": "^15.12.1"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
+    "babel-preset-expo": "^54.0.10",
     "baseline-browser-mapping": "^2.9.14",
     "typescript": "~5.9.2"
   },

@@ -21,7 +21,6 @@ import { calculateBudgetStatus, BudgetStatus } from '../services/budgetService';
 import { useCurrency } from '../hooks/useCurrency';
 import { EXPENSE_CATEGORIES } from '../types';
 import { getCustomCategories } from '../database/database';
-import { AddBudgetModal } from '../components/AddBudgetModal';
 import { convertCurrency, formatCurrencyAmount } from '../services/currencyService';
 import { ConfirmAlert } from '../components/ConfirmAlert';
 import { alertService } from '../services/alertService';
@@ -36,8 +35,6 @@ export const BudgetScreen = ({ navigation, route }: any) => {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
   const [customCategories, setCustomCategories] = useState<any[]>([]);
   const [convertedAmounts, setConvertedAmounts] = useState<Record<number, number>>({});
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -160,8 +157,7 @@ export const BudgetScreen = ({ navigation, route }: any) => {
 
   useEffect(() => {
     if (route?.params?.action === 'add') {
-      setEditingBudget(null);
-      setShowAddModal(true);
+      navigation.navigate('AddBudget');
       navigation.setParams({ action: undefined });
     }
   }, [route?.params]);
@@ -239,9 +235,8 @@ export const BudgetScreen = ({ navigation, route }: any) => {
   };
 
   const handleEditBudget = (budgetStatus: BudgetStatus) => {
-    setEditingBudget(budgetStatus.budget);
-    setShowAddModal(true);
     setShowMenu(false);
+    navigation.navigate('AddBudget', { budget: budgetStatus.budget });
   };
 
   const handleDeleteBudget = (budgetId: number) => {
@@ -656,16 +651,6 @@ export const BudgetScreen = ({ navigation, route }: any) => {
             </Text>
           </View>
         }
-      />
-
-      <AddBudgetModal
-        visible={showAddModal}
-        onClose={() => {
-          setShowAddModal(false);
-          setEditingBudget(null);
-        }}
-        budget={editingBudget}
-        onSave={loadData}
       />
 
       {/* Options Menu */}

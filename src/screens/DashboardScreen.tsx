@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect } from 'react';
+import { formatDateLocal, getMonthRange } from '../utils/date';
 import {
   View,
   Text,
@@ -17,8 +18,19 @@ import { SummaryCard } from '../components/SummaryCard';
 import { TransactionItem } from '../components/TransactionItem';
 import { theme, getTheme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { calculateFinancialSummary, getCurrentMonthData, getMonthData } from '../services/financialService';
-import { getExpenses, getIncome, getUserSettings, getFinancialGoals, getDebts, getChallenges, getBills, Challenge } from '../database/database';
-import { Expense, Income, FinancialGoal, Debt, EXPENSE_CATEGORIES } from '../types';
+import {
+  getExpenses,
+  getIncome,
+  getFinancialGoals,
+  getUserSettings,
+  getDebts,
+  getChallenges,
+  getCustomCategories,
+  getAchievements,
+  getRecentTransactions,
+  getAvailableMonths,
+} from '../database/database';
+import { Expense, Income, FinancialGoal, Debt, EXPENSE_CATEGORIES, Challenge } from '../types';
 import { updateAllChallenges } from '../services/challengeService';
 import { getUnlockedAchievementsCount, getTotalAchievementsCount } from '../services/achievementService';
 import { calculateBudgetStatus, BudgetStatus } from '../services/budgetService';
@@ -27,22 +39,25 @@ import { TouchableOpacity } from 'react-native';
 import { isRTL } from '../utils/rtl';
 import { useCurrency } from '../hooks/useCurrency';
 import { convertCurrency, formatCurrencyAmount } from '../services/currencyService';
-import { getCustomCategories } from '../database/database';
+
+import { usePrivacy } from '../context/PrivacyContext';
+import { SmartAddModal } from '../components/SmartAddModal';
 
 const { width } = Dimensions.get('window');
 
 export const DashboardScreen = ({ navigation }: any) => {
   const { formatCurrency, currencyCode } = useCurrency();
-  
+  const { isPrivacyEnabled, togglePrivacy } = usePrivacy();
+
   // Month names in Arabic (consistent with BalanceCard)
-  const monthNames = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 
-                      'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
-  
+  const monthNames = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+    'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+
   // Format month name consistently
   const formatMonthName = (date: Date) => {
     return `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
   };
-  
+
   // Format full date consistently
   const formatFullDate = (date: Date) => {
     const weekdays = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
@@ -50,6 +65,7 @@ export const DashboardScreen = ({ navigation }: any) => {
   };
   const insets = useSafeAreaInsets();
   const [summary, setSummary] = useState<any>(null);
+  const [showSmartAdd, setShowSmartAdd] = useState(false); // New state for modal
   const [recentTransactions, setRecentTransactions] = useState<(Expense | Income)[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [userName, setUserName] = useState<string>('');
@@ -71,87 +87,31 @@ export const DashboardScreen = ({ navigation }: any) => {
   const [filteredBalance, setFilteredBalance] = useState<number | null>(null);
   const [availableMonths, setAvailableMonths] = useState<Array<{ year: number; month: number }>>([]);
 
-  useLayoutEffect(() => {
-    const parent = navigation.getParent();
-    if (parent) {
-      parent.setOptions({
-        tabBarStyle: {
-          backgroundColor: theme.colors.surfaceCard,
-          borderTopColor: theme.colors.primary,
-          borderTopWidth: 1,
-          height: 70 + (Platform.OS === 'android' ? insets.bottom : 0),
-          paddingBottom: Platform.OS === 'android' ? insets.bottom + 8 : 20,
-          paddingTop: 4,
-          elevation: 8,
-          shadowColor: theme.colors.shadow,
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 8,
-          flexDirection: 'row',
-          display: 'flex',
-        },
-        tabBarShowLabel: true,
-      });
-    }
-  }, [navigation, insets]);
+  // useLayoutEffect removed to allow AppNavigator to control tab bar styles globally with safe area insets
 
   const loadData = async () => {
     try {
       const financialSummary = await calculateFinancialSummary();
       setSummary(financialSummary);
 
-      const expenses = await getExpenses();
-      const income = await getIncome();
-      
-      // Get available months (months that have expenses or income)
-      const monthsSet = new Set<string>();
-      // Add months from expenses
-      expenses.forEach(expense => {
-        const date = new Date(expense.date);
-        const year = date.getFullYear();
-        const month = date.getMonth() + 1;
-        monthsSet.add(`${year}-${month}`);
-      });
-      // Add months from income
-      income.forEach(inc => {
-        const date = new Date(inc.date);
-        const year = date.getFullYear();
-        const month = date.getMonth() + 1;
-        monthsSet.add(`${year}-${month}`);
-      });
-      
-      const months = Array.from(monthsSet).map(key => {
-        const [year, month] = key.split('-').map(Number);
-        return { year, month };
-      });
+      // FAST: Get available months using a SQL query instead of fetching all transactions
+      const months = await getAvailableMonths();
       setAvailableMonths(months);
-      
-      // Calculate today's data
-      const today = new Date().toISOString().split('T')[0];
-      const todayExpenses = expenses
-        .filter(e => e.date === today)
-        .reduce((sum, e) => sum + e.amount, 0);
-      const todayIncome = income
-        .filter(i => i.date === today)
-        .reduce((sum, i) => sum + i.amount, 0);
-      const todayBalance = todayIncome - todayExpenses;
-      setTodayData({ income: todayIncome, expenses: todayExpenses, balance: todayBalance });
-      
-      const allTransactions = [
-        ...expenses.map(e => ({ ...e, type: 'expense' as const })),
-        ...income.map(i => ({ ...i, type: 'income' as const })),
-      ].sort((a, b) => {
-        // Sort by date first (newest first)
-        const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
-        if (dateDiff !== 0) {
-          return dateDiff;
-        }
-        // If dates are equal, sort by ID (higher ID = newer = first)
-        return (b.id || 0) - (a.id || 0);
-      })
-        .slice(0, 5);
 
-      setRecentTransactions(allTransactions);
+      // Calculate today's data using optimized aggregated query
+      const today = formatDateLocal(new Date());
+      const { getFinancialStatsAggregated } = await import('../database/database');
+      const todayStats = await getFinancialStatsAggregated(today, today);
+
+      setTodayData({
+        income: todayStats.totalIncome,
+        expenses: todayStats.totalExpenses,
+        balance: todayStats.balance
+      });
+
+      // FAST: Fetch only the last 5 transactions from the DB
+      const recent = await getRecentTransactions(5);
+      setRecentTransactions(recent);
 
       const userSettings = await getUserSettings();
       if (userSettings?.name) {
@@ -213,7 +173,7 @@ export const DashboardScreen = ({ navigation }: any) => {
       const unlocked = await getUnlockedAchievementsCount();
       const total = await getTotalAchievementsCount();
       setAchievementsCount({ unlocked, total });
-      
+
       // Check achievements periodically (async, don't wait)
       try {
         const { checkAllAchievements } = await import('../services/achievementService');
@@ -222,39 +182,45 @@ export const DashboardScreen = ({ navigation }: any) => {
         // Ignore if achievementService is not available
       }
 
-      // Load current month data
-      const monthData = await getCurrentMonthData();
-      const monthIncome = monthData.income.reduce((sum, item) => sum + item.amount, 0);
-      const monthExpenses = monthData.expenses.reduce((sum, item) => sum + item.amount, 0);
-      const monthBalance = monthIncome - monthExpenses;
-      setCurrentMonthData({
-        totalIncome: monthIncome,
-        totalExpenses: monthExpenses,
-        balance: monthBalance,
-      });
+      // Load month data based on selection or defaulting to current
+      const targetYear = selectedBalanceMonth?.year || new Date().getFullYear();
+      const targetMonth = selectedBalanceMonth?.month || new Date().getMonth() + 1;
+      const isAllTime = selectedBalanceMonth?.year === 0 && selectedBalanceMonth?.month === 0;
 
-      // Calculate filtered balance if month is selected
-      if (selectedBalanceMonth && (selectedBalanceMonth.year !== 0 || selectedBalanceMonth.month !== 0)) {
-        const filteredData = await getMonthData(selectedBalanceMonth.year, selectedBalanceMonth.month);
-        // Use the month balance (income - expenses for that month only)
-        // This should match currentMonthData.balance when the selected month is the current month
-        setFilteredBalance(filteredData.balance);
-        
-        // If selected month is current month, verify it matches currentMonthData
-        const now = new Date();
-        if (selectedBalanceMonth.year === now.getFullYear() && 
-            selectedBalanceMonth.month === now.getMonth() + 1) {
-          // They should match, but use filteredData to ensure consistency
-          if (Math.abs(filteredData.balance - monthBalance) > 0.01) {
-            console.warn('Balance mismatch between getMonthData and currentMonthData:', {
-              filtered: filteredData.balance,
-              current: monthBalance
-            });
-          }
-        }
+      let monthIncome, monthExpenses, monthBalance;
+
+      if (!isAllTime) {
+        // Fetch specific month data
+        const monthData = await getMonthData(targetYear, targetMonth);
+        monthIncome = monthData.totalIncome;
+        monthExpenses = monthData.totalExpenses;
+        monthBalance = monthData.balance;
+
+        // Update Pulse Section with selected month data
+        setCurrentMonthData({
+          totalIncome: monthIncome,
+          totalExpenses: monthExpenses,
+          balance: monthBalance,
+        });
+
+        // Update filtered balance to show this month's net
+        setFilteredBalance(monthBalance);
       } else {
-        // If no month selected, use total cumulative balance
-        setFilteredBalance(null);
+        // "All Time" selected - Show cumulative totals
+        const { getFinancialStatsAggregated } = await import('../database/database');
+        // Explicitly pass undefined to ensure no date filtering
+        const stats = await getFinancialStatsAggregated(undefined, undefined);
+
+        const allTimeData = {
+          totalIncome: stats?.totalIncome || 0,
+          totalExpenses: stats?.totalExpenses || 0,
+          balance: stats?.balance || 0
+        };
+
+        setCurrentMonthData(allTimeData);
+
+        // Force update filtered balance
+        setFilteredBalance(allTimeData.balance);
       }
 
       // Load custom categories
@@ -271,23 +237,15 @@ export const DashboardScreen = ({ navigation }: any) => {
     setRefreshing(false);
   };
 
-  useEffect(() => {
-    loadData();
-    const unsubscribe = navigation.addListener('focus', loadData);
-    return unsubscribe;
-  }, [navigation]);
-
   // Reload data when selectedBalanceMonth changes
   useEffect(() => {
-    if (selectedBalanceMonth !== null) {
-      loadData();
-    }
-  }, [selectedBalanceMonth]);
+    loadData();
+  }, [navigation, selectedBalanceMonth]); // Add selectedBalanceMonth dependency
 
   const getCategoryName = (category: string) => {
-    return EXPENSE_CATEGORIES[category as keyof typeof EXPENSE_CATEGORIES] || 
-           customCategories.find(c => c.name === category)?.name || 
-           category;
+    return EXPENSE_CATEGORIES[category as keyof typeof EXPENSE_CATEGORIES] ||
+      customCategories.find(c => c.name === category)?.name ||
+      category;
   };
 
   const getCategoryColor = (category: string, index: number) => {
@@ -301,10 +259,10 @@ export const DashboardScreen = ({ navigation }: any) => {
       education: '#06B6D4',
       other: '#6B7280',
     };
-    
+
     const customColor = customCategories.find(c => c.name === category)?.color;
     if (customColor) return customColor;
-    
+
     return categoryColors[category] || [
       theme.gradients.primary[1],
       theme.gradients.info[1],
@@ -326,6 +284,35 @@ export const DashboardScreen = ({ navigation }: any) => {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Header Section */}
+      <View style={styles.headerContainer}>
+        <View style={styles.headerRow}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.greetingText}>مرحباً، {userName || 'مستخدم دنايّر'}</Text>
+            <Text style={styles.dateText}>{formatFullDate(new Date())}</Text>
+          </View>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity
+              style={styles.headerButton}
+              onPress={togglePrivacy}
+            >
+              <Ionicons
+                name={isPrivacyEnabled ? "eye-off-outline" : "eye-outline"}
+                size={22}
+                color={theme.colors.primary}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.headerButton}
+              onPress={() => navigation.navigate('Settings')}
+            >
+              <Ionicons name="notifications-outline" size={22} color={theme.colors.primary} />
+              <View style={styles.notificationBadge} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -338,686 +325,353 @@ export const DashboardScreen = ({ navigation }: any) => {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Balance Card */}
-        {summary && (
-          <BalanceCard 
-            balance={filteredBalance !== null ? filteredBalance : summary.balance} 
-            userName={userName}
-            selectedMonth={selectedBalanceMonth || undefined}
-            onMonthChange={(year, month) => {
-              setSelectedBalanceMonth({ year, month });
-              // Reload data to update balance immediately
-              loadData();
-            }}
-            showFilter={true}
-            availableMonths={availableMonths}
-          />
-        )}
+        {/* Main Balance Hero */}
+        <View style={styles.heroSection}>
+          {summary && (
+            <BalanceCard
+              balance={filteredBalance !== null ? filteredBalance : summary.balance}
+              selectedMonth={selectedBalanceMonth || undefined}
+              onMonthChange={(year, month) => {
+                setSelectedBalanceMonth({ year, month });
+                loadData();
+              }}
+              showFilter={true}
+              availableMonths={availableMonths}
+            />
+          )}
 
-        {/* Current Month Summary Card */}
-        {currentMonthData && (
-          <LinearGradient
-            colors={['#10B981', '#059669', '#047857']}
-            style={styles.todayCard}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <View style={styles.todayCardHeader}>
-              <View style={styles.todayCardHeaderLeft}>
-                <LinearGradient
-                  colors={['rgba(255, 255, 255, 0.3)', 'rgba(255, 255, 255, 0.15)']}
-                  style={styles.todayCardIconContainer}
-                >
-                  <Ionicons name="calendar" size={24} color={theme.colors.textInverse} />
-                </LinearGradient>
-                <View>
-                  <Text style={styles.todayCardTitle}>الشهر الحالي</Text>
-                  <Text style={styles.todayCardSubtitle}>
-                    {formatMonthName(new Date())}
-                  </Text>
-                </View>
+          {/* Today's Quick Look (Horizontal Tiles) */}
+          {todayData && (
+            <View style={styles.todayQuickLook}>
+              <View style={[styles.quickLookItem, { backgroundColor: '#E0F2F1' }]}>
+                <Ionicons name="trending-up" size={16} color="#00695C" />
+                <Text style={styles.quickLookLabel}>دخل اليوم</Text>
+                <Text style={[styles.quickLookValue, { color: '#00695C' }]}>
+                  {isPrivacyEnabled ? '****' : formatCurrency(todayData.income)}
+                </Text>
               </View>
-            </View>
-            <View style={styles.todayCardStats}>
-              <View style={styles.todayCardStatItem}>
-                <View style={styles.todayCardStatHeader}>
-                  <Ionicons name="arrow-up-circle" size={18} color="rgba(255, 255, 255, 0.9)" />
-                  <Text style={styles.todayCardStatLabel}>الدخل</Text>
-                </View>
-                <Text style={styles.todayCardStatValue}>{formatCurrency(currentMonthData.totalIncome)}</Text>
+              <View style={[styles.quickLookItem, { backgroundColor: '#FFEBEE' }]}>
+                <Ionicons name="trending-down" size={16} color="#C62828" />
+                <Text style={styles.quickLookLabel}>صرف اليوم</Text>
+                <Text style={[styles.quickLookValue, { color: '#C62828' }]}>
+                  {isPrivacyEnabled ? '****' : formatCurrency(todayData.expenses)}
+                </Text>
               </View>
-              <View style={styles.todayCardStatDivider} />
-              <View style={styles.todayCardStatItem}>
-                <View style={styles.todayCardStatHeader}>
-                  <Ionicons name="arrow-down-circle" size={18} color="rgba(255, 255, 255, 0.9)" />
-                  <Text style={styles.todayCardStatLabel}>المصاريف</Text>
-                </View>
-                <Text style={styles.todayCardStatValue}>{formatCurrency(currentMonthData.totalExpenses)}</Text>
-              </View>
-              <View style={styles.todayCardStatDivider} />
-              <View style={styles.todayCardStatItem}>
-                <View style={styles.todayCardStatHeader}>
-                  <Ionicons 
-                    name={currentMonthData.balance >= 0 ? "wallet" : "alert-circle"} 
-                    size={18} 
-                    color="rgba(255, 255, 255, 0.9)" 
-                  />
-                  <Text style={styles.todayCardStatLabel}>الرصيد</Text>
-                </View>
-                <Text style={[
-                  styles.todayCardStatValue,
-                  { color: currentMonthData.balance >= 0 ? theme.colors.textInverse : '#FFE5E5' }
-                ]}>
-                  {formatCurrency(currentMonthData.balance)}
+              <View style={[styles.quickLookItem, { backgroundColor: '#E8EAF6' }]}>
+                <Ionicons name="wallet-outline" size={16} color="#283593" />
+                <Text style={styles.quickLookLabel}>الصافي</Text>
+                <Text style={[styles.quickLookValue, { color: '#283593' }]}>
+                  {isPrivacyEnabled ? '****' : formatCurrency(todayData.balance)}
                 </Text>
               </View>
             </View>
-          </LinearGradient>
-        )}
-
-        {/* Today's Summary Card */}
-        {todayData && (
-          <LinearGradient
-            colors={['#6366F1', '#4F46E5', '#4338CA']}
-            style={styles.todayCard}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <View style={styles.todayCardHeader}>
-              <View style={styles.todayCardHeaderLeft}>
-                <LinearGradient
-                  colors={['rgba(255, 255, 255, 0.3)', 'rgba(255, 255, 255, 0.15)']}
-                  style={styles.todayCardIconContainer}
-                >
-                  <Ionicons name="today" size={24} color={theme.colors.textInverse} />
-                </LinearGradient>
-                <View>
-                  <Text style={styles.todayCardTitle}>اليوم</Text>
-                  <Text style={styles.todayCardSubtitle}>
-                    {formatFullDate(new Date())}
-                  </Text>
-                </View>
-              </View>
-            </View>
-            <View style={styles.todayCardStats}>
-              <View style={styles.todayCardStatItem}>
-                <View style={styles.todayCardStatHeader}>
-                  <Ionicons name="arrow-up-circle" size={18} color="rgba(255, 255, 255, 0.9)" />
-                  <Text style={styles.todayCardStatLabel}>الدخل</Text>
-                </View>
-                <Text style={styles.todayCardStatValue}>{formatCurrency(todayData.income)}</Text>
-              </View>
-              <View style={styles.todayCardStatDivider} />
-              <View style={styles.todayCardStatItem}>
-                <View style={styles.todayCardStatHeader}>
-                  <Ionicons name="arrow-down-circle" size={18} color="rgba(255, 255, 255, 0.9)" />
-                  <Text style={styles.todayCardStatLabel}>المصاريف</Text>
-                </View>
-                <Text style={styles.todayCardStatValue}>{formatCurrency(todayData.expenses)}</Text>
-              </View>
-              <View style={styles.todayCardStatDivider} />
-              <View style={styles.todayCardStatItem}>
-                <View style={styles.todayCardStatHeader}>
-                  <Ionicons 
-                    name={todayData.balance >= 0 ? "wallet" : "alert-circle"} 
-                    size={18} 
-                    color="rgba(255, 255, 255, 0.9)" 
-                  />
-                  <Text style={styles.todayCardStatLabel}>الرصيد</Text>
-                </View>
-                <Text style={[
-                  styles.todayCardStatValue,
-                  { color: todayData.balance >= 0 ? theme.colors.textInverse : '#FFE5E5' }
-                ]}>
-                  {formatCurrency(todayData.balance)}
-                </Text>
-              </View>
-            </View>
-          </LinearGradient>
-        )}
-
-
-        {/* Debts Status Card */}
-        {debtsSummary && (
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Debts')}
-            activeOpacity={0.8}
-            style={styles.statusCard}
-          >
-            <LinearGradient
-              colors={['#8B5CF6', '#7C3AED', '#6D28D9'] as any}
-              style={styles.statusCardGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <View style={styles.statusCardHeader}>
-                <View style={styles.statusCardIconContainer}>
-                  <Ionicons name="card" size={24} color={theme.colors.textInverse} />
-                </View>
-                <View style={styles.statusCardTitleContainer}>
-                  <Text style={styles.statusCardTitle}>الديون والأقساط</Text>
-                  <Text style={styles.statusCardSubtitle}>
-                    {debtsSummary.active} دين نشط
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.statusCardStats}>
-                <View style={styles.statusCardStatItem}>
-                  <Text style={styles.statusCardStatLabel}>المتبقي</Text>
-                  <Text style={styles.statusCardStatValue}>
-                    {formatCurrency(debtsSummary.remaining)}
-                  </Text>
-                </View>
-                <View style={styles.statusCardStatDivider} />
-                <View style={styles.statusCardStatItem}>
-                  <Text style={styles.statusCardStatLabel}>مدفوع</Text>
-                  <Text style={[styles.statusCardStatValue, { color: '#10B981' }]}>
-                    {debtsSummary.paid}
-                  </Text>
-                </View>
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-        )}
-
-        {/* Budgets Status Card */}
-        {budgetsSummary && (
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Budget')}
-            activeOpacity={0.8}
-            style={styles.statusCard}
-          >
-            <LinearGradient
-              colors={['#6366F1', '#4F46E5', '#4338CA'] as any}
-              style={styles.statusCardGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <View style={styles.statusCardHeader}>
-                <View style={styles.statusCardIconContainer}>
-                  <Ionicons name="wallet" size={24} color={theme.colors.textInverse} />
-                </View>
-                <View style={styles.statusCardTitleContainer}>
-                  <Text style={styles.statusCardTitle}>الميزانية</Text>
-                  <Text style={styles.statusCardSubtitle}>
-                    {budgetsSummary.total} ميزانية نشطة
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.statusCardStats}>
-                <View style={styles.statusCardStatItem}>
-                  <Text style={styles.statusCardStatLabel}>المتبقي</Text>
-                  <Text style={[
-                    styles.statusCardStatValue,
-                    { color: budgetsSummary.remaining >= 0 ? '#10B981' : '#EF4444' }
-                  ]}>
-                    {formatCurrency(budgetsSummary.remaining)}
-                  </Text>
-                </View>
-                <View style={styles.statusCardStatDivider} />
-                <View style={styles.statusCardStatItem}>
-                  <Text style={styles.statusCardStatLabel}>متجاوز</Text>
-                  <Text style={[styles.statusCardStatValue, { color: budgetsSummary.exceeded > 0 ? '#EF4444' : '#10B981' }]}>
-                    {budgetsSummary.exceeded}
-                  </Text>
-                </View>
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-        )}
-
-      
-
-        {/* Bills Quick View */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>الفواتير</Text>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Bills')}
-              style={styles.viewAllButton}
-            >
-              <Text style={styles.viewAllText}>عرض الكل</Text>
-              <Ionicons name="chevron-back" size={16} color={theme.colors.primary} />
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Bills', { screen: 'BillsList' })}
-            style={styles.budgetQuickCard}
-          >
-            <LinearGradient
-              colors={['#EF4444', '#DC2626'] as any}
-              style={styles.budgetQuickGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              <Ionicons name="receipt" size={32} color={theme.colors.textInverse} />
-              <View style={styles.budgetQuickContent}>
-                <Text style={styles.budgetQuickTitle}>إدارة الفواتير</Text>
-                <Text style={styles.budgetQuickText}>
-                  {billsSummary ? (
-                    billsSummary.unpaid > 0 
-                      ? `${billsSummary.unpaid} فاتورة غير مدفوعة${billsSummary.dueSoon > 0 ? ` • ${billsSummary.dueSoon} مستحقة قريباً` : ''}`
-                      : 'لا توجد فواتير مستحقة'
-                  ) : 'تتبع فواتيرك وتذكيرات الدفع'}
-                </Text>
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-
-        {/* Debts Quick View */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>الديون والأقساط</Text>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Debts')}
-              style={styles.viewAllButton}
-            >
-              <Text style={styles.viewAllText}>عرض الكل</Text>
-              <Ionicons name="chevron-back" size={16} color={theme.colors.primary} />
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Debts')}
-            style={styles.budgetQuickCard}
-          >
-            <LinearGradient
-              colors={['#8B5CF6', '#7C3AED'] as any}
-              style={styles.budgetQuickGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              <Ionicons name="card" size={32} color={theme.colors.textInverse} />
-              <View style={styles.budgetQuickContent}>
-                <Text style={styles.budgetQuickTitle}>إدارة الديون والأقساط</Text>
-                <Text style={styles.budgetQuickText}>
-                  تتبع ديونك المستحقة عليك ومتى يجب الدفع
-                </Text>
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-
-        {/* Budget Quick View */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>الميزانية</Text>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Budget')}
-              style={styles.viewAllButton}
-            >
-              <Text style={styles.viewAllText}>عرض الكل</Text>
-              <Ionicons name="chevron-back" size={16} color={theme.colors.primary} />
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Budget')}
-            style={styles.budgetQuickCard}
-          >
-            <LinearGradient
-              colors={theme.gradients.info as any}
-              style={styles.budgetQuickGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              <Ionicons name="wallet" size={32} color={theme.colors.textInverse} />
-              <View style={styles.budgetQuickContent}>
-                <Text style={styles.budgetQuickTitle}>إدارة الميزانية</Text>
-                <Text style={styles.budgetQuickText}>
-                  حدد ميزانياتك الشهرية وتابع إنفاقك
-                </Text>
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-
-        {/* Active Goals Preview */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>أهدافي المالية</Text>
-            {activeGoals.length > 0 && (
-              <TouchableOpacity
-                onPress={() => navigation.navigate('Goals')}
-                style={styles.viewAllButton}
-              >
-                <Text style={styles.viewAllText}>عرض الكل</Text>
-                <Ionicons name="chevron-back" size={16} color={theme.colors.primary} />
-              </TouchableOpacity>
-            )}
-          </View>
-          {activeGoals.length > 0 ? (
-            activeGoals.map((goal) => {
-              const progress = goal.targetAmount > 0 ? (goal.currentAmount / goal.targetAmount) * 100 : 0;
-              
-              // Get gradient for category
-              const getCategoryGradient = (category: string) => {
-                const gradientMap: Record<string, readonly string[]> = {
-                  emergency: theme.gradients.goalRose,
-                  vacation: theme.gradients.goalBlue,
-                  car: theme.gradients.goalOrange,
-                  house: theme.gradients.goalIndigo,
-                  wedding: theme.gradients.goalPink,
-                  education: theme.gradients.goalTeal,
-                  business: theme.gradients.goalEmerald,
-                  other: theme.gradients.goalPurple,
-                };
-                return gradientMap[category] || theme.gradients.goalPurple;
-              };
-              
-              const gradientColors = getCategoryGradient(goal.category);
-              
-              return (
-                <TouchableOpacity
-                  key={goal.id}
-                  onPress={() => navigation.navigate('Goals')}
-                  activeOpacity={0.9}
-                  style={styles.goalPreviewCardWrapper}
-                >
-                  <LinearGradient
-                    colors={gradientColors as any}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.goalPreviewCard}
-                  >
-                    <View style={styles.goalPreviewHeader}>
-                      <LinearGradient
-                        colors={['rgba(255, 255, 255, 0.3)', 'rgba(255, 255, 255, 0.15)']}
-                        style={styles.goalPreviewIcon}
-                      >
-                        <Ionicons name="flag" size={20} color={theme.colors.textInverse} />
-                      </LinearGradient>
-                    <View style={styles.goalPreviewContent}>
-                      <Text style={styles.goalPreviewTitle} numberOfLines={1}>
-                        {goal.title}
-                      </Text>
-                      <View>
-                        <Text style={styles.goalPreviewAmount}>
-                          {formatCurrencyAmount(goal.currentAmount, goal.currency || currencyCode)} / {formatCurrencyAmount(goal.targetAmount, goal.currency || currencyCode)}
-                        </Text>
-                        {convertedGoalAmounts[goal.id] && goal.currency !== currencyCode && (
-                          <Text style={styles.goalPreviewConvertedAmount}>
-                            ≈ {formatCurrency(convertedGoalAmounts[goal.id].current)} / {formatCurrency(convertedGoalAmounts[goal.id].target)}
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-                    <Text style={styles.goalPreviewPercent}>
-                      {Math.round(progress)}%
-                    </Text>
-                  </View>
-                  <View style={styles.goalPreviewProgressBar}>
-                    <LinearGradient
-                      colors={['rgba(255, 255, 255, 0.95)', 'rgba(255, 255, 255, 0.85)']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={[
-                        styles.goalPreviewProgressFill,
-                        { width: `${Math.min(progress, 100)}%` },
-                      ]}
-                    />
-                  </View>
-                  </LinearGradient>
-                </TouchableOpacity>
-              );
-            })
-          ) : (
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Goals')}
-              style={styles.emptyGoalCard}
-            >
-              <LinearGradient
-                colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-                style={styles.emptyGoalGradient}
-              >
-                <Ionicons name="flag-outline" size={32} color={theme.colors.primary} />
-                <Text style={styles.emptyGoalTitle}>ابدأ بتحديد هدف مالي</Text>
-                <Text style={styles.emptyGoalText}>
-                  حدد أهدافك المالية وتابع تقدمك نحو تحقيقها
-                </Text>
-                <View style={styles.emptyGoalButton}>
-                  <Text style={styles.emptyGoalButtonText}>إضافة هدف جديد</Text>
-                  <Ionicons name="add-circle" size={20} color={theme.colors.textInverse} />
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
           )}
         </View>
 
-        {/* Currency Converter Card */}
-        <TouchableOpacity
-          onPress={() => navigation.navigate('CurrencyConverter')}
-          style={styles.currencyConverterCard}
-          activeOpacity={0.8}
-        >
-          <LinearGradient
-            colors={theme.gradients.info as any}
-            style={styles.currencyConverterGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
+        {/* Action Shortcuts Grid */}
+        <View style={styles.actionGrid}>
+          <TouchableOpacity
+            style={styles.actionItem}
+            onPress={() => navigation.navigate('Expenses', { screen: 'AddExpense' })}
           >
-            <Ionicons name="swap-horizontal" size={32} color={theme.colors.textInverse} />
-            <View style={styles.currencyConverterContent}>
-              <Text style={styles.currencyConverterTitle}>محول العملات</Text>
-              <Text style={styles.currencyConverterDescription}>
-                حول بين العملات المختلفة بسهولة
-              </Text>
+            <View style={[styles.actionIconBg, { backgroundColor: '#EF444420' }]}>
+              <Ionicons name="remove-circle" size={28} color="#EF4444" />
             </View>
-          </LinearGradient>
-        </TouchableOpacity>
+            <Text style={styles.actionLabel}>إضافة مصروف</Text>
+          </TouchableOpacity>
 
-        {/* Challenges Preview */}
+          <TouchableOpacity
+            style={styles.actionItem}
+            onPress={() => navigation.navigate('Income', { screen: 'AddIncome' })}
+          >
+            <View style={[styles.actionIconBg, { backgroundColor: '#10B98120' }]}>
+              <Ionicons name="add-circle" size={28} color="#10B981" />
+            </View>
+            <Text style={styles.actionLabel}>إضافة دخل</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionItem}
+            onPress={() => navigation.navigate('Goals')}
+          >
+            <View style={[styles.actionIconBg, { backgroundColor: '#F59E0B20' }]}>
+              <Ionicons name="flag" size={28} color="#F59E0B" />
+            </View>
+            <Text style={styles.actionLabel}>الأهداف</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionItem}
+            onPress={() => setShowSmartAdd(true)}
+          >
+            <View style={[styles.actionIconBg, { backgroundColor: '#8B5CF620', borderColor: '#8B5CF6', borderWidth: 1 }]}>
+              <Ionicons name="mic" size={26} color="#8B5CF6" />
+            </View>
+            <Text style={styles.actionLabel}>إضافة ذكية</Text>
+          </TouchableOpacity>
+        </View>
+
+        <SmartAddModal
+          visible={showSmartAdd}
+          onClose={() => setShowSmartAdd(false)}
+          onSuccess={() => {
+            loadData();
+            // Maybe show a toast
+          }}
+        />
+
+        {/* Monthly Financial Pulse */}
+        {currentMonthData && (
+          <View style={styles.pulseSection}>
+            <LinearGradient
+              colors={theme.gradients.primary as any}
+              style={styles.pulseCard}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <View style={styles.pulseHeader}>
+                <Text style={styles.pulseTitle}>
+                  {selectedBalanceMonth?.year === 0 && selectedBalanceMonth?.month === 0
+                    ? 'ملخص كلي للميزانية'
+                    : `الميزانية لشهر ${monthNames[(selectedBalanceMonth?.month || new Date().getMonth() + 1) - 1]}`}
+                </Text>
+                <TouchableOpacity onPress={() => navigation.navigate('Budget')}>
+                  <Text style={styles.pulseLink}>التفاصيل</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.pulseStats}>
+                <View style={styles.pulseStatItem}>
+                  <Text style={styles.pulseStatNum}>
+                    {isPrivacyEnabled ? '****' : formatCurrency(currentMonthData.totalIncome)}
+                  </Text>
+                  <Text style={styles.pulseStatLabel}>إجمالي الوارد</Text>
+                </View>
+                <View style={styles.pulseDivider} />
+                <View style={styles.pulseStatItem}>
+                  <Text style={styles.pulseStatNum}>
+                    {isPrivacyEnabled ? '****' : formatCurrency(currentMonthData.totalExpenses)}
+                  </Text>
+                  <Text style={styles.pulseStatLabel}>إجمالي الصرف</Text>
+                </View>
+              </View>
+
+              {/* Progress visual */}
+              <View style={styles.progressContainer}>
+                <View style={styles.progressBar}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      { width: `${Math.min((currentMonthData.totalExpenses / (currentMonthData.totalIncome || 1)) * 100, 100)}%` }
+                    ]}
+                  />
+                </View>
+                <Text style={styles.progressText}>
+                  {Math.round((currentMonthData.totalExpenses / (currentMonthData.totalIncome || 1)) * 100) > 100
+                    ? '⚠️ تجاوزت حد دخلك لهذا الشهر!'
+                    : `استهلكت ${Math.round((currentMonthData.totalExpenses / (currentMonthData.totalIncome || 1)) * 100)}% من دخلك`}
+                </Text>
+              </View>
+            </LinearGradient>
+          </View>
+        )}
+
+        {/* Recent Transactions Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>تحدياتي</Text>
-            {activeChallenges.length > 0 && (
-              <TouchableOpacity
-                onPress={() => navigation.navigate('Challenges')}
-                style={styles.viewAllButton}
-              >
-                <Text style={styles.viewAllText}>عرض الكل</Text>
-                <Ionicons name="chevron-back" size={16} color={theme.colors.primary} />
-              </TouchableOpacity>
+            <Text style={styles.sectionTitle}>أحدث العمليات</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Income')}>
+              <Text style={styles.sectionLink}>الكل</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.transactionList}>
+            {recentTransactions.map((item, index) => (
+              <TransactionItem
+                key={`${(item as any).type}-${item.id}`}
+                item={item}
+                onPress={() => {
+                  if ((item as any).type === 'expense') {
+                    navigation.navigate('Expenses', { screen: 'AddExpense', params: { editExpense: item } });
+                  } else {
+                    navigation.navigate('Income', { screen: 'AddIncome', params: { editIncome: item } });
+                  }
+                }}
+              />
+            ))}
+            {recentTransactions.length === 0 && (
+              <Text style={styles.emptyText}>لا توجد عمليات مضافة مؤخراً</Text>
             )}
           </View>
-          {activeChallenges.length > 0 ? (
-            activeChallenges.map((challenge) => {
-              const progress = challenge.targetProgress > 0 
-                ? (challenge.currentProgress / challenge.targetProgress) * 100 
-                : 0;
-              const daysRemaining = () => {
-                const today = new Date();
-                const endDate = new Date(challenge.endDate);
-                const diffTime = endDate.getTime() - today.getTime();
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                return Math.max(0, diffDays);
-              };
+        </View>
 
-              return (
-                <TouchableOpacity
-                  key={challenge.id}
-                  onPress={() => navigation.navigate('Challenges')}
-                  activeOpacity={0.9}
-                  style={styles.challengePreviewCardWrapper}
-                >
-                  <LinearGradient
-                    colors={['#034C3C', '#273C2C']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.challengePreviewCard}
+        {/* Goals Progress Carousel */}
+        {activeGoals.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>أهدافي المالية</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('Goals')}>
+                <Text style={styles.sectionLink}>الكل</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.goalsCarousel}>
+              {activeGoals.map((goal) => {
+                const goalAmounts = convertedGoalAmounts[goal.id] || { current: goal.currentAmount, target: goal.targetAmount };
+                const percent = Math.min((goalAmounts.current / (goalAmounts.target || 1)) * 100, 100);
+
+                return (
+                  <TouchableOpacity
+                    key={goal.id}
+                    style={styles.goalCard}
+                    onPress={() => navigation.navigate('Goals', { screen: 'GoalDetails', params: { goalId: goal.id } })}
                   >
-                    <View style={styles.challengePreviewHeader}>
-                      <View style={styles.challengePreviewIconContainer}>
-                        <Ionicons
-                          name={challenge.icon as any}
-                          size={24}
-                          color={theme.colors.textInverse}
+                    <View style={styles.goalCardHeader}>
+                      <Ionicons name="flag" size={18} color={theme.colors.primary} />
+                      <Text style={styles.goalCardTitle} numberOfLines={1}>{goal.title}</Text>
+                    </View>
+                    <Text style={styles.goalCardAmount}>{formatCurrency(goalAmounts.current)}</Text>
+                    <View style={styles.goalProgressBar}>
+                      <View style={[styles.goalProgressFill, { width: `${percent}%` }]} />
+                    </View>
+                    <Text style={styles.goalPercentText}>{Math.round(percent)}%</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Status & Achievements Section */}
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.statusCard}
+            onPress={() => navigation.navigate('Achievements')}
+          >
+            <LinearGradient
+              colors={['#4F46E5', '#7C3AED']}
+              style={styles.statusCardGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <View style={styles.statusCardHeader}>
+                <View style={styles.statusCardIconContainer}>
+                  <Ionicons name="trophy" size={24} color="#FFF" />
+                </View>
+                <View style={styles.statusCardTitleContainer}>
+                  <Text style={styles.statusCardTitle}>مستوى الإنجاز</Text>
+                  <Text style={styles.statusCardSubtitle}>أنت تحرز تقدماً رائعاً!</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={{
+                    color: '#FFF',
+                    fontWeight: getPlatformFontWeight('800'),
+                    fontSize: 18,
+                    fontFamily: theme.typography.fontFamily
+                  }}>
+                    {achievementsCount.unlocked}/{achievementsCount.total}
+                  </Text>
+                  <View style={styles.achievementProgressBar}>
+                    <View style={[styles.achievementProgressFill, { width: `${(achievementsCount.unlocked / (achievementsCount.total || 1)) * 100}%` }]} />
+                  </View>
+                </View>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+
+        {/* Challenges Section */}
+        {activeChallenges.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>تحديات نشطة</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('Challenges')}>
+                <Text style={styles.sectionLink}>الكل</Text>
+              </TouchableOpacity>
+            </View>
+
+            {activeChallenges.map((challenge) => (
+              <TouchableOpacity
+                key={challenge.id}
+                style={styles.challengePreviewCardWrapper}
+                onPress={() => navigation.navigate('Challenges')}
+              >
+                <LinearGradient
+                  colors={['#FFF', '#F8FAFC']}
+                  style={styles.challengePreviewCard}
+                >
+                  <View style={styles.challengePreviewHeader}>
+                    <View style={[styles.challengePreviewIconContainer, { backgroundColor: '#F1F5F9' }]}>
+                      <Ionicons name={challenge.icon as any || 'star'} size={24} color={theme.colors.primary} />
+                    </View>
+                    <View style={styles.challengePreviewContent}>
+                      <Text style={styles.challengePreviewTitle}>{challenge.title}</Text>
+                      <View style={styles.challengePreviewProgressBar}>
+                        <View
+                          style={[
+                            styles.challengePreviewProgressFill,
+                            {
+                              width: `${(challenge.currentProgress / (challenge.targetProgress || 1)) * 100}%`,
+                              backgroundColor: theme.colors.primary
+                            }
+                          ]}
                         />
                       </View>
-                      <View style={styles.challengePreviewContent}>
-                        <Text style={styles.challengePreviewTitle} numberOfLines={1}>
-                          {challenge.title}
-                        </Text>
-                        <Text style={styles.challengePreviewDescription} numberOfLines={1}>
-                          {challenge.description}
-                        </Text>
-                      </View>
-                      <Text style={styles.challengePreviewPercent}>
-                        {Math.round(progress)}%
+                    </View>
+                    <View style={styles.challengePreviewPercentBadge}>
+                      <Text style={styles.challengePreviewPercentText}>
+                        {Math.round((challenge.currentProgress / (challenge.targetProgress || 1)) * 100)}%
                       </Text>
                     </View>
-                    <View style={styles.challengePreviewProgressBar}>
-                      <View
-                        style={[
-                          styles.challengePreviewProgressFill,
-                          { width: `${Math.min(progress, 100)}%` },
-                        ]}
-                      />
-                    </View>
-                    <Text style={styles.challengePreviewDays}>
-                      {daysRemaining()} يوم متبقي
-                    </Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              );
-            })
-          ) : (
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Challenges')}
-              style={styles.emptyChallengeCard}
-            >
-              <LinearGradient
-                colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-                style={styles.emptyChallengeGradient}
-              >
-                <Ionicons name="trophy-outline" size={32} color={theme.colors.primary} />
-                <Text style={styles.emptyChallengeTitle}>ابدأ بتحدي جديد</Text>
-                <Text style={styles.emptyChallengeText}>
-                  اختبر نفسك مع تحديات مالية ممتعة
-                </Text>
-                <View style={styles.emptyChallengeButton}>
-                  <Text style={styles.emptyChallengeButtonText}>استكشف التحديات</Text>
-                  <Ionicons name="chevron-forward" size={20} color={theme.colors.textInverse} />
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
-        </View>
 
-        {/* Achievements Quick View */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>إنجازاتي</Text>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Achievements')}
-              style={styles.viewAllButton}
-            >
-              <Text style={styles.viewAllText}>عرض الكل</Text>
-              <Ionicons name="chevron-back" size={16} color={theme.colors.primary} />
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Achievements')}
-            style={styles.budgetQuickCard}
-          >
-            <LinearGradient
-              colors={['#F59E0B', '#D97706'] as any}
-              style={styles.budgetQuickGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              <Ionicons name="trophy" size={32} color={theme.colors.textInverse} />
-              <View style={styles.budgetQuickContent}>
-                <Text style={styles.budgetQuickTitle}>الإنجازات والشارات</Text>
-                <Text style={styles.budgetQuickText}>
-                  {achievementsCount.unlocked} من {achievementsCount.total} إنجاز مفتوح
-                </Text>
-                {achievementsCount.total > 0 && (
-                  <View style={styles.achievementProgressBar}>
-                    <View
-                      style={[
-                        styles.achievementProgressFill,
-                        {
-                          width: `${(achievementsCount.unlocked / achievementsCount.total) * 100}%`,
-                        },
-                      ]}
-                    />
                   </View>
-                )}
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-
-        {/* Expense Distribution Chart */}
-        {chartData.length > 0 && (
-          <View style={styles.chartCard}>
-            <View style={styles.chartHeader}>
-              <View style={styles.chartHeaderLeft}>
-                <Ionicons name="pie-chart" size={24} color={theme.colors.primary} />
-                <Text style={styles.chartTitle}>توزيع المصاريف</Text>
-              </View>
-            </View>
-            <View style={styles.chartContent}>
-              <View style={styles.chartWrapper}>
-                <PieChart
-                  data={chartData}
-                  width={width - 80}
-                  height={200}
-                  chartConfig={{
-                    color: (opacity = 1) => {
-                      const r = parseInt(theme.colors.primary.slice(1, 3), 16);
-                      const g = parseInt(theme.colors.primary.slice(3, 5), 16);
-                      const b = parseInt(theme.colors.primary.slice(5, 7), 16);
-                      return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-                    },
-                  }}
-                  accessor="population"
-                  backgroundColor="transparent"
-                  paddingLeft="15"
-                  center={[10, 0]}
-                  absolute
-                  hasLegend={false}
-                />
-              </View>
-              <View style={styles.chartLegend}>
-                {chartData.map((item: any, index: number) => {
-                  const percentage = summary?.topExpenseCategories[index]?.percentage || 0;
-                  return (
-                    <View key={index} style={styles.legendItem}>
-                      <View style={styles.legendItemLeft}>
-                        <View style={[styles.legendColorDot, { backgroundColor: item.color }]} />
-                        <Text style={styles.legendItemName} numberOfLines={1}>
-                          {item.name}
-                        </Text>
-                      </View>
-                      <View style={styles.legendItemRight}>
-                        <Text style={styles.legendItemAmount}>
-                          {formatCurrency(item.population)}
-                        </Text>
-                        <Text style={styles.legendItemPercentage}>
-                          {percentage.toFixed(1)}%
-                        </Text>
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            ))}
           </View>
         )}
 
-        {/* Recent Transactions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>المعاملات الأخيرة</Text>
-          {recentTransactions.map((transaction, index) => (
-            <TransactionItem
-              key={`${(transaction as any).type}-${index}`}
-              item={transaction}
-              type={(transaction as any).type}
-              formatCurrency={formatCurrency}
-            />
-          ))}
+        {/* Other Summaries (Debts, Bills) - Compact Grid */}
+        <View style={styles.summaryGrid}>
+          {debtsSummary && (
+            <TouchableOpacity
+              style={styles.summaryGridItem}
+              onPress={() => navigation.navigate('Debts')}
+            >
+              <View style={[styles.summaryIconBg, { backgroundColor: '#8B5CF6' }]}>
+                <Ionicons name="card" size={20} color="#FFF" />
+              </View>
+              <Text style={styles.summaryLabel}>الديون</Text>
+              <Text style={styles.summaryValue}>{formatCurrency(debtsSummary.remaining)}</Text>
+            </TouchableOpacity>
+          )}
+
+          {budgetsSummary && (
+            <TouchableOpacity
+              style={styles.summaryGridItem}
+              onPress={() => navigation.navigate('Budget')}
+            >
+              <View style={[styles.summaryIconBg, { backgroundColor: '#EF4444' }]}>
+                <Ionicons name="bar-chart" size={20} color="#FFF" />
+              </View>
+              <Text style={styles.summaryLabel}>الميزانية</Text>
+              <Text style={styles.summaryValue}>{budgetsSummary.exceeded} متجاوز</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={styles.summaryGridItem}
+            onPress={() => navigation.navigate('Bills')}
+          >
+            <View style={[styles.summaryIconBg, { backgroundColor: theme.colors.primary }]}>
+              <Ionicons name="receipt" size={20} color="#FFF" />
+            </View>
+            <Text style={styles.summaryLabel}>الفواتير</Text>
+            <Text style={styles.summaryValue}>عرض الكل</Text>
+          </TouchableOpacity>
         </View>
+
+        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -1026,325 +680,321 @@ export const DashboardScreen = ({ navigation }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
-    // ADD FONT FAMILY
+    backgroundColor: '#F8FAFC',
+  },
+
+  headerContainer: {
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.sm,
+    paddingBottom: theme.spacing.md,
+    backgroundColor: '#FFFFFF',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    ...getPlatformShadow('sm'),
+  },
+  headerRow: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  headerButtons: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  greetingText: {
+    fontSize: theme.typography.sizes.lg,
+    fontWeight: getPlatformFontWeight('700'),
+    color: '#0F172A',
     fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'right' : 'left',
+  },
+  dateText: {
+    fontSize: theme.typography.sizes.sm,
+    color: '#64748B',
+    fontFamily: theme.typography.fontFamily,
+    marginTop: 4,
+    textAlign: isRTL ? 'right' : 'left',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
+    borderWidth: 1.5,
+    borderColor: '#F1F5F9',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    padding: theme.spacing.md,
-    paddingBottom: 120,
+    paddingHorizontal: theme.spacing.lg,
+    paddingBottom: 110, // Increased to clear TabBar height
   },
-  summaryGrid: {
-    flexDirection: 'row',
-    marginBottom: theme.spacing.md,
-    gap: theme.spacing.sm,
-  },
-  summaryGap: {
-    width: theme.spacing.sm,
-  },
-   todayCard: {
-     marginBottom: theme.spacing.md,
-     borderRadius: theme.borderRadius.lg,
-     padding: theme.spacing.md,
-     ...getPlatformShadow('md'),
-     overflow: 'hidden',
-   },
-   todayCardHeader: {
-     marginBottom: theme.spacing.md,
-   },
-  todayCardHeaderLeft: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: theme.spacing.md,
-  },
-   todayCardIconContainer: {
-     width: 40,
-     height: 40,
-     borderRadius: 20,
-     alignItems: 'center',
-     justifyContent: 'center',
-     ...getPlatformShadow('sm'),
-   },
-   todayCardTitle: {
-     fontSize: theme.typography.sizes.lg,
-     fontWeight: getPlatformFontWeight('700'),
-     color: theme.colors.textInverse,
-     fontFamily: theme.typography.fontFamily,
-     textAlign: 'right',
-     marginBottom: theme.spacing.xs / 2,
-   },
-   todayCardSubtitle: {
-     fontSize: theme.typography.sizes.xs,
-     color: 'rgba(255, 255, 255, 0.85)',
-     fontFamily: theme.typography.fontFamily,
-     textAlign: 'right',
-   },
-   todayCardStats: {
-     flexDirection: 'row-reverse',
-     justifyContent: 'space-around',
-     paddingTop: theme.spacing.md,
-     borderTopWidth: 1,
-     borderTopColor: 'rgba(255, 255, 255, 0.2)',
-   },
-  todayCardStatItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  todayCardStatHeader: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: theme.spacing.xs,
-    marginBottom: theme.spacing.xs,
-  },
-  todayCardStatLabel: {
-    fontSize: theme.typography.sizes.xs,
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'center',
-  },
-   todayCardStatValue: {
-     fontSize: theme.typography.sizes.sm,
-     fontWeight: getPlatformFontWeight('700'),
-     color: theme.colors.textInverse,
-     fontFamily: theme.typography.fontFamily,
-     textAlign: 'center',
-   },
-  todayCardStatDivider: {
-    width: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    marginHorizontal: theme.spacing.sm,
-  },
-  chartCard: {
-    backgroundColor: theme.colors.surfaceCard,
-    borderRadius: theme.borderRadius.lg,
+  heroSection: {
+    marginTop: theme.spacing.sm,
     marginBottom: theme.spacing.lg,
-    ...getPlatformShadow('md'),
-    borderWidth: 1,
-    borderColor: theme.colors.border,
   },
-  chartHeader: {
+  todayQuickLook: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  chartHeaderLeft: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
+    marginTop: theme.spacing.md,
     gap: theme.spacing.sm,
   },
-  chartContent: {
-    padding: theme.spacing.md,
-  },
-  chartWrapper: {
+  quickLookItem: {
+    flex: 1,
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.lg,
     alignItems: 'center',
-    marginBottom: theme.spacing.md,
+    ...getPlatformShadow('sm'),
   },
-  chartTitle: {
-    fontSize: theme.typography.sizes.lg,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
+  quickLookLabel: {
+    fontSize: 10,
+    fontWeight: getPlatformFontWeight('600'),
+    marginTop: 4,
     fontFamily: theme.typography.fontFamily,
-    textAlign: isRTL ? 'right' : 'left',
   },
-  chartLegend: {
-    gap: theme.spacing.sm,
+  quickLookValue: {
+    fontSize: 12,
+    fontWeight: getPlatformFontWeight('800'),
+    marginTop: 2,
+    fontFamily: theme.typography.fontFamily,
   },
-  legendItem: {
+  actionGrid: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.sm,
-    backgroundColor: theme.colors.surfaceLight,
-    borderRadius: theme.borderRadius.sm,
-    marginBottom: theme.spacing.xs,
-  },
-  legendItemLeft: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: theme.spacing.sm,
-  },
-  legendColorDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  legendItemName: {
-    fontSize: theme.typography.sizes.sm,
-    fontWeight: getPlatformFontWeight('600'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-    flex: 1,
-    textAlign: isRTL ? 'right' : 'left',
-  },
-  legendItemRight: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-  },
-  legendItemAmount: {
-    fontSize: theme.typography.sizes.sm,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-  },
-  legendItemPercentage: {
-    fontSize: theme.typography.sizes.xs,
-    fontWeight: getPlatformFontWeight('600'),
-    color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
-    backgroundColor: theme.colors.surfaceCard,
+    marginBottom: theme.spacing.xl,
     paddingHorizontal: theme.spacing.xs,
-    paddingVertical: 2,
-    borderRadius: theme.borderRadius.sm,
   },
-  section: {
-    marginBottom: theme.spacing.lg,
-    direction: 'ltr',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  actionItem: {
     alignItems: 'center',
-    marginBottom: theme.spacing.md,
-    direction: 'rtl',
+    width: (width - theme.spacing.lg * 2) / 4 - 8,
   },
-  sectionTitle: {
-    fontSize: theme.typography.sizes.xl,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'left',
-    writingDirection: 'rtl',
-    direction: 'rtl',
-  },
-  viewAllButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  viewAllText: {
-    fontSize: theme.typography.sizes.sm,
-    color: theme.colors.primary,
-    fontFamily: theme.typography.fontFamily,
-    ...(isRTL ? { marginRight: theme.spacing.xs } : { marginLeft: theme.spacing.xs }),
-  },
-  goalPreviewCardWrapper: {
-    marginBottom: theme.spacing.sm,
-  },
-  goalPreviewCard: {
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.md,
-    ...getPlatformShadow('md'),
-    overflow: 'hidden',
-  },
-  goalPreviewHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: theme.spacing.sm,
-  },
-  goalPreviewIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  actionIconBg: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    ...(isRTL ? { marginLeft: theme.spacing.sm } : { marginRight: theme.spacing.sm }),
-    ...getPlatformShadow('sm'),
-  },
-  goalPreviewContent: {
-    flex: 1,
-  },
-  goalPreviewTitle: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textInverse,
     marginBottom: theme.spacing.xs,
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
-    writingDirection: 'rtl',
   },
-  goalPreviewAmount: {
-    fontSize: theme.typography.sizes.sm,
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  goalPreviewConvertedAmount: {
-    fontSize: theme.typography.sizes.xs,
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-    marginTop: 2,
-    fontStyle: 'italic',
-  },
-  goalPreviewPercent: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textInverse,
-    fontFamily: theme.typography.fontFamily,
-  },
-  goalPreviewProgressBar: {
-    height: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    borderRadius: theme.borderRadius.round,
-    overflow: 'hidden',
-    ...getPlatformShadow('sm'),
-  },
-  goalPreviewProgressFill: {
-    height: '100%',
-    borderRadius: theme.borderRadius.round,
-  },
-  emptyGoalCard: {
-    marginBottom: theme.spacing.sm,
-  },
-  emptyGoalGradient: {
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.xl,
-    alignItems: 'center',
-    ...getPlatformShadow('sm'),
-  },
-  emptyGoalTitle: {
-    fontSize: theme.typography.sizes.lg,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    marginTop: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'center',
-    writingDirection: 'rtl',
-  },
-  emptyGoalText: {
-    fontSize: theme.typography.sizes.sm,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: theme.spacing.lg,
-    fontFamily: theme.typography.fontFamily,
-    writingDirection: 'rtl',
-    lineHeight: 20,
-  },
-  emptyGoalButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.primary,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    ...getPlatformShadow('sm'),
-  },
-  emptyGoalButtonText: {
-    fontSize: theme.typography.sizes.md,
+  actionLabel: {
+    fontSize: 11,
     fontWeight: getPlatformFontWeight('600'),
-    color: theme.colors.textInverse,
-    ...(isRTL ? { marginRight: theme.spacing.sm } : { marginLeft: theme.spacing.sm }),
+    color: '#334155',
+    textAlign: 'center',
+    fontFamily: theme.typography.fontFamily,
+  },
+  pulseSection: {
+    marginBottom: theme.spacing.xl,
+  },
+  pulseCard: {
+    borderRadius: 24,
+    padding: theme.spacing.lg,
+    ...getPlatformShadow('lg'),
+  },
+  pulseHeader: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.lg,
+  },
+  pulseTitle: {
+    fontSize: theme.typography.sizes.md,
+    fontWeight: getPlatformFontWeight('700'),
+    color: '#FFF',
+    fontFamily: theme.typography.fontFamily,
+  },
+  pulseLink: {
+    fontSize: theme.typography.sizes.sm,
+    color: '#BDF4FF',
+    fontWeight: getPlatformFontWeight('600'),
+    fontFamily: theme.typography.fontFamily,
+  },
+  pulseStats: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.lg,
+  },
+  pulseStatItem: {
+    flex: 1,
+    alignItems: isRTL ? 'flex-end' : 'flex-start',
+  },
+  pulseStatNum: {
+    fontSize: theme.typography.sizes.lg,
+    fontWeight: getPlatformFontWeight('800'),
+    color: '#FFF',
+    fontFamily: theme.typography.fontFamily,
+  },
+  pulseStatLabel: {
+    fontSize: 11,
+    color: '#A5F3FC',
+    marginTop: 2,
+    fontFamily: theme.typography.fontFamily,
+  },
+  pulseDivider: {
+    width: 1,
+    height: '100%',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    marginHorizontal: theme.spacing.md,
+  },
+  progressContainer: {
+    marginTop: theme.spacing.sm,
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#38BDF8',
+    borderRadius: 4,
+  },
+  progressText: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.8)',
+    textAlign: isRTL ? 'right' : 'left',
+    fontFamily: theme.typography.fontFamily,
+  },
+  section: {
+    marginBottom: theme.spacing.xl,
+  },
+  sectionHeader: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  sectionTitle: {
+    fontSize: theme.typography.sizes.lg,
+    fontWeight: getPlatformFontWeight('800'),
+    color: '#1E293B',
+    fontFamily: theme.typography.fontFamily,
+  },
+  sectionLink: {
+    fontSize: theme.typography.sizes.sm,
+    color: theme.colors.primary,
+    fontWeight: getPlatformFontWeight('700'),
+    fontFamily: theme.typography.fontFamily,
+  },
+  transactionList: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: theme.spacing.sm,
+    ...getPlatformShadow('sm'),
+  },
+  emptyText: {
+    textAlign: 'center',
+    padding: 20,
+    color: '#94A3B8',
+    fontStyle: 'italic',
+    fontFamily: theme.typography.fontFamily,
+  },
+  goalsCarousel: {
+    gap: theme.spacing.md,
+    paddingRight: theme.spacing.lg,
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+  },
+  goalCard: {
+    width: width * 0.45,
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: theme.spacing.md,
+    ...(Platform.OS === 'ios' ? { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 } : { elevation: 2 }),
+  },
+  goalCardHeader: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.sm,
+    gap: 8,
+  },
+  goalCardTitle: {
+    fontSize: 13,
+    fontWeight: getPlatformFontWeight('700'),
+    color: '#334155',
+    flex: 1,
+    fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'right' : 'left',
+  },
+  goalCardAmount: {
+    fontSize: 16,
+    fontWeight: getPlatformFontWeight('800'),
+    color: theme.colors.primary,
+    marginBottom: theme.spacing.sm,
+    fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'right' : 'left',
+  },
+  goalProgressBar: {
+    height: 6,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  goalProgressFill: {
+    height: '100%',
+    backgroundColor: theme.colors.primary,
+  },
+  goalPercentText: {
+    fontSize: 10,
+    color: '#64748B',
+    fontWeight: getPlatformFontWeight('600'),
+    textAlign: isRTL ? 'left' : 'right',
+    fontFamily: theme.typography.fontFamily,
+  },
+  summaryGrid: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
+    marginTop: theme.spacing.sm,
+  },
+  summaryGridItem: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: theme.spacing.md,
+    alignItems: 'center',
+    ...(Platform.OS === 'ios' ? { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 } : { elevation: 2 }),
+  },
+  summaryIconBg: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: theme.spacing.xs,
+  },
+  summaryLabel: {
+    fontSize: 12,
+    fontWeight: getPlatformFontWeight('600'),
+    color: '#64748B',
+    marginBottom: 4,
+    fontFamily: theme.typography.fontFamily,
+  },
+  summaryValue: {
+    fontSize: 14,
+    fontWeight: getPlatformFontWeight('800'),
+    color: '#1E293B',
     fontFamily: theme.typography.fontFamily,
   },
   budgetQuickCard: {
@@ -1356,7 +1006,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: theme.spacing.md,
-    ...getPlatformShadow('md'),
+    ...(Platform.OS === 'ios' ? { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 } : { elevation: 2 }),
   },
   budgetQuickContent: {
     flex: 1,
@@ -1384,7 +1034,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: theme.spacing.md,
-    ...getPlatformShadow('md'),
+    ...(Platform.OS === 'ios' ? { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 } : { elevation: 2 }),
   },
   currencyConverterContent: {
     flex: 1,
@@ -1407,7 +1057,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.lg,
     marginBottom: theme.spacing.sm,
     overflow: 'hidden',
-    ...getPlatformShadow('md'),
+    ...(Platform.OS === 'ios' ? { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 } : { elevation: 2 }),
   },
   statusCardGradient: {
     padding: theme.spacing.md,
@@ -1479,37 +1129,55 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.sm,
     borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
-    ...getPlatformShadow('sm'),
+    ...(Platform.OS === 'ios' ? { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2 } : { elevation: 1 }),
   },
   challengePreviewCard: {
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.md,
+    borderRadius: 24,
+    padding: theme.spacing.lg,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    ...(Platform.OS === 'ios' ? { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10 } : { elevation: 2 }),
   },
   challengePreviewHeader: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     marginBottom: theme.spacing.sm,
   },
   challengePreviewIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 48,
+    height: 48,
+    borderRadius: 20,
+    backgroundColor: '#F8FAFC',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: theme.spacing.md,
+    ...(isRTL ? { marginLeft: theme.spacing.md } : { marginRight: theme.spacing.md }),
   },
   challengePreviewContent: {
     flex: 1,
   },
   challengePreviewTitle: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textInverse,
-    marginBottom: theme.spacing.xs,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 4,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',
+  },
+  challengePreviewPercentBadge: {
+    backgroundColor: '#F0F9FF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+  },
+  challengePreviewPercentText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0284C7',
+    fontFamily: theme.typography.fontFamily,
   },
   challengePreviewDescription: {
     fontSize: theme.typography.sizes.xs,
@@ -1523,19 +1191,20 @@ const styles = StyleSheet.create({
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
-    marginRight: theme.spacing.sm,
+    ...(isRTL ? { marginLeft: theme.spacing.sm } : { marginRight: theme.spacing.sm }),
+    textAlign: 'right',
   },
   challengePreviewProgressBar: {
-    height: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    borderRadius: theme.borderRadius.round,
+    height: 8,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 4,
     overflow: 'hidden',
-    marginBottom: theme.spacing.xs,
+    marginBottom: 0,
   },
   challengePreviewProgressFill: {
     height: '100%',
-    backgroundColor: theme.colors.textInverse,
-    borderRadius: theme.borderRadius.round,
+    backgroundColor: theme.colors.primary,
+    borderRadius: 4,
   },
   challengePreviewDays: {
     fontSize: theme.typography.sizes.xs,
@@ -1551,7 +1220,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.xl,
     alignItems: 'center',
-    ...getPlatformShadow('sm'),
+    ...(Platform.OS === 'ios' ? { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2 } : { elevation: 1 }),
   },
   emptyChallengeTitle: {
     fontSize: theme.typography.sizes.lg,
@@ -1573,18 +1242,18 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   emptyChallengeButton: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.primary,
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
-    ...getPlatformShadow('sm'),
+    ...(Platform.OS === 'ios' ? { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2 } : { elevation: 1 }),
   },
   achievementProgressBar: {
     height: 4,
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: theme.borderRadius.round,
+    borderRadius: 8,
     overflow: 'hidden',
     marginTop: theme.spacing.sm,
     width: '100%',
@@ -1592,7 +1261,7 @@ const styles = StyleSheet.create({
   achievementProgressFill: {
     height: '100%',
     backgroundColor: theme.colors.textInverse,
-    borderRadius: theme.borderRadius.round,
+    borderRadius: 8,
   },
   emptyChallengeButtonText: {
     fontSize: theme.typography.sizes.md,

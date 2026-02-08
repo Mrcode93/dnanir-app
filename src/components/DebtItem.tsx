@@ -120,7 +120,7 @@ export const DebtItem: React.FC<DebtItemProps> = ({
             <View style={styles.iconSection}>
               <View style={[styles.iconWrapper, { borderColor: colors[0] + '30' }]}>
                 <LinearGradient
-                  colors={colors}
+                  colors={colors as any}
                   style={styles.iconGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
@@ -410,8 +410,7 @@ const styles = StyleSheet.create({
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
-    writingDirection: 'rtl',
+    textAlign: isRTL ? 'right' : 'left',
     marginBottom: 4,
   },
   metaRow: {
@@ -419,6 +418,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: theme.spacing.xs,
     flexWrap: 'wrap',
+    justifyContent: isRTL ? 'flex-start' : 'flex-start',
   },
   dateInfo: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -430,8 +430,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontFamily: theme.typography.fontFamily,
     fontWeight: getPlatformFontWeight('500'),
-    textAlign: 'right',
-    writingDirection: 'rtl',
+    textAlign: isRTL ? 'right' : 'left',
   },
   categoryTag: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -445,9 +444,10 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.xs,
     fontWeight: getPlatformFontWeight('600'),
     fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'right' : 'left',
   },
   rightContent: {
-    alignItems: 'flex-end',
+    alignItems: isRTL ? 'flex-start' : 'flex-end',
   },
   amountWrapper: {
     borderRadius: theme.borderRadius.md,
@@ -457,22 +457,21 @@ const styles = StyleSheet.create({
   amountBadge: {
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: 4,
+    alignItems: isRTL ? 'flex-start' : 'flex-end',
   },
   amount: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('800'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
-    writingDirection: 'rtl',
+    textAlign: isRTL ? 'right' : 'left',
   },
   remainingAmount: {
     fontSize: theme.typography.sizes.xs,
     fontWeight: getPlatformFontWeight('500'),
     color: 'rgba(255, 255, 255, 0.9)',
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
-    writingDirection: 'rtl',
+    textAlign: isRTL ? 'right' : 'left',
     marginTop: 2,
   },
   menuSection: {
@@ -507,8 +506,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     ...(isRTL ? { marginRight: theme.spacing.sm } : { marginLeft: theme.spacing.sm }),
-    textAlign: 'right',
-    writingDirection: 'rtl',
+    textAlign: isRTL ? 'right' : 'left',
   },
   menuItemTextDanger: {
     color: theme.colors.error,

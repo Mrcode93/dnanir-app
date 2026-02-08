@@ -8,9 +8,9 @@ import {
   Animated,
   Dimensions,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { isRTL } from '../utils/rtl';
 
 export type AlertType = 'success' | 'error' | 'warning' | 'info';
 
@@ -37,9 +37,7 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
   onCancel,
   showCancel = false,
 }) => {
-  React.useEffect(() => {
-  }, [visible, title, message, type, showCancel]);
-  const scaleAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -48,8 +46,8 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
         Animated.spring(scaleAnim, {
           toValue: 1,
           useNativeDriver: true,
-          tension: 50,
-          friction: 7,
+          tension: 60,
+          friction: 8,
         }),
         Animated.timing(opacityAnim, {
           toValue: 1,
@@ -60,7 +58,7 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
     } else {
       Animated.parallel([
         Animated.timing(scaleAnim, {
-          toValue: 0,
+          toValue: 0.9,
           duration: 150,
           useNativeDriver: true,
         }),
@@ -73,38 +71,21 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
     }
   }, [visible]);
 
-  const getTypeColors = (): string[] => {
+  const getTypeStyle = () => {
     switch (type) {
       case 'success':
-        return ['#10B981', '#059669'];
+        return { bg: theme.colors.success + '15', icon: theme.colors.success, name: 'checkmark-circle' };
       case 'error':
-        return ['#EF4444', '#DC2626'];
+        return { bg: theme.colors.error + '15', icon: theme.colors.error, name: 'close-circle' };
       case 'warning':
-        return ['#F59E0B', '#D97706'];
+        return { bg: theme.colors.warning + '15', icon: theme.colors.warning, name: 'warning' };
       case 'info':
-        return ['#3B82F6', '#2563EB'];
       default:
-        return ['#3B82F6', '#2563EB'];
+        return { bg: theme.colors.primary + '15', icon: theme.colors.primary, name: 'information-circle' };
     }
   };
 
-  const getTypeIcon = (): string => {
-    switch (type) {
-      case 'success':
-        return 'checkmark-circle';
-      case 'error':
-        return 'close-circle';
-      case 'warning':
-        return 'warning';
-      case 'info':
-        return 'information-circle';
-      default:
-        return 'information-circle';
-    }
-  };
-
-  const colors = getTypeColors();
-  const icon = getTypeIcon();
+  const typeStyle = getTypeStyle();
 
   const handleConfirm = async () => {
     if (onConfirm) {
@@ -122,21 +103,17 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
     }
   };
 
-  if (!visible) {
-    return null;
-  }
+  if (!visible) return null;
 
   return (
     <Modal
       visible={visible}
       transparent={true}
-      animationType="fade"
+      animationType="none"
       onRequestClose={handleCancel}
       statusBarTranslucent={true}
-      presentationStyle="overFullScreen"
-      hardwareAccelerated={true}
     >
-      <View style={styles.overlay} pointerEvents="box-none">
+      <View style={styles.overlay}>
         <Animated.View
           style={[
             styles.overlayAnimated,
@@ -153,19 +130,11 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
               opacity: opacityAnim,
             },
           ]}
-          pointerEvents="auto"
         >
           <View style={styles.alertContent}>
             {/* Icon Section */}
-            <View style={[styles.iconContainer, { backgroundColor: colors[0] + '15' }]}>
-              <LinearGradient
-                colors={colors as any}
-                style={styles.iconGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <Ionicons name={icon as any} size={32} color="#FFFFFF" />
-              </LinearGradient>
+            <View style={[styles.iconContainer, { backgroundColor: typeStyle.bg }]}>
+              <Ionicons name={typeStyle.name as any} size={32} color={typeStyle.icon} />
             </View>
 
             {/* Title */}
@@ -188,22 +157,13 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
               <TouchableOpacity
                 style={[
                   styles.confirmButton,
-                  showCancel ? { flex: 1 } : { width: '100%' },
+                  { backgroundColor: typeStyle.icon },
+                  showCancel ? {} : { width: '100%' },
                 ]}
                 onPress={handleConfirm}
                 activeOpacity={0.8}
               >
-                <LinearGradient
-                  colors={colors as any}
-                  style={styles.confirmButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  {type === 'success' && (
-                    <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-                  )}
-                  <Text style={styles.confirmButtonText}>{confirmText}</Text>
-                </LinearGradient>
+                <Text style={styles.confirmButtonText}>{confirmText}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -213,112 +173,86 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
   );
 };
 
-const { width } = Dimensions.get('window');
-
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: theme.spacing.lg,
-    zIndex: 99999,
-    elevation: 99999,
+    padding: 24,
     backgroundColor: 'transparent',
+    zIndex: 99999,
   },
   overlayAnimated: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    zIndex: 10000,
-    elevation: 10000,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
   },
   alertContainer: {
-    width: width * 0.85,
-    maxWidth: 400,
-    borderRadius: theme.borderRadius.xl,
+    width: '100%',
+    maxWidth: 340,
+    borderRadius: 28,
     overflow: 'hidden',
-    ...getPlatformShadow('lg'),
-    zIndex: 10001,
-    elevation: 10001,
+    backgroundColor: theme.colors.surface,
+    ...getPlatformShadow('xl'),
   },
   alertContent: {
-    backgroundColor: theme.colors.surfaceCard,
-    padding: theme.spacing.xl,
+    padding: 24,
     alignItems: 'center',
-    direction: 'rtl' as const,
   },
   iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginBottom: theme.spacing.lg,
-    overflow: 'hidden',
-    ...getPlatformShadow('md'),
-  },
-  iconGradient: {
-    width: '100%',
-    height: '100%',
+    width: 64,
+    height: 64,
+    borderRadius: 24, // Squircle
+    marginBottom: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
   title: {
-    fontSize: theme.typography.sizes.xl,
-    fontWeight: getPlatformFontWeight('700'),
+    fontSize: 20,
+    fontWeight: '700',
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.sm,
+    marginBottom: 8,
     textAlign: 'center',
-    writingDirection: 'rtl',
   },
   message: {
-    fontSize: theme.typography.sizes.md,
+    fontSize: 16,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
     lineHeight: 24,
-    marginBottom: theme.spacing.xl,
-    writingDirection: 'rtl',
+    marginBottom: 32,
   },
   actions: {
-    flexDirection: 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     width: '100%',
-    gap: theme.spacing.md,
+    gap: 12,
   },
   cancelButton: {
     flex: 1,
-    paddingVertical: theme.spacing.md,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: theme.borderRadius.md,
+    borderRadius: 16,
     backgroundColor: theme.colors.surfaceLight,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
   },
   cancelButtonText: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('600'),
-    color: theme.colors.textSecondary,
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'center',
-    writingDirection: 'rtl',
   },
   confirmButton: {
-    borderRadius: theme.borderRadius.md,
-    overflow: 'hidden',
-    ...getPlatformShadow('md'),
-  },
-  confirmButtonGradient: {
-    flexDirection: 'row-reverse',
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
-    gap: theme.spacing.xs,
+    ...getPlatformShadow('sm'),
   },
   confirmButtonText: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('700'),
+    fontSize: 16,
+    fontWeight: '700',
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'center',
   },
 });
