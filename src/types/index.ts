@@ -7,6 +7,7 @@ export interface Expense {
   date: string;
   description?: string;
   currency?: string;
+  base_amount?: number; // Normalized amount in base currency (IQD)
   receipt_image_path?: string; // Path to stored receipt image
 }
 
@@ -17,6 +18,7 @@ export interface Income {
   date: string;
   description?: string;
   currency?: string;
+  base_amount?: number; // Normalized amount in base currency (IQD)
   category?: IncomeSource;
 }
 
@@ -81,6 +83,7 @@ export interface AppSettings {
   notificationsEnabled: boolean;
   darkModeEnabled: boolean;
   autoBackupEnabled: boolean;
+  autoSyncEnabled?: boolean;
   currency: string;
   language: string;
 }
@@ -178,6 +181,9 @@ export interface ReportFilter {
 }
 
 // Debts
+/** owed_by_me = دين على (أنا مدين) | owed_to_me = دين لي (مدين لي - عند التسديد يضاف لرصيدي) */
+export type DebtDirection = 'owed_by_me' | 'owed_to_me';
+
 export interface Debt {
   id: number;
   debtorName: string;
@@ -187,6 +193,8 @@ export interface Debt {
   dueDate?: string;
   description?: string;
   type: 'debt' | 'installment' | 'advance'; // دين، أقساط، سلف
+  /** دين على (أنا أدفع) أو دين لي (يُسدّد لي → يضاف رصيد). Default: owed_by_me */
+  direction?: DebtDirection;
   currency?: string;
   isPaid: boolean;
   createdAt: string;
@@ -207,6 +215,11 @@ export const DEBT_TYPES = {
   debt: 'دين',
   installment: 'أقساط',
   advance: 'سلف',
+};
+
+export const DEBT_DIRECTIONS: Record<DebtDirection, string> = {
+  owed_by_me: 'دين على',
+  owed_to_me: 'دين لي',
 };
 
 // Challenges
@@ -392,15 +405,15 @@ export type BillCategory =
   | 'loan'           // قرض
   | 'other';         // أخرى
 
-export const BILL_CATEGORIES: Record<BillCategory, { label: string; icon: string }> = {
-  utilities: { label: 'فواتير الخدمات', icon: 'flash' },
-  rent: { label: 'إيجار', icon: 'home' },
-  insurance: { label: 'تأمين', icon: 'shield' },
-  internet: { label: 'إنترنت', icon: 'wifi' },
-  phone: { label: 'هاتف', icon: 'call' },
-  subscription: { label: 'اشتراكات', icon: 'card' },
-  loan: { label: 'قرض', icon: 'document' },
-  other: { label: 'أخرى', icon: 'ellipse' },
+export const BILL_CATEGORIES: Record<BillCategory, { label: string; icon: string; color: string }> = {
+  utilities: { label: 'فواتير الخدمات', icon: 'flash', color: '#3B82F6' },
+  rent: { label: 'إيجار', icon: 'home', color: '#8B5CF6' },
+  insurance: { label: 'تأمين', icon: 'shield', color: '#10B981' },
+  internet: { label: 'إنترنت', icon: 'wifi', color: '#06B6D4' },
+  phone: { label: 'هاتف', icon: 'call', color: '#EC4899' },
+  subscription: { label: 'اشتراكات', icon: 'card', color: '#F59E0B' },
+  loan: { label: 'قرض', icon: 'document', color: '#EF4444' },
+  other: { label: 'أخرى', icon: 'ellipse', color: '#6B7280' },
 };
 
 export interface BillPayment {

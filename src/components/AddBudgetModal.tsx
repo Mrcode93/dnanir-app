@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Budget, getCustomCategories, addBudget, updateBudget } from '../database/database';
 import { EXPENSE_CATEGORIES, CURRENCIES } from '../types';
@@ -51,6 +51,8 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
   onSave,
   budget,
 }) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const { currencyCode, formatCurrency } = useCurrency();
   const [amount, setAmount] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
@@ -427,7 +429,7 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -448,7 +450,7 @@ const styles = StyleSheet.create({
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: theme.spacing.lg,
+    padding: theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
@@ -480,13 +482,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: theme.spacing.lg,
+    padding: theme.spacing.md,
   },
   amountCard: {
     backgroundColor: theme.colors.surface,
     borderRadius: 20,
-    padding: theme.spacing.xl,
-    marginBottom: theme.spacing.lg,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
     ...getPlatformShadow('sm'),
   },
   amountLabel: {
@@ -535,7 +537,7 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   section: {
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
   },
   sectionLabel: {
     fontSize: theme.typography.sizes.md,
@@ -587,7 +589,7 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     gap: theme.spacing.md,
-    padding: theme.spacing.lg,
+    padding: theme.spacing.md,
     paddingTop: theme.spacing.md,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
@@ -595,7 +597,7 @@ const styles = StyleSheet.create({
   cancelButton: {
     flex: 1,
     paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.md,
     borderRadius: 14,
     alignItems: 'center',
     backgroundColor: theme.colors.surfaceLight,
@@ -616,7 +618,7 @@ const styles = StyleSheet.create({
   saveButtonGradient: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
     gap: theme.spacing.sm,
@@ -645,7 +647,7 @@ const styles = StyleSheet.create({
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: theme.spacing.lg,
+    padding: theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },

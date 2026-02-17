@@ -1,6 +1,6 @@
-import { getBudgets, getBudget, Budget } from '../database/database';
-import { getExpenses } from '../database/database';
+import { getBudgets, getBudget, Budget, getExpenses } from '../database/database';
 import { getCurrentMonthData } from './financialService';
+import { EXPENSE_CATEGORIES } from '../types';
 
 export interface BudgetStatus {
   budget: Budget;
@@ -20,19 +20,33 @@ export const getCurrentMonthBudgets = async (): Promise<Budget[]> => {
 export const calculateBudgetStatus = async (): Promise<BudgetStatus[]> => {
   const budgets = await getCurrentMonthBudgets();
   const monthlyData = await getCurrentMonthData();
-  
+
   const statuses: BudgetStatus[] = [];
-  
+
   for (const budget of budgets) {
     const categoryExpenses = monthlyData.expenses.filter(
-      (expense) => expense.category === budget.category
+      (expense) => {
+        const expenseCat = expense.category;
+        const budgetCat = budget.category;
+
+        // Direct match
+        if (expenseCat === budgetCat) return true;
+
+        // Match English budget category with Arabic expense category
+        if (EXPENSE_CATEGORIES[budgetCat as keyof typeof EXPENSE_CATEGORIES] === expenseCat) return true;
+
+        // Match Arabic budget category with English expense category
+        if (EXPENSE_CATEGORIES[expenseCat as keyof typeof EXPENSE_CATEGORIES] === budgetCat) return true;
+
+        return false;
+      }
     );
-    
+
     const spent = categoryExpenses.reduce((sum, expense) => sum + expense.amount, 0);
     const remaining = budget.amount - spent;
     const percentage = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
     const isExceeded = spent > budget.amount;
-    
+
     statuses.push({
       budget,
       spent,
@@ -41,7 +55,7 @@ export const calculateBudgetStatus = async (): Promise<BudgetStatus[]> => {
       isExceeded,
     });
   }
-  
+
   return statuses;
 };
 

@@ -15,14 +15,14 @@ export const convertCurrency = async (
 
   // Try to get exchange rate from database
   let rate = await getExchangeRate(fromCurrency, toCurrency);
-  
+
   if (!rate) {
     // If no rate found, try reverse rate
     const reverseRate = await getExchangeRate(toCurrency, fromCurrency);
     if (reverseRate) {
       return amount / reverseRate.rate;
     }
-    
+
     // If still no rate, use default rates (you can fetch from API here)
     // For now, return the amount (no conversion)
     console.warn(`No exchange rate found for ${fromCurrency} to ${toCurrency}`);
@@ -44,13 +44,13 @@ export const getOrFetchExchangeRate = async (
   }
 
   let rate = await getExchangeRate(fromCurrency, toCurrency);
-  
+
   if (rate) {
     // Check if rate is older than 24 hours
     const updatedAt = new Date(rate.updatedAt);
     const now = new Date();
     const hoursDiff = (now.getTime() - updatedAt.getTime()) / (1000 * 60 * 60);
-    
+
     if (hoursDiff < 24) {
       return rate.rate;
     }
@@ -70,7 +70,7 @@ export const getOrFetchExchangeRate = async (
   };
 
   const fetchedRate = defaultRates[fromCurrency]?.[toCurrency];
-  
+
   if (fetchedRate) {
     await upsertExchangeRate({
       fromCurrency,
@@ -87,9 +87,16 @@ export const getOrFetchExchangeRate = async (
  * Format currency amount
  */
 export const formatCurrencyAmount = (
-  amount: number,
+  amount: number | null | undefined,
   currencyCode: string
 ): string => {
+  if (amount === null || amount === undefined) {
+    const currency = CURRENCIES.find(c => c.code === currencyCode);
+    if (!currency) return `0.00 ${currencyCode}`;
+    if (currencyCode === 'IQD') return `0 ${currency.symbol}`;
+    return `${currency.symbol}0.00`;
+  }
+
   const currency = CURRENCIES.find(c => c.code === currencyCode);
   if (!currency) {
     return `${amount.toFixed(2)} ${currencyCode}`;
@@ -99,7 +106,7 @@ export const formatCurrencyAmount = (
   if (currencyCode === 'IQD') {
     return `${amount.toLocaleString('ar-IQ')} ${currency.symbol}`;
   }
-  
+
   return `${currency.symbol}${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
@@ -117,10 +124,10 @@ export const updateExchangeRates = async (): Promise<void> => {
   // This would fetch from a real API like exchangerate-api.com or fixer.io
   // For now, we'll use default rates
   const commonPairs = [
-    { from: 'IQD', to: 'USD', rate: 0.00076 },
-    { from: 'USD', to: 'IQD', rate: 1315 },
-    { from: 'IQD', to: 'EUR', rate: 0.00070 },
-    { from: 'EUR', to: 'IQD', rate: 1430 },
+    { fromCurrency: 'IQD', toCurrency: 'USD', rate: 0.00076 },
+    { fromCurrency: 'USD', toCurrency: 'IQD', rate: 1315 },
+    { fromCurrency: 'IQD', toCurrency: 'EUR', rate: 0.00070 },
+    { fromCurrency: 'EUR', toCurrency: 'IQD', rate: 1430 },
   ];
 
   for (const pair of commonPairs) {

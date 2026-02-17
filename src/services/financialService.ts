@@ -1,4 +1,3 @@
-import { getExpenses, getIncome } from '../database/database';
 import { FinancialSummary, ExpenseCategory } from '../types';
 import { formatCurrencyAmount } from './currencyService';
 import { CURRENCIES } from '../types';
@@ -31,6 +30,44 @@ export const getSelectedCurrencyCode = async (): Promise<string> => {
  */
 export const formatCurrency = (amount: number, currencyCode: string = 'IQD'): string => {
   return formatCurrencyAmount(amount, currencyCode);
+};
+
+/**
+ * Get unpaid bills due within [startDate, endDate] and their total amount
+ */
+export const getBillsDueInPeriod = async (
+  startDate: string,
+  endDate: string
+): Promise<{ bills: Array<{ id: number; title: string; amount: number; dueDate: string; category: string }>; totalAmount: number }> => {
+  const { getBillsDueInRange } = await import('../database/database');
+  const bills = await getBillsDueInRange(startDate, endDate);
+  const totalAmount = bills.reduce((sum, b) => sum + b.amount, 0);
+  return { bills, totalAmount };
+};
+
+/**
+ * Estimate total recurring expenses amount for a given month (active recurring only)
+ */
+export const getRecurringEstimatedForMonth = async (year: number, month: number): Promise<number> => {
+  const { getRecurringExpenses } = await import('../database/database');
+  const list = await getRecurringExpenses(true);
+  const firstDay = new Date(year, month - 1, 1);
+  const lastDay = new Date(year, month, 0);
+  let total = 0;
+  for (const r of list) {
+    const start = r.startDate ? new Date(r.startDate) : null;
+    const end = r.endDate ? new Date(r.endDate) : null;
+    if (start && lastDay < start) continue;
+    if (end && firstDay > end) continue;
+    const type = (r.recurrenceType || 'monthly').toLowerCase();
+    const val = Math.max(1, r.recurrenceValue || 1);
+    if (type === 'monthly') total += r.amount / val; // e.g. every 2 months => amount/2 per month
+    else if (type === 'weekly') total += (r.amount * (30 / 7)) / val;
+    else if (type === 'daily') total += (r.amount * 30) / val;
+    else if (type === 'yearly') total += (r.amount * val) / 12;
+    else total += r.amount;
+  }
+  return Math.round(total);
 };
 
 export const calculateFinancialSummary = async (): Promise<FinancialSummary> => {
@@ -77,7 +114,7 @@ export const generateFinancialInsights = (summary: FinancialSummary): string[] =
   }
 
   // Category Insights
-  if (summary.topExpenseCategories.length > 0) {
+  if (summary.topExpenseCategories && summary.topExpenseCategories.length > 0) {
     const topCategory = summary.topExpenseCategories[0];
     if (topCategory.percentage > 40) {
       insights.push(`📊 إنفاقك على "${topCategory.category}" مرتفع جداً (${topCategory.percentage.toFixed(1)}%). هل يمكن تقليله؟`);
@@ -104,18 +141,7 @@ export const generateFinancialInsights = (summary: FinancialSummary): string[] =
 
 export const getCurrentMonthData = async () => {
   const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const lastDayObj = new Date(year, month + 1, 0);
-
-  const firstDay = `${year}-${(month + 1).toString().padStart(2, '0')}-01`;
-  const lastDay = `${year}-${(month + 1).toString().padStart(2, '0')}-${lastDayObj.getDate().toString().padStart(2, '0')}`;
-
-  const { getExpensesByRange, getIncomeByRange } = await import('../database/database');
-  const expenses = await getExpensesByRange(firstDay, lastDay);
-  const income = await getIncomeByRange(firstDay, lastDay);
-
-  return { expenses, income };
+  return getMonthData(now.getFullYear(), now.getMonth() + 1);
 };
 
 /**
@@ -125,8 +151,6 @@ export const getCurrentMonthData = async () => {
  */
 export const calculateAverageMonthlySavings = async (months: number = 6): Promise<number> => {
   try {
-    const allExpenses = await getExpenses();
-    const allIncome = await getIncome();
     const now = new Date();
 
     // Calculate savings for each of the last N months
@@ -221,20 +245,40 @@ export const calculateTimeToReachGoal = (
 };
 
 /**
- * Get data for a specific month
+ * Get data for a specific month (includes expenses, income, and bills/recurring due in that month).
+ * For the current month, "bills due" = unpaid bills from today through end of next month (all upcoming).
+ * For past months, "bills due" = unpaid bills with due date within that month only.
  */
 export const getMonthData = async (year: number, month: number) => {
+  const now = new Date();
+  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
+
   const lastDayObj = new Date(year, month, 0);
   const firstDay = `${year}-${month.toString().padStart(2, '0')}-01`;
   const lastDay = `${year}-${month.toString().padStart(2, '0')}-${lastDayObj.getDate().toString().padStart(2, '0')}`;
 
+  // Bills due: for current month show all upcoming (today → end of next month); for past months use that month only
+  let billsStart = firstDay;
+  let billsEnd = lastDay;
+  if (isCurrentMonth) {
+    const today = now.toISOString().slice(0, 10);
+    const nextMonth = now.getMonth() + 2;
+    const nextYear = nextMonth > 12 ? now.getFullYear() + 1 : now.getFullYear();
+    const nextMonthNum = nextMonth > 12 ? 1 : nextMonth;
+    const lastDayNext = new Date(nextYear, nextMonthNum, 0);
+    billsStart = today;
+    billsEnd = `${nextYear}-${nextMonthNum.toString().padStart(2, '0')}-${lastDayNext.getDate().toString().padStart(2, '0')}`;
+  }
+
   const { getExpensesByRange, getIncomeByRange, getFinancialStatsAggregated, getExpensesByCategoryAggregated } = await import('../database/database');
 
-  const [expenses, income, stats, categories] = await Promise.all([
+  const [expenses, income, stats, categories, billsDueResult, recurringTotal] = await Promise.all([
     getExpensesByRange(firstDay, lastDay),
     getIncomeByRange(firstDay, lastDay),
     getFinancialStatsAggregated(firstDay, lastDay),
-    getExpensesByCategoryAggregated(firstDay, lastDay)
+    getExpensesByCategoryAggregated(firstDay, lastDay),
+    getBillsDueInPeriod(billsStart, billsEnd),
+    getRecurringEstimatedForMonth(year, month),
   ]);
 
   const topExpenseCategories = categories.map((item) => ({
@@ -250,6 +294,11 @@ export const getMonthData = async (year: number, month: number) => {
     totalExpenses: stats.totalExpenses,
     balance: stats.balance,
     topExpenseCategories,
+    billsDueInPeriod: billsDueResult.bills,
+    billsDueTotal: billsDueResult.totalAmount,
+    recurringEstimatedTotal: recurringTotal,
+    /** Total expected outflows this month (expenses + unpaid bills due + recurring) */
+    totalObligations: stats.totalExpenses + billsDueResult.totalAmount + recurringTotal,
   };
 };
 
@@ -380,6 +429,14 @@ export const predictNextMonthExpenses = async (monthsToAnalyze: number = 3): Pro
 
     const monthlyExpenses = await Promise.all(promises);
 
+    if (monthlyExpenses.length === 0) {
+      return {
+        predictedTotal: 0,
+        predictedByCategory: [],
+        confidence: 'low',
+      };
+    }
+
     // Calculate average
     const avgTotal = monthlyExpenses.reduce((sum, m) => sum + m.total, 0) / monthlyExpenses.length;
 
@@ -412,9 +469,31 @@ export const predictNextMonthExpenses = async (monthsToAnalyze: number = 3): Pro
       confidence = 'low';
     }
 
+    // Add next month's bills and recurring to prediction
+    const nextDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const nextYear = nextDate.getFullYear();
+    const nextMonth = nextDate.getMonth() + 1;
+    const lastDayNext = new Date(nextYear, nextMonth, 0);
+    const firstDayNext = `${nextYear}-${nextMonth.toString().padStart(2, '0')}-01`;
+    const lastDayNextStr = `${nextYear}-${nextMonth.toString().padStart(2, '0')}-${lastDayNext.getDate().toString().padStart(2, '0')}`;
+    const [billsNext, recurringNext] = await Promise.all([
+      getBillsDueInPeriod(firstDayNext, lastDayNextStr),
+      getRecurringEstimatedForMonth(nextYear, nextMonth),
+    ]);
+    const basePredicted = Math.round(avgTotal);
+    const withBillsAndRecurring = basePredicted + billsNext.totalAmount + recurringNext;
+
+    const categoryList = predictedByCategory.sort((a, b) => b.amount - a.amount);
+    if (billsNext.totalAmount > 0) {
+      categoryList.push({ category: 'فواتير', amount: billsNext.totalAmount });
+    }
+    if (recurringNext > 0) {
+      categoryList.push({ category: 'مصروفات دورية', amount: recurringNext });
+    }
+
     return {
-      predictedTotal: Math.round(avgTotal),
-      predictedByCategory: predictedByCategory.sort((a, b) => b.amount - a.amount),
+      predictedTotal: withBillsAndRecurring,
+      predictedByCategory: categoryList.sort((a, b) => b.amount - a.amount),
       confidence,
     };
   } catch (error) {

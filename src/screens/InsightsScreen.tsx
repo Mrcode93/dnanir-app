@@ -9,10 +9,11 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
+import { LineChart, PieChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
+import { useAppTheme, useThemedStyles } from '../utils/theme-context';
 import { isRTL } from '../utils/rtl';
 import {
   generateFinancialInsights,
@@ -23,14 +24,46 @@ import {
   getCurrentMonthData,
 } from '../services/financialService';
 import { useCurrency } from '../hooks/useCurrency';
-import { EXPENSE_CATEGORIES } from '../types';
+import { EXPENSE_CATEGORIES, INCOME_SOURCES } from '../types';
 import { getCustomCategories } from '../database/database';
 import { MonthFilter } from '../components/MonthFilter';
 import { formatDateLocal } from '../utils/date';
 
 const { width } = Dimensions.get('window');
 
+const CATEGORY_ICONS: Record<string, string> = {
+  food: 'restaurant',
+  transport: 'car',
+  shopping: 'cart',
+  bills: 'receipt',
+  health: 'medical',
+  education: 'school',
+  entertainment: 'game-controller',
+  other: 'ellipsis-horizontal',
+  salary: 'cash',
+  business: 'briefcase',
+  gift: 'gift',
+  investment: 'trending-up',
+  // Arabic keys support
+  'طعام': 'restaurant',
+  'مواصلات': 'car',
+  'تسوق': 'bag',
+  'فواتير': 'receipt',
+  'ترفيه': 'musical-notes',
+  'صحة': 'medical',
+  'تعليم': 'school',
+  'أخرى': 'ellipse',
+  'راتب': 'cash',
+  'تجارة': 'briefcase',
+  'استثمار': 'trending-up',
+  'هدية': 'gift',
+};
+
+const INCOME_SOURCES_LIST = INCOME_SOURCES;
+
 export const InsightsScreen = ({ navigation }: any) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const { formatCurrency } = useCurrency();
   const [summary, setSummary] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -69,7 +102,7 @@ export const InsightsScreen = ({ navigation }: any) => {
       const allIncome = await getIncome();
 
       const monthsSet = new Set<string>();
-      [...allExpenses, ...allIncome].forEach(item => {
+      [...(allExpenses || []), ...(allIncome || [])].forEach(item => {
         const [year, month] = item.date.split('-');
         if (year && month) {
           monthsSet.add(`${year}-${parseInt(month)}`);
@@ -95,11 +128,45 @@ export const InsightsScreen = ({ navigation }: any) => {
       const monthExpenses = monthData.totalExpenses;
       const monthBalance = monthData.balance;
 
+      // Calculate expense categories manually for consistency
+      const expenseCategoryMap = new Map<string, number>();
+      (monthData.expenses || []).forEach((item: any) => {
+        const current = expenseCategoryMap.get(item.category) || 0;
+        expenseCategoryMap.set(item.category, current + item.amount);
+      });
+
+      const topExpenseCategories = Array.from(expenseCategoryMap.entries())
+        .map(([category, amount]) => ({
+          category,
+          amount,
+          percentage: monthExpenses > 0 ? (amount / monthExpenses) * 100 : 0
+        }))
+        .sort((a, b) => b.amount - a.amount);
+
+      // Calculate income categories
+      const incomeCategoryMap = new Map<string, number>();
+      (monthData.income || []).forEach((item: any) => {
+        const current = incomeCategoryMap.get(item.category) || 0;
+        incomeCategoryMap.set(item.category, current + item.amount);
+      });
+
+      const topIncomeCategories = Array.from(incomeCategoryMap.entries())
+        .map(([category, amount]) => ({
+          category,
+          amount,
+          percentage: monthIncome > 0 ? (amount / monthIncome) * 100 : 0
+        }))
+        .sort((a, b) => b.amount - a.amount);
+
       const financialSummary: any = {
         totalIncome: monthIncome,
         totalExpenses: monthExpenses,
         balance: monthBalance,
-        topExpenseCategories: monthData.topExpenseCategories,
+        topExpenseCategories,
+        topIncomeCategories,
+        billsDueTotal: monthData.billsDueTotal ?? 0,
+        recurringEstimatedTotal: monthData.recurringEstimatedTotal ?? 0,
+        totalObligations: monthData.totalObligations ?? monthExpenses,
       };
 
       setSummary(financialSummary);
@@ -193,7 +260,7 @@ export const InsightsScreen = ({ navigation }: any) => {
 
     // Group by date
     const dailyMap = new Map<string, number>();
-    monthlyData.expenses.forEach((e: any) => {
+    (monthlyData.expenses || []).forEach((e: any) => {
       const current = dailyMap.get(e.date) || 0;
       dailyMap.set(e.date, current + e.amount);
     });
@@ -256,19 +323,7 @@ export const InsightsScreen = ({ navigation }: any) => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header Area */}
-      <View style={styles.header}>
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>التحليل المالي</Text>
-          <Text style={styles.headerSubtitle}>نظرة شاملة على أدائك المالي</Text>
-        </View>
-        <MonthFilter
-          selectedMonth={selectedMonth}
-          onMonthChange={(year, month) => setSelectedMonth({ year, month })}
-          availableMonths={availableMonths}
-        />
-      </View>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
 
       <ScrollView
         style={styles.scrollView}
@@ -276,6 +331,15 @@ export const InsightsScreen = ({ navigation }: any) => {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
         showsVerticalScrollIndicator={false}
       >
+        {/* Month Filter Moved Here */}
+        <View style={{ marginBottom: 20 }}>
+          <MonthFilter
+            selectedMonth={selectedMonth}
+            onMonthChange={(year, month) => setSelectedMonth({ year, month })}
+            availableMonths={availableMonths}
+          />
+        </View>
+
         {/* 1. Health Score Card */}
         {summary && (
           <LinearGradient
@@ -311,17 +375,33 @@ export const InsightsScreen = ({ navigation }: any) => {
                 <Text style={styles.healthStatValue}>{formatCurrency(summary.balance)}</Text>
               </View>
             </View>
+            {(summary.billsDueTotal > 0 || summary.recurringEstimatedTotal > 0) && (
+              <View style={styles.obligationsRow}>
+                {summary.billsDueTotal > 0 && (
+                  <View style={styles.obligationChip}>
+                    <Ionicons name="receipt-outline" size={14} color={theme.colors.text} />
+                    <Text style={styles.obligationText}>فواتير مستحقة: {formatCurrency(summary.billsDueTotal)}</Text>
+                  </View>
+                )}
+                {summary.recurringEstimatedTotal > 0 && (
+                  <View style={styles.obligationChip}>
+                    <Ionicons name="repeat-outline" size={14} color={theme.colors.text} />
+                    <Text style={styles.obligationText}>دورية: {formatCurrency(summary.recurringEstimatedTotal)}</Text>
+                  </View>
+                )}
+              </View>
+            )}
           </LinearGradient>
         )}
 
         {/* 2. Insights Messages */}
-        {insights.length > 0 && (
+        {insights && insights.length > 0 && (
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeader}>
               <Ionicons name="bulb" size={20} color={theme.colors.warning} />
               <Text style={styles.sectionTitle}>رؤى وتوصيات</Text>
             </View>
-            {insights.map((msg, index) => (
+            {(insights || []).map((msg, index) => (
               <View key={index} style={styles.insightCard}>
                 <View style={styles.insightIconBar} />
                 <Text style={styles.insightText}>{msg}</Text>
@@ -354,7 +434,7 @@ export const InsightsScreen = ({ navigation }: any) => {
         )}
 
         {/* 4. Category Breakdown */}
-        {getCategoryPieData() && (
+        {getCategoryPieData() && getCategoryPieData()!.length > 0 ? (
           <View style={styles.chartCard}>
             <View style={styles.chartHeader}>
               <Text style={styles.chartTitle}>توزيع الإنفاق</Text>
@@ -367,10 +447,104 @@ export const InsightsScreen = ({ navigation }: any) => {
               chartConfig={chartConfig}
               accessor="amount"
               backgroundColor="transparent"
-              paddingLeft="0"
+              paddingLeft="15"
               absolute
               hasLegend={true}
             />
+          </View>
+        ) : (
+          <View style={styles.chartCard}>
+            <View style={styles.chartHeader}>
+              <Text style={styles.chartTitle}>توزيع الإنفاق</Text>
+              <Ionicons name="pie-chart-outline" size={20} color={theme.colors.primary} />
+            </View>
+            <View style={styles.noDataContainer}>
+              <Ionicons name="stats-chart-outline" size={48} color={theme.colors.textMuted} />
+              <Text style={styles.noDataText}>لا توجد بيانات مصاريف لهذا الشهر</Text>
+            </View>
+          </View>
+        )}
+
+        {/* 4b. Detailed Category Breakdown */}
+        {summary?.topExpenseCategories && summary.topExpenseCategories.filter((item: any) => item.amount > 0).length > 0 ? (
+          <View style={[styles.sectionContainer, { marginTop: 10 }]}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="list" size={20} color={theme.colors.error} />
+              <Text style={styles.sectionTitle}>تفاصيل المصاريف للفئات</Text>
+            </View>
+            {summary.topExpenseCategories.filter((item: any) => item.amount > 0).map((item: any, index: number) => {
+              const categoryName = EXPENSE_CATEGORIES[item.category as keyof typeof EXPENSE_CATEGORIES] ||
+                customCategories.find((c: any) => c.name === item.category)?.name || item.category;
+
+              const iconName = CATEGORY_ICONS[item.category] || 'wallet-outline';
+
+              return (
+                <View key={index} style={styles.categoryDetailCard}>
+                  <View style={[styles.categoryIconBg, { backgroundColor: theme.colors.error + '10' }]}>
+                    <Ionicons name={iconName as any} size={20} color={theme.colors.error} />
+                  </View>
+                  <View style={styles.categoryInfo}>
+                    <Text style={styles.categoryNameText}>{categoryName}</Text>
+                    <Text style={styles.categoryPercentText}>
+                      {summary.totalExpenses > 0 ? Math.round((item.amount / summary.totalExpenses) * 100) : 0}% من إجمالي المصاريف
+                    </Text>
+                  </View>
+                  <Text style={[styles.categoryAmountText, { color: theme.colors.error }]}>{formatCurrency(item.amount)}</Text>
+                </View>
+              );
+            })}
+          </View>
+        ) : (
+          <View style={[styles.chartCard, { marginTop: 10 }]}>
+            <View style={styles.chartHeader}>
+              <Text style={styles.chartTitle}>تفاصيل المصاريف للفئات</Text>
+              <Ionicons name="list" size={20} color={theme.colors.error} />
+            </View>
+            <View style={styles.noDataContainer}>
+              <Ionicons name="file-tray-outline" size={48} color={theme.colors.textMuted} />
+              <Text style={styles.noDataText}>لا توجد تفاصيل مصاريف لهذا الشهر</Text>
+            </View>
+          </View>
+        )}
+
+
+        {/* 4c. Detailed Income Breakdown */}
+        {summary?.topIncomeCategories && summary.topIncomeCategories.filter((item: any) => item.amount > 0).length > 0 ? (
+          <View style={[styles.sectionContainer, { marginTop: 10 }]}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="wallet-outline" size={20} color={theme.colors.success} />
+              <Text style={styles.sectionTitle}>تفاصيل الدخل</Text>
+            </View>
+            {summary.topIncomeCategories.filter((item: any) => item.amount > 0).map((item: any, index: number) => {
+              const categoryName = INCOME_SOURCES_LIST[item.category as keyof typeof INCOME_SOURCES_LIST] || item.category;
+              const iconName = CATEGORY_ICONS[item.category] || 'cash-outline';
+
+              return (
+                <View key={index} style={styles.categoryDetailCard}>
+                  <View style={[styles.categoryIconBg, { backgroundColor: theme.colors.success + '10' }]}>
+                    <Ionicons name={iconName as any} size={20} color={theme.colors.success} />
+                  </View>
+                  <View style={styles.categoryInfo}>
+                    <Text style={styles.categoryNameText}>{categoryName}</Text>
+                    <Text style={styles.categoryPercentText}>
+                      {summary.totalIncome > 0 ? Math.round((item.amount / summary.totalIncome) * 100) : 0}% من إجمالي الدخل
+                    </Text>
+                  </View>
+                  <Text style={[styles.categoryAmountText, { color: theme.colors.success }]}>{formatCurrency(item.amount)}</Text>
+                </View>
+              );
+            })}
+          </View>
+        ) : (
+          <View style={[styles.chartCard, { marginTop: 10 }]}>
+            <View style={styles.chartHeader}>
+              <Text style={styles.chartTitle}>تفاصيل الدخل</Text>
+              <Ionicons name="wallet-outline" size={20} color={theme.colors.success} />
+            </View>
+            <View style={styles.noDataContainer}>
+              <Ionicons name="cash-outline" size={48} color={theme.colors.textMuted} />
+              <Text style={styles.noDataText}>لا توجد بيانات دخل لهذا الشهر</Text>
+            </View>
           </View>
         )}
 
@@ -463,11 +637,11 @@ export const InsightsScreen = ({ navigation }: any) => {
 
         <View style={{ height: 40 }} />
       </ScrollView>
-    </SafeAreaView>
+    </SafeAreaView >
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -578,6 +752,27 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
     alignSelf: 'center',
   },
+  obligationsRow: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+    justifyContent: 'center',
+  },
+  obligationChip: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  obligationText: {
+    color: 'rgba(255,255,255,0.95)',
+    fontSize: 12,
+    fontFamily: theme.typography.fontFamily,
+  },
   // Insights Section
   sectionContainer: {
     marginBottom: 20,
@@ -617,6 +812,59 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
     lineHeight: 20,
     textAlign: isRTL ? 'right' : 'left',
+  },
+  // No Data
+  noDataContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 30,
+    gap: 12,
+  },
+  noDataText: {
+    fontSize: 14,
+    fontFamily: theme.typography.fontFamily,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+  },
+  // Category Detail Card
+  categoryDetailCard: {
+    backgroundColor: theme.colors.surfaceCard,
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 8,
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    ...getPlatformShadow('sm'),
+  },
+  categoryIconBg: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryInfo: {
+    flex: 1,
+    marginHorizontal: 12,
+    alignItems: isRTL ? 'flex-end' : 'flex-start',
+  },
+  categoryNameText: {
+    fontSize: 14,
+    fontFamily: theme.typography.fontFamily,
+    fontWeight: getPlatformFontWeight('600'),
+    color: theme.colors.textPrimary,
+  },
+  categoryPercentText: {
+    fontSize: 12,
+    fontFamily: theme.typography.fontFamily,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
+  },
+  categoryAmountText: {
+    fontSize: 16,
+    fontFamily: theme.typography.fontFamily,
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.textPrimary,
   },
   // Charts
   chartCard: {

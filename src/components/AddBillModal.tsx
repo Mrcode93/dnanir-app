@@ -18,7 +18,7 @@ import { TextInput, IconButton } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { Bill, BillCategory, BILL_CATEGORIES } from '../types';
 import { addBill, updateBill } from '../database/database';
 import { scheduleBillReminder } from '../services/billService';
@@ -38,6 +38,8 @@ export const AddBillModal: React.FC<AddBillModalProps> = ({
   onClose,
   editingBill,
 }) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
   const { currencyCode, formatCurrency } = useCurrency();
   const [title, setTitle] = useState('');
@@ -413,7 +415,7 @@ export const AddBillModal: React.FC<AddBillModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   keyboardView: {
     flex: 1,
   },
@@ -428,14 +430,14 @@ const styles = StyleSheet.create({
   modalGradient: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    paddingTop: 20,
+    paddingTop: 12,
   },
   header: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
@@ -447,7 +449,7 @@ const styles = StyleSheet.create({
   iconBadge: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: isRTL ? 0 : 12,
@@ -473,10 +475,10 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 12,
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: 12,
   },
   label: {
     fontSize: theme.typography.sizes.sm,
@@ -551,8 +553,8 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   saveButton: {
-    marginTop: 20,
-    marginBottom: 20,
+    marginTop: 12,
+    marginBottom: 12,
     borderRadius: 12,
     overflow: 'hidden',
     ...getPlatformShadow('md'),
@@ -564,7 +566,7 @@ const styles = StyleSheet.create({
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
+    paddingVertical: 12,
     gap: 8,
   },
   saveButtonText: {

@@ -16,8 +16,8 @@ import { TextInput, IconButton, Surface } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
-import { DEBT_TYPES, Debt } from '../types';
+import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
+import { DEBT_TYPES, DEBT_DIRECTIONS, Debt, DebtDirection } from '../types';
 import {
     getDebtInstallments,
     deleteDebtInstallment,
@@ -44,12 +44,15 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
     navigation,
     route,
 }) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
     const insets = useSafeAreaInsets();
     const { formatCurrency } = useCurrency();
     const editingDebt = route?.params?.debt as Debt | undefined;
 
     const [debtorName, setDebtorName] = useState('');
     const [totalAmount, setTotalAmount] = useState('');
+    const [direction, setDirection] = useState<DebtDirection>('owed_by_me');
     const [type, setType] = useState<DebtType>('debt');
     const [startDate, setStartDate] = useState(new Date());
     const [dueDate, setDueDate] = useState<Date | null>(null);
@@ -68,6 +71,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
         if (editingDebt) {
             setDebtorName(editingDebt.debtorName);
             setTotalAmount(editingDebt.totalAmount.toString());
+            setDirection(editingDebt.direction || 'owed_by_me');
             setType(editingDebt.type);
             setStartDate(new Date(editingDebt.startDate));
             setDueDate(editingDebt.dueDate ? new Date(editingDebt.dueDate) : null);
@@ -97,6 +101,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
     const resetForm = () => {
         setDebtorName('');
         setTotalAmount('');
+        setDirection('owed_by_me');
         setType('debt');
         setStartDate(new Date());
         setDueDate(null);
@@ -113,8 +118,9 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
     }, [navigation]);
 
     const handleSave = async () => {
+        const nameLabel = direction === 'owed_to_me' ? 'اسم المدين (من يستحق عليه)' : 'اسم الدائن أو الشخص';
         if (!debtorName.trim()) {
-            alertService.warning('تنبيه', 'يرجى إدخال اسم الدائن أو الشخص');
+            alertService.warning('تنبيه', `يرجى إدخال ${nameLabel}`);
             return;
         }
 
@@ -135,6 +141,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
                 dueDate: hasDueDate && dueDate ? dueDate.toISOString().split('T')[0] : undefined,
                 description: description.trim(),
                 type: type,
+                direction,
                 currency: 'IQD',
                 isPaid: false,
             };
@@ -173,7 +180,8 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
                     hasDueDate && dueDate ? dueDate.toISOString().split('T')[0] : undefined,
                     description.trim(),
                     'IQD',
-                    installments
+                    installments,
+                    direction
                 );
             }
 
@@ -244,6 +252,35 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
                             </View>
                         </Surface>
 
+                        {/* Direction: دين على / دين لي */}
+                        <View style={styles.section}>
+                            <Text style={styles.sectionLabel}>اتجاه الدين</Text>
+                            <View style={styles.directionRow}>
+                                <TouchableOpacity
+                                    onPress={() => setDirection('owed_by_me')}
+                                    activeOpacity={0.8}
+                                    style={[styles.directionChip, direction === 'owed_by_me' && styles.directionChipActive]}
+                                >
+                                    <Ionicons name="arrow-redo" size={20} color={direction === 'owed_by_me' ? '#FFF' : theme.colors.textSecondary} />
+                                    <Text style={[styles.directionChipLabel, direction === 'owed_by_me' && styles.directionChipLabelActive]}>
+                                        {DEBT_DIRECTIONS.owed_by_me}
+                                    </Text>
+                                    <Text style={styles.directionChipHint}>أنا مدين (عند الدفع يخصم من الرصيد)</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => setDirection('owed_to_me')}
+                                    activeOpacity={0.8}
+                                    style={[styles.directionChip, direction === 'owed_to_me' && styles.directionChipActiveOwedToMe]}
+                                >
+                                    <Ionicons name="arrow-undo" size={20} color={direction === 'owed_to_me' ? '#FFF' : theme.colors.textSecondary} />
+                                    <Text style={[styles.directionChipLabel, direction === 'owed_to_me' && styles.directionChipLabelActive]}>
+                                        {DEBT_DIRECTIONS.owed_to_me}
+                                    </Text>
+                                    <Text style={styles.directionChipHint}>مدين لي (عند التسديد يُضاف للرصيد)</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
                         {/* Type Selection Grid */}
                         <View style={styles.section}>
                             <Text style={styles.sectionLabel}>نوع الالتزام</Text>
@@ -312,7 +349,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
                                 <TextInput
                                     value={debtorName}
                                     onChangeText={setDebtorName}
-                                    placeholder="اسم الشخص أو الجهة"
+                                    placeholder={direction === 'owed_to_me' ? 'اسم المدين (من عليه الدين)' : 'اسم الدائن أو الشخص'}
                                     mode="flat"
                                     style={styles.nameInput}
                                     underlineColor="transparent"
@@ -494,7 +531,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: theme.colors.background,
@@ -533,8 +570,8 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     scrollContainer: {
-        paddingHorizontal: 20,
-        paddingBottom: 40,
+        paddingHorizontal: 12,
+        paddingBottom: 28,
     },
     balanceCard: {
         marginTop: 10,
@@ -586,10 +623,48 @@ const styles = StyleSheet.create({
         fontFamily: theme.typography.fontFamily,
         textAlign: isRTL ? 'right' : 'left',
     },
+    directionRow: {
+        flexDirection: isRTL ? 'row-reverse' : 'row',
+        gap: 10,
+    },
+    directionChip: {
+        flex: 1,
+        padding: 12,
+        borderRadius: 12,
+        backgroundColor: theme.colors.surfaceLight,
+        borderWidth: 2,
+        borderColor: theme.colors.border,
+        alignItems: 'center',
+    },
+    directionChipActive: {
+        borderColor: '#8B5CF6',
+        backgroundColor: '#8B5CF618',
+    },
+    directionChipActiveOwedToMe: {
+        borderColor: '#10B981',
+        backgroundColor: '#10B98118',
+    },
+    directionChipLabel: {
+        fontSize: 14,
+        fontWeight: getPlatformFontWeight('700'),
+        color: theme.colors.textPrimary,
+        fontFamily: theme.typography.fontFamily,
+        marginTop: 4,
+    },
+    directionChipLabelActive: {
+        color: theme.colors.textPrimary,
+    },
+    directionChipHint: {
+        fontSize: 10,
+        color: theme.colors.textMuted,
+        marginTop: 2,
+        textAlign: 'center',
+        fontFamily: theme.typography.fontFamily,
+    },
     typeGrid: {
         flexDirection: isRTL ? 'row-reverse' : 'row',
         justifyContent: 'space-between',
-        gap: 12,
+        gap: 8,
     },
     typeCard: {
         flex: 1,
@@ -618,8 +693,8 @@ const styles = StyleSheet.create({
     mainCard: {
         marginTop: 24,
         backgroundColor: theme.colors.surface,
-        borderRadius: 24,
-        padding: 24,
+        borderRadius: 18,
+        padding: 16,
         ...getPlatformShadow('md'),
     },
     amountContainer: {
@@ -719,7 +794,7 @@ const styles = StyleSheet.create({
     },
     optionsCard: {
         backgroundColor: '#F3F4F6',
-        borderRadius: 24,
+        borderRadius: 18,
         padding: 18,
     },
     optionRow: {
@@ -730,7 +805,7 @@ const styles = StyleSheet.create({
     optionInfo: {
         flexDirection: isRTL ? 'row-reverse' : 'row',
         alignItems: 'center',
-        gap: 12,
+        gap: 8,
     },
     optionIconContainer: {
         width: 40,
@@ -816,7 +891,7 @@ const styles = StyleSheet.create({
         flexDirection: isRTL ? 'row-reverse' : 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 12,
+        gap: 8,
     },
     saveBtnText: {
         fontSize: 18,

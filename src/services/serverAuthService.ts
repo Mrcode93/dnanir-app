@@ -1,5 +1,7 @@
-import { apiRequest, setAccessToken, setRefreshToken, setUser, clearAuthData, getUser } from './apiService';
-import { API_CONFIG } from '../config/api';
+import { apiRequest, setAccessToken, setRefreshToken, setUser, clearAuthData, getUser, getAccessToken } from './apiService';
+import { API_CONFIG, API_ENDPOINTS } from '../config/api';
+import { pushNotificationService } from './pushNotificationService';
+import { authEventService } from './authEventService';
 
 export interface RegisterRequest {
   phone: string;
@@ -28,7 +30,7 @@ export interface AuthResponse {
  * Register new user on server
  */
 export const register = async (data: RegisterRequest): Promise<AuthResponse> => {
-  const response = await apiRequest<AuthResponse>(API_CONFIG.ENDPOINTS.AUTH.REGISTER, {
+  const response = await apiRequest<AuthResponse>(API_ENDPOINTS.AUTH.REGISTER, {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -42,7 +44,10 @@ export const register = async (data: RegisterRequest): Promise<AuthResponse> => 
     await setAccessToken(response.data.tokens.accessToken);
     await setRefreshToken(response.data.tokens.refreshToken);
     await setUser(response.data.user);
-    
+
+    // Notify app of login
+    authEventService.notifyAuthChanged();
+
     return response.data;
   }
 
@@ -53,7 +58,7 @@ export const register = async (data: RegisterRequest): Promise<AuthResponse> => 
  * Login user on server
  */
 export const login = async (data: LoginRequest): Promise<AuthResponse> => {
-  const response = await apiRequest<AuthResponse>(API_CONFIG.ENDPOINTS.AUTH.LOGIN, {
+  const response = await apiRequest<AuthResponse>(API_ENDPOINTS.AUTH.LOGIN, {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -67,7 +72,10 @@ export const login = async (data: LoginRequest): Promise<AuthResponse> => {
     await setAccessToken(response.data.tokens.accessToken);
     await setRefreshToken(response.data.tokens.refreshToken);
     await setUser(response.data.user);
-    
+
+    // Notify app of login
+    authEventService.notifyAuthChanged();
+
     return response.data;
   }
 
@@ -78,7 +86,13 @@ export const login = async (data: LoginRequest): Promise<AuthResponse> => {
  * Logout user
  */
 export const logout = async (): Promise<void> => {
+  try {
+    await pushNotificationService.removeTokenFromServer();
+  } catch (e) {
+    console.error('Error removing push token on logout:', e);
+  }
   await clearAuthData();
+  authEventService.notifyAuthChanged();
 };
 
 /**

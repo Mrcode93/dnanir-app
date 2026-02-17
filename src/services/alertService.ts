@@ -37,106 +37,41 @@ class AlertService {
     }
   }
 
-  // Convenience methods
+  // Convenience methods — تعرض Custom Alert (مودال) بدل التوست
   success(title: string, message: string, onConfirm?: () => void) {
-    // Use toast for success messages (auto-dismiss)
-    if (this.setToastState) {
-      this.setToastState({
-        visible: true,
-        message: message || title,
-        type: 'success',
-      });
-      // Call onConfirm after toast is shown (if provided)
-      if (onConfirm) {
-        // Small delay to ensure toast is visible
-        setTimeout(() => {
-          onConfirm();
-        }, 100);
-      }
-    } else {
-      // Fallback to modal if toast is not available
-      this.show({
-        title,
-        message,
-        type: 'success',
-        onConfirm,
-      });
-    }
+    this.show({
+      title,
+      message,
+      type: 'success',
+      onConfirm,
+    });
   }
 
   error(title: string, message: string, onConfirm?: () => void) {
-    // Use toast for error messages (auto-dismiss)
-    if (this.setToastState) {
-      this.setToastState({
-        visible: true,
-        message: message || title,
-        type: 'error',
-      });
-      // Call onConfirm after toast is shown (if provided)
-      if (onConfirm) {
-        setTimeout(() => {
-          onConfirm();
-        }, 100);
-      }
-    } else {
-      // Fallback to modal if toast is not available
-      this.show({
-        title,
-        message,
-        type: 'error',
-        onConfirm,
-      });
-    }
+    this.show({
+      title,
+      message,
+      type: 'error',
+      onConfirm,
+    });
   }
 
   warning(title: string, message: string, onConfirm?: () => void) {
-    // Use toast for warning messages (auto-dismiss)
-    if (this.setToastState) {
-      this.setToastState({
-        visible: true,
-        message: message || title,
-        type: 'warning',
-      });
-      // Call onConfirm after toast is shown (if provided)
-      if (onConfirm) {
-        setTimeout(() => {
-          onConfirm();
-        }, 100);
-      }
-    } else {
-      // Fallback to modal if toast is not available
-      this.show({
-        title,
-        message,
-        type: 'warning',
-        onConfirm,
-      });
-    }
+    this.show({
+      title,
+      message,
+      type: 'warning',
+      onConfirm,
+    });
   }
 
   info(title: string, message: string, onConfirm?: () => void) {
-    // Use toast for info messages (auto-dismiss)
-    if (this.setToastState) {
-      this.setToastState({
-        visible: true,
-        message: message || title,
-        type: 'info',
-      });
-      // Call onConfirm after toast is shown (if provided)
-      if (onConfirm) {
-        setTimeout(() => {
-          onConfirm();
-        }, 100);
-      }
-    } else {
-      // Fallback to modal if toast is not available
-      this.show({
-        title,
-        message,
-        type: 'info',
-        onConfirm,
-      });
-    }
+    this.show({
+      title,
+      message,
+      type: 'info',
+      onConfirm,
+    });
   }
 
   confirm(
@@ -155,6 +90,19 @@ class AlertService {
       onConfirm,
       onCancel,
     });
+  }
+
+  /** عرض توست فقط (يختفي تلقائياً) — للاستخدام بعد إكمال إجراء مثل إضافة من اختصار */
+  toastSuccess(message: string) {
+    if (this.setToastState) {
+      this.setToastState({ visible: true, message, type: 'success' });
+    }
+  }
+
+  toastError(message: string) {
+    if (this.setToastState) {
+      this.setToastState({ visible: true, message, type: 'error' });
+    }
   }
 }
 

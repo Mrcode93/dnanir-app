@@ -1,11 +1,19 @@
 {
   "expo": {
     "plugins": [
-      "./plugins/withAndroidIcons.js"
+      "./plugins/withAndroidIcons.js",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/logo.png",
+          "color": "#003459",
+          "defaultChannel": "default"
+        }
+      ]
     ],
     "name": "دنانير",
     "slug": "dnanir",
-    "version": "1.1.2",
+    "version": "1.1.5",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "light",
@@ -14,15 +22,24 @@
     "primaryLanguage": "ar",
     "description": "تطبيق دنانير - تطبيقك الذكي لإدارة الأموال وتتبع المصروفات والدخل بطريقة سهلة وممتعة",
     "splash": {
-      "image": "./assets/letters-logo.png",
+      "image": "./assets/images/dnanir-splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#003459"
     },
+    "scheme": "dnanir",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.mrcodeiq.dinar",
-      "buildNumber": "8",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "buildNumber": "11",
       "infoPlist": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.147402049587-ed1u349b6sap5v6f4b7j3s0qb4qbahq1"
+            ]
+          }
+        ],
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleDisplayName": "دنانير",
         "CFBundleName": "دنانير",
@@ -65,7 +82,8 @@
       "predictiveBackGestureEnabled": false,
       "locale": "ar",
       "package": "com.mrcodeiq.dinar",
-      "versionCode": 9,
+      "googleServicesFile": "./google-services.json",
+      "versionCode": 12,
       "fonts": [
         "./assets/fonts/Cairo-Regular.ttf"
       ],

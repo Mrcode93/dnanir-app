@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface AddCategoryModalProps {
@@ -58,6 +58,8 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
   type,
   category,
 }) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const [name, setName] = useState('');
   const [selectedIcon, setSelectedIcon] = useState('ellipse');
   const [selectedColor, setSelectedColor] = useState(COLOR_PRESETS[0]);
@@ -72,7 +74,7 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
         tension: 50,
         friction: 7,
       }).start();
-      
+
       // Load category data if editing
       if (category) {
         setName(category.name);
@@ -134,7 +136,7 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
             <Pressable onPress={(e) => e.stopPropagation()}>
               <LinearGradient
                 colors={theme.gradients.primary as any}
-                style={[styles.modalGradient, { paddingBottom: insets.bottom + theme.spacing.xl }]}
+                style={[styles.modalGradient, { paddingBottom: insets.bottom + theme.spacing.lg }]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
@@ -149,7 +151,7 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
                   </View>
 
                   <Text style={styles.subtitle}>
-                    {category 
+                    {category
                       ? (type === 'expense' ? 'قم بتعديل بيانات فئة المصاريف' : 'قم بتعديل بيانات مصدر الدخل')
                       : (type === 'expense' ? 'أضف فئة جديدة للمصاريف' : 'أضف مصدر دخل جديد')
                     }
@@ -277,7 +279,7 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -302,13 +304,13 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: theme.colors.surfaceCard,
-    padding: theme.spacing.lg,
+    padding: theme.spacing.sm,
   },
   header: {
     flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
   },
   title: {
     fontSize: theme.typography.sizes.xl,
@@ -323,11 +325,11 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.md,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.sm,
     textAlign: 'right',
   },
   inputContainer: {
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.sm,
   },
   label: {
     fontSize: theme.typography.sizes.md,
@@ -349,7 +351,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   section: {
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.sm,
   },
   iconScroll: {
     marginTop: theme.spacing.sm,
@@ -400,14 +402,14 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row-reverse',
-    gap: theme.spacing.md,
-    marginTop: theme.spacing.lg,
-    paddingBottom: theme.spacing.xl,
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.sm,
+    paddingBottom: theme.spacing.md,
   },
   cancelButton: {
     flex: 1,
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: 10,
+    paddingHorizontal: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
     backgroundColor: theme.colors.surfaceLight,
     alignItems: 'center',
@@ -426,8 +428,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   saveButtonGradient: {
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: 10,
+    paddingHorizontal: theme.spacing.md,
     alignItems: 'center',
   },
   saveButtonText: {

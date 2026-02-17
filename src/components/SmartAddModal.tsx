@@ -11,10 +11,10 @@ import {
     ActivityIndicator,
     Animated,
     ScrollView,
-    SafeAreaView
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../utils/theme';
+import { AppTheme, useAppTheme, useThemedStyles } from '../utils/theme';
 import { parseTransactionText, ParsedTransaction, CATEGORY_DISPLAY_NAMES, EXPENSE_CATEGORY_LIST, INCOME_CATEGORY_LIST } from '../utils/smartParser';
 import { addExpense, addIncome } from '../database/database';
 import { ConfirmAlert } from './ConfirmAlert';
@@ -27,6 +27,8 @@ interface SmartAddModalProps {
 }
 
 export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, onSuccess }) => {
+    const { theme } = useAppTheme();
+    const styles = useThemedStyles(createStyles);
     const [text, setText] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [parsedResult, setParsedResult] = useState<ParsedTransaction | null>(null);
@@ -366,7 +368,7 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#ffffff',
@@ -378,15 +380,15 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     scrollContent: {
-        padding: 24,
+        padding: 16,
         paddingTop: 8,
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 16,
+        paddingHorizontal: 12,
+        paddingVertical: 12,
         borderBottomWidth: 1,
         borderBottomColor: '#f1f5f9',
         backgroundColor: '#ffffff',
@@ -416,7 +418,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#64748b',
         textAlign: 'right',
-        marginBottom: 24,
+        marginBottom: 16,
         fontFamily: theme.typography.fontFamily,
         lineHeight: 20,
     },
@@ -425,7 +427,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         backgroundColor: '#F1F5F9',
         borderRadius: 16,
-        paddingHorizontal: 16,
+        paddingHorizontal: 12,
         paddingVertical: 4,
         borderWidth: 1,
         borderColor: 'transparent',
@@ -452,7 +454,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#EFF6FF',
         borderRadius: 16,
         padding: 16,
-        marginBottom: 20,
+        marginBottom: 12,
         borderWidth: 1,
         borderColor: '#BFDBFE',
     },
@@ -499,7 +501,7 @@ const styles = StyleSheet.create({
 
     // Examples section styles
     examplesContainer: {
-        marginTop: 20,
+        marginTop: 12,
         padding: 16,
         backgroundColor: '#F8FAFC',
         borderRadius: 16,
@@ -555,11 +557,11 @@ const styles = StyleSheet.create({
         padding: 16,
         borderWidth: 1,
         borderColor: '#E2E8F0',
-        marginBottom: 24,
+        marginBottom: 16,
     },
     titleInputContainer: {
         marginBottom: 16,
-        paddingBottom: 16,
+        paddingBottom: 12,
         borderBottomWidth: 1,
         borderBottomColor: '#E2E8F0',
     },
@@ -609,7 +611,7 @@ const styles = StyleSheet.create({
     },
     actions: {
         flexDirection: 'row-reverse',
-        gap: 12,
+        gap: 8,
     },
     actionButton: {
         flex: 1,
@@ -644,7 +646,7 @@ const styles = StyleSheet.create({
         gap: 4,
     },
     typeOption: {
-        paddingHorizontal: 16,
+        paddingHorizontal: 12,
         paddingVertical: 8,
         borderRadius: 10,
     },

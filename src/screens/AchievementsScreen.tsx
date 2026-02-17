@@ -10,7 +10,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
+import { useAppTheme, useThemedStyles } from '../utils/theme-context';
 import {
   getAchievements,
   Achievement,
@@ -35,6 +36,8 @@ const ACHIEVEMENT_CATEGORY_LABELS: Record<AchievementCategory, string> = {
 };
 
 export const AchievementsScreen = ({ navigation }: any) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<AchievementCategory | 'all'>('all');
@@ -46,7 +49,7 @@ export const AchievementsScreen = ({ navigation }: any) => {
       await checkAllAchievements(); // Update progress
       const allAchievements = await getAchievements();
       setAchievements(allAchievements);
-      
+
       const unlocked = await getUnlockedAchievementsCount();
       const total = await getTotalAchievementsCount();
       setUnlockedCount(unlocked);
@@ -178,95 +181,6 @@ export const AchievementsScreen = ({ navigation }: any) => {
 
   return (
     <SafeAreaView style={styles.container} edges={[]}>
-      {/* Header with Stats */}
-      <View style={styles.header}>
-        <LinearGradient
-          colors={theme.gradients.primary as any}
-          style={styles.headerGradient}
-        >
-          <View style={styles.headerContent}>
-            <View style={styles.headerLeft}>
-              <View style={styles.headerIconContainer}>
-                <Ionicons name="trophy" size={32} color={theme.colors.textInverse} />
-              </View>
-              <View>
-                <Text style={styles.headerTitle}>الإنجازات</Text>
-                <Text style={styles.headerSubtitle}>
-                  {unlockedCount} من {totalCount} إنجاز
-                </Text>
-              </View>
-            </View>
-            {unlockedCount > 0 && (
-              <TouchableOpacity
-                style={styles.shareAllButton}
-                onPress={handleShareAll}
-              >
-                <Ionicons name="share-social" size={24} color={theme.colors.textInverse} />
-              </TouchableOpacity>
-            )}
-          </View>
-          <View style={styles.progressContainerHeader}>
-            <View style={styles.progressBarHeader}>
-              <LinearGradient
-                colors={[theme.colors.textInverse, theme.colors.textInverse]}
-                style={[styles.progressFillHeader, { width: `${progressPercentage}%` }]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              />
-            </View>
-            <Text style={styles.progressTextHeader}>
-              {Math.round(progressPercentage)}% مكتمل
-            </Text>
-          </View>
-        </LinearGradient>
-      </View>
-
-      {/* Category Filter */}
-      <View style={styles.filterContainer}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterRow}
-        >
-          <TouchableOpacity
-            onPress={() => setSelectedCategory('all')}
-            style={styles.filterButton}
-          >
-            {selectedCategory === 'all' ? (
-              <LinearGradient
-                colors={theme.gradients.primary as any}
-                style={styles.filterButtonGradient}
-              >
-                <Text style={styles.filterButtonTextActive}>الكل</Text>
-              </LinearGradient>
-            ) : (
-              <Text style={styles.filterButtonText}>الكل</Text>
-            )}
-          </TouchableOpacity>
-          {Object.entries(ACHIEVEMENT_CATEGORY_LABELS).map(([key, label]) => {
-            const isSelected = selectedCategory === key;
-            return (
-              <TouchableOpacity
-                key={key}
-                onPress={() => setSelectedCategory(key as AchievementCategory)}
-                style={styles.filterButton}
-              >
-                {isSelected ? (
-                  <LinearGradient
-                    colors={theme.gradients.primary as any}
-                    style={styles.filterButtonGradient}
-                  >
-                    <Text style={styles.filterButtonTextActive}>{label}</Text>
-                  </LinearGradient>
-                ) : (
-                  <Text style={styles.filterButtonText}>{label}</Text>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
-
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -279,6 +193,95 @@ export const AchievementsScreen = ({ navigation }: any) => {
         }
         showsVerticalScrollIndicator={false}
       >
+        {/* Header with Stats */}
+        <View style={styles.header}>
+          <LinearGradient
+            colors={theme.gradients.primary as any}
+            style={styles.headerGradient}
+          >
+            <View style={styles.headerContent}>
+              <View style={styles.headerLeft}>
+                <View style={styles.headerIconContainer}>
+                  <Ionicons name="trophy" size={32} color={theme.colors.textInverse} />
+                </View>
+                <View>
+                  <Text style={styles.headerTitle}>الإنجازات</Text>
+                  <Text style={styles.headerSubtitle}>
+                    {unlockedCount} من {totalCount} إنجاز
+                  </Text>
+                </View>
+              </View>
+              {unlockedCount > 0 && (
+                <TouchableOpacity
+                  style={styles.shareAllButton}
+                  onPress={handleShareAll}
+                >
+                  <Ionicons name="share-social" size={24} color={theme.colors.textInverse} />
+                </TouchableOpacity>
+              )}
+            </View>
+            <View style={styles.progressContainerHeader}>
+              <View style={styles.progressBarHeader}>
+                <LinearGradient
+                  colors={[theme.colors.textInverse, theme.colors.textInverse]}
+                  style={[styles.progressFillHeader, { width: `${progressPercentage}%` }]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                />
+              </View>
+              <Text style={styles.progressTextHeader}>
+                {Math.round(progressPercentage)}% مكتمل
+              </Text>
+            </View>
+          </LinearGradient>
+        </View>
+
+        {/* Category Filter */}
+        <View style={styles.filterContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterRow}
+          >
+            <TouchableOpacity
+              onPress={() => setSelectedCategory('all')}
+              style={styles.filterButton}
+            >
+              {selectedCategory === 'all' ? (
+                <LinearGradient
+                  colors={theme.gradients.primary as any}
+                  style={styles.filterButtonGradient}
+                >
+                  <Text style={styles.filterButtonTextActive}>الكل</Text>
+                </LinearGradient>
+              ) : (
+                <Text style={styles.filterButtonText}>الكل</Text>
+              )}
+            </TouchableOpacity>
+            {Object.entries(ACHIEVEMENT_CATEGORY_LABELS).map(([key, label]) => {
+              const isSelected = selectedCategory === key;
+              return (
+                <TouchableOpacity
+                  key={key}
+                  onPress={() => setSelectedCategory(key as AchievementCategory)}
+                  style={styles.filterButton}
+                >
+                  {isSelected ? (
+                    <LinearGradient
+                      colors={theme.gradients.primary as any}
+                      style={styles.filterButtonGradient}
+                    >
+                      <Text style={styles.filterButtonTextActive}>{label}</Text>
+                    </LinearGradient>
+                  ) : (
+                    <Text style={styles.filterButtonText}>{label}</Text>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
         {/* Unlocked Achievements */}
         {unlockedAchievements.length > 0 && (
           <View style={styles.section}>
@@ -310,7 +313,7 @@ export const AchievementsScreen = ({ navigation }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,

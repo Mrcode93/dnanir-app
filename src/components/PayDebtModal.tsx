@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { Debt } from '../types';
 import { useCurrency } from '../hooks/useCurrency';
 import { isRTL } from '../utils/rtl';
@@ -33,6 +33,8 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
   onClose,
   onPay,
 }) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const { formatCurrency, currencyCode } = useCurrency();
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
@@ -98,6 +100,19 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
 
   if (!debt) return null;
 
+  const isOwedToMe = debt.direction === 'owed_to_me';
+  const modalTitle = isOwedToMe ? 'تسديد (استلام مبلغ)' : 'دفع الدين';
+  const modalSubtitle = isOwedToMe ? 'سجّل المبلغ المستلم وسيُضاف لرصيدك' : 'اختر طريقة الدفع';
+  const debtLabel = isOwedToMe ? 'المدين' : 'الدائن';
+  const amountLabel = isOwedToMe ? 'المبلغ المستلم' : 'المبلغ المدفوع';
+  const confirmButtonLabel = loading
+    ? 'جاري المعالجة...'
+    : isOwedToMe
+      ? 'تأكيد التسديد'
+      : paymentType === 'all'
+        ? 'تأكيد الدفع'
+        : 'دفع';
+
   return (
     <Modal
       visible={visible}
@@ -121,40 +136,37 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
               colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
               style={styles.modalGradient}
             >
-              {/* Header */}
+              {/* Header: title + close only */}
               <View style={styles.header}>
-                <View style={styles.headerLeft}>
-                  <View style={[styles.iconBadge, { backgroundColor: '#10B98120' }]}>
-                    <Ionicons name="checkmark-circle" size={24} color="#10B981" />
-                  </View>
-                  <View style={styles.headerText}>
-                    <Text style={styles.title}>دفع الدين</Text>
-                    <Text style={styles.subtitle}>اختر طريقة الدفع</Text>
-                  </View>
+                <View style={styles.headerText}>
+                  <Text style={styles.title}>{modalTitle}</Text>
+                  <Text style={styles.subtitle}>{modalSubtitle}</Text>
                 </View>
                 <TouchableOpacity
                   onPress={handleClose}
                   style={styles.closeButton}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 >
-                  <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
+                  <Ionicons name="close" size={22} color={theme.colors.textSecondary} />
                 </TouchableOpacity>
               </View>
 
-              {/* Debt Info */}
+              {/* Debt Info: label + value per row, clear alignment */}
               <View style={styles.debtInfo}>
                 <View style={styles.debtInfoRow}>
-                  <Text style={styles.debtInfoLabel}>الدائن:</Text>
-                  <Text style={styles.debtInfoValue}>{debt.debtorName}</Text>
+                  <Text style={styles.debtInfoLabel}>{debtLabel}</Text>
+                  <Text style={styles.debtInfoValue} numberOfLines={1}>{debt.debtorName}</Text>
                 </View>
                 <View style={styles.debtInfoRow}>
-                  <Text style={styles.debtInfoLabel}>المبلغ المتبقي:</Text>
+                  <Text style={styles.debtInfoLabel}>المبلغ المتبقي</Text>
                   <Text style={[styles.debtInfoValue, styles.remainingAmount]}>
                     {formatCurrency(debt.remainingAmount)}
                   </Text>
                 </View>
               </View>
 
-              {/* Payment Type Selection */}
+              {/* Payment method section label */}
+              <Text style={styles.sectionLabel}>طريقة الدفع</Text>
               <View style={styles.paymentTypeContainer}>
                 <TouchableOpacity
                   onPress={handlePayAll}
@@ -212,7 +224,7 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
               {/* Amount Input - Only show for partial payment */}
               {paymentType === 'partial' && (
                 <View style={styles.amountContainer}>
-                  <Text style={styles.amountLabel}>المبلغ المدفوع</Text>
+                  <Text style={styles.amountLabel}>{amountLabel}</Text>
                   <View style={styles.amountInputWrapper}>
                     <TextInput
                       value={amount}
@@ -229,7 +241,7 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
                   {amount && !isNaN(Number(amount)) && Number(amount) > 0 && (
                     <View style={styles.amountInfo}>
                       <Text style={styles.amountInfoText}>
-                        المبلغ المتبقي بعد الدفع:{' '}
+                        المتبقي بعد الدفع:{' '}
                         <Text style={styles.amountInfoValue}>
                           {formatCurrency(Math.max(0, debt.remainingAmount - Number(amount)))}
                         </Text>
@@ -239,7 +251,7 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
                 </View>
               )}
 
-              {/* Actions */}
+              {/* Actions: fixed at bottom with clear separation */}
               <View style={styles.actions}>
                 <TouchableOpacity
                   onPress={handleClose}
@@ -266,14 +278,12 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
                     {loading ? (
                       <>
                         <Ionicons name="hourglass-outline" size={18} color="#FFFFFF" />
-                        <Text style={styles.payButtonText}>جاري الدفع...</Text>
+                        <Text style={styles.payButtonText}>{confirmButtonLabel}</Text>
                       </>
                     ) : (
                       <>
                         <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
-                        <Text style={styles.payButtonText}>
-                          {paymentType === 'all' ? 'دفع الكامل' : 'دفع'}
-                        </Text>
+                        <Text style={styles.payButtonText}>{confirmButtonLabel}</Text>
                       </>
                     )}
                   </LinearGradient>
@@ -287,7 +297,7 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   keyboardView: {
     flex: 1,
   },
@@ -296,43 +306,30 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: theme.spacing.lg,
+    padding: theme.spacing.sm,
   },
   modalContainer: {
     width: '100%',
-    maxWidth: 400,
-    borderRadius: theme.borderRadius.xl,
+    maxWidth: 380,
+    borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
     ...getPlatformShadow('lg'),
   },
   modalGradient: {
-    padding: theme.spacing.lg,
+    padding: theme.spacing.sm,
+    paddingBottom: theme.spacing.md,
   },
   header: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.lg,
-  },
-  headerLeft: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  iconBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: theme.borderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: isRTL ? 0 : theme.spacing.md,
-    marginLeft: isRTL ? theme.spacing.md : 0,
+    alignItems: 'flex-start',
+    marginBottom: theme.spacing.sm,
   },
   headerText: {
     flex: 1,
   },
   title: {
-    fontSize: theme.typography.sizes.xl,
+    fontSize: theme.typography.sizes.lg,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
@@ -348,111 +345,128 @@ const styles = StyleSheet.create({
   },
   debtInfo: {
     backgroundColor: theme.colors.surfaceLight,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.lg,
-    gap: theme.spacing.sm,
+    borderRadius: theme.borderRadius.sm,
+    padding: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+    gap: 6,
   },
   debtInfoRow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: theme.spacing.sm,
   },
   debtInfoLabel: {
-    fontSize: theme.typography.sizes.md,
+    fontSize: theme.typography.sizes.sm,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
+    minWidth: 90,
   },
   debtInfoValue: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
+    flex: 1,
+    textAlign: isRTL ? 'right' : 'left',
   },
   remainingAmount: {
     fontSize: theme.typography.sizes.lg,
     fontWeight: getPlatformFontWeight('700'),
-    color: '#EF4444',
+    color: '#DC2626',
+  },
+  sectionLabel: {
+    fontSize: theme.typography.sizes.sm,
+    fontWeight: getPlatformFontWeight('600'),
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+    marginBottom: theme.spacing.xs,
+    textAlign: isRTL ? 'right' : 'left',
   },
   paymentTypeContainer: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     gap: theme.spacing.sm,
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.sm,
   },
   paymentTypeButton: {
     flex: 1,
-    borderRadius: theme.borderRadius.md,
+    borderRadius: theme.borderRadius.sm,
     overflow: 'hidden',
   },
   paymentTypeButtonActive: {
-    ...getPlatformShadow('md'),
+    ...getPlatformShadow('sm'),
   },
   paymentTypeGradient: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.xs,
     gap: theme.spacing.xs,
   },
   paymentTypeDefault: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.xs,
     backgroundColor: theme.colors.surfaceLight,
-    borderRadius: theme.borderRadius.md,
+    borderRadius: theme.borderRadius.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     gap: theme.spacing.xs,
   },
   paymentTypeText: {
-    fontSize: theme.typography.sizes.md,
+    fontSize: theme.typography.sizes.sm,
     fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
   },
   paymentTypeTextActive: {
-    fontSize: theme.typography.sizes.md,
+    fontSize: theme.typography.sizes.sm,
     fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
   amountContainer: {
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.sm,
   },
   amountLabel: {
-    fontSize: theme.typography.sizes.md,
+    fontSize: theme.typography.sizes.sm,
     fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
+    textAlign: isRTL ? 'right' : 'left',
   },
   amountInputWrapper: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.surfaceLight,
-    borderRadius: theme.borderRadius.md,
-    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.sm,
+    paddingHorizontal: theme.spacing.sm,
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
   amountInput: {
     flex: 1,
-    fontSize: theme.typography.sizes.xl,
+    fontSize: theme.typography.sizes.lg,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    paddingVertical: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
     textAlign: 'right',
   },
   currencyText: {
-    fontSize: theme.typography.sizes.md,
+    fontSize: theme.typography.sizes.sm,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    marginLeft: isRTL ? 0 : theme.spacing.sm,
-    marginRight: isRTL ? theme.spacing.sm : 0,
+    marginLeft: isRTL ? 0 : theme.spacing.xs,
+    marginRight: isRTL ? theme.spacing.xs : 0,
   },
   amountInfo: {
-    marginTop: theme.spacing.sm,
-    padding: theme.spacing.sm,
+    marginTop: theme.spacing.xs,
+    padding: theme.spacing.xs,
     backgroundColor: theme.colors.primaryLight,
     borderRadius: theme.borderRadius.sm,
   },
@@ -469,28 +483,32 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     gap: theme.spacing.sm,
+    marginTop: theme.spacing.sm,
+    paddingTop: theme.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
   },
   cancelButton: {
     flex: 1,
-    paddingVertical: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: theme.borderRadius.md,
+    borderRadius: theme.borderRadius.sm,
     backgroundColor: theme.colors.surfaceLight,
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
   cancelButtonText: {
-    fontSize: theme.typography.sizes.md,
+    fontSize: theme.typography.sizes.sm,
     fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
   },
   payButton: {
-    flex: 2,
-    borderRadius: theme.borderRadius.md,
+    flex: 1.4,
+    borderRadius: theme.borderRadius.sm,
     overflow: 'hidden',
-    ...getPlatformShadow('md'),
+    ...getPlatformShadow('sm'),
   },
   payButtonDisabled: {
     opacity: 0.5,
@@ -499,11 +517,11 @@ const styles = StyleSheet.create({
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
     gap: theme.spacing.xs,
   },
   payButtonText: {
-    fontSize: theme.typography.sizes.md,
+    fontSize: theme.typography.sizes.sm,
     fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,

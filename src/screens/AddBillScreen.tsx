@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { Bill, BillCategory, BILL_CATEGORIES } from '../types';
 import { addBill, updateBill } from '../database/database';
 import { scheduleBillReminder } from '../services/billService';
@@ -38,6 +38,8 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
   navigation,
   route,
 }) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const { currencyCode, formatCurrency } = useCurrency();
   const bill = route?.params?.bill as Bill | undefined;
   const [title, setTitle] = useState('');
@@ -68,38 +70,6 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
       resetForm();
     }
   }, [bill]);
-
-  useLayoutEffect(() => {
-    const parent = navigation.getParent()?.getParent();
-    if (parent) {
-      parent.setOptions({
-        tabBarStyle: { display: 'none' },
-        tabBarShowLabel: false,
-      });
-    }
-    return () => {
-      if (parent) {
-        parent.setOptions({
-          tabBarStyle: {
-            backgroundColor: theme.colors.surfaceCard,
-            borderTopColor: theme.colors.primary,
-            borderTopWidth: 1,
-            height: 70 + (Platform.OS === 'android' ? 0 : 0),
-            paddingBottom: Platform.OS === 'android' ? 8 : 20,
-            paddingTop: 4,
-            elevation: 8,
-            shadowColor: theme.colors.shadow,
-            shadowOffset: { width: 0, height: -2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 8,
-            flexDirection: 'row',
-            display: 'flex',
-          },
-          tabBarShowLabel: true,
-        });
-      }
-    };
-  }, [navigation]);
 
   const resetForm = () => {
     setTitle('');
@@ -548,7 +518,7 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -564,9 +534,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 16,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
@@ -578,7 +548,7 @@ const styles = StyleSheet.create({
   iconBadge: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -607,11 +577,11 @@ const styles = StyleSheet.create({
     direction: 'rtl',
   },
   scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: 16,
+    paddingBottom: 28,
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: 12,
   },
   label: {
     fontSize: theme.typography.sizes.sm,
@@ -636,8 +606,8 @@ const styles = StyleSheet.create({
   categoryChip: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: theme.colors.surfaceLight,
     marginRight: isRTL ? 0 : 8,
@@ -697,7 +667,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   saveButton: {
-    marginTop: 20,
+    marginTop: 12,
     borderRadius: 12,
     overflow: 'hidden',
     ...getPlatformShadow('md'),
@@ -709,7 +679,7 @@ const styles = StyleSheet.create({
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
+    paddingVertical: 12,
     gap: 8,
   },
   saveButtonText: {
@@ -744,7 +714,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     borderStyle: 'dashed',
     borderRadius: 12,
-    padding: 24,
+    padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: theme.colors.surfaceLight,
@@ -769,7 +739,7 @@ const styles = StyleSheet.create({
   imagePickerModalContent: {
     backgroundColor: theme.colors.surfaceCard,
     borderRadius: 16,
-    padding: 24,
+    padding: 16,
     width: '80%',
     maxWidth: 400,
   },
@@ -778,13 +748,13 @@ const styles = StyleSheet.create({
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    marginBottom: 20,
+    marginBottom: 12,
     textAlign: 'center',
   },
   imagePickerOptions: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginBottom: 20,
+    marginBottom: 12,
   },
   imagePickerOption: {
     alignItems: 'center',

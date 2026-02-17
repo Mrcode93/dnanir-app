@@ -2,12 +2,11 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Modal, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
-import { Debt } from '../types';
+import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
+import { Debt, DEBT_TYPES } from '../types';
 import { isRTL } from '../utils/rtl';
 import { ConfirmAlert } from './ConfirmAlert';
 import { useCurrency } from '../hooks/useCurrency';
-import { DEBT_TYPES } from '../types';
 
 interface DebtItemProps {
   item: Debt;
@@ -20,7 +19,7 @@ interface DebtItemProps {
   totalInstallmentsCount?: number;
 }
 
-export const DebtItem: React.FC<DebtItemProps> = ({
+const DebtItemComponent: React.FC<DebtItemProps> = ({
   item,
   onPress,
   onEdit,
@@ -30,6 +29,8 @@ export const DebtItem: React.FC<DebtItemProps> = ({
   unpaidInstallmentsCount = 0,
   totalInstallmentsCount = 0,
 }) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const { formatCurrency: hookFormatCurrency } = useCurrency();
   const formatCurrency = propFormatCurrency || hookFormatCurrency;
   const [swipeAnim] = useState(new Animated.Value(0));
@@ -49,8 +50,9 @@ export const DebtItem: React.FC<DebtItemProps> = ({
   };
 
   const icon = typeIcons[item.type];
-  const colors = item.isPaid ? ['#10B981', '#059669'] : typeColors[item.type];
-  const title = `مدين لـ: ${item.debtorName}`;
+  const isOwedToMe = item.direction === 'owed_to_me';
+  const colors = item.isPaid ? ['#10B981', '#059669'] : (isOwedToMe ? ['#10B981', '#059669'] : typeColors[item.type]);
+  const title = isOwedToMe ? `مدين لي: ${item.debtorName}` : `مدين لـ: ${item.debtorName}`;
   const typeLabel = DEBT_TYPES[item.type];
   const date = new Date(item.startDate);
   const formattedDate = date.toLocaleDateString('ar-IQ', {
@@ -331,7 +333,7 @@ export const DebtItem: React.FC<DebtItemProps> = ({
                 activeOpacity={0.7}
               >
                 <Ionicons name="checkmark-circle-outline" size={20} color="#10B981" />
-                <Text style={[styles.menuItemText, { color: '#10B981' }]}>دفع</Text>
+                <Text style={[styles.menuItemText, { color: '#10B981' }]}>{isOwedToMe ? 'تسديد' : 'دفع'}</Text>
               </TouchableOpacity>
             )}
             {onDelete && !item.isPaid && (
@@ -354,7 +356,10 @@ export const DebtItem: React.FC<DebtItemProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+export const DebtItem = React.memo(DebtItemComponent);
+DebtItem.displayName = 'DebtItem';
+
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   wrapper: {
     marginBottom: theme.spacing.md,
     marginHorizontal: theme.spacing.sm,

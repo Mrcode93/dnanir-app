@@ -14,31 +14,39 @@ import {
   Dimensions,
   Image,
   Linking,
+  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { List, Switch, Button } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
+import { useAppTheme, useThemedStyles } from '../utils/theme-context';
 import { isRTL } from '../utils/rtl';
 import { getUserSettings, getAppSettings, upsertAppSettings, getNotificationSettings, upsertNotificationSettings, upsertUserSettings } from '../database/database';
 import { initializeNotifications, requestPermissions, scheduleDailyReminder, sendExpenseReminder, cancelNotification, rescheduleAllNotifications, sendTestNotification, verifyScheduledNotifications } from '../services/notificationService';
 import { generateMonthlyReport, sharePDF } from '../services/pdfService';
 import { AuthSettingsModal } from '../components/AuthSettingsModal';
-import { AuthModal } from '../components/AuthModal';
 import { ConfirmAlert } from '../components/ConfirmAlert';
 import { CURRENCIES, Currency } from '../types';
 import { alertService } from '../services/alertService';
 import { getExchangeRate, upsertExchangeRate } from '../database/database';
 import * as Notifications from 'expo-notifications';
 import { authApiService } from '../services/authApiService';
+import { authStorage } from '../services/authStorage';
+import { syncNewToServer, hasUnsyncedData, getFullFromServer } from '../services/syncService';
+import { createLocalBackup, restoreFromLastLocalBackup, pickBackupFileAndRestore } from '../services/backupService';
 
-import { CONTACT_INFO } from '../constants/contactConstants';
+import { CONTACT_INFO, APP_LINKS, SHARE_APP_MESSAGE } from '../constants/contactConstants';
 import { convertArabicToEnglish } from '../utils/numbers';
 import Constants from 'expo-constants';
+import * as Clipboard from 'expo-clipboard';
+import { notifyCurrencyChanged } from '../services/currencyEvents';
 
 export const SettingsScreen = ({ navigation }: any) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const [userName, setUserName] = useState<string>('');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [dailyReminder, setDailyReminder] = useState(true);
@@ -49,18 +57,20 @@ export const SettingsScreen = ({ navigation }: any) => {
   const [showDailyTimePicker, setShowDailyTimePicker] = useState(false);
   const [showExpenseTimePicker, setShowExpenseTimePicker] = useState(false);
   const [exportingPDF, setExportingPDF] = useState(false);
+  const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
 
   const [selectedCurrency, setSelectedCurrency] = useState<string>('IQD');
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('ar');
+  const [showLanguagePicker, setShowLanguagePicker] = useState(false);
   const [showAuthSettings, setShowAuthSettings] = useState(false);
   const [showExchangeRateModal, setShowExchangeRateModal] = useState(false);
   const [usdToIqdRate, setUsdToIqdRate] = useState<string>('1315');
-
   const [showCurrencyConverter, setShowCurrencyConverter] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
   const [editingName, setEditingName] = useState<string>('');
-  const [showAuthModal, setShowAuthModal] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [userPhone, setUserPhone] = useState<string>('');
   const [tempHour, setTempHour] = useState<number>(8); // 12-hour format (1-12)
   const [tempMinute, setTempMinute] = useState<number>(0);
@@ -72,29 +82,64 @@ export const SettingsScreen = ({ navigation }: any) => {
   const expenseMinuteScrollRef = useRef<ScrollView>(null);
   const expenseAmPmScrollRef = useRef<ScrollView>(null);
 
+  const [userData, setUserData] = useState<any>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [hasUnsynced, setHasUnsynced] = useState(false);
+  const [backupLoading, setBackupLoading] = useState(false);
+  const [restoreServerLoading, setRestoreServerLoading] = useState(false);
+  const [showRestoreServerConfirm, setShowRestoreServerConfirm] = useState(false);
+
   useEffect(() => {
     loadSettings();
     checkAuthStatus();
-    // Reload settings when screen comes into focus (to reflect currency changes)
+    // Reload settings when screen comes into focus
     const unsubscribe = navigation?.addListener?.('focus', () => {
       loadSettings();
       checkAuthStatus();
+      refreshUnsyncedStatus();
     });
     return () => {
       if (unsubscribe) unsubscribe();
     };
   }, [navigation]);
 
-  const checkAuthStatus = async () => {
+  useEffect(() => {
+    if (isAuthenticated) refreshUnsyncedStatus();
+  }, [isAuthenticated]);
+
+  const refreshUnsyncedStatus = async () => {
+    const v = await hasUnsyncedData();
+    setHasUnsynced(v);
+  };
+
+  const checkAuthStatus = async (userFromServer?: any) => {
+    // if (__DEV__) {
+    //   console.log('🔄 Checking Auth Status...', { hasUserFromServer: !!userFromServer });
+    // }
     try {
-      const auth = await authApiService.isAuthenticated();
-      setIsAuthenticated(auth);
-      // Optionally get user info if authenticated
-      if (auth) {
-        // You can extend authApiService to get user info
+      if (userFromServer) {
+        setIsAuthenticated(true);
+        setUserData(userFromServer);
+        setUserName(userFromServer.name || '');
+        setUserPhone(userFromServer.phone || '');
+        return;
+      }
+
+      const status = await authApiService.checkAuth();
+      // if (__DEV__) {
+      //   console.log('✅ Auth API Status:', status);
+      // }
+
+      setIsAuthenticated(status.isAuthenticated);
+      if (status.isAuthenticated && status.user) {
+        setUserData(status.user);
+        setUserName(status.user.name || '');
+        setUserPhone(status.user.phone || '');
+      } else {
+        setUserData(null);
       }
     } catch (error) {
-      // Ignore error
+      console.error('❌ Error checking auth status:', error);
       setIsAuthenticated(false);
     }
   };
@@ -120,6 +165,7 @@ export const SettingsScreen = ({ navigation }: any) => {
       const appSettings = await getAppSettings();
       if (appSettings) {
         setNotificationsEnabled(appSettings.notificationsEnabled);
+        setAutoSyncEnabled(!!appSettings.autoSyncEnabled);
         // Extract currency code from currency string (e.g., "دينار عراقي" -> "IQD")
         const currency = CURRENCIES.find(c => c.name === appSettings.currency);
         if (currency) {
@@ -129,14 +175,19 @@ export const SettingsScreen = ({ navigation }: any) => {
 
       const notificationSettings = await getNotificationSettings();
       if (notificationSettings) {
-        setDailyReminder(notificationSettings.dailyReminder === 1);
-        setExpenseReminder(notificationSettings.expenseReminder === 1);
+        setDailyReminder(!!notificationSettings.dailyReminder);
+        setExpenseReminder(!!notificationSettings.expenseReminder);
 
         // Parse daily reminder time
         if (notificationSettings.dailyReminderTime) {
           const [hours, minutes] = notificationSettings.dailyReminderTime.split(':').map(Number);
           const dailyTime = new Date();
           dailyTime.setHours(hours, minutes, 0, 0);
+          setDailyReminderTime(dailyTime);
+        } else {
+          // Default to 8:00 PM if not set
+          const dailyTime = new Date();
+          dailyTime.setHours(20, 0, 0, 0);
           setDailyReminderTime(dailyTime);
         }
 
@@ -151,6 +202,15 @@ export const SettingsScreen = ({ navigation }: any) => {
           expenseTime.setHours(20, 0, 0, 0);
           setExpenseReminderTime(expenseTime);
         }
+      } else {
+        // Set default times if no settings exist
+        const defaultDailyTime = new Date();
+        defaultDailyTime.setHours(20, 0, 0, 0);
+        setDailyReminderTime(defaultDailyTime);
+
+        const defaultExpenseTime = new Date();
+        defaultExpenseTime.setHours(20, 0, 0, 0);
+        setExpenseReminderTime(defaultExpenseTime);
       }
 
       // Load USD to selected currency exchange rate
@@ -179,6 +239,7 @@ export const SettingsScreen = ({ navigation }: any) => {
       notificationsEnabled: true,
       darkModeEnabled: false,
       autoBackupEnabled: false,
+      autoSyncEnabled: false,
       currency: 'دينار عراقي',
       language: 'ar',
     };
@@ -196,27 +257,62 @@ export const SettingsScreen = ({ navigation }: any) => {
     }
   };
 
+  const handleAutoSyncToggle = async (value: boolean) => {
+    if (value) {
+      const user = await authStorage.getUser<{ isPro?: boolean; is_pro?: boolean }>();
+      const isPro = user?.isPro === true || (user as any)?.is_pro === true;
+      if (!isPro) {
+        alertService.show({
+          title: 'اشتراك مميز',
+          message: 'المزامنة التلقائية متاحة للمشتركين المميزين فقط. يجب أن يكون نوع حسابك أو اشتراكك مميزاً.',
+          type: 'warning',
+          confirmText: 'حسناً',
+        });
+        return;
+      }
+    }
+    setAutoSyncEnabled(value);
+    const appSettings = await getAppSettings();
+    const settingsToSave = appSettings || {
+      notificationsEnabled: true,
+      darkModeEnabled: false,
+      autoBackupEnabled: false,
+      autoSyncEnabled: false,
+      currency: 'دينار عراقي',
+      language: 'ar',
+    };
+    await upsertAppSettings({ ...settingsToSave, autoSyncEnabled: value });
+  };
+
   const handleDailyReminderToggle = async (value: boolean) => {
     setDailyReminder(value);
-    let notificationSettings = await getNotificationSettings();
+    const notificationSettings = await getNotificationSettings();
 
-    // Create default settings if they don't exist
-    if (!notificationSettings) {
-      notificationSettings = {
-        dailyReminder: 0,
-        dailyReminderTime: '20:00',
-        expenseReminder: 0,
-        expenseReminderTime: '20:00',
+    const dailyTimeString = `${dailyReminderTime.getHours().toString().padStart(2, '0')}:${dailyReminderTime.getMinutes().toString().padStart(2, '0')}`;
+    const expenseTimeString = `${expenseReminderTime.getHours().toString().padStart(2, '0')}:${expenseReminderTime.getMinutes().toString().padStart(2, '0')}`;
+
+    const payload = notificationSettings
+      ? {
+        dailyReminder: value ? 1 : 0,
+        dailyReminderTime: notificationSettings.dailyReminderTime ?? dailyTimeString,
+        expenseReminder: notificationSettings.expenseReminder ? 1 : 0,
+        expenseReminderTime: notificationSettings.expenseReminderTime ?? expenseTimeString,
+        incomeReminder: notificationSettings.incomeReminder ? 1 : 0,
+        weeklySummary: notificationSettings.weeklySummary ? 1 : 0,
+        monthlySummary: notificationSettings.monthlySummary ? 1 : 0,
+      }
+      : {
+        dailyReminder: value ? 1 : 0,
+        dailyReminderTime: dailyTimeString,
+        expenseReminder: expenseReminder ? 1 : 0,
+        expenseReminderTime: expenseTimeString,
         incomeReminder: 1,
         weeklySummary: 1,
         monthlySummary: 1,
       };
-    }
 
-    await upsertNotificationSettings({
-      ...notificationSettings,
-      dailyReminder: value ? 1 : 0,
-    });
+    await upsertNotificationSettings(payload);
+    await loadSettings();
 
     if (value) {
       try {
@@ -225,7 +321,6 @@ export const SettingsScreen = ({ navigation }: any) => {
         alertService.error('خطأ', 'فشل جدولة التذكير اليومي');
       }
     } else {
-      // Cancel the notification if disabled
       await cancelNotification('daily-reminder');
       await cancelNotification('daily-reminder-repeat');
     }
@@ -233,25 +328,33 @@ export const SettingsScreen = ({ navigation }: any) => {
 
   const handleExpenseReminderToggle = async (value: boolean) => {
     setExpenseReminder(value);
-    let notificationSettings = await getNotificationSettings();
+    const notificationSettings = await getNotificationSettings();
 
-    // Create default settings if they don't exist
-    if (!notificationSettings) {
-      notificationSettings = {
-        dailyReminder: 0,
-        dailyReminderTime: '20:00',
-        expenseReminder: 0,
-        expenseReminderTime: '20:00',
+    const dailyTimeString = `${dailyReminderTime.getHours().toString().padStart(2, '0')}:${dailyReminderTime.getMinutes().toString().padStart(2, '0')}`;
+    const expenseTimeString = `${expenseReminderTime.getHours().toString().padStart(2, '0')}:${expenseReminderTime.getMinutes().toString().padStart(2, '0')}`;
+
+    const payload = notificationSettings
+      ? {
+        dailyReminder: notificationSettings.dailyReminder ? 1 : 0,
+        dailyReminderTime: notificationSettings.dailyReminderTime ?? dailyTimeString,
+        expenseReminder: value ? 1 : 0,
+        expenseReminderTime: notificationSettings.expenseReminderTime ?? expenseTimeString,
+        incomeReminder: notificationSettings.incomeReminder ? 1 : 0,
+        weeklySummary: notificationSettings.weeklySummary ? 1 : 0,
+        monthlySummary: notificationSettings.monthlySummary ? 1 : 0,
+      }
+      : {
+        dailyReminder: dailyReminder ? 1 : 0,
+        dailyReminderTime: dailyTimeString,
+        expenseReminder: value ? 1 : 0,
+        expenseReminderTime: expenseTimeString,
         incomeReminder: 1,
         weeklySummary: 1,
         monthlySummary: 1,
       };
-    }
 
-    await upsertNotificationSettings({
-      ...notificationSettings,
-      expenseReminder: value ? 1 : 0,
-    });
+    await upsertNotificationSettings(payload);
+    await loadSettings();
 
     if (value) {
       try {
@@ -260,7 +363,6 @@ export const SettingsScreen = ({ navigation }: any) => {
         alertService.error('خطأ', 'فشل جدولة تذكير المصاريف');
       }
     } else {
-      // Cancel the notification if disabled
       await cancelNotification('expense-reminder');
       await cancelNotification('expense-reminder-repeat');
     }
@@ -369,33 +471,40 @@ export const SettingsScreen = ({ navigation }: any) => {
 
     const timeString = `${hour24.toString().padStart(2, '0')}:${tempMinute.toString().padStart(2, '0')}`;
 
-    let notificationSettings = await getNotificationSettings();
+    try {
+      const notificationSettings = await getNotificationSettings();
 
-    // Create default settings if they don't exist
-    if (!notificationSettings) {
-      notificationSettings = {
-        dailyReminder: dailyReminder ? 1 : 0,
+      // Build payload with explicit numbers; getNotificationSettings returns booleans for toggles
+      const expenseHours = expenseReminderTime.getHours().toString().padStart(2, '0');
+      const expenseMinutes = expenseReminderTime.getMinutes().toString().padStart(2, '0');
+      const expenseTimeString = `${expenseHours}:${expenseMinutes}`;
+
+      await upsertNotificationSettings({
+        dailyReminder: notificationSettings ? (notificationSettings.dailyReminder ? 1 : 0) : (dailyReminder ? 1 : 0),
         dailyReminderTime: timeString,
-        expenseReminder: expenseReminder ? 1 : 0,
-        expenseReminderTime: formatTime(expenseReminderTime),
-        incomeReminder: 1,
-        weeklySummary: 1,
-        monthlySummary: 1,
-      };
-    }
+        expenseReminder: notificationSettings ? (notificationSettings.expenseReminder ? 1 : 0) : (expenseReminder ? 1 : 0),
+        expenseReminderTime: notificationSettings?.expenseReminderTime ?? expenseTimeString,
+        incomeReminder: notificationSettings ? (notificationSettings.incomeReminder ? 1 : 0) : 1,
+        weeklySummary: notificationSettings ? (notificationSettings.weeklySummary ? 1 : 0) : 1,
+        monthlySummary: notificationSettings ? (notificationSettings.monthlySummary ? 1 : 0) : 1,
+      });
 
-    await upsertNotificationSettings({
-      ...notificationSettings,
-      dailyReminderTime: timeString,
-    });
+      // Reload from DB so state matches persisted value (handles focus race)
+      await loadSettings();
 
-    if (dailyReminder) {
-      try {
-        await scheduleDailyReminder();
-        alertService.success('نجح', `تم تعيين وقت التذكير اليومي إلى ${timeString}`);
-      } catch (error) {
-        alertService.error('خطأ', 'فشل جدولة التذكير اليومي');
+      alertService.success('نجح', `تم حفظ وقت التذكير اليومي: ${timeString}`);
+
+      if (dailyReminder) {
+        try {
+          await scheduleDailyReminder();
+        } catch (error) {
+          console.error('Error scheduling daily reminder:', error);
+          alertService.error('خطأ', 'تم حفظ الوقت لكن فشل جدولة التذكير');
+        }
       }
+    } catch (error) {
+      console.error('Error saving daily reminder time:', error);
+      alertService.error('خطأ', 'فشل حفظ وقت التذكير اليومي');
     }
   };
 
@@ -578,10 +687,12 @@ export const SettingsScreen = ({ navigation }: any) => {
         notificationsEnabled: true,
         darkModeEnabled: false,
         autoBackupEnabled: false,
+        autoSyncEnabled: false,
         currency: 'دينار عراقي',
         language: 'ar',
       };
       await upsertAppSettings({ ...settingsToSave, currency: currency.name });
+      notifyCurrencyChanged();
       setShowCurrencyPicker(false);
       alertService.success('نجح', `تم تغيير العملة إلى ${currency.name}`);
 
@@ -688,122 +799,449 @@ export const SettingsScreen = ({ navigation }: any) => {
     }
   };
 
+  const handleShareApp = async () => {
+    try {
+      // أيفون → رابط App Store، أندرويد → رابط تيليجرام
+      const shareUrl = Platform.OS === 'ios' ? APP_LINKS.apple : APP_LINKS.telegram;
+      const message = `${SHARE_APP_MESSAGE}\n${shareUrl}`;
+      await Share.share({
+        message,
+        url: Platform.OS === 'ios' ? shareUrl : undefined,
+        title: 'دنانير - تطبيق المالية الشخصية',
+      });
+    } catch (err: any) {
+      if (err?.message !== 'User did not share') {
+        alertService.error('خطأ', 'لم تتم المشاركة');
+      }
+    }
+  };
+
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* App Info */}
+        {/* Premium Profile Section */}
         <LinearGradient
-          colors={theme.gradients.primary as any}
-          style={styles.appInfoCard}
+          colors={userData?.isPro ? (['#0f0e0a', '#2d2814', '#5c4a1a', '#8B6914'] as any) : (theme.gradients.primary as any)}
+          style={[styles.profileCard, userData?.isPro && styles.profileCardPro]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          {/* App Name Section */}
-          <View style={styles.appNameSection}>
-            <View style={styles.appIconWrapper}>
-              <LinearGradient
-                colors={['rgba(255, 255, 255, 0.3)', 'rgba(255, 255, 255, 0.1)']}
-                style={styles.appIconContainer}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <Ionicons name="wallet" size={32} color="#FFFFFF" />
-              </LinearGradient>
-            </View>
-            <View style={styles.appNameInfo}>
-              <Text style={styles.appName}>دنانير</Text>
-              <Text style={styles.appDescription}>تطبيقك الذكي لإدارة الأموال</Text>
-            </View>
-          </View>
-
-          {/* User Name Section */}
-          <View style={styles.userNameSection}>
-            <View style={styles.userNameHeader}>
-              <Ionicons name="person-circle-outline" size={20} color="rgba(255, 255, 255, 0.9)" />
-              <Text style={styles.userNameLabel}>اسم المستخدم</Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => {
-                setEditingName(userName);
-                setShowNameModal(true);
-              }}
-              activeOpacity={0.7}
-              style={styles.userNameButton}
-            >
-              {userName ? (
-                <View style={styles.userNameContent}>
-                  <Text style={styles.userNameText} numberOfLines={1}>
-                    {userName}
-                  </Text>
-                  <Ionicons name="create-outline" size={18} color="#FFFFFF" />
+          {isAuthenticated ? (
+            <>
+              <View style={styles.profileHeader}>
+                <View style={styles.avatarWrapper}>
+                  <View style={[styles.avatarContainer, userData?.isPro && styles.avatarContainerPro]}>
+                    <Ionicons name="person" size={28} color={userData?.isPro ? '#C9A227' : theme.colors.primary} />
+                  </View>
+                  {userData?.isPro ? (
+                    <View style={styles.proCrownBadge}>
+                      <Ionicons name="diamond" size={10} color="#FFF" />
+                    </View>
+                  ) : (
+                    <View style={styles.onlineBadge} />
+                  )}
                 </View>
-              ) : (
-                <View style={styles.addNameContent}>
-                  <Ionicons name="person-add-outline" size={18} color="#FFFFFF" />
-                  <Text style={styles.addNameText}>أضف اسمك</Text>
+                <View style={styles.userInfo}>
+                  <View style={styles.userNameRow}>
+                    {userData?.isPro && (
+                      <View style={styles.proCrownBanner}>
+                        <Ionicons name="diamond" size={12} color="#F5E6A3" />
+                        <Text style={styles.proCrownBannerText}>عضو مميز</Text>
+                      </View>
+                    )}
+                    <Text style={[styles.userNameText, userData?.isPro && styles.userNameTextPro]} numberOfLines={1}>
+                      {userData?.name || 'مستخدم دنانير'}
+                    </Text>
+                  </View>
+                  <Text style={[styles.userEmail, userData?.isPro && styles.userEmailPro]} numberOfLines={1}>
+                    {userData?.email || userData?.phone || 'لا يوجد بريد إلكتروني'}
+                  </Text>
+                  <View style={[styles.verifiedBadge, userData?.isPro && styles.verifiedBadgePro]}>
+                    <Ionicons name={userData?.isPro ? 'diamond' : 'shield-checkmark'} size={12} color="#FFFFFF" />
+                    <Text style={styles.verifiedText}>{userData?.isPro ? 'حساب مميز' : 'حساب موثق'}</Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    setEditingName(userName);
+                    setShowNameModal(true);
+                  }}
+                  style={styles.editProfileBtn}
+                >
+                  <Ionicons name="create-outline" size={16} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+
+              {isAuthenticated && userData?.isPro && (
+                <View style={styles.proFeaturesRow}>
+                  <View style={styles.proFeaturePill}>
+                    <Ionicons name="cloud-done" size={14} color="#F5E6A3" />
+                    <Text style={styles.proFeaturePillText}>نسخ احتياطي</Text>
+                  </View>
+                  <View style={styles.proFeaturePill}>
+                    <Ionicons name="sparkles" size={14} color="#F5E6A3" />
+                    <Text style={styles.proFeaturePillText}>تحليل ذكي</Text>
+                  </View>
+                  <View style={styles.proFeaturePill}>
+                    <Ionicons name="sync" size={14} color="#F5E6A3" />
+                    <Text style={styles.proFeaturePillText}>مزامنة</Text>
+                  </View>
+                  {userData?.id != null && (
+                    <TouchableOpacity
+                      onPress={async () => {
+                        const id = String(userData.id);
+                        await Clipboard.setStringAsync(id);
+                        alertService.success('تم النسخ', 'تم نسخ معرف المستخدم');
+                      }}
+                      style={styles.proFeaturePill}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="copy-outline" size={14} color="#F5E6A3" />
+                      <Text style={styles.proFeaturePillText}>نسخ المعرف</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
-            </TouchableOpacity>
-          </View>
+
+              {isAuthenticated && !userData?.isPro && userData?.id != null && (
+                <TouchableOpacity
+                  onPress={async () => {
+                    const id = String(userData.id);
+                    await Clipboard.setStringAsync(id);
+                    alertService.success('تم النسخ', 'تم نسخ معرف المستخدم');
+                  }}
+                  style={styles.copyIdButton}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="copy-outline" size={14} color="rgba(255, 255, 255, 0.8)" />
+                  <Text style={styles.copyIdLabel}>نسخ معرف المستخدم</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          ) : (
+            <View style={styles.unauthProfileHeader}>
+              <View style={styles.unauthTextContainer}>
+                <Text style={styles.unauthTitle}>أهلاً بك في دنانير</Text>
+                <Text style={styles.unauthSubtitle}>سجل دخولك لمزامنة بياناتك والحصول على ميزات إضافية</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.loginBtnHeader}
+                onPress={() => {
+                  navigation.navigate('Auth', {
+                    onSuccess: (user: any) => checkAuthStatus(user)
+                  });
+                }}
+              >
+                <Text style={styles.loginBtnHeaderText}>دخول / تسجيل</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </LinearGradient>
 
         {/* Account Section - Removed for now */}
 
-        {/* General Settings */}
-        <LinearGradient
-          colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-          style={styles.sectionCard}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
+        {/* 1. الإعدادات العامة */}
+        <View style={styles.sectionCard}>
           <View style={styles.sectionContent}>
-            <Text style={styles.sectionTitle}>الإعدادات العامة</Text>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="settings-outline" size={22} color={theme.colors.primary} />
+              <Text style={styles.sectionTitle}>الإعدادات العامة</Text>
+            </View>
 
-            <List.Item
-              title="الإشعارات"
-              description="تلقي تنبيهات حول المصاريف والأهداف"
-              left={(props) => <List.Icon {...props} icon="bell" color={theme.colors.primary} />}
-              right={() => (
-                <Switch
-                  value={notificationsEnabled}
-                  onValueChange={handleNotificationsToggle}
-                  trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
-                />
-              )}
-              titleStyle={styles.listItemTitle}
-              descriptionStyle={styles.listItemDescription}
-            />
+            <View style={styles.premiumRow}>
+              <View style={[styles.premiumIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                <Ionicons name="notifications" size={22} color={theme.colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.premiumItemTitle}>الإشعارات</Text>
+                <Text style={styles.premiumItemSubtitle}>تلقي تنبيهات حول المصاريف والأهداف</Text>
+              </View>
+              <Switch
+                value={notificationsEnabled}
+                onValueChange={handleNotificationsToggle}
+                trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+              />
+            </View>
+
+            <View style={styles.premiumRow}>
+              <View style={[styles.premiumIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                <Ionicons name="sync" size={22} color={theme.colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.premiumItemTitle}>مزامنة تلقائية</Text>
+                <Text style={styles.premiumItemSubtitle}>مزامنة البيانات تلقائياً (مميز)</Text>
+              </View>
+              <Switch
+                value={autoSyncEnabled}
+                onValueChange={handleAutoSyncToggle}
+                trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* 2. حسابي والأمان */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionContent}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="person-circle-outline" size={22} color={theme.colors.primary} />
+              <Text style={styles.sectionTitle}>حسابي والأمان</Text>
+            </View>
 
             <TouchableOpacity
               onPress={() => setShowAuthSettings(true)}
-              style={styles.authItem}
+              style={styles.premiumRow}
               activeOpacity={0.7}
             >
-              <LinearGradient
-                colors={['#8B5CF6', '#7C3AED']}
-                style={styles.authItemGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <View style={styles.authItemLeft}>
-                  <View style={styles.authIconContainer}>
-                    <Ionicons name="lock-closed" size={24} color="#FFFFFF" />
-                  </View>
-                  <View style={styles.authItemInfo}>
-                    <Text style={styles.authItemTitleWhite}>الأمان والقفل</Text>
-                    <Text style={styles.authItemDescriptionWhite}>
-                      كلمة مرور، Face ID، أو البصمة
-                    </Text>
-                  </View>
-                </View>
-                <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
-              </LinearGradient>
+              <View style={[styles.premiumIconBox, { backgroundColor: '#8B5CF620' }]}>
+                <Ionicons name="lock-closed" size={22} color="#8B5CF6" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.premiumItemTitle}>الأمان والقفل</Text>
+                <Text style={styles.premiumItemSubtitle}>كلمة مرور، Face ID، أو البصمة</Text>
+              </View>
+              <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={18} color={theme.colors.textSecondary} />
             </TouchableOpacity>
 
+            {!isAuthenticated && (
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Auth', {
+                  onSuccess: (user: any) => checkAuthStatus(user)
+                })}
+                style={styles.premiumRow}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.premiumIconBox, { backgroundColor: '#3B82F620' }]}>
+                  <Ionicons name="person-add" size={22} color="#3B82F6" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.premiumItemTitle}>إنشاء حساب / دخول</Text>
+                  <Text style={styles.premiumItemSubtitle}>لحفظ بياناتك وموعد ميزانيتك</Text>
+                </View>
+                <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={18} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            )}
+
+            {isAuthenticated && (
+              <TouchableOpacity
+                onPress={handleLogout}
+                style={[styles.premiumRow, { backgroundColor: '#EF444405', borderColor: '#EF444420' }]}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.premiumIconBox, { backgroundColor: '#EF444420' }]}>
+                  <Ionicons name="log-out" size={22} color="#EF4444" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.premiumItemTitle, { color: '#EF4444' }]}>تسجيل الخروج</Text>
+                  <Text style={styles.premiumItemSubtitle}>الخروج من الحساب الحالي</Text>
+                </View>
+                <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={18} color="#EF4444" />
+              </TouchableOpacity>
+            )}
+            {isAuthenticated && (
+              <TouchableOpacity
+                onPress={async () => {
+                  if (syncing) return;
+                  const user = await authStorage.getUser<{ isPro?: boolean; is_pro?: boolean }>();
+                  const isPro = user?.isPro === true || (user as any)?.is_pro === true;
+                  if (!isPro) {
+                    alertService.show({
+                      title: 'اشتراك مميز',
+                      message: 'مزامنة البيانات متاحة للمشتركين المميزين فقط.',
+                      type: 'warning',
+                      confirmText: 'حسناً',
+                    });
+                    return;
+                  }
+                  setSyncing(true);
+                  const result = await syncNewToServer();
+                  setSyncing(false);
+                  if (result.success) {
+                    alertService.success('تمت المزامنة', result.count > 0 ? `تمت إضافة ${result.count} عنصر جديد` : 'لا توجد بيانات جديدة');
+                  } else {
+                    alertService.error('فشل المزامنة', result.error);
+                  }
+                }}
+                style={[styles.premiumRow, { backgroundColor: theme.colors.primary + '05', borderColor: theme.colors.primary + '20' }]}
+                activeOpacity={0.7}
+                disabled={syncing}
+              >
+                <View style={[styles.premiumIconBox, { backgroundColor: theme.colors.primary + '20' }]}>
+                  {syncing ? (
+                    <ActivityIndicator size="small" color={theme.colors.primary} />
+                  ) : (
+                    <Ionicons name="cloud-upload" size={22} color={theme.colors.primary} />
+                  )}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.premiumItemTitle}>
+                    {syncing ? 'جاري المزامنة...' : 'مزامنة البيانات'}
+                  </Text>
+                  <Text style={styles.premiumItemSubtitle}>إضافة البيانات الجديدة للسيرفر (مميز)</Text>
+                </View>
+                {!syncing && <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={18} color={theme.colors.textSecondary} />}
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* 3. النسخ الاحتياطي والاستعادة */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionContent}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="cloud-upload-outline" size={22} color={theme.colors.primary} />
+              <Text style={styles.sectionTitle}>النسخ الاحتياطي والاستعادة</Text>
+            </View>
+            <TouchableOpacity
+              onPress={async () => {
+                if (backupLoading) return;
+                setBackupLoading(true);
+                const result = await createLocalBackup();
+                setBackupLoading(false);
+                if (result.success) {
+                  alertService.success('تم', 'تم إنشاء النسخة الاحتياطية. يمكنك حفظ الملف في التخزين أو.');
+                } else {
+                  alertService.error('خطأ', result.error);
+                }
+              }}
+              style={[styles.actionItem, { backgroundColor: '#0EA5E9', overflow: 'hidden' }]}
+              activeOpacity={0.7}
+              disabled={backupLoading}
+            >
+              <View style={styles.actionItemGradient}>
+                <View style={styles.actionItemLeft}>
+                  <View style={styles.actionIconContainer}>
+                    {backupLoading ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Ionicons name="save" size={24} color="#FFFFFF" />}
+                  </View>
+                  <View style={styles.actionItemInfo}>
+                    <Text style={styles.actionItemTitleWhite}>نسخ احتياطي داخلي</Text>
+                    <Text style={styles.actionItemDescriptionWhite}>حفظ كل بياناتك في ملف واحفظه على جهازك</Text>
+                  </View>
+                </View>
+                {!backupLoading && <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={20} color="#FFFFFF" />}
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={async () => {
+                if (backupLoading) return;
+                setBackupLoading(true);
+                const result = await restoreFromLastLocalBackup();
+                setBackupLoading(false);
+                if (result.success) {
+                  alertService.success('تم', 'تم استعادة النسخة الاحتياطية المحلية.');
+                  loadSettings();
+                } else {
+                  alertService.error('خطأ', result.error);
+                }
+              }}
+              style={[styles.actionItem, { backgroundColor: '#8B5CF6', overflow: 'hidden' }]}
+              activeOpacity={0.7}
+              disabled={backupLoading}
+            >
+              <View style={styles.actionItemGradient}>
+                <View style={styles.actionItemLeft}>
+                  <View style={styles.actionIconContainer}>
+                    <Ionicons name="document-attach" size={24} color="#FFFFFF" />
+                  </View>
+                  <View style={styles.actionItemInfo}>
+                    <Text style={styles.actionItemTitleWhite}>استعادة من النسخة المحلية</Text>
+                    <Text style={styles.actionItemDescriptionWhite}>استعادة من آخر نسخة احتياطية محلية</Text>
+                  </View>
+                </View>
+                <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={20} color="#FFFFFF" />
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={async () => {
+                if (backupLoading) return;
+                setBackupLoading(true);
+                const result = await pickBackupFileAndRestore();
+                setBackupLoading(false);
+                if (result.success) {
+                  alertService.success('تم', 'تم استعادة النسخة الاحتياطية من الملف.');
+                  loadSettings();
+                } else if (result.error !== 'لم يتم اختيار ملف') {
+                  alertService.error('خطأ', result.error);
+                }
+              }}
+              style={[styles.actionItem, { backgroundColor: '#6366F1', overflow: 'hidden' }]}
+              activeOpacity={0.7}
+              disabled={backupLoading}
+            >
+              <View style={styles.actionItemGradient}>
+                <View style={styles.actionItemLeft}>
+                  <View style={styles.actionIconContainer}>
+                    {backupLoading ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Ionicons name="folder-open" size={24} color="#FFFFFF" />}
+                  </View>
+                  <View style={styles.actionItemInfo}>
+                    <Text style={styles.actionItemTitleWhite}>استعادة من ملف</Text>
+                    <Text style={styles.actionItemDescriptionWhite}>اختر ملف نسخة احتياطية من جهازك (ملف أو iCloud)</Text>
+                  </View>
+                </View>
+                {!backupLoading && <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={20} color="#FFFFFF" />}
+              </View>
+            </TouchableOpacity>
+
+            {isAuthenticated && (
+              <TouchableOpacity
+                onPress={() => setShowRestoreServerConfirm(true)}
+                style={[styles.actionItem, { backgroundColor: '#F59E0B', overflow: 'hidden' }]}
+                activeOpacity={0.7}
+                disabled={restoreServerLoading}
+              >
+                <View style={styles.actionItemGradient}>
+                  <View style={styles.actionItemLeft}>
+                    <View style={styles.actionIconContainer}>
+                      {restoreServerLoading ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Ionicons name="cloud-download" size={24} color="#FFFFFF" />}
+                    </View>
+                    <View style={styles.actionItemInfo}>
+                      <Text style={styles.actionItemTitleWhite}>استعادة من السيرفر</Text>
+                      <Text style={styles.actionItemDescriptionWhite}>جلب آخر نسخة من السيرفر واستبدال البيانات المحلية (مميز)</Text>
+                    </View>
+                  </View>
+                  {!restoreServerLoading && <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={20} color="#FFFFFF" />}
+                </View>
+              </TouchableOpacity>
+            )}
+
+            {showRestoreServerConfirm && (
+              <ConfirmAlert
+                visible={showRestoreServerConfirm}
+                title="استعادة من السيرفر"
+                message="سيتم استبدال كل بياناتك المحلية بآخر نسخة من السيرفر. هل أنت متأكد؟"
+                confirmText="استعادة"
+                cancelText="إلغاء"
+                onConfirm={async () => {
+                  setShowRestoreServerConfirm(false);
+                  setRestoreServerLoading(true);
+                  const result = await getFullFromServer();
+                  setRestoreServerLoading(false);
+                  if (result.success) {
+                    alertService.success('تم', 'تم استعادة البيانات من السيرفر.');
+                    loadSettings();
+                  } else {
+                    alertService.error('فشل الاستعادة', result.error);
+                  }
+                }}
+                onCancel={() => setShowRestoreServerConfirm(false)}
+              />
+            )}
+          </View>
+        </View>
+
+        {/* 4. اللغة والعملة */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionContent}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="globe-outline" size={22} color={theme.colors.primary} />
+              <Text style={styles.sectionTitle}>اللغة والعملة</Text>
+            </View>
             <TouchableOpacity
               onPress={() => setShowCurrencyPicker(!showCurrencyPicker)}
               style={styles.currencyItem}
@@ -826,7 +1264,7 @@ export const SettingsScreen = ({ navigation }: any) => {
                     </Text>
                   </View>
                 </View>
-                <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+                <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={20} color="#FFFFFF" />
               </LinearGradient>
             </TouchableOpacity>
 
@@ -855,6 +1293,74 @@ export const SettingsScreen = ({ navigation }: any) => {
               </View>
             )}
 
+            <TouchableOpacity
+              onPress={() => setShowLanguagePicker(!showLanguagePicker)}
+              style={styles.currencyItem}
+              activeOpacity={0.7}
+            >
+              <LinearGradient
+                colors={['#3B82F6', '#2563EB']}
+                style={styles.currencyItemGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <View style={styles.currencyItemLeft}>
+                  <View style={styles.currencyIconContainer}>
+                    <Ionicons name="language" size={24} color="#FFFFFF" />
+                  </View>
+                  <View style={styles.currencyItemInfo}>
+                    <Text style={styles.currencyItemTitleWhite}>لغة التطبيق</Text>
+                    <Text style={styles.currencyItemDescriptionWhite}>
+                      {selectedLanguage === 'ar' ? 'العربية (العراق)' : 'English'}
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={20} color="#FFFFFF" />
+              </LinearGradient>
+            </TouchableOpacity>
+
+            {showLanguagePicker && (
+              <View style={styles.currencyPicker}>
+                <TouchableOpacity
+                  style={[
+                    styles.currencyOption,
+                    selectedLanguage === 'ar' && styles.currencyOptionSelected,
+                  ]}
+                  onPress={() => {
+                    setSelectedLanguage('ar');
+                    setShowLanguagePicker(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.currencyOptionText,
+                    selectedLanguage === 'ar' && styles.currencyOptionTextSelected,
+                  ]}>
+                    العربية
+                  </Text>
+                  {selectedLanguage === 'ar' && (
+                    <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.currencyOption,
+                    selectedLanguage === 'en' && styles.currencyOptionSelected,
+                  ]}
+                  onPress={() => {
+                    alertService.info('تنبيه', 'اللغة الإنجليزية ستتوفر قريباً');
+                    setShowLanguagePicker(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.currencyOptionText,
+                    selectedLanguage === 'en' && styles.currencyOptionTextSelected,
+                  ]}>
+                    English (Coming Soon)
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
             {selectedCurrency !== 'USD' && (
               <TouchableOpacity
                 onPress={() => setShowExchangeRateModal(true)}
@@ -878,43 +1384,41 @@ export const SettingsScreen = ({ navigation }: any) => {
                       </Text>
                     </View>
                   </View>
-                  <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+                  <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={20} color="#FFFFFF" />
                 </LinearGradient>
               </TouchableOpacity>
             )}
           </View>
-        </LinearGradient>
+        </View>
 
-        {/* Notification Settings */}
-        {notificationsEnabled && (
-          <LinearGradient
-            colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-            style={styles.sectionCard}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <View style={styles.sectionContent}>
-              <Text style={styles.sectionTitle}>إعدادات الإشعارات</Text>
-
-              {/* Daily Reminder */}
-              <View style={styles.notificationItem}>
-                <View style={styles.notificationItemHeader}>
-                  <View style={styles.notificationItemLeft}>
-                    <View style={styles.notificationIconContainer}>
-                      <Ionicons name="calendar" size={20} color={theme.colors.primary} />
-                    </View>
-                    <View style={styles.notificationItemInfo}>
-                      <Text style={styles.notificationItemTitle}>تذكير يومي</Text>
-                      <Text style={styles.notificationItemDescription}>تذكير يومي لتسجيل المصاريف</Text>
-                    </View>
-                  </View>
-                  <Switch
-                    value={dailyReminder}
-                    onValueChange={handleDailyReminderToggle}
-                    trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
-                  />
+        {/* 5. إعدادات الإشعارات */}
+        {
+          notificationsEnabled && (
+            <View style={styles.sectionCard}>
+              <View style={styles.sectionContent}>
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="notifications-outline" size={22} color={theme.colors.primary} />
+                  <Text style={styles.sectionTitle}>إعدادات الإشعارات</Text>
                 </View>
-                {dailyReminder && (
+
+                {/* Daily Reminder */}
+                <View style={styles.notificationItem}>
+                  <View style={styles.notificationItemHeader}>
+                    <View style={styles.notificationItemLeft}>
+                      <View style={styles.notificationIconContainer}>
+                        <Ionicons name="calendar" size={20} color={theme.colors.primary} />
+                      </View>
+                      <View style={styles.notificationItemInfo}>
+                        <Text style={styles.notificationItemTitle}>تذكير يومي</Text>
+                        <Text style={styles.notificationItemDescription}>تذكير يومي لتسجيل المصاريف</Text>
+                      </View>
+                    </View>
+                    <Switch
+                      value={dailyReminder}
+                      onValueChange={handleDailyReminderToggle}
+                      trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+                    />
+                  </View>
                   <TouchableOpacity
                     onPress={handleOpenDailyTimePicker}
                     style={styles.timePickerButton}
@@ -924,25 +1428,51 @@ export const SettingsScreen = ({ navigation }: any) => {
                     <Text style={styles.timePickerText}>اختر الوقت: {formatTime(dailyReminderTime)}</Text>
                     <Ionicons name="chevron-back" size={16} color={theme.colors.textMuted} />
                   </TouchableOpacity>
-                )}
+                </View>
+
+
+
+
               </View>
-
-
-
-
             </View>
-          </LinearGradient>
-        )}
-
-        {/* Export */}
-        <LinearGradient
-          colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-          style={styles.sectionCard}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+          )
+        }
+        {/* Expense Reminder Time Picker */}
+        <Modal
+          visible={showExpenseTimePicker}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowExpenseTimePicker(false)}
         >
+          <View style={styles.timePickerModalOverlay}>
+            <View style={styles.timePickerModalContent}>
+              <View style={styles.timePickerModalHeader}>
+                <TouchableOpacity
+                  onPress={handleExpenseTimeConfirm}
+                  style={styles.timePickerConfirmButton}
+                >
+                  <Text style={styles.timePickerConfirmText}>تأكيد</Text>
+                </TouchableOpacity>
+                <Text style={styles.timePickerModalTitle}>اختر الوقت</Text>
+                <TouchableOpacity
+                  onPress={() => setShowExpenseTimePicker(false)}
+                  style={styles.timePickerCancelButton}
+                >
+                  <Text style={styles.timePickerCancelText}>إلغاء</Text>
+                </TouchableOpacity>
+              </View>
+              {renderTimePickerWheel('expense')}
+            </View>
+          </View>
+        </Modal>
+
+        {/* 6. التصدير */}
+        <View style={styles.sectionCard}>
           <View style={styles.sectionContent}>
-            <Text style={styles.sectionTitle}>التصدير</Text>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="document-text-outline" size={22} color={theme.colors.primary} />
+              <Text style={styles.sectionTitle}>التصدير</Text>
+            </View>
 
             <TouchableOpacity
               onPress={handleExportPDF}
@@ -968,61 +1498,57 @@ export const SettingsScreen = ({ navigation }: any) => {
                 )}
               </LinearGradient>
             </TouchableOpacity>
-
-
           </View>
-        </LinearGradient>
+        </View>
 
-        {/* Contact Us Section */}
-        <LinearGradient
-          colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-          style={styles.sectionCard}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
+        {/* 7. تواصل معنا */}
+        <View style={styles.sectionCard}>
           <View style={styles.sectionContent}>
-            <Text style={styles.sectionTitle}>تواصل معنا</Text>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="chatbubbles-outline" size={22} color={theme.colors.primary} />
+              <Text style={styles.sectionTitle}>تواصل معنا</Text>
+            </View>
 
             <TouchableOpacity
               onPress={handleContactEmail}
               style={styles.contactItem}
-              activeOpacity={0.7}
+              activeOpacity={0.8}
             >
               <LinearGradient
-                colors={['#3B82F6', '#2563EB']}
+                colors={['#6366F1', '#3B82F6']}
                 style={styles.contactItemGradient}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+                end={{ x: 1, y: 1 }}
               >
                 <View style={styles.contactItemLeft}>
                   <View style={styles.contactIconContainer}>
-                    <Ionicons name="mail" size={24} color="#FFFFFF" />
+                    <Ionicons name="mail" size={26} color="#FFFFFF" />
                   </View>
                   <View style={styles.contactItemInfo}>
                     <Text style={styles.contactItemTitleWhite}>البريد الإلكتروني</Text>
-                    <Text style={styles.contactItemDescriptionWhite}>
+                    <Text style={styles.contactItemDescriptionWhite} numberOfLines={1}>
                       {CONTACT_INFO.email}
                     </Text>
                   </View>
                 </View>
-                <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+                <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={22} color="#FFFFFF" />
               </LinearGradient>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={handleContactWhatsApp}
               style={styles.contactItem}
-              activeOpacity={0.7}
+              activeOpacity={0.8}
             >
               <LinearGradient
-                colors={['#25D366', '#128C7E']}
+                colors={['#10B981', '#059669']}
                 style={styles.contactItemGradient}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+                end={{ x: 1, y: 1 }}
               >
                 <View style={styles.contactItemLeft}>
                   <View style={styles.contactIconContainer}>
-                    <Ionicons name="logo-whatsapp" size={24} color="#FFFFFF" />
+                    <Ionicons name="logo-whatsapp" size={26} color="#FFFFFF" />
                   </View>
                   <View style={styles.contactItemInfo}>
                     <Text style={styles.contactItemTitleWhite}>WhatsApp</Text>
@@ -1031,13 +1557,39 @@ export const SettingsScreen = ({ navigation }: any) => {
                     </Text>
                   </View>
                 </View>
-                <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+                <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={22} color="#FFFFFF" />
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleShareApp}
+              style={styles.contactItem}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={['#8B5CF6', '#7C3AED']}
+                style={styles.contactItemGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <View style={styles.contactItemLeft}>
+                  <View style={styles.contactIconContainer}>
+                    <Ionicons name="share-social" size={26} color="#FFFFFF" />
+                  </View>
+                  <View style={styles.contactItemInfo}>
+                    <Text style={styles.contactItemTitleWhite}>مشاركة التطبيق</Text>
+                    <Text style={styles.contactItemDescriptionWhite}>
+                      {Platform.OS === 'ios' ? 'شارك رابط App Store عبر واتساب أو أي تطبيق' : 'شارك رابط تيليجرام عبر واتساب أو أي تطبيق'}
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={22} color="#FFFFFF" />
               </LinearGradient>
             </TouchableOpacity>
           </View>
-        </LinearGradient>
+        </View>
 
-        {/* Copyright Section */}
+        {/* التذييل */}
         <View style={styles.copyrightWrapper}>
           <LinearGradient
             colors={theme.gradients.primary as any}
@@ -1051,10 +1603,10 @@ export const SettingsScreen = ({ navigation }: any) => {
               resizeMode="contain"
             />
             <Text style={styles.copyrightText}>© 2025 URUX. جميع الحقوق محفوظة.</Text>
-            <Text style={styles.versionText}>v.{Constants.expoConfig?.version ?? '1.1.1'}</Text>
+            <Text style={styles.versionText}>v.{Constants.expoConfig?.version ?? '1.1.5'}</Text>
           </LinearGradient>
         </View>
-      </ScrollView>
+      </ScrollView >
 
       <AuthSettingsModal
         visible={showAuthSettings}
@@ -1064,27 +1616,20 @@ export const SettingsScreen = ({ navigation }: any) => {
         }}
       />
 
-      {/* Auth Modal (Login/Register) */}
-      <AuthModal
-        visible={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-        onSuccess={() => {
-          checkAuthStatus();
-          setShowAuthModal(false);
-        }}
-      />
 
       {/* Exchange Rate Modal */}
-      {showExchangeRateModal && selectedCurrency !== 'USD' && (
-        <ExchangeRateModal
-          visible={showExchangeRateModal}
-          rate={usdToIqdRate}
-          selectedCurrency={selectedCurrency}
-          onRateChange={setUsdToIqdRate}
-          onSave={handleSaveExchangeRate}
-          onClose={() => setShowExchangeRateModal(false)}
-        />
-      )}
+      {
+        showExchangeRateModal && selectedCurrency !== 'USD' && (
+          <ExchangeRateModal
+            visible={showExchangeRateModal}
+            rate={usdToIqdRate}
+            selectedCurrency={selectedCurrency}
+            onRateChange={setUsdToIqdRate}
+            onSave={handleSaveExchangeRate}
+            onClose={() => setShowExchangeRateModal(false)}
+          />
+        )
+      }
 
       {/* Daily Reminder Time Picker */}
       <Modal
@@ -1116,34 +1661,7 @@ export const SettingsScreen = ({ navigation }: any) => {
       </Modal>
 
 
-      {/* Expense Reminder Time Picker */}
-      <Modal
-        visible={showExpenseTimePicker}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowExpenseTimePicker(false)}
-      >
-        <View style={styles.timePickerModalOverlay}>
-          <View style={styles.timePickerModalContent}>
-            <View style={styles.timePickerModalHeader}>
-              <TouchableOpacity
-                onPress={handleExpenseTimeConfirm}
-                style={styles.timePickerConfirmButton}
-              >
-                <Text style={styles.timePickerConfirmText}>تأكيد</Text>
-              </TouchableOpacity>
-              <Text style={styles.timePickerModalTitle}>اختر الوقت</Text>
-              <TouchableOpacity
-                onPress={() => setShowExpenseTimePicker(false)}
-                style={styles.timePickerCancelButton}
-              >
-                <Text style={styles.timePickerCancelText}>إلغاء</Text>
-              </TouchableOpacity>
-            </View>
-            {renderTimePickerWheel('expense')}
-          </View>
-        </View>
-      </Modal>
+
 
 
       {/* Name Edit Modal */}
@@ -1225,13 +1743,14 @@ export const SettingsScreen = ({ navigation }: any) => {
       </Modal>
 
 
-    </SafeAreaView>
+    </SafeAreaView >
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: theme.colors.background,
   },
   scrollView: {
     flex: 1,
@@ -1243,188 +1762,448 @@ const styles = StyleSheet.create({
   },
   sectionCard: {
     marginBottom: theme.spacing.lg,
-    borderRadius: theme.borderRadius.xl,
+    backgroundColor: theme.colors.surfaceCard,
+    borderRadius: 24,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: theme.colors.border + '30',
     ...getPlatformShadow('md'),
+  },
+  sectionHeader: {
+    flexDirection: isRTL ? 'row' : 'row-reverse',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: theme.spacing.sm,
+    paddingBottom: theme.spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border + '20',
   },
   sectionContent: {
     padding: theme.spacing.lg,
     direction: 'rtl' as const,
   },
-  appInfoCard: {
-    borderRadius: theme.borderRadius.xl,
-    marginBottom: theme.spacing.lg,
-    overflow: 'hidden',
-    ...getPlatformShadow('md'),
+  profileCard: {
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: theme.spacing.md,
+    ...getPlatformShadow('lg'),
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
   },
-  appNameSection: {
-    flexDirection: 'row',
+  profileCardPro: {
+    borderColor: 'rgba(212, 175, 55, 0.6)',
+    borderWidth: 1.5,
+    shadowColor: '#D4AF37',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  proCrownBanner: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    padding: theme.spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(212, 175, 55, 0.25)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    gap: 4,
+    marginBottom: 4,
+    alignSelf: isRTL ? 'flex-start' : 'flex-end',
   },
-  appIconWrapper: {
-    marginRight: isRTL ? 0 : theme.spacing.md,
-    marginLeft: isRTL ? theme.spacing.md : 0,
+  proCrownBannerText: {
+    fontSize: 10,
+    fontWeight: getPlatformFontWeight('700'),
+    color: '#F5E6A3',
+    fontFamily: theme.typography.fontFamily,
   },
-  appIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: theme.borderRadius.lg,
+  profileHeader: {
+    flexDirection: isRTL ? 'row' : 'row-reverse',
+    alignItems: 'center',
+    gap: 12,
+  },
+  avatarWrapper: {
+    position: 'relative',
+  },
+  avatarContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     alignItems: 'center',
     justifyContent: 'center',
     ...getPlatformShadow('sm'),
-  },
-  appNameInfo: {
-    flex: 1,
-  },
-  appName: {
-    fontSize: theme.typography.sizes.xxl,
-    fontWeight: getPlatformFontWeight('700'),
-    color: '#FFFFFF',
-    marginBottom: theme.spacing.xs,
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'left',
-  },
-  appDescription: {
-    fontSize: theme.typography.sizes.sm,
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'left',
-  },
-  userNameSection: {
-    padding: theme.spacing.lg,
-  },
-  userNameHeader: {
-    flexDirection: isRTL ? 'row' : 'row',
-    alignItems: 'center',
-    marginBottom: theme.spacing.sm,
-    gap: theme.spacing.xs,
-  },
-  userNameLabel: {
-    fontSize: theme.typography.sizes.sm,
-    fontWeight: getPlatformFontWeight('600'),
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'left',
-  },
-  userNameButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.3)',
-    overflow: 'hidden',
   },
-  userNameContent: {
-    flexDirection: 'row',
+  avatarContainerPro: {
+    borderColor: 'rgba(212, 175, 55, 0.6)',
+  },
+  proCrownBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#B8860B',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: theme.spacing.md,
-    gap: theme.spacing.sm,
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#F5E6A3',
+  },
+  onlineBadge: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#10B981',
+    borderWidth: 2,
+    borderColor: theme.colors.primary,
+  },
+  userInfo: {
+    flex: 1,
+    gap: 3,
+    alignItems: isRTL ? 'flex-start' : 'flex-end',
+  },
+  userNameRow: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
   },
   userNameText: {
-    flex: 1,
-    fontSize: theme.typography.sizes.md,
+    fontSize: 18,
+    fontWeight: getPlatformFontWeight('800'),
+    color: '#FFFFFF',
+    fontFamily: theme.typography.fontFamily,
+  },
+  userNameTextPro: {
+    textShadowColor: 'rgba(0,0,0,0.2)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  proSparkIcon: {
+    opacity: 0.95,
+  },
+  userEmail: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontFamily: theme.typography.fontFamily,
+  },
+  userEmailPro: {
+    color: 'rgba(245, 230, 163, 0.95)',
+  },
+  verifiedBadge: {
+    flexDirection: isRTL ? 'row' : 'row-reverse',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    alignSelf: isRTL ? 'flex-start' : 'flex-end',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+    marginTop: 4,
+  },
+  verifiedText: {
+    fontSize: 10,
     fontWeight: getPlatformFontWeight('600'),
     color: '#FFFFFF',
+    fontFamily: theme.typography.fontFamily,
+  },
+  verifiedBadgePro: {
+    backgroundColor: 'rgba(212, 175, 55, 0.35)',
+  },
+  editProfileBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  unauthProfileHeader: {
+    paddingVertical: 15,
+    alignItems: 'center',
+    gap: 20,
+  },
+  unauthTextContainer: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  unauthTitle: {
+    fontSize: 24,
+    fontWeight: getPlatformFontWeight('900'),
+    color: '#FFFFFF',
+    fontFamily: theme.typography.fontFamily,
+  },
+  unauthSubtitle: {
+    fontSize: 15,
+    color: 'rgba(255, 255, 255, 0.85)',
+    textAlign: 'center',
+    fontFamily: theme.typography.fontFamily,
+    paddingHorizontal: 30,
+    lineHeight: 22,
+  },
+  loginBtnHeader: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 24,
+    ...getPlatformShadow('md'),
+  },
+  loginBtnHeaderText: {
+    color: theme.colors.primary,
+    fontWeight: getPlatformFontWeight('900'),
+    fontSize: 17,
+    fontFamily: theme.typography.fontFamily,
+  },
+  statsRow: {
+    flexDirection: isRTL ? 'row' : 'row-reverse',
+    marginTop: 28,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'space-around',
+  },
+  statBox: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  statLabel: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontFamily: theme.typography.fontFamily,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: getPlatformFontWeight('800'),
+    color: '#FFFFFF',
+    fontFamily: theme.typography.fontFamily,
+  },
+  statValuePro: {
+    color: '#FDE047',
+    textShadowColor: 'rgba(0,0,0,0.2)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  copyIdButton: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 12,
+  },
+  copyIdLabel: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontFamily: theme.typography.fontFamily,
+  },
+  statDivider: {
+    width: 1,
+    height: '60%',
+    alignSelf: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  proFeaturesRow: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    gap: 6,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(245, 230, 163, 0.2)',
+  },
+  proFeaturePill: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(212, 175, 55, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 4,
+  },
+  proFeaturePillText: {
+    fontSize: 10,
+    fontWeight: getPlatformFontWeight('600'),
+    color: 'rgba(255, 255, 255, 0.95)',
+    fontFamily: theme.typography.fontFamily,
+  },
+  actionItem: {
+    borderRadius: 24,
+    overflow: 'hidden',
+    marginTop: theme.spacing.md,
+    backgroundColor: theme.colors.surfaceLight,
+    borderWidth: 1,
+    borderColor: theme.colors.border + '20',
+  },
+  actionItemGradient: {
+    flexDirection: isRTL ? 'row' : 'row-reverse',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: theme.spacing.md,
+  },
+  actionItemLeft: {
+    flexDirection: isRTL ? 'row' : 'row-reverse',
+    alignItems: 'center',
+    flex: 1,
+    gap: theme.spacing.md,
+  },
+  actionIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionItemInfo: {
+    flex: 1,
+  },
+  actionItemTitleWhite: {
+    fontSize: 16,
+    fontWeight: getPlatformFontWeight('700'),
+    color: '#FFFFFF',
+    fontFamily: theme.typography.fontFamily,
+    marginBottom: 4,
+    textAlign: 'left',
+  },
+  actionItemDescriptionWhite: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.85)',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'left',
   },
-  addNameContent: {
-    flexDirection: 'row',
+
+  // Premium Custom Action Items (no full color, cleaner look)
+  premiumRow: {
+    flexDirection: isRTL ? 'row' : 'row-reverse',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 18,
+    marginBottom: 10,
+    backgroundColor: theme.colors.surfaceLight,
+    borderWidth: 1,
+    borderColor: theme.colors.border + '15',
+  },
+  premiumIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: theme.spacing.md,
-    gap: theme.spacing.sm,
+    marginRight: isRTL ? 0 : 16,
+    marginLeft: isRTL ? 16 : 0,
   },
-  addNameText: {
-    fontSize: theme.typography.sizes.md,
-    color: '#FFFFFF',
+  premiumItemTitle: {
+    fontSize: 16,
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: getPlatformFontWeight('600'),
+    textAlign: 'left',
   },
+  premiumItemSubtitle: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+    marginTop: 2,
+    textAlign: 'left',
+  },
+
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: theme.spacing.lg,
+    padding: 20,
   },
   modalContainer: {
     width: '100%',
-    maxWidth: 400,
+    maxWidth: 420,
   },
   modalContent: {
-    borderRadius: theme.borderRadius.xl,
+    backgroundColor: theme.colors.surfaceCard,
+    borderRadius: 32,
     overflow: 'hidden',
-    ...getPlatformShadow('lg'),
+    ...getPlatformShadow('xl'),
+    borderWidth: 1,
+    borderColor: theme.colors.border + '20',
   },
   modalHeader: {
-    flexDirection: 'row-reverse',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: theme.spacing.lg,
+    padding: 24,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    borderBottomColor: theme.colors.border + '15',
   },
   modalTitle: {
-    fontSize: theme.typography.sizes.xl,
-    fontWeight: getPlatformFontWeight('700'),
+    fontSize: 20,
+    fontWeight: getPlatformFontWeight('800'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
   closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: theme.colors.surfaceLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalBody: {
-    padding: theme.spacing.lg,
+    padding: 24,
   },
   inputLabel: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('600'),
+    fontSize: 15,
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.sm,
-    textAlign: 'right',
+    marginBottom: 10,
+    textAlign: isRTL ? 'right' : 'left',
   },
   nameInput: {
     backgroundColor: theme.colors.surfaceLight,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
-    fontSize: theme.typography.sizes.md,
+    borderRadius: 16,
+    padding: 16,
+    fontSize: 16,
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
+    textAlign: isRTL ? 'right' : 'left',
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.border + '40',
   },
   modalActions: {
-    flexDirection: 'row-reverse',
-    padding: theme.spacing.lg,
-    gap: theme.spacing.md,
+    flexDirection: isRTL ? 'row' : 'row-reverse',
+    padding: 24,
+    gap: 12,
     borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
+    borderTopColor: theme.colors.border + '15',
   },
   modalButton: {
     flex: 1,
-    borderRadius: theme.borderRadius.md,
+    borderRadius: 16,
     overflow: 'hidden',
   },
   cancelButton: {
     backgroundColor: theme.colors.surfaceLight,
-    padding: theme.spacing.md,
+    padding: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelButtonText: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('600'),
+    fontSize: 16,
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -1432,40 +2211,41 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   saveButtonGradient: {
-    padding: theme.spacing.md,
+    padding: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   saveButtonText: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textInverse,
+    fontSize: 16,
+    fontWeight: getPlatformFontWeight('800'),
+    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
   sectionTitle: {
-    fontSize: theme.typography.sizes.xl,
-    fontWeight: getPlatformFontWeight('700'),
+    fontSize: 18,
+    fontWeight: getPlatformFontWeight('800'),
     color: theme.colors.textPrimary,
-    marginBottom: theme.spacing.md,
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'left',
+    textAlign: isRTL ? 'left' : 'right',
   },
   accountInfo: {
     marginBottom: theme.spacing.md,
     padding: theme.spacing.md,
     backgroundColor: theme.colors.surfaceLight,
-    borderRadius: theme.borderRadius.md,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: theme.colors.border + '15',
   },
   accountInfoLeft: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     gap: theme.spacing.md,
   },
   accountIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.colors.primaryLight,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: theme.colors.primary + '15',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1473,14 +2253,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   accountStatusText: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('600'),
+    fontSize: 16,
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.xs,
+    marginBottom: 4,
   },
   accountPhoneText: {
-    fontSize: theme.typography.sizes.sm,
+    fontSize: 13,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -1523,37 +2303,38 @@ const styles = StyleSheet.create({
   },
   listItemTitle: {
     fontFamily: theme.typography.fontFamily,
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('600'),
+    fontSize: 16,
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
   },
   listItemDescription: {
     fontFamily: theme.typography.fontFamily,
-    fontSize: theme.typography.sizes.sm,
+    fontSize: 13,
     color: theme.colors.textSecondary,
+    marginTop: 2,
   },
   notificationItem: {
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
     paddingBottom: theme.spacing.md,
     direction: 'rtl' as const,
   },
   notificationItemHeader: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: theme.spacing.sm,
+    marginBottom: 12,
   },
   notificationItemLeft: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     flex: 1,
-    gap: theme.spacing.md,
+    gap: 16,
   },
   notificationIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.colors.surfaceLight,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: theme.colors.primary + '10',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1561,40 +2342,37 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   notificationItemTitle: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('600'),
+    fontSize: 16,
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.xs,
+    marginBottom: 4,
     textAlign: 'left',
-    writingDirection: 'rtl',
   },
   notificationItemDescription: {
-    fontSize: theme.typography.sizes.sm,
+    fontSize: 13,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'left',
-    writingDirection: 'rtl',
   },
   timePickerButton: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: theme.colors.surfaceLight,
-    padding: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    marginTop: theme.spacing.sm,
-    gap: theme.spacing.sm,
+    padding: 14,
+    borderRadius: 16,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border + '20',
   },
   timePickerText: {
     flex: 1,
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('600'),
+    fontSize: 15,
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
-    writingDirection: 'rtl',
+    textAlign: isRTL ? 'left' : 'right',
   },
   testNotificationButton: {
     marginTop: theme.spacing.md,
@@ -1617,46 +2395,46 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   exportButton: {
-    borderRadius: theme.borderRadius.md,
+    borderRadius: 20,
     overflow: 'hidden',
-    ...getPlatformShadow('sm'),
+    marginTop: 8,
+    ...getPlatformShadow('md'),
   },
   exportButtonGradient: {
-    flexDirection: 'row-reverse',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: theme.spacing.md,
-    gap: theme.spacing.sm,
+    padding: 16,
+    gap: 10,
   },
   exportButtonText: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('600'),
+    fontSize: 16,
+    fontWeight: getPlatformFontWeight('800'),
     fontFamily: theme.typography.fontFamily,
-    color: theme.colors.textInverse,
+    color: '#FFFFFF',
   },
   currencyItem: {
-    borderRadius: theme.borderRadius.md,
+    borderRadius: 20,
     overflow: 'hidden',
-    marginTop: theme.spacing.sm,
+    marginTop: 10,
     ...getPlatformShadow('sm'),
   },
   currencyItemGradient: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: theme.spacing.md,
-    direction: 'rtl' as const,
+    padding: 16,
   },
   currencyItemLeft: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     flex: 1,
-    gap: theme.spacing.md,
+    gap: 16,
   },
   currencyIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1674,13 +2452,12 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   currencyItemTitleWhite: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('600'),
+    fontSize: 16,
+    fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.xs,
+    marginBottom: 4,
     textAlign: 'left',
-    writingDirection: 'rtl',
   },
   currencyItemDescription: {
     fontSize: theme.typography.sizes.sm,
@@ -1690,46 +2467,42 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   currencyItemDescriptionWhite: {
-    fontSize: theme.typography.sizes.sm,
+    fontSize: 13,
     color: 'rgba(255, 255, 255, 0.9)',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'left',
-    writingDirection: 'rtl',
   },
   currencyPicker: {
-    marginTop: theme.spacing.md,
+    marginTop: 12,
     backgroundColor: theme.colors.surfaceLight,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.sm,
-    gap: theme.spacing.xs,
+    borderRadius: 20,
+    padding: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border + '20',
   },
   currencyOption: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.sm,
+    padding: 16,
+    borderRadius: 14,
     backgroundColor: theme.colors.surfaceCard,
-    marginBottom: theme.spacing.xs,
   },
   currencyOptionSelected: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.sm,
-    marginBottom: theme.spacing.xs,
+    backgroundColor: theme.colors.primary + '10',
+    borderWidth: 1,
+    borderColor: theme.colors.primary + '30',
   },
   currencyOptionText: {
-    fontSize: theme.typography.sizes.md,
+    fontSize: 15,
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'left',
-    writingDirection: 'rtl',
   },
   currencyOptionTextSelected: {
     color: theme.colors.primary,
-    fontWeight: getPlatformFontWeight('700'),
+    fontWeight: getPlatformFontWeight('800'),
   },
   authItem: {
     borderRadius: theme.borderRadius.md,
@@ -1794,28 +2567,27 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   exchangeRateItem: {
-    borderRadius: theme.borderRadius.md,
+    borderRadius: 20,
     overflow: 'hidden',
-    marginTop: theme.spacing.sm,
+    marginTop: 12,
     ...getPlatformShadow('sm'),
   },
   exchangeRateItemGradient: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: theme.spacing.md,
-    direction: 'rtl' as const,
+    padding: 16,
   },
   exchangeRateItemLeft: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     flex: 1,
-    gap: theme.spacing.md,
+    gap: 16,
   },
   exchangeRateIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1824,20 +2596,96 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   exchangeRateItemTitleWhite: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('600'),
+    fontSize: 16,
+    fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.xs,
+    marginBottom: 4,
     textAlign: 'left',
-    writingDirection: 'rtl',
   },
   exchangeRateItemDescriptionWhite: {
-    fontSize: theme.typography.sizes.sm,
+    fontSize: 13,
     color: 'rgba(255, 255, 255, 0.9)',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'left',
-    writingDirection: 'rtl',
+  },
+  contactItem: {
+    borderRadius: 24,
+    overflow: 'hidden',
+    marginTop: 14,
+    ...getPlatformShadow('md'),
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  contactItemGradient: {
+    flexDirection: isRTL ? 'row' : 'row-reverse',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+  },
+  contactItemLeft: {
+    flexDirection: isRTL ? 'row' : 'row-reverse',
+    alignItems: 'center',
+    flex: 1,
+    gap: 16,
+  },
+  contactIconContainer: {
+    width: 52,
+    height: 52,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...getPlatformShadow('sm'),
+  },
+  contactItemInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  contactItemTitleWhite: {
+    fontSize: 17,
+    fontWeight: getPlatformFontWeight('800'),
+    color: '#FFFFFF',
+    fontFamily: theme.typography.fontFamily,
+    textAlign: 'left',
+  },
+  contactItemDescriptionWhite: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontFamily: theme.typography.fontFamily,
+    textAlign: 'left',
+    lineHeight: 18,
+    fontWeight: getPlatformFontWeight('500'),
+  },
+  copyrightWrapper: {
+    marginTop: theme.spacing.xl,
+    marginBottom: theme.spacing.lg,
+  },
+  copyrightCard: {
+    borderRadius: 28,
+    padding: 32,
+    alignItems: 'center',
+    gap: 12,
+    ...getPlatformShadow('md'),
+  },
+  copyrightLogo: {
+    width: 140,
+    height: 45,
+    marginBottom: 8,
+    tintColor: '#FFFFFF',
+  },
+  copyrightText: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontFamily: theme.typography.fontFamily,
+    textAlign: 'center',
+  },
+  versionText: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontFamily: theme.typography.fontFamily,
+    fontWeight: getPlatformFontWeight('600'),
+    marginTop: 4,
   },
   exchangeRateModalOverlay: {
     flex: 1,
@@ -2108,84 +2956,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(59, 130, 246, 0.1)',
     pointerEvents: 'none',
   },
-  copyrightWrapper: {
-    marginTop: theme.spacing.lg,
-    marginBottom: theme.spacing.xxl,
-    ...getPlatformShadow('md'),
-  },
-  copyrightCard: {
-    borderRadius: theme.borderRadius.xl,
-    padding: theme.spacing.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  copyrightLogo: {
-    width: 120,
-    height: 40,
-    marginBottom: theme.spacing.md,
-  },
-  copyrightText: {
-    fontSize: theme.typography.sizes.sm,
-    color: theme.colors.textInverse,
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'center',
-    opacity: 0.9,
-  },
-  versionText: {
-    fontSize: theme.typography.sizes.xs,
-    color: theme.colors.textInverse,
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'center',
-    opacity: 0.7,
-    marginTop: 4,
-  },
-  contactItem: {
-    borderRadius: theme.borderRadius.md,
-    overflow: 'hidden',
-    marginTop: theme.spacing.sm,
-    ...getPlatformShadow('sm'),
-  },
-  contactItemGradient: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: theme.spacing.md,
-    direction: 'rtl' as const,
-  },
-  contactItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: theme.spacing.md,
-  },
-  contactIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  contactItemInfo: {
-    flex: 1,
-  },
-  contactItemTitleWhite: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('600'),
-    color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.xs,
-    textAlign: 'left',
-    writingDirection: 'rtl',
-  },
-  contactItemDescriptionWhite: {
-    fontSize: theme.typography.sizes.sm,
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'left',
-    writingDirection: 'rtl',
-  },
 });
 
 interface ExchangeRateModalProps {
@@ -2205,6 +2975,9 @@ const ExchangeRateModal: React.FC<ExchangeRateModalProps> = ({
   onSave,
   onClose,
 }) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <Modal
       visible={visible}

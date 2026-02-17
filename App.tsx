@@ -1,20 +1,26 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StyleSheet, View, Text, Image, I18nManager, Platform, AppState } from 'react-native';
 import { Provider as PaperProvider, Portal, DefaultTheme, configureFonts } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
-import { LinearGradient } from 'expo-linear-gradient';
+import { ClerkProvider, ClerkLoaded } from '@clerk/clerk-expo';
+import { clerkTokenCache } from './src/services/clerkTokenCache';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { LockScreen } from './src/screens/LockScreen';
 import { initDatabase } from './src/database/database';
-import { theme } from './src/utils/theme';
+import { lightTheme, darkTheme } from './src/utils/theme-constants';
+import { ThemeProvider } from './src/utils/theme-context';
 import { initializeNotifications } from './src/services/notificationService';
 import { isAuthenticationEnabled } from './src/services/authService';
 import { authEventService } from './src/services/authEventService';
+import { syncNewToServer } from './src/services/syncService';
 import { AlertProvider } from './src/components/AlertProvider';
 import { PrivacyProvider } from './src/context/PrivacyContext';
+import PushNotificationManager from './src/components/PushNotificationManager';
+
+const CLERK_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
 
 const fontConfig = {
   config: {
@@ -35,24 +41,30 @@ const fontConfig = {
   },
 };
 
-const paperTheme = {
-  ...DefaultTheme,
-  fonts: configureFonts(fontConfig),
-  colors: {
-    ...DefaultTheme.colors,
-    primary: theme.colors.primary,
-    background: theme.colors.background,
-    surface: theme.colors.surfaceCard,
-    text: theme.colors.textPrimary,
-    onSurface: theme.colors.textPrimary,
-    placeholder: theme.colors.textMuted,
-  },
-  roundness: 16,
-};
+// paperTheme will be defined inside the App function to be reactive to theme changes
 
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLocked, setIsLocked] = useState(false);
+  const [isDark, setIsDark] = useState(false);
+  const [splashComplete, setSplashComplete] = useState(false);
+
+  const activeTheme = isDark ? darkTheme : lightTheme;
+
+  const paperTheme = useMemo(() => ({
+    ...DefaultTheme,
+    fonts: configureFonts(fontConfig),
+    colors: {
+      ...DefaultTheme.colors,
+      primary: activeTheme.colors.primary,
+      background: activeTheme.colors.background,
+      surface: activeTheme.colors.surfaceCard,
+      text: activeTheme.colors.textPrimary,
+      onSurface: activeTheme.colors.textPrimary,
+      placeholder: activeTheme.colors.textMuted,
+    },
+    roundness: 16,
+  }), [activeTheme]);
   const isUnlockedRef = useRef(false);
   const [fontsLoaded] = useFonts({
     'Cairo-Regular': require('./assets/fonts/Cairo-Regular.ttf'),
@@ -118,6 +130,13 @@ export default function App() {
     initializeApp();
   }, []);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSplashComplete(true);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
   const checkAndUpdateAuthStatus = useCallback(async () => {
     try {
       if (authEventService.shouldKeepUnlocked()) {
@@ -140,6 +159,9 @@ export default function App() {
       setIsLocked(false);
     }
   }, []);
+
+  const lastSyncRef = useRef<number>(0);
+  const SYNC_THROTTLE_MS = 60 * 1000; // 1 minute
 
   useEffect(() => {
     let subscription: any;
@@ -166,6 +188,19 @@ export default function App() {
       } catch (error) {
         console.error('Error re-initializing notifications on focus:', error);
       }
+
+      // Auto-sync when app comes to foreground (Pro only, throttled) – only if user enabled auto-sync
+      try {
+        const { getAppSettings } = await import('./src/database/database');
+        const appSettings = await getAppSettings();
+        if (appSettings?.autoSyncEnabled) {
+          const now = Date.now();
+          if (now - lastSyncRef.current >= SYNC_THROTTLE_MS) {
+            lastSyncRef.current = now;
+            syncNewToServer().catch(() => { });
+          }
+        }
+      } catch (_) { }
     };
 
     if (AppState.addEventListener) {
@@ -214,20 +249,15 @@ export default function App() {
     setIsLocked(false);
   };
 
-  if (isLoading || !fontsLoaded) {
+  if (isLoading || !fontsLoaded || !splashComplete) {
     return (
-      <LinearGradient
-        colors={theme.gradients.primary as any}
-        style={styles.loadingContainer}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
+      <View style={[styles.loadingContainer, { backgroundColor: activeTheme.colors.primary }]}>
         <Image
-          source={require('./assets/letters-logo.png')}
-          style={styles.logoImage}
+          source={require('./assets/images/dnanir-splash.png')}
+          style={styles.splashImage}
           resizeMode="contain"
         />
-      </LinearGradient>
+      </View>
     );
   }
 
@@ -240,20 +270,27 @@ export default function App() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <AlertProvider>
-          <PrivacyProvider>
-            <PaperProvider theme={paperTheme}>
-              <Portal.Host>
-                <AppNavigator />
-                <StatusBar style="dark" backgroundColor={theme.colors.background} />
-              </Portal.Host>
-            </PaperProvider>
-          </PrivacyProvider>
-        </AlertProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={clerkTokenCache}>
+      <ClerkLoaded>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <SafeAreaProvider>
+            <AlertProvider>
+              <PrivacyProvider>
+                <ThemeProvider value={{ theme: activeTheme, isDark, setIsDark }}>
+                  <PaperProvider theme={paperTheme}>
+                    <Portal.Host>
+                      <PushNotificationManager />
+                      <AppNavigator />
+                      <StatusBar style={isDark ? "light" : "dark"} backgroundColor={activeTheme.colors.background} />
+                    </Portal.Host>
+                  </PaperProvider>
+                </ThemeProvider>
+              </PrivacyProvider>
+            </AlertProvider>
+          </SafeAreaProvider>
+        </GestureHandlerRootView>
+      </ClerkLoaded>
+    </ClerkProvider>
   );
 }
 
@@ -263,10 +300,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoImage: {
-    width: 200,
-    height: 200,
-    maxWidth: '80%',
-    maxHeight: '80%',
+  splashImage: {
+    width: '100%',
+    height: '100%',
+    maxWidth: '100%',
+    maxHeight: '100%',
   },
 });

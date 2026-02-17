@@ -33,9 +33,6 @@ export const testAPIConnection = async () => {
   const token = await authApiService.getAccessToken();
   console.log('Authenticated:', isAuth ? '✅ Yes' : '❌ No');
   console.log('Has Token:', token ? '✅ Yes' : '❌ No');
-  if (token) {
-    console.log('Token (first 20 chars):', token.substring(0, 20) + '...');
-  }
   console.log('');
 
   // Test 3: Subscription Status (if authenticated)

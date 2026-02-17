@@ -11,7 +11,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformFontWeight } from '../utils/theme';
+import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
+import { useAppTheme, useThemedStyles } from '../utils/theme-context';
 import {
   getCustomCategories,
   deleteCustomCategory,
@@ -31,8 +32,10 @@ export const ManageCategoriesScreen: React.FC<ManageCategoriesScreenProps> = ({
   navigation,
   route,
 }) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const type = route?.params?.type || 'expense';
-  const onCategoryChange = route?.params?.onCategoryChange;
+
 
   const [categories, setCategories] = useState<CustomCategory[]>([]);
   const [loading, setLoading] = useState(false);
@@ -57,30 +60,10 @@ export const ManageCategoriesScreen: React.FC<ManageCategoriesScreenProps> = ({
     return unsubscribe;
   }, [navigation, type]);
 
-  const handleSaveCategory = async (name: string, icon: string, color: string, id?: number) => {
-    try {
-      if (id) {
-        await updateCustomCategory(id, { name, icon, color });
-        alertService.success('نجح', 'تم تحديث الفئة بنجاح');
-      } else {
-        await addCustomCategory({ name, type, icon, color });
-        alertService.success('نجح', 'تم إضافة الفئة بنجاح');
-      }
-      await loadCategories();
-      if (onCategoryChange) {
-        await onCategoryChange(name, icon, color, id);
-      }
-      navigation.goBack();
-    } catch (error: any) {
-      alertService.error('خطأ', error?.message || 'حدث خطأ أثناء حفظ الفئة');
-    }
-  };
-
   const handleEdit = (category: CustomCategory) => {
     navigation.navigate('AddCategory', {
       category,
-      type,
-      onSave: handleSaveCategory,
+      type
     });
   };
 
@@ -92,9 +75,6 @@ export const ManageCategoriesScreen: React.FC<ManageCategoriesScreenProps> = ({
         try {
           await deleteCustomCategory(categoryId);
           await loadCategories();
-          if (onCategoryChange) {
-            onCategoryChange('', '', '', categoryId);
-          }
           alertService.success('نجح', 'تم حذف الفئة بنجاح');
         } catch (error) {
           alertService.error('خطأ', 'حدث خطأ أثناء حذف الفئة');
@@ -105,8 +85,7 @@ export const ManageCategoriesScreen: React.FC<ManageCategoriesScreenProps> = ({
 
   const handleAdd = () => {
     navigation.navigate('AddCategory', {
-      type,
-      onSave: handleSaveCategory,
+      type
     });
   };
 
@@ -190,8 +169,8 @@ export const ManageCategoriesScreen: React.FC<ManageCategoriesScreenProps> = ({
                                 ? 'مصدر افتراضي'
                                 : 'فئة افتراضية'
                               : type === 'income'
-                              ? 'مصدر مخصص'
-                              : 'فئة مخصصة'}
+                                ? 'مصدر مخصص'
+                                : 'فئة مخصصة'}
                           </Text>
                         </View>
                       </View>
@@ -244,7 +223,7 @@ export const ManageCategoriesScreen: React.FC<ManageCategoriesScreenProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -261,7 +240,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: theme.spacing.lg,
+    padding: theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
@@ -278,11 +257,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: theme.spacing.lg,
-    paddingBottom: theme.spacing.xl,
+    padding: theme.spacing.md,
+    paddingBottom: theme.spacing.lg,
   },
   categoriesSection: {
-    marginBottom: theme.spacing.xl,
+    marginBottom: theme.spacing.lg,
   },
   sectionTitle: {
     fontSize: theme.typography.sizes.lg,
@@ -296,7 +275,7 @@ const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: theme.spacing.xl * 2,
+    paddingVertical: theme.spacing.lg * 2,
   },
   emptyText: {
     fontSize: theme.typography.sizes.lg,
@@ -319,7 +298,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: theme.colors.surfaceLight,
     borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
+    padding: theme.spacing.sm,
     marginBottom: theme.spacing.sm,
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -375,7 +354,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   footer: {
-    padding: theme.spacing.lg,
+    padding: theme.spacing.md,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
   },
@@ -387,7 +366,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: theme.spacing.md,
+    paddingVertical: 12,
     gap: theme.spacing.sm,
   },
   addButtonText: {

@@ -16,7 +16,7 @@ import { IconButton } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { addFinancialGoal, updateFinancialGoal } from '../database/database';
 import { FinancialGoal, GoalCategory, GOAL_CATEGORIES, CURRENCIES } from '../types';
 import { useCurrency } from '../hooks/useCurrency';
@@ -56,6 +56,8 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
   navigation,
   route,
 }) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
   const { currencyCode, formatCurrency } = useCurrency();
   const editingGoal = route?.params?.goal as FinancialGoal | undefined;
@@ -493,7 +495,7 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -508,8 +510,8 @@ const styles = StyleSheet.create({
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
@@ -518,7 +520,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: theme.typography.sizes.lg,
+    fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
@@ -540,14 +542,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContainer: {
-    padding: theme.spacing.lg,
-    paddingBottom: 100,
+    padding: theme.spacing.md,
+    paddingBottom: 72,
   },
   inputCard: {
     backgroundColor: theme.colors.surfaceCard,
     borderRadius: 16,
-    padding: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
+    padding: 10,
+    marginBottom: 10,
     ...getPlatformShadow('sm'),
   },
   inputHeader: {
@@ -563,30 +565,30 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   textInput: {
-    fontSize: theme.typography.sizes.md,
+    fontSize: theme.typography.sizes.sm,
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     backgroundColor: theme.colors.surfaceLight,
     borderRadius: 12,
-    padding: theme.spacing.md,
+    padding: 10,
     textAlign: isRTL ? 'right' : 'left',
   },
   textArea: {
-    minHeight: 80,
+    minHeight: 60,
     textAlignVertical: 'top',
   },
   amountCard: {
     backgroundColor: theme.colors.surfaceCard,
     borderRadius: 20,
-    padding: theme.spacing.lg,
-    marginBottom: theme.spacing.lg,
+    padding: 10,
+    marginBottom: 10,
     ...getPlatformShadow('md'),
   },
   amountHeader: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    gap: theme.spacing.md,
-    marginBottom: theme.spacing.lg,
+    gap: 10,
+    marginBottom: 10,
   },
   amountIconBg: {
     width: 48,
@@ -597,7 +599,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   amountLabel: {
-    fontSize: theme.typography.sizes.lg,
+    fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
@@ -608,42 +610,42 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: theme.colors.surfaceLight,
     borderRadius: 16,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
+    padding: 10,
+    marginBottom: 10,
   },
   amountInput: {
     flex: 1,
-    fontSize: 36,
+    fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
   },
   currencyLabel: {
-    fontSize: theme.typography.sizes.xl,
+    fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
     fontFamily: theme.typography.fontFamily,
-    marginHorizontal: theme.spacing.sm,
+    marginHorizontal: 10,
   },
   convertedAmountText: {
-    fontSize: theme.typography.sizes.sm,
+    fontSize: theme.typography.sizes.xs,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
-    marginBottom: theme.spacing.md,
+    marginBottom: 10,
     fontStyle: 'italic',
   },
   currentAmountRow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: theme.spacing.md,
-    paddingTop: theme.spacing.md,
+    marginBottom: 10,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
   },
   currentAmountLabel: {
-    fontSize: theme.typography.sizes.md,
+    fontSize: theme.typography.sizes.sm,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -652,8 +654,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: theme.colors.surfaceLight,
     borderRadius: 10,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
   },
   currentAmountTextInput: {
     fontSize: theme.typography.sizes.lg,
@@ -684,28 +686,28 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   currencyDropdown: {
-    marginTop: theme.spacing.md,
+    marginTop: 10,
     backgroundColor: theme.colors.surface,
     borderRadius: 12,
-    padding: theme.spacing.sm,
+    padding: 10,
     ...getPlatformShadow('sm'),
   },
   currencyOption: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    padding: theme.spacing.md,
+    padding: 10,
     borderRadius: 10,
-    gap: theme.spacing.md,
+    gap: 10,
   },
   currencyOptionSelected: {
     backgroundColor: theme.colors.primaryLight,
   },
   currencySymbol: {
-    fontSize: theme.typography.sizes.lg,
+    fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily,
-    width: 36,
+    width: 40,
     textAlign: 'center',
   },
   currencyOptionText: {
@@ -719,20 +721,20 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
   },
   section: {
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
   },
   sectionLabel: {
-    fontSize: theme.typography.sizes.lg,
+    fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.md,
+    marginBottom: 10,
     textAlign: isRTL ? 'right' : 'left',
   },
   categoriesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: theme.spacing.sm,
+    gap: 10,
   },
   categoryCard: {
     width: '23%',
@@ -741,9 +743,9 @@ const styles = StyleSheet.create({
     ...getPlatformShadow('sm'),
   },
   categoryCardGradient: {
-    padding: theme.spacing.sm,
+    padding: 10,
     alignItems: 'center',
-    minHeight: 80,
+    minHeight: 60,
     justifyContent: 'center',
   },
   categoryCardLabel: {
@@ -752,7 +754,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
-    marginTop: theme.spacing.xs,
+    marginTop: 5,
   },
   categoryCardLabelActive: {
     color: '#FFFFFF',
@@ -822,7 +824,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   footer: {
-    padding: theme.spacing.lg,
+    padding: theme.spacing.md,
     paddingTop: theme.spacing.md,
     backgroundColor: theme.colors.surfaceCard,
     borderTopWidth: 1,
@@ -837,11 +839,11 @@ const styles = StyleSheet.create({
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: theme.spacing.lg,
-    gap: theme.spacing.sm,
+    padding: 10,
+    gap: 10,
   },
   saveButtonText: {
-    fontSize: theme.typography.sizes.lg,
+    fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,

@@ -14,7 +14,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { IconButton } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
+import { useAppTheme, useThemedStyles } from '../utils/theme-context';
 import { Budget, getCustomCategories, addBudget, updateBudget } from '../database/database';
 import { EXPENSE_CATEGORIES, CURRENCIES } from '../types';
 import { useCurrency } from '../hooks/useCurrency';
@@ -44,6 +45,8 @@ export const AddBudgetScreen: React.FC<AddBudgetScreenProps> = ({
   navigation,
   route,
 }) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
   const { currencyCode, formatCurrency } = useCurrency();
   const editingBudget = route?.params?.budget as Budget | undefined;
@@ -175,10 +178,7 @@ export const AddBudgetScreen: React.FC<AddBudgetScreenProps> = ({
     return CATEGORY_ICONS[category] || 'wallet';
   };
 
-  const allCategories = [
-    ...Object.keys(EXPENSE_CATEGORIES),
-    ...customCategories.map(c => c.name),
-  ];
+  const allCategories = customCategories.map(c => c.name);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -226,7 +226,7 @@ export const AddBudgetScreen: React.FC<AddBudgetScreenProps> = ({
                 </View>
                 <Text style={styles.amountLabel}>المبلغ الشهري</Text>
               </View>
-              
+
               <View style={styles.amountInputContainer}>
                 <TextInput
                   style={styles.amountInput}
@@ -258,10 +258,10 @@ export const AddBudgetScreen: React.FC<AddBudgetScreenProps> = ({
                 <Text style={styles.currencySelectorText}>
                   {CURRENCIES.find(c => c.code === currency)?.name || 'دينار عراقي'}
                 </Text>
-                <Ionicons 
-                  name={showCurrencyPicker ? "chevron-up" : "chevron-down"} 
-                  size={18} 
-                  color={theme.colors.textSecondary} 
+                <Ionicons
+                  name={showCurrencyPicker ? "chevron-up" : "chevron-down"}
+                  size={18}
+                  color={theme.colors.textSecondary}
                 />
               </TouchableOpacity>
 
@@ -333,8 +333,8 @@ export const AddBudgetScreen: React.FC<AddBudgetScreenProps> = ({
                           { backgroundColor: isSelected ? 'rgba(255,255,255,0.2)' : theme.colors.surface }
                         ]}>
                           <Ionicons
-                            name={isSelected 
-                              ? getCategoryIcon(category) as any 
+                            name={isSelected
+                              ? getCategoryIcon(category) as any
                               : `${getCategoryIcon(category)}-outline` as any
                             }
                             size={24}
@@ -386,7 +386,7 @@ export const AddBudgetScreen: React.FC<AddBudgetScreenProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -426,21 +426,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContainer: {
-    padding: theme.spacing.lg,
-    paddingBottom: 100,
+    padding: theme.spacing.md,
+    paddingBottom: 72,
   },
   amountCard: {
     backgroundColor: theme.colors.surfaceCard,
     borderRadius: 20,
-    padding: theme.spacing.lg,
-    marginBottom: theme.spacing.lg,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
     ...getPlatformShadow('md'),
   },
   amountHeader: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     gap: theme.spacing.md,
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
   },
   amountIconBg: {
     width: 48,
@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
   },
   section: {
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
   },
   sectionLabel: {
     fontSize: theme.typography.sizes.lg,
@@ -584,7 +584,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   footer: {
-    padding: theme.spacing.lg,
+    padding: theme.spacing.md,
     paddingTop: theme.spacing.md,
     backgroundColor: theme.colors.surfaceCard,
     borderTopWidth: 1,
@@ -599,7 +599,7 @@ const styles = StyleSheet.create({
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: theme.spacing.lg,
+    padding: theme.spacing.md,
     gap: theme.spacing.sm,
   },
   saveButtonText: {

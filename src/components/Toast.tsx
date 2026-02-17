@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformShadow } from '../utils/theme';
+import { AppTheme, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { isRTL } from '../utils/rtl';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
@@ -30,6 +30,8 @@ export const Toast: React.FC<ToastProps> = ({
   duration = 3000,
   onHide,
 }) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(-150)).current;
   const opacity = useRef(new Animated.Value(0)).current;
@@ -143,7 +145,7 @@ export const Toast: React.FC<ToastProps> = ({
 
 const { width } = Dimensions.get('window');
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     position: 'absolute',
     left: 0,

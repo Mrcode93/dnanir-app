@@ -50,6 +50,28 @@ export interface AnalyzeResponse {
   predictions?: Record<string, unknown>;
 }
 
+export interface SmartInsightsData {
+  status: 'green' | 'yellow' | 'red';
+  statusMessage: string;
+  analysis: string[];
+  categoryInsights?: Array<{ category: string; insight: string; recommendation: string }>;
+  risks?: string[];
+  monthComparison?: {
+    message: string;
+    incomeChangePercent: number | null;
+    expenseChangePercent: number | null;
+  };
+  savingTips: string[];
+  actionItems?: Array<{ priority: number; title: string; description: string }>;
+  budgetRecommendations?: Array<{ category: string; suggestedPercent: number; note: string }>;
+  prediction: {
+    message: string;
+    willLastUntilEndOfMonth: boolean | null;
+    estimatedRemaining: number | null;
+    dailyBudgetSuggested?: string | null;
+  };
+}
+
 /**
  * AI API Service
  * Available to all authenticated users
@@ -65,13 +87,13 @@ export const aiApiService = {
   ): Promise<{ success: boolean; data?: ReceiptOCRResponse; error?: string }> {
     try {
       // Read image file and convert to base64 using legacy API
-      console.log('📸 Reading image file:', imageUri);
+      // console.log('📸 Reading image file:', imageUri);
 
       const base64 = await FileSystem.readAsStringAsync(imageUri, {
         encoding: FileSystem.EncodingType.Base64,
       });
 
-      console.log('✅ Image converted to base64, length:', base64.length);
+      // console.log('✅ Image converted to base64, length:', base64.length);
 
       const request: ReceiptOCRRequest = {
         imageBase64: base64,
@@ -197,4 +219,162 @@ export const aiApiService = {
       error: response.error || 'Failed to analyze financial data',
     };
   },
+
+  /**
+   * جلب استهلاك التحليلات الذكية (مستخدم / الحد / المتبقي)
+   */
+  async getAiUsage(): Promise<{
+    success: boolean;
+    data?: { insightsUsed: number; limit: number; remaining: number; isPro: boolean };
+    error?: string;
+  }> {
+    try {
+      const response = await apiClient.get<{ success?: boolean; data?: { insightsUsed: number; limit: number; remaining: number; isPro: boolean } }>(
+        API_ENDPOINTS.AI.USAGE
+      );
+      const data = response.data?.data ?? (response.data as any)?.data;
+      if (response.success && data != null) {
+        return {
+          success: true,
+          data: {
+            insightsUsed: data.insightsUsed ?? 0,
+            limit: data.limit ?? 1,
+            remaining: data.remaining ?? 0,
+            isPro: !!data.isPro,
+          },
+        };
+      }
+      return {
+        success: false,
+        error: (response as any).error || (response as any).message || 'فشل في جلب الاستهلاك',
+      };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'فشل في جلب الاستهلاك';
+      return { success: false, error: message };
+    }
+  },
+
+  /**
+   * AI Smart Insights – تحليل مالي مفصل، نصائح توفير، توقعات، ومقارنات
+   */
+  async getSmartInsights(
+    payload: {
+      summary: {
+        totalIncome: number;
+        totalExpenses: number;
+        balance: number;
+        byCategory: Array<{ category: string; amount: number; percentage?: number }>;
+        currentMonth?: { totalIncome: number; totalExpenses: number };
+        previousMonth?: { totalIncome: number; totalExpenses: number };
+        daysLeftInMonth: number;
+        /** إجمالي الفواتير المستحقة هذا الشهر (غير المدفوعة) */
+        billsDueThisMonth?: number;
+        /** تقدير المصروفات الدورية لهذا الشهر */
+        recurringEstimatedTotal?: number;
+        /** تفاصيل الفواتير المستحقة للذكاء الاصطناعي */
+        billsDue?: Array<{ title: string; amount: number; dueDate: string }>;
+      };
+      currency?: string;
+      analysisType?: 'full' | 'savings' | 'comparison';
+    }
+  ): Promise<{
+    success: boolean;
+    data?: SmartInsightsData;
+    usage?: { insightsUsed: number; limit: number; remaining: number; isPro: boolean };
+    error?: string;
+  }> {
+    try {
+      const response = await apiClient.post<{
+        success?: boolean;
+        data?: Record<string, unknown>;
+        usage?: { insightsUsed: number; limit: number; remaining: number; isPro: boolean };
+      }>(API_ENDPOINTS.AI.INSIGHTS, payload);
+      const data = response.data?.data ?? response.data;
+      const usage = (response.data as any)?.usage;
+      if (response.success && data) {
+        return {
+          success: true,
+          data: data as any,
+          usage: usage
+            ? {
+                insightsUsed: usage.insightsUsed ?? 0,
+                limit: usage.limit ?? 1,
+                remaining: usage.remaining ?? 0,
+                isPro: !!usage.isPro,
+              }
+            : undefined,
+        };
+      }
+      return {
+        success: false,
+        error: (response as any).error || (response as any).message || 'فشل في جلب الرؤى الذكية',
+      };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'فشل في جلب الرؤى الذكية';
+      return { success: false, error: message };
+    }
+  },
+
+  /**
+   * AI goal plan – خطة ونصائح لتحقيق هدف مالي
+   * Now includes user's actual financial data (income, expenses) for realistic analysis
+   */
+  async getGoalPlan(payload: {
+    goal: {
+      title: string;
+      targetAmount: number;
+      currentAmount: number;
+      targetDate?: string | null;
+      category: string;
+    };
+    currency?: string;
+    userFinancialData?: {
+      currentMonth: {
+        totalIncome: number;
+        totalExpenses: number;
+        balance: number;
+        expenses: Array<Record<string, unknown>>;
+        income: Array<Record<string, unknown>>;
+        byCategory: Array<{ category: string; amount: number; percentage: number }>;
+        /** إجمالي الفواتير المستحقة هذا الشهر */
+        billsDueTotal?: number;
+        /** تقدير المصروفات الدورية لهذا الشهر */
+        recurringEstimatedTotal?: number;
+      };
+      previousMonth: {
+        totalIncome: number;
+        totalExpenses: number;
+        balance: number;
+      };
+    };
+  }): Promise<{
+    success: boolean;
+    data?: GoalPlanData;
+    error?: string;
+  }> {
+    try {
+      const response = await apiClient.post<{ success?: boolean; data?: GoalPlanData }>(
+        API_ENDPOINTS.AI.GOAL_PLAN,
+        payload
+      );
+      const data = response.data?.data ?? response.data;
+      if (response.success && data) {
+        return { success: true, data: data as GoalPlanData };
+      }
+      return {
+        success: false,
+        error: (response as any).error || (response as any).message || 'فشل في إنشاء الخطة',
+      };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'فشل في إنشاء الخطة';
+      return { success: false, error: message };
+    }
+  },
 };
+
+export interface GoalPlanData {
+  message: string;
+  planSteps: string[];
+  tips: string[];
+  suggestedMonthlySaving: number | null;
+}

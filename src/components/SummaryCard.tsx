@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, I18nManager } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { useCurrency } from '../hooks/useCurrency';
 
 interface SummaryCardProps {
@@ -13,13 +13,15 @@ interface SummaryCardProps {
   formatCurrency?: (amount: number) => string;
 }
 
-export const SummaryCard: React.FC<SummaryCardProps> = ({
+const SummaryCardComponent: React.FC<SummaryCardProps> = ({
   label,
   value,
   icon,
   gradient,
   formatCurrency: propFormatCurrency,
 }) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const { formatCurrency: hookFormatCurrency } = useCurrency();
   const formatCurrency = propFormatCurrency || hookFormatCurrency;
   return (
@@ -42,12 +44,16 @@ export const SummaryCard: React.FC<SummaryCardProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+export const SummaryCard = React.memo(SummaryCardComponent);
+SummaryCard.displayName = 'SummaryCard';
+
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   card: {
     flex: 1,
     borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
     ...getPlatformShadow('md'),
+
   },
   content: {
     padding: theme.spacing.md,
@@ -73,7 +79,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.xs,
     fontWeight: getPlatformFontWeight('500'),
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
   },
   value: {
@@ -81,7 +87,7 @@ const styles = StyleSheet.create({
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
   },
 });

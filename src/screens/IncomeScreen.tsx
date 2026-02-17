@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -17,7 +17,8 @@ import { Searchbar, FAB } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { TransactionItem } from '../components/TransactionItem';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
+import { useAppTheme, useThemedStyles } from '../utils/theme-context';
 import { getIncome, deleteIncome, getCustomCategories, addCustomCategory, deleteCustomCategory, updateCustomCategory, CustomCategory } from '../database/database';
 import { Income, IncomeSource, INCOME_SOURCES } from '../types';
 import { isRTL } from '../utils/rtl';
@@ -28,6 +29,8 @@ import { getMonthRange } from '../utils/date';
 import { SmartAddModal } from '../components/SmartAddModal';
 
 export const IncomeScreen = ({ navigation, route }: any) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const { formatCurrency } = useCurrency();
   const [income, setIncome] = useState<Income[]>([]);
   const [filteredIncome, setFilteredIncome] = useState<Income[]>([]);
@@ -202,177 +205,142 @@ export const IncomeScreen = ({ navigation, route }: any) => {
     setShowFilterMenu(false);
   };
 
-  const handleAddCategory = async (name: string, icon: string, color: string, id?: number) => {
-    try {
-      if (id) {
-        if (id === 0) {
-          await addCustomCategory({ name, type: 'income', icon, color });
-        } else {
-          await updateCustomCategory(id, { name, icon, color });
-        }
-        alertService.success('نجح', 'تم تحديث المصدر بنجاح');
-      } else {
-        await addCustomCategory({ name, type: 'income', icon, color });
-        alertService.success('نجح', 'تم إضافة المصدر بنجاح');
-      }
-      await loadCustomCategories();
-    } catch (error: any) {
-      alertService.error('خطأ', error.message || 'حدث خطأ أثناء حفظ المصدر');
-    }
-  };
+  const totalAmount = useMemo(
+    () => filteredIncome.reduce((sum, income) => sum + (income.base_amount ?? income.amount), 0),
+    [filteredIncome]
+  );
 
-  const handleDeleteCategory = async (categoryId: number) => {
-    try {
-      await deleteCustomCategory(categoryId);
-      await loadCustomCategories();
-      if (selectedSource !== 'all' && customCategories.find(c => c.id === categoryId)?.name === selectedSource) {
-        setSelectedSource('all');
-      }
-      alertService.success('نجح', 'تم حذف المصدر بنجاح');
-    } catch (error) {
-      alertService.error('خطأ', 'حدث خطأ أثناء حذف المصدر');
-    }
-  };
-
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header Section */}
-      <View style={styles.header}>
-        <View style={styles.headerTopRow}>
-          <Text style={styles.pageTitle}>سجل الدخل</Text>
-
-          <TouchableOpacity
-            onPress={() => navigation.navigate('ManageCategories', {
-              type: 'income',
-              onCategoryChange: async () => {
-                await loadCustomCategories();
-              },
-            })}
-            style={styles.manageButton}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="settings-outline" size={20} color={theme.colors.textPrimary} />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.searchFilterRow}>
-          <Searchbar
-            placeholder="البحث في الدخل..."
-            onChangeText={setSearchQuery}
-            value={searchQuery}
-            style={styles.searchBar}
-            inputStyle={styles.searchInput}
-            placeholderTextColor={theme.colors.textMuted}
-            iconColor={theme.colors.primary}
-          />
-          <View style={styles.monthFilterWrapper}>
-            <MonthFilter
-              selectedMonth={selectedMonth}
-              onMonthChange={(year, month) => setSelectedMonth({ year, month })}
-              showAllOption={true}
-              availableMonths={availableMonths}
-            />
+  const renderListHeader = useCallback(() => (
+    <View style={styles.summaryContainer}>
+      <LinearGradient
+        colors={['#10B981', '#059669']}
+        style={styles.summaryCard}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <View style={styles.summaryContent}>
+          <View style={styles.summaryIconContainer}>
+            <Ionicons name="trending-up" size={24} color="#FFF" />
+          </View>
+          <View style={styles.summaryTextContainer}>
+            <Text style={styles.summaryLabel}>إجمالي الدخل</Text>
+            <Text style={styles.summaryAmount}>{formatCurrency(totalAmount)}</Text>
           </View>
         </View>
-
-        {/* Categories Horizontal Scroll */}
-        <View style={styles.categoriesRow}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoriesContent}
-          >
-            <TouchableOpacity
-              onPress={() => handleSourceSelect('all')}
-              style={[
-                styles.categoryChip,
-                selectedSource === 'all' && styles.categoryChipActive
-              ]}
-            >
-              <Text style={[
-                styles.categoryChipText,
-                selectedSource === 'all' && styles.categoryChipTextActive
-              ]}>الكل</Text>
-            </TouchableOpacity>
-
-            {customCategories.map((category) => {
-              const isSelected = selectedSource === category.name;
-              return (
-                <TouchableOpacity
-                  key={category.id}
-                  onPress={() => handleSourceSelect(category.name as IncomeSource)}
-                  style={[
-                    styles.categoryChip,
-                    isSelected && { backgroundColor: category.color + '20', borderColor: category.color, borderWidth: 1 }
-                  ]}
-                >
-                  <Ionicons
-                    name={category.icon as any}
-                    size={16}
-                    color={isSelected ? category.color : theme.colors.textSecondary}
-                    style={styles.categoryChipIcon}
-                  />
-                  <Text style={[
-                    styles.categoryChipText,
-                    isSelected && { color: category.color, fontWeight: '700' }
-                  ]}>{category.name}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+        <View style={styles.summaryFooter}>
+          <Text style={styles.summaryCount}>
+            {filteredIncome.length} عملية دخل
+          </Text>
         </View>
-      </View>
+      </LinearGradient>
+    </View>
+  ), [filteredIncome.length, formatCurrency, styles, totalAmount]);
 
+  const renderIncomeItem = useCallback(({ item }: { item: Income }) => (
+    <TransactionItem
+      item={item}
+      type="income"
+      formatCurrency={formatCurrency}
+      customCategories={customCategories}
+      onEdit={() => navigation.navigate('AddIncome', { income: item })}
+      onDelete={async () => {
+        try {
+          await deleteIncome(item.id);
+          await loadIncome();
+          alertService.success('نجح', 'تم حذف الدخل بنجاح');
+        } catch (error) {
+          alertService.error('خطأ', 'حدث خطأ أثناء حذف الدخل');
+        }
+      }}
+    />
+  ), [customCategories, formatCurrency, loadIncome, navigation]);
+
+  return (
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <FlatList
         data={filteredIncome}
-        ListHeaderComponent={() => {
-          const totalAmount = filteredIncome.reduce((sum, income) => sum + income.amount, 0);
-          return (
-            <View style={styles.summaryContainer}>
-              <LinearGradient
-                colors={['#10B981', '#059669']}
-                style={styles.summaryCard}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <View style={styles.summaryContent}>
-                  <View style={styles.summaryIconContainer}>
-                    <Ionicons name="trending-up" size={24} color="#FFF" />
-                  </View>
-                  <View style={styles.summaryTextContainer}>
-                    <Text style={styles.summaryLabel}>إجمالي الدخل</Text>
-                    <Text style={styles.summaryAmount}>{formatCurrency(totalAmount)}</Text>
-                  </View>
+        ListHeaderComponent={
+          <>
+            {/* Header Section */}
+            <View style={styles.header}>
+              <View style={styles.searchFilterRow}>
+                <Searchbar
+                  placeholder="البحث في الدخل..."
+                  onChangeText={setSearchQuery}
+                  value={searchQuery}
+                  style={styles.searchBar}
+                  inputStyle={styles.searchInput}
+                  placeholderTextColor={theme.colors.textMuted}
+                  iconColor={theme.colors.primary}
+                />
+                <View style={styles.monthFilterWrapper}>
+                  <MonthFilter
+                    selectedMonth={selectedMonth}
+                    onMonthChange={(year, month) => setSelectedMonth({ year, month })}
+                    showAllOption={true}
+                    availableMonths={availableMonths}
+                  />
                 </View>
-                <View style={styles.summaryFooter}>
-                  <Text style={styles.summaryCount}>
-                    {filteredIncome.length} عملية دخل
-                  </Text>
-                </View>
-              </LinearGradient>
+              </View>
+
+              {/* Categories Horizontal Scroll */}
+              <View style={styles.categoriesRow}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.categoriesContent}
+                >
+                  <TouchableOpacity
+                    onPress={() => handleSourceSelect('all')}
+                    style={[
+                      styles.categoryChip,
+                      selectedSource === 'all' && styles.categoryChipActive
+                    ]}
+                  >
+                    <Text style={[
+                      styles.categoryChipText,
+                      selectedSource === 'all' && styles.categoryChipTextActive
+                    ]}>الكل</Text>
+                  </TouchableOpacity>
+
+                  {customCategories.map((category) => {
+                    const isSelected = selectedSource === category.name;
+                    return (
+                      <TouchableOpacity
+                        key={category.id}
+                        onPress={() => handleSourceSelect(category.name as IncomeSource)}
+                        style={[
+                          styles.categoryChip,
+                          isSelected && { backgroundColor: category.color + '20', borderColor: category.color, borderWidth: 1 }
+                        ]}
+                      >
+                        <Ionicons
+                          name={category.icon as any}
+                          size={16}
+                          color={isSelected ? category.color : theme.colors.textSecondary}
+                          style={styles.categoryChipIcon}
+                        />
+                        <Text style={[
+                          styles.categoryChipText,
+                          isSelected && { color: category.color, fontWeight: '700' }
+                        ]}>{category.name}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
             </View>
-          );
-        }}
-        renderItem={({ item }) => (
-          <TransactionItem
-            item={item}
-            type="income"
-            formatCurrency={formatCurrency}
-            customCategories={customCategories}
-            onEdit={() => navigation.navigate('AddIncome', { income: item })}
-            onDelete={async () => {
-              try {
-                await deleteIncome(item.id);
-                await loadIncome();
-                alertService.success('نجح', 'تم حذف الدخل بنجاح');
-              } catch (error) {
-                alertService.error('خطأ', 'حدث خطأ أثناء حذف الدخل');
-              }
-            }}
-          />
-        )}
+            {renderListHeader()}
+          </>
+        }
+        renderItem={renderIncomeItem}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.listContent}
+        initialNumToRender={10}
+        maxToRenderPerBatch={8}
+        windowSize={7}
+        updateCellsBatchingPeriod={50}
+        removeClippedSubviews={Platform.OS === 'android'}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
@@ -470,7 +438,7 @@ export const IncomeScreen = ({ navigation, route }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -526,9 +494,10 @@ const styles = StyleSheet.create({
   },
   categoriesRow: {
     marginTop: 4,
+    direction: "rtl"
   },
   categoriesContent: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     gap: 8,
     paddingHorizontal: 4, // create space for shadow
   },
@@ -561,51 +530,52 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 20,
-    paddingBottom: 100, // Space for FAB
+    paddingBottom: 80, // Space for FAB
   },
   summaryContainer: {
     marginBottom: 20,
   },
   summaryCard: {
-    borderRadius: 24,
-    padding: 20,
+    borderRadius: 20,
+    padding: 12,
     ...getPlatformShadow('md'),
   },
   summaryContent: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    marginBottom: 16,
   },
   summaryIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: isRTL ? 16 : 0,
-    marginRight: isRTL ? 0 : 16,
+    marginLeft: isRTL ? 12 : 0,
+    marginRight: isRTL ? 0 : 12,
   },
   summaryTextContainer: {
     flex: 1,
-    alignItems: isRTL ? 'flex-end' : 'flex-start',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   summaryLabel: {
     fontFamily: theme.typography.fontFamily,
-    fontSize: 14,
+    fontSize: 13,
     color: 'rgba(255,255,255,0.9)',
-    marginBottom: 4,
   },
   summaryAmount: {
     fontFamily: theme.typography.fontFamily,
-    fontSize: 28,
-    fontWeight: getPlatformFontWeight('700'),
+    fontSize: 22,
+    fontWeight: getPlatformFontWeight('800'),
     color: '#FFF',
   },
   summaryFooter: {
+    marginTop: 8,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.2)',
-    paddingTop: 12,
+    paddingTop: 8,
     flexDirection: isRTL ? 'row-reverse' : 'row',
   },
   summaryCount: {
@@ -643,7 +613,7 @@ const styles = StyleSheet.create({
   },
   fabContainer: {
     position: 'absolute',
-    bottom: 120,
+    bottom: 20,
     left: 24,
     right: 24,
     alignItems: isRTL ? 'flex-start' : 'flex-end',

@@ -6,12 +6,13 @@ import {
   RefreshControl,
   Text,
   TouchableOpacity,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FAB } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { 
   getRecurringExpenses, 
   deleteRecurringExpense, 
@@ -25,6 +26,8 @@ import { EXPENSE_CATEGORIES } from '../types';
 import { getCustomCategories } from '../database/database';
 
 export const RecurringExpensesScreen = ({ navigation }: any) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const { formatCurrency } = useCurrency();
   const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -193,6 +196,11 @@ export const RecurringExpensesScreen = ({ navigation }: any) => {
           renderItem={renderRecurringExpense}
           keyExtractor={(item) => item.id.toString()}
           contentContainerStyle={styles.listContent}
+          initialNumToRender={10}
+          maxToRenderPerBatch={8}
+          windowSize={7}
+          updateCellsBatchingPeriod={50}
+          removeClippedSubviews={Platform.OS === 'android'}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
@@ -230,7 +238,7 @@ export const RecurringExpensesScreen = ({ navigation }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -347,13 +355,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: theme.spacing.xl,
+    padding: theme.spacing.lg,
   },
   emptyText: {
     fontSize: theme.typography.sizes.xl,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
-    marginTop: theme.spacing.lg,
+    marginTop: theme.spacing.md,
     fontFamily: theme.typography.fontFamily,
   },
   emptySubtext: {

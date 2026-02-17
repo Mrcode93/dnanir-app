@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,13 +7,13 @@ import {
   RefreshControl,
   TouchableOpacity,
   Modal,
-  FlatList,
   Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
+import { useAppTheme, useThemedStyles } from '../utils/theme-context';
 import {
   getChallenges,
   deleteChallenge,
@@ -39,6 +39,8 @@ import { AddCustomChallengeModal } from '../components/AddCustomChallengeModal';
 import { shareChallengeCompletion } from '../services/shareService';
 
 export const ChallengesScreen = ({ navigation, route }: any) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -73,38 +75,6 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
       navigation.setParams({ action: undefined });
     }
   }, [route?.params]);
-
-  useLayoutEffect(() => {
-    const parent = navigation.getParent();
-    if (parent) {
-      parent.setOptions({
-        tabBarStyle: { display: 'none' },
-        tabBarShowLabel: false,
-      });
-    }
-    return () => {
-      if (parent) {
-        parent.setOptions({
-          tabBarStyle: {
-            backgroundColor: theme.colors.surfaceCard,
-            borderTopColor: theme.colors.border,
-            borderTopWidth: 1,
-            height: 80,
-            paddingBottom: 20,
-            paddingTop: 8,
-            elevation: 8,
-            shadowColor: theme.colors.shadow,
-            shadowOffset: { width: 0, height: -2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 8,
-            flexDirection: 'row',
-            display: 'flex',
-          },
-          tabBarShowLabel: true,
-        });
-      }
-    };
-  }, [navigation]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -157,9 +127,9 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
       setShowDeleteAlert(false);
       return;
     }
-    
+
     const challengeId = challengeToDelete.id;
-    
+
     try {
       await deleteChallenge(challengeId);
       setShowDeleteAlert(false);
@@ -199,7 +169,7 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
       await loadChallenges();
       setShowMenuForChallenge(null);
       alertService.success('نجح', 'تم إكمال التحدي بنجاح! 🎉');
-      
+
       // Offer to share
       try {
         await shareChallengeCompletion(challenge.title);
@@ -327,8 +297,8 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
                   challenge.completed
                     ? [theme.colors.success, theme.colors.success]
                     : isExpired
-                    ? [theme.colors.error, theme.colors.error]
-                    : [categoryInfo.color, categoryInfo.color]
+                      ? [theme.colors.error, theme.colors.error]
+                      : [categoryInfo.color, categoryInfo.color]
                 }
                 style={[styles.progressFill, { width: `${progress}%` }]}
                 start={{ x: 0, y: 0 }}
@@ -482,7 +452,7 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
 
   const renderAddChallengeModal = () => {
     const categories: ChallengeCategory[] = ['spending_reduction', 'saving', 'discipline', 'debt'];
-    
+
     return (
       <Modal
         visible={showAddModal}
@@ -569,12 +539,12 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={[]}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       {/* Category Filter */}
       <View style={styles.header}>
         {/* Filter Buttons Row */}
-        <ScrollView 
-          horizontal 
+        <ScrollView
+          horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.filterRow}
           contentContainerStyle={styles.filterRowContent}
@@ -762,7 +732,7 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,

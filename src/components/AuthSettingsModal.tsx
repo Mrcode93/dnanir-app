@@ -14,7 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles, type AppTheme } from '../utils/theme';
 import { useAuthSettings } from '../hooks/useAuthSettings';
 
 interface AuthSettingsModalProps {
@@ -28,6 +28,8 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
   onClose,
   onAuthChanged,
 }) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
   const [slideAnim] = useState(new Animated.Value(0));
 
@@ -114,10 +116,10 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
                   !passwordEnabled && !biometricEnabled
                     ? ['#6B7280', '#4B5563']
                     : passwordEnabled && biometricEnabled
-                    ? ['#8B5CF6', '#7C3AED']
-                    : passwordEnabled
-                    ? ['#3B82F6', '#2563EB']
-                    : ['#10B981', '#059669']
+                      ? ['#8B5CF6', '#7C3AED']
+                      : passwordEnabled
+                        ? ['#3B82F6', '#2563EB']
+                        : ['#10B981', '#059669']
                 }
                 style={styles.statusCard}
                 start={{ x: 0, y: 0 }}
@@ -140,10 +142,10 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
                           !passwordEnabled && !biometricEnabled
                             ? 'lock-open'
                             : passwordEnabled
-                            ? 'key'
-                            : biometricType.includes('Face')
-                            ? 'person'
-                            : 'finger-print'
+                              ? 'key'
+                              : biometricType.includes('Face')
+                                ? 'person'
+                                : 'finger-print'
                         }
                         size={32}
                         color="#FFFFFF"
@@ -156,10 +158,10 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
                       {!passwordEnabled && !biometricEnabled
                         ? 'القفل غير مفعل'
                         : passwordEnabled && biometricEnabled
-                        ? `كلمة المرور و ${biometricType} مفعلان`
-                        : passwordEnabled
-                        ? 'قفل كلمة المرور مفعل'
-                        : `${biometricType} مفعل`}
+                          ? `كلمة المرور و ${biometricType} مفعلان`
+                          : passwordEnabled
+                            ? 'قفل كلمة المرور مفعل'
+                            : `${biometricType} مفعل`}
                     </Text>
                   </View>
                 </View>
@@ -271,8 +273,8 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
                     {passwordEnabled && biometricEnabled
                       ? `سيتم طلب ${biometricType} أو كلمة المرور عند فتح التطبيق`
                       : passwordEnabled
-                      ? 'سيتم طلب كلمة المرور عند فتح التطبيق'
-                      : `سيتم طلب ${biometricType} عند فتح التطبيق`}
+                        ? 'سيتم طلب كلمة المرور عند فتح التطبيق'
+                        : `سيتم طلب ${biometricType} عند فتح التطبيق`}
                   </Text>
                 </View>
               )}
@@ -405,7 +407,7 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: theme.colors.background,

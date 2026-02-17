@@ -10,6 +10,7 @@ import {
   deleteDebtInstallment,
   getUpcomingDebtPayments,
   addExpense,
+  addIncome,
   addDebtPayment,
   Debt,
   DebtInstallment,
@@ -18,6 +19,7 @@ import { DEBT_TYPES } from '../types';
 
 /**
  * Create a new debt with optional installments
+ * @param direction - owed_by_me (دين على) or owed_to_me (دين لي - عند التسديد يضاف رصيد)
  */
 export const createDebt = async (
   debtorName: string,
@@ -27,7 +29,8 @@ export const createDebt = async (
   dueDate?: string,
   description?: string,
   currency?: string,
-  installments?: { amount: number; dueDate: string }[]
+  installments?: { amount: number; dueDate: string }[],
+  direction: 'owed_by_me' | 'owed_to_me' = 'owed_by_me'
 ): Promise<number> => {
   const debtId = await addDebt({
     debtorName,
@@ -37,6 +40,7 @@ export const createDebt = async (
     dueDate,
     description,
     type,
+    direction,
     currency: currency || 'IQD',
     isPaid: false,
   });
@@ -114,19 +118,29 @@ export const payInstallment = async (
     description: `دفع القسط رقم ${installment.installmentNumber}`,
   });
 
-  // Add expense automatically
+  const isOwedToMe = debt.direction === 'owed_to_me';
   try {
-    await addExpense({
-      title: `دفع قسط - ${debt.debtorName}`,
-      amount: paidAmount,
-      category: 'bills',
-      date: paidDate,
-      description: `دفع القسط رقم ${installment.installmentNumber} من ${DEBT_TYPES[debt.type]} - ${debt.debtorName}${debt.description ? ` - ${debt.description}` : ''}`,
-      currency: debt.currency || 'IQD',
-    });
+    if (isOwedToMe) {
+      await addIncome({
+        source: `تسديد قسط - ${debt.debtorName}`,
+        amount: paidAmount,
+        date: paidDate,
+        description: `تسديد القسط رقم ${installment.installmentNumber} من ${DEBT_TYPES[debt.type]} - ${debt.debtorName}${debt.description ? ` - ${debt.description}` : ''}`,
+        currency: debt.currency || 'IQD',
+        category: 'other',
+      });
+    } else {
+      await addExpense({
+        title: `دفع قسط - ${debt.debtorName}`,
+        amount: paidAmount,
+        category: 'bills',
+        date: paidDate,
+        description: `دفع القسط رقم ${installment.installmentNumber} من ${DEBT_TYPES[debt.type]} - ${debt.debtorName}${debt.description ? ` - ${debt.description}` : ''}`,
+        currency: debt.currency || 'IQD',
+      });
+    }
   } catch (error) {
-    console.error('Error adding expense for installment payment:', error);
-    // Don't throw - payment was successful, expense addition is secondary
+    console.error(isOwedToMe ? 'Error adding income for installment repayment:' : 'Error adding expense for installment payment:', error);
   }
 };
 
@@ -155,19 +169,31 @@ export const payDebt = async (debtId: number, amount?: number): Promise<void> =>
     description: amount === debt.remainingAmount ? 'دفع الدين بالكامل' : `دفع جزئي - ${paidAmount}`,
   });
 
-  // Add expense automatically
+  const isOwedToMe = debt.direction === 'owed_to_me';
   try {
-    await addExpense({
-      title: `دفع ${DEBT_TYPES[debt.type]} - ${debt.debtorName}`,
-      amount: paidAmount,
-      category: 'bills',
-      date: paidDate,
-      description: `دفع ${DEBT_TYPES[debt.type]} بالكامل - ${debt.debtorName}${debt.description ? ` - ${debt.description}` : ''}`,
-      currency: debt.currency || 'IQD',
-    });
+    if (isOwedToMe) {
+      await addIncome({
+        source: `تسديد دين - ${debt.debtorName}`,
+        amount: paidAmount,
+        date: paidDate,
+        description: amount === debt.remainingAmount
+          ? `تسديد ${DEBT_TYPES[debt.type]} بالكامل - ${debt.debtorName}${debt.description ? ` - ${debt.description}` : ''}`
+          : `تسديد جزئي - ${debt.debtorName}`,
+        currency: debt.currency || 'IQD',
+        category: 'other',
+      });
+    } else {
+      await addExpense({
+        title: `دفع ${DEBT_TYPES[debt.type]} - ${debt.debtorName}`,
+        amount: paidAmount,
+        category: 'bills',
+        date: paidDate,
+        description: `دفع ${DEBT_TYPES[debt.type]} بالكامل - ${debt.debtorName}${debt.description ? ` - ${debt.description}` : ''}`,
+        currency: debt.currency || 'IQD',
+      });
+    }
   } catch (error) {
-    console.error('Error adding expense for debt payment:', error);
-    // Don't throw - payment was successful, expense addition is secondary
+    console.error(isOwedToMe ? 'Error adding income for debt repayment:' : 'Error adding expense for debt payment:', error);
   }
 };
 

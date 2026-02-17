@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getAppSettings } from '../database/database';
 import { CURRENCIES } from '../types';
 import { formatCurrencyAmount } from '../services/currencyService';
+import { subscribeToCurrencyChanges } from '../services/currencyEvents';
 
 /**
  * Hook to get the selected currency and format function
@@ -10,32 +11,31 @@ export const useCurrency = () => {
   const [currencyCode, setCurrencyCode] = useState<string>('IQD');
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const loadCurrency = async () => {
-      try {
-        const appSettings = await getAppSettings();
-        if (appSettings?.currency) {
-          const currency = CURRENCIES.find(c => c.name === appSettings.currency);
-          if (currency) {
-            setCurrencyCode(currency.code);
-          }
+  const loadCurrency = useCallback(async () => {
+    try {
+      const appSettings = await getAppSettings();
+      if (appSettings?.currency) {
+        const currency = CURRENCIES.find(c => c.name === appSettings.currency);
+        if (currency) {
+          setCurrencyCode(currency.code);
         }
-      } catch (error) {
-        console.error('Error loading currency:', error);
-      } finally {
-        setLoading(false);
       }
-    };
-
-    loadCurrency();
-    
-    // Listen for currency changes (when user navigates back to screen)
-    const interval = setInterval(() => {
-      loadCurrency();
-    }, 2000); // Check every 2 seconds
-    
-    return () => clearInterval(interval);
+    } catch (error) {
+      console.error('Error loading currency:', error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadCurrency();
+    const unsubscribe = subscribeToCurrencyChanges(() => {
+      loadCurrency();
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [loadCurrency]);
 
   const formatCurrency = (amount: number): string => {
     return formatCurrencyAmount(amount, currencyCode);
@@ -51,13 +51,7 @@ export const useCurrency = () => {
     formatCurrency,
     loading,
     refreshCurrency: async () => {
-      const appSettings = await getAppSettings();
-      if (appSettings?.currency) {
-        const currency = CURRENCIES.find(c => c.name === appSettings.currency);
-        if (currency) {
-          setCurrencyCode(currency.code);
-        }
-      }
+      await loadCurrency();
     },
   };
 };

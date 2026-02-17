@@ -1,5 +1,7 @@
-import { getBillsDueSoon, Bill, updateBill, addBillPayment, getBillPayments } from '../database/database';
+import { getBillsDueSoon, Bill, updateBill, addBillPayment, getBillPayments, getBillById, addExpense } from '../database/database';
 import * as Notifications from 'expo-notifications';
+
+const disableScheduledNotificationsInDev = __DEV__;
 
 /**
  * Get bills that are due soon (within specified days)
@@ -9,15 +11,40 @@ export const getBillsDueInDays = async (days: number = 7): Promise<Bill[]> => {
 };
 
 /**
- * Mark a bill as paid
+ * Mark a bill as paid and record it as an expense (so balance and expenses list stay correct).
+ * @param skipAddExpense - When true, only update bill and notifications (e.g. when called from payBill which already adds expenses per payment).
  */
-export const markBillAsPaid = async (billId: number, paymentDate?: string): Promise<void> => {
+export const markBillAsPaid = async (
+  billId: number,
+  paymentDate?: string,
+  options?: { skipAddExpense?: boolean }
+): Promise<void> => {
   const paidDate = paymentDate || new Date().toISOString();
+  const dateOnly = paidDate.slice(0, 10);
+
+  const bill = await getBillById(billId);
+  if (!bill) return;
+
+  if (!options?.skipAddExpense) {
+    try {
+      await addExpense({
+        title: `دفع فاتورة - ${bill.title}`,
+        amount: bill.amount,
+        category: 'bills',
+        date: dateOnly,
+        description: bill.description ? `فاتورة: ${bill.description}` : undefined,
+        currency: bill.currency || 'IQD',
+      });
+    } catch (error) {
+      console.error('Error adding expense for bill payment:', error);
+    }
+  }
+
   await updateBill(billId, {
     isPaid: true,
     paidDate: paidDate,
   });
-  
+
   // Cancel any scheduled notifications for this bill
   try {
     const allScheduled = await Notifications.getAllScheduledNotificationsAsync();
@@ -44,26 +71,41 @@ export const markBillAsUnpaid = async (billId: number): Promise<void> => {
 };
 
 /**
- * Pay a bill (add payment record)
+ * Pay a bill (add payment record and record as expense so balance updates)
  */
 export const payBill = async (billId: number, amount: number, paymentDate?: string, description?: string): Promise<number> => {
   const paidDate = paymentDate || new Date().toISOString();
+  const dateOnly = paidDate.slice(0, 10);
+
+  const bill = await getBillById(billId);
+  if (!bill) throw new Error('Bill not found');
+
+  // Record this payment as an expense so balance and expenses list stay correct
+  try {
+    await addExpense({
+      title: `دفع فاتورة - ${bill.title}`,
+      amount,
+      category: 'bills',
+      date: dateOnly,
+      description: description || bill.description ? `فاتورة: ${bill.description || ''}` : undefined,
+      currency: bill.currency || 'IQD',
+    });
+  } catch (error) {
+    console.error('Error adding expense for bill payment:', error);
+  }
+
   const paymentId = await addBillPayment({
     billId,
     amount,
     paymentDate: paidDate,
     description,
   });
-  
-  // Mark bill as paid if full amount is paid
-  const bill = await getBillById(billId);
-  if (bill) {
-    const totalPaid = await getTotalPaidForBill(billId);
-    if (totalPaid >= bill.amount) {
-      await markBillAsPaid(billId, paidDate);
-    }
+
+  const totalPaid = await getTotalPaidForBill(billId);
+  if (totalPaid >= bill.amount) {
+    await markBillAsPaid(billId, paidDate, { skipAddExpense: true });
   }
-  
+
   return paymentId;
 };
 
@@ -87,9 +129,17 @@ export const getBillPaymentHistory = async (billId: number) => {
  */
 export const scheduleBillReminder = async (billId: number): Promise<void> => {
   try {
-    const { getBillById } = await import('../database/database');
+    if (disableScheduledNotificationsInDev) {
+      const allScheduled = await Notifications.getAllScheduledNotificationsAsync();
+      const toCancel = allScheduled.filter(n => n.identifier.startsWith(`bill-${billId}-`));
+      for (const notification of toCancel) {
+        await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+      }
+      return;
+    }
+
     const bill = await getBillById(billId);
-    
+
     if (!bill || bill.isPaid) {
       return;
     }
@@ -143,6 +193,15 @@ export const scheduleBillReminder = async (billId: number): Promise<void> => {
  */
 export const scheduleAllBillReminders = async (): Promise<void> => {
   try {
+    if (disableScheduledNotificationsInDev) {
+      const allScheduled = await Notifications.getAllScheduledNotificationsAsync();
+      const toCancel = allScheduled.filter(n => n.identifier.startsWith('bill-'));
+      for (const notification of toCancel) {
+        await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+      }
+      return;
+    }
+
     const { getBills } = await import('../database/database');
     const bills = await getBills();
     const unpaidBills = bills.filter(bill => !bill.isPaid);
@@ -153,10 +212,4 @@ export const scheduleAllBillReminders = async (): Promise<void> => {
   } catch (error) {
     console.error('Error scheduling all bill reminders:', error);
   }
-};
-
-// Helper function to get bill by ID (imported from database)
-const getBillById = async (id: number) => {
-  const { getBillById: getBill } = await import('../database/database');
-  return await getBill(id);
 };

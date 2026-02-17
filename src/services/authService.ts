@@ -2,11 +2,37 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { Platform } from 'react-native';
 import { getUserSettings, upsertUserSettings } from '../database/database';
 import { alertService } from './alertService';
+import * as Crypto from 'expo-crypto';
 
 export interface AuthMethod {
   type: 'none' | 'password' | 'biometric';
   enabled: boolean;
 }
+
+const SALT_BYTES = 16;
+
+const toHex = (bytes: Uint8Array): string =>
+  Array.from(bytes)
+    .map(byte => byte.toString(16).padStart(2, '0'))
+    .join('');
+
+const generateSalt = async (): Promise<string> => {
+  const bytes = await Crypto.getRandomBytesAsync(SALT_BYTES);
+  return toHex(bytes);
+};
+
+const hashPassword = async (password: string, salt: string): Promise<string> => {
+  return await Crypto.digestStringAsync(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    `${salt}:${password}`
+  );
+};
+
+const buildPasswordHash = async (password: string): Promise<string> => {
+  const salt = await generateSalt();
+  const hash = await hashPassword(password, salt);
+  return `${salt}:${hash}`;
+};
 
 /**
  * Check if biometric authentication is available
@@ -82,9 +108,7 @@ export const authenticateWithBiometric = async (): Promise<boolean> => {
  */
 export const setupPassword = async (password: string): Promise<boolean> => {
   try {
-    // In a real app, you should hash the password
-    // For now, we'll store it as-is (not recommended for production)
-    const hashedPassword = password; // TODO: Use bcrypt or similar
+    const hashedPassword = await buildPasswordHash(password);
     
     const currentSettings = await getUserSettings();
     // Keep existing biometricsEnabled if it's already enabled
@@ -112,8 +136,33 @@ export const verifyPassword = async (password: string): Promise<boolean> => {
       return false;
     }
 
-    // In a real app, you should hash and compare
-    return settings.passwordHash === password;
+    const stored = settings.passwordHash;
+
+    // New format: "salt:hash"
+    if (stored.includes(':')) {
+      const [salt, hash] = stored.split(':');
+      if (!salt || !hash) {
+        return false;
+      }
+      const candidate = await hashPassword(password, salt);
+      return candidate === hash;
+    }
+
+    // Legacy plaintext support with upgrade on success
+    const legacyMatch = stored === password;
+    if (legacyMatch) {
+      try {
+        const upgradedHash = await buildPasswordHash(password);
+        await upsertUserSettings({
+          ...settings,
+          passwordHash: upgradedHash,
+        });
+      } catch (error) {
+        // Ignore upgrade failures
+      }
+    }
+
+    return legacyMatch;
   } catch (error) {
     console.error('Error verifying password:', error);
     return false;

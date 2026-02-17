@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -10,12 +10,13 @@ import {
   Modal,
   Animated,
   Pressable,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Searchbar } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import {
   getDebts,
   deleteDebt,
@@ -33,6 +34,8 @@ import { alertService } from '../services/alertService';
 import { PayDebtModal } from '../components/PayDebtModal';
 
 export const DebtsScreen = ({ navigation, route }: any) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const { formatCurrency } = useCurrency();
   const [debts, setDebts] = useState<Debt[]>([]);
   const [filteredDebts, setFilteredDebts] = useState<Debt[]>([]);
@@ -70,38 +73,6 @@ export const DebtsScreen = ({ navigation, route }: any) => {
       loadDebts();
     });
     return unsubscribe;
-  }, [navigation]);
-
-  useLayoutEffect(() => {
-    const parent = navigation.getParent()?.getParent();
-    if (parent) {
-      parent.setOptions({
-        tabBarStyle: { display: 'none' },
-        tabBarShowLabel: false,
-      });
-    }
-    return () => {
-      if (parent) {
-        parent.setOptions({
-          tabBarStyle: {
-            backgroundColor: theme.colors.surfaceCard,
-            borderTopColor: theme.colors.border,
-            borderTopWidth: 1,
-            height: 80,
-            paddingBottom: 20,
-            paddingTop: 8,
-            elevation: 8,
-            shadowColor: theme.colors.shadow,
-            shadowOffset: { width: 0, height: -2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 8,
-            flexDirection: 'row',
-            display: 'flex',
-          },
-          tabBarShowLabel: true,
-        });
-      }
-    };
   }, [navigation]);
 
   useEffect(() => {
@@ -199,15 +170,16 @@ export const DebtsScreen = ({ navigation, route }: any) => {
     try {
       await payDebt(debtToPay.id, amount);
       await loadDebts();
-      const message = amount === debtToPay.remainingAmount
-        ? 'تم دفع الدين بالكامل بنجاح'
-        : `تم دفع ${formatCurrency(amount)} بنجاح`;
+      const isOwedToMe = debtToPay.direction === 'owed_to_me';
+      const message = isOwedToMe
+        ? (amount === debtToPay.remainingAmount ? 'تم تسجيل التسديد بالكامل وتمت إضافته لرصيدك' : `تم تسجيل تسديد ${formatCurrency(amount)} وتمت إضافته لرصيدك`)
+        : (amount === debtToPay.remainingAmount ? 'تم دفع الدين بالكامل بنجاح' : `تم دفع ${formatCurrency(amount)} بنجاح`);
       alertService.success('نجح', message);
       setShowPayModal(false);
       setDebtToPay(null);
     } catch (error) {
       console.error('Error paying debt:', error);
-      alertService.error('خطأ', 'حدث خطأ أثناء دفع الدين');
+      alertService.error('خطأ', debtToPay.direction === 'owed_to_me' ? 'حدث خطأ أثناء تسجيل التسديد' : 'حدث خطأ أثناء دفع الدين');
       throw error;
     }
   };
@@ -287,211 +259,102 @@ export const DebtsScreen = ({ navigation, route }: any) => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={[]}>
-      {/* Header with Search and Filter */}
-      <View style={styles.header}>
-        <View style={styles.searchContainer}>
-          <Searchbar
-            placeholder="البحث في الديون المستحقة عليك..."
-            onChangeText={setSearchQuery}
-            value={searchQuery}
-            style={styles.searchBar}
-            inputStyle={styles.searchInput}
-            placeholderTextColor={theme.colors.textMuted}
-          />
-        </View>
-
-        {/* Filter Buttons Row */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterRow}
-          contentContainerStyle={styles.filterRowContent}
-        >
-          {(['all', 'debt', 'installment', 'advance'] as const).map((type) => {
-            const isSelected = selectedType === type;
-            return (
-              <TouchableOpacity
-                key={type}
-                onPress={() => handleTypeSelect(type)}
-                style={styles.filterButton}
-                activeOpacity={0.7}
-              >
-                {isSelected ? (
-                  <LinearGradient
-                    colors={type === 'all'
-                      ? (theme.gradients.primary as any)
-                      : (typeColors[type] as any)}
-                    style={styles.filterButtonGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  >
-                    <Ionicons
-                      name={type === 'all'
-                        ? 'apps'
-                        : (typeIcons[type] as any)}
-                      size={16}
-                      color={theme.colors.textInverse}
-                    />
-                    <Text style={styles.filterButtonTextActive}>
-                      {type === 'all' ? 'الكل' : getDebtTypeName(type)}
-                    </Text>
-                  </LinearGradient>
-                ) : (
-                  <View style={styles.filterButtonDefault}>
-                    <Ionicons
-                      name={type === 'all'
-                        ? 'apps-outline'
-                        : (typeIcons[type] as any)}
-                      size={16}
-                      color={theme.colors.textSecondary}
-                    />
-                    <Text style={styles.filterButtonText}>
-                      {type === 'all' ? 'الكل' : getDebtTypeName(type)}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        {/* Summary Cards */}
-        <View style={styles.summaryRow}>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>إجمالي الديون المستحقة</Text>
-            <Text style={styles.summaryAmount}>{formatCurrency(totalDebts)}</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>ديون نشطة</Text>
-            <Text style={[styles.summaryAmount, { color: '#F59E0B' }]}>{activeDebts}</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>ديون مدفوعة</Text>
-            <Text style={[styles.summaryAmount, { color: '#10B981' }]}>{paidDebts}</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Filter Menu Modal */}
-      <Modal
-        visible={showFilterMenu}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowFilterMenu(false)}
-      >
-        <Pressable
-          style={styles.filterMenuOverlay}
-          onPress={() => setShowFilterMenu(false)}
-        >
-          <Animated.View
-            style={[
-              styles.filterMenuContainer,
-              {
-                opacity: filterMenuAnim,
-                transform: [
-                  {
-                    scale: filterMenuAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.9, 1],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            <Pressable onPress={(e) => e.stopPropagation()}>
-              <View style={styles.filterMenuHeader}>
-                <Text style={styles.filterMenuTitle}>اختر نوع الدين</Text>
-                <TouchableOpacity
-                  onPress={() => setShowFilterMenu(false)}
-                  style={styles.filterMenuCloseButton}
-                >
-                  <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
-                </TouchableOpacity>
-              </View>
-              <ScrollView
-                style={styles.filterMenuScroll}
-                showsVerticalScrollIndicator={true}
-                contentContainerStyle={styles.filterMenuContent}
-              >
-                <TouchableOpacity
-                  onPress={() => handleTypeSelect('all')}
-                  style={[
-                    styles.filterMenuItem,
-                    selectedType === 'all' && styles.filterMenuItemActive,
-                  ]}
-                  activeOpacity={0.7}
-                >
-                  {selectedType === 'all' ? (
-                    <LinearGradient
-                      colors={theme.gradients.primary as any}
-                      style={styles.filterMenuItemGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                    >
-                      <Ionicons name="apps" size={22} color={theme.colors.textInverse} />
-                      <Text style={styles.filterMenuItemTextActive}>الكل</Text>
-                      <Ionicons name="checkmark-circle" size={20} color={theme.colors.textInverse} />
-                    </LinearGradient>
-                  ) : (
-                    <View style={styles.filterMenuItemDefault}>
-                      <Ionicons name="apps-outline" size={22} color={theme.colors.textSecondary} />
-                      <Text style={styles.filterMenuItemText}>الكل</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-                {(['debt', 'installment', 'advance'] as const).map((type) => {
-                  const isSelected = selectedType === type;
-                  return (
-                    <TouchableOpacity
-                      key={type}
-                      onPress={() => handleTypeSelect(type)}
-                      style={[
-                        styles.filterMenuItem,
-                        isSelected && styles.filterMenuItemActive,
-                      ]}
-                      activeOpacity={0.7}
-                    >
-                      {isSelected ? (
-                        <LinearGradient
-                          colors={typeColors[type] as any}
-                          style={styles.filterMenuItemGradient}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 0 }}
-                        >
-                          <Ionicons
-                            name={typeIcons[type] as any}
-                            size={22}
-                            color={theme.colors.textInverse}
-                          />
-                          <Text style={styles.filterMenuItemTextActive}>{getDebtTypeName(type)}</Text>
-                          <Ionicons name="checkmark-circle" size={20} color={theme.colors.textInverse} />
-                        </LinearGradient>
-                      ) : (
-                        <View style={styles.filterMenuItemDefault}>
-                          <Ionicons
-                            name={`${typeIcons[type]}-outline` as any}
-                            size={22}
-                            color={theme.colors.textSecondary}
-                          />
-                          <Text style={styles.filterMenuItemText}>{getDebtTypeName(type)}</Text>
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </Pressable>
-          </Animated.View>
-        </Pressable>
-      </Modal>
-
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <FlatList
         data={filteredDebts}
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <View style={styles.searchContainer}>
+              <Searchbar
+                placeholder="البحث في الديون المستحقة عليك..."
+                onChangeText={setSearchQuery}
+                value={searchQuery}
+                style={styles.searchBar}
+                inputStyle={styles.searchInput}
+                placeholderTextColor={theme.colors.textMuted}
+              />
+            </View>
+
+            {/* Filter Buttons Row */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.filterRow}
+              contentContainerStyle={styles.filterRowContent}
+            >
+              {(['all', 'debt', 'installment', 'advance'] as const).map((type) => {
+                const isSelected = selectedType === type;
+                return (
+                  <TouchableOpacity
+                    key={type}
+                    onPress={() => handleTypeSelect(type)}
+                    style={styles.filterButton}
+                    activeOpacity={0.7}
+                  >
+                    {isSelected ? (
+                      <LinearGradient
+                        colors={type === 'all'
+                          ? (theme.gradients.primary as any)
+                          : (typeColors[type] as any)}
+                        style={styles.filterButtonGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                      >
+                        <Ionicons
+                          name={type === 'all'
+                            ? 'apps'
+                            : (typeIcons[type] as any)}
+                          size={16}
+                          color={theme.colors.textInverse}
+                        />
+                        <Text style={styles.filterButtonTextActive}>
+                          {type === 'all' ? 'الكل' : getDebtTypeName(type)}
+                        </Text>
+                      </LinearGradient>
+                    ) : (
+                      <View style={styles.filterButtonDefault}>
+                        <Ionicons
+                          name={type === 'all'
+                            ? 'apps-outline'
+                            : (typeIcons[type] as any)}
+                          size={16}
+                          color={theme.colors.textSecondary}
+                        />
+                        <Text style={styles.filterButtonText}>
+                          {type === 'all' ? 'الكل' : getDebtTypeName(type)}
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {/* Summary Cards */}
+            <View style={styles.summaryRow}>
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryLabel}>إجمالي الديون المستحقة</Text>
+                <Text style={styles.summaryAmount}>{formatCurrency(totalDebts)}</Text>
+              </View>
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryLabel}>ديون نشطة</Text>
+                <Text style={[styles.summaryAmount, { color: '#F59E0B' }]}>{activeDebts}</Text>
+              </View>
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryLabel}>ديون مدفوعة</Text>
+                <Text style={[styles.summaryAmount, { color: '#10B981' }]}>{paidDebts}</Text>
+              </View>
+            </View>
+          </View>
+        }
         renderItem={renderDebt}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.listContent}
+        initialNumToRender={10}
+        maxToRenderPerBatch={8}
+        windowSize={7}
+        updateCellsBatchingPeriod={50}
+        removeClippedSubviews={Platform.OS === 'android'}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -540,7 +403,7 @@ export const DebtsScreen = ({ navigation, route }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -593,7 +456,7 @@ const styles = StyleSheet.create({
     direction: 'rtl' as const,
   },
   filterRowContent: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     gap: theme.spacing.xs,
     paddingHorizontal: theme.spacing.xs,
   },
@@ -603,14 +466,14 @@ const styles = StyleSheet.create({
     ...getPlatformShadow('sm'),
   },
   filterButtonGradient: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing.xs,
     gap: theme.spacing.xs,
   },
   filterButtonDefault: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     backgroundColor: theme.colors.surfaceLight,
     paddingHorizontal: theme.spacing.sm,
@@ -631,7 +494,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   summaryRow: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     gap: theme.spacing.sm,
   },
   summaryCard: {

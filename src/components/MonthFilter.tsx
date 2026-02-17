@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { isRTL } from '../utils/rtl';
 
 interface MonthFilterProps {
@@ -20,6 +20,8 @@ export const MonthFilter: React.FC<MonthFilterProps> = ({
   style,
   availableMonths,
 }) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
 
   // Month names in Arabic
@@ -31,7 +33,7 @@ export const MonthFilter: React.FC<MonthFilterProps> = ({
     if (!selectedMonth || (selectedMonth.year === 0 && selectedMonth.month === 0)) {
       return 'الكل';
     }
-    return `${monthNames[selectedMonth.month - 1]} ${selectedMonth.year}`;
+    return `${monthNames[selectedMonth.month - 1]} (${selectedMonth.month}) ${selectedMonth.year}`;
   };
 
   // Generate months list (only months with data + current month)
@@ -77,7 +79,7 @@ export const MonthFilter: React.FC<MonthFilterProps> = ({
       months.push({
         year,
         month,
-        label: `${monthNames[month - 1]} ${year}${isCurrent ? ' (الحالي)' : ''}`,
+        label: `${monthNames[month - 1]} (${month}) ${year}${isCurrent ? ' (الحالي)' : ''}`,
       });
     });
 
@@ -98,18 +100,15 @@ export const MonthFilter: React.FC<MonthFilterProps> = ({
       <TouchableOpacity
         style={[styles.filterButton, style]}
         onPress={() => setShowMonthPicker(true)}
-        activeOpacity={0.8}
+        activeOpacity={0.7}
       >
-        <LinearGradient
-          colors={theme.gradients.primary as any}
-          style={styles.filterButtonGradient}
-        >
-          <Ionicons name="calendar" size={16} color={theme.colors.textInverse} />
+        <View style={styles.filterButtonContent}>
+          <Ionicons name="calendar-outline" size={18} color={theme.colors.primary} />
           <Text style={styles.filterButtonText} numberOfLines={1}>
             {getMonthLabel()}
           </Text>
-          <Ionicons name="chevron-down" size={14} color={theme.colors.textInverse} />
-        </LinearGradient>
+          <Ionicons name="chevron-down" size={14} color="#94A3B8" />
+        </View>
       </TouchableOpacity>
 
       {/* Pro Month Picker Modal */}
@@ -194,24 +193,26 @@ export const MonthFilter: React.FC<MonthFilterProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   filterButton: {
-    borderRadius: theme.borderRadius.md,
+    borderRadius: 14,
+    backgroundColor: theme.colors.surfaceLight,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    minWidth: 110,
+    maxWidth: 150,
     overflow: 'hidden',
-    minWidth: 120,
-    maxWidth: 160,
-    ...getPlatformShadow('md'),
   },
-  filterButtonGradient: {
+  filterButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    gap: theme.spacing.xs,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
   },
   filterButtonText: {
-    color: theme.colors.textInverse,
-    fontSize: theme.typography.sizes.sm,
+    color: '#0F172A',
+    fontSize: 13,
     fontWeight: getPlatformFontWeight('700'),
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
@@ -229,7 +230,9 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 32,
     maxHeight: '80%',
     ...getPlatformShadow('xl'),
-    paddingBottom: 20
+    paddingBottom: 20,
+    direction: 'ltr',
+
   },
   dragHandle: {
     width: 48,
@@ -243,9 +246,9 @@ const styles = StyleSheet.create({
     flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 16,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
   },
   modalTitle: {
     fontSize: 20,
@@ -264,11 +267,11 @@ const styles = StyleSheet.create({
     maxHeight: 500,
   },
   monthListContent: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingHorizontal: 16,
+    paddingTop: 4,
   },
   monthCard: {
-    marginBottom: 12,
+    marginBottom: 8,
     borderRadius: 20,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -284,17 +287,17 @@ const styles = StyleSheet.create({
     ...getPlatformShadow('md'),
   },
   selectedGradient: {
-    padding: 16,
+    padding: 0,
   },
   cardContent: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: 12,
   },
   iconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     backgroundColor: '#F8FAFC',
     alignItems: 'center',
     justifyContent: 'center',
@@ -302,9 +305,9 @@ const styles = StyleSheet.create({
     marginRight: isRTL ? 0 : 12,
   },
   iconBoxSelected: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     backgroundColor: '#FFFFFF', // White background for icon inside gradient
     alignItems: 'center',
     justifyContent: 'center',
@@ -313,7 +316,7 @@ const styles = StyleSheet.create({
   },
   textNormal: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: '#334155',
     fontFamily: theme.typography.fontFamily,
@@ -322,7 +325,7 @@ const styles = StyleSheet.create({
   },
   textSelected: {
     flex: 1,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,

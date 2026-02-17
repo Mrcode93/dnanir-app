@@ -17,7 +17,7 @@ import { TextInput, IconButton } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { isRTL } from '../utils/rtl';
 import { FinancialGoal, GoalCategory, GOAL_CATEGORIES, CURRENCIES } from '../types';
 import { useCurrency } from '../hooks/useCurrency';
@@ -38,6 +38,8 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
   onSave,
   editingGoal,
 }) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
   const { currencyCode, formatCurrency } = useCurrency();
   const [title, setTitle] = useState('');
@@ -606,7 +608,7 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   keyboardView: {
     flex: 1,
   },
@@ -632,7 +634,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: theme.spacing.lg,
+    padding: theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
     flexShrink: 0,
@@ -674,15 +676,15 @@ const styles = StyleSheet.create({
     maxHeight: 500,
   },
   scrollContent: {
-    padding: theme.spacing.lg,
-    paddingBottom: theme.spacing.xl,
+    padding: theme.spacing.md,
+    paddingBottom: theme.spacing.lg,
   },
   inputGroup: {
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
   },
   row: {
     flexDirection: 'row',
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
   },
   label: {
     fontSize: theme.typography.sizes.sm,
@@ -749,7 +751,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
     gap: theme.spacing.sm,
     minHeight: 90,
   },
@@ -759,7 +761,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: theme.colors.surfaceLight,
     paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
     gap: theme.spacing.sm,
     minHeight: 90,
   },
@@ -789,8 +791,8 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
-    padding: theme.spacing.lg,
-    paddingBottom: theme.spacing.xl,
+    padding: theme.spacing.md,
+    paddingBottom: theme.spacing.lg,
     gap: theme.spacing.md,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
@@ -869,7 +871,7 @@ const styles = StyleSheet.create({
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: theme.spacing.lg,
+    padding: theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },

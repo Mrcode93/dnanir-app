@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, I18nManager } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { isRTL } from '../utils/rtl';
 import { useCurrency } from '../hooks/useCurrency';
 import { usePrivacy } from '../context/PrivacyContext';
@@ -17,7 +17,7 @@ interface BalanceCardProps {
   availableMonths?: Array<{ year: number; month: number }>;
 }
 
-export const BalanceCard: React.FC<BalanceCardProps> = ({
+const BalanceCardComponent: React.FC<BalanceCardProps> = ({
   balance,
   userName,
   selectedMonth,
@@ -25,14 +25,16 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
   showFilter = true,
   availableMonths,
 }) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const { formatCurrency } = useCurrency();
   const { isPrivacyEnabled } = usePrivacy();
   const isPositive = balance >= 0;
 
-  // Use theme gradients based on #003459
+  // Richer 4-stop gradient for a more premium feel
   const gradientColors = isPositive
-    ? theme.gradients.primary // Primary gradient (positive)
-    : ['#004D73', '#003459', '#002640'] as const; // Darker gradient (negative)
+    ? ['#001D33', '#003459', '#00527A', '#006A9E'] as const
+    : ['#001D33', '#002640', '#003459', '#004060'] as const;
 
   const formattedBalance = formatCurrency(balance);
 
@@ -54,218 +56,284 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
         end={{ x: 1, y: 1 }}
         style={styles.card}
       >
-        {/* Decorative circles */}
-        <View style={styles.decorativeCircle1} />
-        <View style={styles.decorativeCircle2} />
+        {/* Decorative geometric elements */}
+        <View style={styles.decorCircleTopRight} />
+        <View style={styles.decorCircleBottomLeft} />
+        <View style={styles.decorRectTopLeft} />
+        <View style={styles.decorDotPattern}>
+          <View style={styles.decorDot} />
+          <View style={styles.decorDot} />
+          <View style={styles.decorDot} />
+        </View>
 
-        <View style={styles.header}>
+        {/* Glassmorphic top bar */}
+        <View style={styles.topBar}>
           <LinearGradient
-            colors={['rgba(255, 255, 255, 0.3)', 'rgba(255, 255, 255, 0.15)']}
-            style={styles.badge}
+            colors={['rgba(255, 255, 255, 0.2)', 'rgba(255, 255, 255, 0.08)']}
+            style={styles.brandBadge}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
           >
-            <Ionicons name="wallet" size={18} color={theme.colors.textInverse} />
-            <Text style={styles.badgeText}>دنانير</Text>
+            <View style={styles.brandIconContainer}>
+              <Ionicons name="wallet" size={16} color="#FFF" />
+            </View>
+            <Text style={styles.brandText}>دنانير</Text>
           </LinearGradient>
-          <View style={styles.headerRight}>
+
+          <View style={styles.topBarRight}>
             {isPositive && (
-              <View style={styles.statusBadge}>
-                <Ionicons name="trending-up" size={16} color={theme.colors.textInverse} />
-              </View>
+              <LinearGradient
+                colors={['rgba(16, 185, 129, 0.4)', 'rgba(16, 185, 129, 0.2)']}
+                style={styles.trendBadge}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Ionicons name="trending-up" size={14} color="#34D399" />
+              </LinearGradient>
             )}
-            {/* Month Filter Button in Header */}
+            {/* Month Filter */}
             {showFilter && onMonthChange && (
-              <View style={styles.headerFilterButtonContainer}>
+              <View style={styles.filterContainer}>
                 <MonthFilter
                   selectedMonth={selectedMonth || null}
                   onMonthChange={onMonthChange}
                   showAllOption={true}
                   availableMonths={availableMonths}
-                  style={styles.headerFilterButton}
+                  style={styles.filterButton}
                 />
               </View>
             )}
           </View>
         </View>
 
-        <View style={styles.body}>
+        {/* Balance section */}
+        <View style={styles.balanceSection}>
           {userName && (
-            <View style={styles.greetingContainer}>
-              <Text style={styles.greeting}>مرحباً، {userName}</Text>
-            </View>
+            <Text style={styles.greeting}>مرحباً، {userName}</Text>
           )}
 
-          <View style={styles.balanceContainer}>
-            <Text style={styles.balance}>
+          <View style={styles.balanceRow}>
+            <Text style={styles.balanceAmount}>
               {isPrivacyEnabled ? '****' : formattedBalance}
             </Text>
             {!isPositive && (
-              <View style={styles.warningIcon}>
-                <Ionicons name="alert-circle" size={20} color={theme.colors.textInverse} />
+              <View style={styles.warningBadge}>
+                <Ionicons name="alert-circle" size={18} color="#FCA5A5" />
               </View>
             )}
           </View>
+
           {selectedMonth && (selectedMonth.year !== 0 || selectedMonth.month !== 0) && (
-            <Text style={styles.periodLabel}>
-              رصيد {getMonthLabel()}
-            </Text>
+            <View style={styles.periodRow}>
+              <View style={styles.periodDot} />
+              <Text style={styles.periodLabel}>
+                رصيد {getMonthLabel()}
+              </Text>
+            </View>
           )}
+        </View>
+
+        {/* Subtle bottom accent line */}
+        <View style={styles.accentLine}>
+          <LinearGradient
+            colors={['transparent', 'rgba(96, 165, 250, 0.5)', 'rgba(59, 130, 246, 0.4)', 'transparent']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.accentLineGradient}
+          />
         </View>
       </LinearGradient>
     </>
   );
 };
 
-const styles = StyleSheet.create({
+export const BalanceCard = React.memo(BalanceCardComponent);
+BalanceCard.displayName = 'BalanceCard';
+
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   card: {
-    borderRadius: theme.borderRadius.xl,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.lg,
-    minHeight: 140,
-    ...getPlatformShadow('lg'),
+    borderRadius: 24,
+    padding: 20,
+    paddingBottom: 16,
+    minHeight: 180,
+    ...getPlatformShadow('xl'),
     overflow: 'hidden',
     position: 'relative',
-    direction: isRTL ? 'rtl' : 'ltr',
+    direction: isRTL ? 'ltr' : 'rtl',
   },
-  decorativeCircle1: {
+
+  // Decorative elements
+  decorCircleTopRight: {
     position: 'absolute',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    top: -40,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    top: -60,
     ...(isRTL ? { left: -40 } : { right: -40 }),
   },
-  decorativeCircle2: {
+  decorCircleBottomLeft: {
     position: 'absolute',
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    bottom: -20,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    bottom: -30,
     ...(isRTL ? { right: -20 } : { left: -20 }),
   },
-  header: {
+  decorRectTopLeft: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    top: 20,
+    ...(isRTL ? { right: 60 } : { left: 60 }),
+    transform: [{ rotate: '25deg' }],
+  },
+  decorDotPattern: {
+    position: 'absolute',
+    bottom: 40,
+    ...(isRTL ? { left: 20 } : { right: 20 }),
+    flexDirection: 'column',
+    gap: 6,
+  },
+  decorDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+
+  // Top bar
+  topBar: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: theme.spacing.md,
+    marginBottom: 24,
     zIndex: 1,
   },
-  headerRight: {
+  brandBadge: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    gap: theme.spacing.sm,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  headerFilterButtonContainer: {
-    // Container for MonthFilter component
+  brandIconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...(isRTL ? { marginLeft: 8 } : { marginRight: 8 }),
   },
-  headerFilterButton: {
-    borderRadius: theme.borderRadius.md,
+  brandText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: getPlatformFontWeight('700'),
+    fontFamily: theme.typography.fontFamily,
+    letterSpacing: 0.8,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  topBarRight: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  trendBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(52, 211, 153, 0.3)',
+  },
+  filterContainer: {
+    // Container for MonthFilter
+  },
+  filterButton: {
+    borderRadius: 12,
     overflow: 'hidden',
     minWidth: 120,
     maxWidth: 160,
     ...getPlatformShadow('md'),
   },
-  badge: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.md,
-    ...getPlatformShadow('sm'),
-  },
-  badgeText: {
-    color: theme.colors.textInverse,
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('700'),
-    fontFamily: theme.typography.fontFamily,
-    letterSpacing: 1,
-    ...(isRTL ? { marginRight: theme.spacing.xs } : { marginLeft: theme.spacing.xs }),
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  statusBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...getPlatformShadow('sm'),
-  },
-  body: {
-    alignItems: isRTL ? 'flex-start' : 'flex-start',
+
+  // Balance section
+  balanceSection: {
     zIndex: 1,
-  },
-  greetingContainer: {
-    marginBottom: theme.spacing.sm,
+    paddingLeft: isRTL ? 0 : 4,
+    paddingRight: isRTL ? 4 : 0,
   },
   greeting: {
-    fontSize: theme.typography.sizes.lg,
-    color: 'rgba(255, 255, 255, 0.95)',
-    fontWeight: getPlatformFontWeight('600'),
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  label: {
-    fontSize: theme.typography.sizes.sm,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: theme.spacing.sm,
+    fontSize: 15,
+    color: 'rgba(255, 255, 255, 0.75)',
     fontWeight: getPlatformFontWeight('500'),
     fontFamily: theme.typography.fontFamily,
+    marginBottom: 6,
     textAlign: 'right',
     writingDirection: 'rtl',
-    letterSpacing: 0.5,
   },
-  balanceContainer: {
+  balanceRow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
   },
-  balance: {
-    fontSize: 32,
+  balanceAmount: {
+    fontSize: 36,
     fontWeight: getPlatformFontWeight('800'),
-    color: theme.colors.textInverse,
-    letterSpacing: -1.5,
+    color: '#FFFFFF',
+    letterSpacing: -1,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    textShadowRadius: 8,
   },
-  warningIcon: {
-    ...(isRTL ? { marginRight: theme.spacing.sm } : { marginLeft: theme.spacing.sm }),
-    opacity: 0.9,
+  warningBadge: {
+    ...(isRTL ? { marginRight: 10 } : { marginLeft: 10 }),
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  filterButton: {
-    marginBottom: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    overflow: 'hidden',
-    ...getPlatformShadow('sm'),
-  },
-  filterButtonGradient: {
+  periodRow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    gap: theme.spacing.xs,
+    marginTop: 8,
   },
-  filterButtonText: {
-    flex: 1,
-    color: theme.colors.textInverse,
-    fontSize: theme.typography.sizes.sm,
-    fontWeight: getPlatformFontWeight('600'),
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
-    writingDirection: 'rtl',
+  periodDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#60A5FA',
+    ...(isRTL ? { marginLeft: 8 } : { marginRight: 8 }),
   },
   periodLabel: {
-    fontSize: theme.typography.sizes.xs,
-    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.7)',
     fontFamily: theme.typography.fontFamily,
-    marginTop: theme.spacing.xs,
     textAlign: 'right',
     writingDirection: 'rtl',
+    letterSpacing: 0.3,
+  },
+
+  // Accent line
+  accentLine: {
+    marginTop: 16,
+    marginHorizontal: -20,
+    height: 1,
+  },
+  accentLineGradient: {
+    flex: 1,
+    height: 1,
   },
 });

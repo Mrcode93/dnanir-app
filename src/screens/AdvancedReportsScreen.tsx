@@ -6,25 +6,31 @@ import {
   Text,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Searchbar, Button } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
+import { useAppTheme, useThemedStyles } from '../utils/theme-context';
 import { generateAdvancedReport, exportReportToCSV, AdvancedReportData } from '../services/advancedReportsService';
+import { generateAdvancedPDFReport, sharePDF } from '../services/pdfService';
 import { useCurrency } from '../hooks/useCurrency';
 import { ReportFilter } from '../types';
 import { EXPENSE_CATEGORIES, INCOME_SOURCES } from '../types';
 import { getCustomCategories } from '../database/database';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 
 export const AdvancedReportsScreen = ({ navigation }: any) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const { formatCurrency } = useCurrency();
   const [reportData, setReportData] = useState<AdvancedReportData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [exportingPDF, setExportingPDF] = useState(false);
   const [filter, setFilter] = useState<ReportFilter>({});
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
@@ -67,10 +73,27 @@ export const AdvancedReportsScreen = ({ navigation }: any) => {
       const csv = await exportReportToCSV(filter);
       const fileUri = FileSystem.documentDirectory + `report_${Date.now()}.csv`;
       await FileSystem.writeAsStringAsync(fileUri, csv, { encoding: FileSystem.EncodingType.UTF8 });
-      await Sharing.shareAsync(fileUri);
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'text/csv',
+        dialogTitle: 'تصدير التقرير',
+      });
     } catch (error) {
       console.error('Error exporting CSV:', error);
       Alert.alert('خطأ', 'حدث خطأ أثناء تصدير التقرير');
+    }
+  };
+
+  const handleExportPDF = async () => {
+    if (!reportData) return;
+    try {
+      setExportingPDF(true);
+      const uri = await generateAdvancedPDFReport(reportData);
+      await sharePDF(uri);
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      Alert.alert('خطأ', 'حدث خطأ أثناء تصدير PDF');
+    } finally {
+      setExportingPDF(false);
     }
   };
 
@@ -102,15 +125,8 @@ export const AdvancedReportsScreen = ({ navigation }: any) => {
     generateReport();
   }, [filter]);
 
-  const allCategories = [
-    ...Object.keys(EXPENSE_CATEGORIES),
-    ...customCategories.map(c => c.name),
-  ];
-
-  const allSources = [
-    ...Object.keys(INCOME_SOURCES),
-    ...customSources.map(s => s.name),
-  ];
+  const allCategories = customCategories.map(c => c.name);
+  const allSources = customSources.map(s => s.name);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -121,7 +137,7 @@ export const AdvancedReportsScreen = ({ navigation }: any) => {
           style={styles.filterCard}
         >
           <Text style={styles.sectionTitle}>الفلاتر</Text>
-          
+
           <View style={styles.filterGroup}>
             <Text style={styles.filterLabel}>من تاريخ</Text>
             <TouchableOpacity
@@ -129,7 +145,7 @@ export const AdvancedReportsScreen = ({ navigation }: any) => {
               onPress={() => setShowStartDatePicker(true)}
             >
               <Text style={styles.dateText}>
-                {filter.startDate 
+                {filter.startDate
                   ? new Date(filter.startDate).toLocaleDateString('ar-IQ')
                   : 'اختر التاريخ'}
               </Text>
@@ -157,7 +173,7 @@ export const AdvancedReportsScreen = ({ navigation }: any) => {
               onPress={() => setShowEndDatePicker(true)}
             >
               <Text style={styles.dateText}>
-                {filter.endDate 
+                {filter.endDate
                   ? new Date(filter.endDate).toLocaleDateString('ar-IQ')
                   : 'اختر التاريخ'}
               </Text>
@@ -307,19 +323,41 @@ export const AdvancedReportsScreen = ({ navigation }: any) => {
               ))}
             </LinearGradient>
 
-            {/* Export Button */}
-            <TouchableOpacity
-              style={styles.exportButton}
-              onPress={handleExportCSV}
-            >
-              <LinearGradient
-                colors={[theme.colors.primary, '#2563EB']}
-                style={styles.exportButtonGradient}
+            {/* Export Buttons */}
+            <View style={styles.exportButtonsContainer}>
+              <TouchableOpacity
+                style={[styles.exportButton, { flex: 1, marginBottom: 0 }]}
+                onPress={handleExportCSV}
               >
-                <Ionicons name="download" size={20} color={theme.colors.textInverse} />
-                <Text style={styles.exportButtonText}>تصدير CSV</Text>
-              </LinearGradient>
-            </TouchableOpacity>
+                <LinearGradient
+                  colors={['#4B5563', '#374151']}
+                  style={styles.exportButtonGradient}
+                >
+                  <Ionicons name="document-text" size={20} color={theme.colors.textInverse} />
+                  <Text style={styles.exportButtonText}>تصدير CSV</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.exportButton, { flex: 1, marginBottom: 0 }]}
+                onPress={handleExportPDF}
+                disabled={exportingPDF}
+              >
+                <LinearGradient
+                  colors={[theme.colors.primary, '#2563EB']}
+                  style={styles.exportButtonGradient}
+                >
+                  {exportingPDF ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="document" size={20} color={theme.colors.textInverse} />
+                      <Text style={styles.exportButtonText}>تصدير PDF</Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
           </>
         )}
       </ScrollView>
@@ -327,7 +365,7 @@ export const AdvancedReportsScreen = ({ navigation }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -337,6 +375,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: theme.spacing.md,
+    paddingBottom: 40,
   },
   filterCard: {
     padding: theme.spacing.lg,
@@ -395,7 +434,7 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.full,
+    borderRadius: theme.borderRadius.round,
     backgroundColor: theme.colors.surfaceLight,
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -531,6 +570,10 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
     marginTop: theme.spacing.md,
+  },
+  exportButtonsContainer: {
+    flexDirection: 'row-reverse',
+    gap: theme.spacing.md,
     marginBottom: theme.spacing.xl,
   },
   exportButtonGradient: {

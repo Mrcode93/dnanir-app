@@ -16,7 +16,7 @@ import { TextInput, IconButton } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { Expense, ExpenseCategory, EXPENSE_CATEGORIES, CURRENCIES } from '../types';
 import { addExpense, updateExpense, getExpenseShortcuts, addExpenseShortcut, deleteExpenseShortcut, updateExpenseShortcut, ExpenseShortcut, getCustomCategories, CustomCategory } from '../database/database';
 import { alertService } from '../services/alertService';
@@ -35,6 +35,8 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
   navigation,
   route,
 }) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const { currencyCode, formatCurrency } = useCurrency();
   const expense = route?.params?.expense as Expense | undefined;
 
@@ -149,6 +151,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
       const expenseData = {
         title: finalTitle,
         amount: Number(amount),
+        base_amount: convertedAmount !== null ? convertedAmount : Number(amount),
         category: category,
         date: formatDateLocal(date),
         description: description.trim(),
@@ -317,8 +320,15 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
 
 
           {/* Shortcuts (Mini) */}
-          {!expense && shortcuts.length > 0 && (
+          {!expense && (
             <View style={styles.shortcutsRow}>
+              <View style={styles.shortcutsSectionHeader}>
+                <Text style={styles.shortcutsSectionTitle}>اختصارات سريعة</Text>
+                <TouchableOpacity style={styles.addShortcutButton} onPress={() => setShowAddShortcutModal(true)}>
+                  <Ionicons name="add" size={18} color={theme.colors.primary} />
+                  <Text style={styles.addShortcutButtonText}>إضافة اختصار</Text>
+                </TouchableOpacity>
+              </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shortcutsContent}>
                 <TouchableOpacity style={styles.addShortcutMini} onPress={() => setShowAddShortcutModal(true)}>
                   <Ionicons name="add" size={20} color={theme.colors.primary} />
@@ -457,24 +467,26 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
         </Pressable>
       </Modal>
 
-      {/* Add Shortcut Modal - simplified UI */}
+      {/* Add Shortcut Modal - لا يُغلق عند النقر على المحتوى */}
       <Modal visible={showAddShortcutModal} transparent animationType="fade" onRequestClose={() => setShowAddShortcutModal(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setShowAddShortcutModal(false)}>
-          <View style={styles.alertBox}>
+        <View style={styles.modalOverlayCentered}>
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setShowAddShortcutModal(false)} />
+          <View style={styles.alertBox} onStartShouldSetResponder={() => true}>
             <Text style={styles.alertTitle}>إضافة اختصار</Text>
-            <Text style={styles.alertMsg}>هل تريد حفظ هذا المصروف كاختصار؟</Text>
+            <Text style={styles.alertMsg}>هل تريد حفظ هذا المصروف كاختصار؟ (الاسم، الفئة والمبلغ الحالية)</Text>
             <View style={styles.alertActions}>
               <TouchableOpacity style={styles.alertBtn} onPress={() => setShowAddShortcutModal(false)}><Text style={styles.alertBtnText}>إلغاء</Text></TouchableOpacity>
               <TouchableOpacity style={[styles.alertBtn, { backgroundColor: theme.colors.primary }]} onPress={handleAddShortcut}><Text style={[styles.alertBtnText, { color: '#FFF' }]}>حفظ</Text></TouchableOpacity>
             </View>
           </View>
-        </Pressable>
+        </View>
       </Modal>
 
-      {/* Edit Shortcut Modal - simplified reuse of main state */}
-      <Modal visible={showEditShortcutModal} transparent animationType="fade">
-        <Pressable style={styles.modalOverlay} onPress={handleCancelEditShortcut}>
-          <View style={styles.alertBox}>
+      {/* Edit Shortcut Modal */}
+      <Modal visible={showEditShortcutModal} transparent animationType="fade" onRequestClose={handleCancelEditShortcut}>
+        <View style={styles.modalOverlayCentered}>
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={handleCancelEditShortcut} />
+          <View style={styles.alertBox} onStartShouldSetResponder={() => true}>
             <Text style={styles.alertTitle}>تعديل الاختصار</Text>
             <Text style={styles.alertMsg}>اضغط تحديث لحفظ التغييرات التي قمت بها في النموذج.</Text>
             <View style={styles.alertActions}>
@@ -482,7 +494,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
               <TouchableOpacity style={[styles.alertBtn, { backgroundColor: theme.colors.primary }]} onPress={handleUpdateShortcut}><Text style={[styles.alertBtnText, { color: '#FFF' }]}>تحديث</Text></TouchableOpacity>
             </View>
           </View>
-        </Pressable>
+        </View>
       </Modal>
 
     </SafeAreaView>
@@ -492,7 +504,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
 // ActivityIndicator placeholder if not imported
 const ActivityIndicator = ({ color }: { color: string }) => <Text style={{ color }}>...</Text>;
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   flex1: { flex: 1 },
   container: {
     flex: 1,
@@ -502,8 +514,8 @@ const styles = StyleSheet.create({
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
   },
   closeBtn: {
     padding: 8,
@@ -517,13 +529,13 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   scrollContent: {
-    paddingBottom: 100,
+    paddingBottom: 72,
   },
   amountSection: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 12,
     marginBottom: 8,
   },
   currencySymbol: {
@@ -557,7 +569,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 20,
     gap: 4,
-    marginBottom: 30,
+    marginBottom: 20,
     ...getPlatformShadow('sm'),
   },
   currencyPillText: {
@@ -567,11 +579,38 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   shortcutsRow: {
-    marginBottom: 20,
+    marginBottom: 12,
+  },
+  shortcutsSectionHeader: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  shortcutsSectionTitle: {
+    fontSize: 14,
+    fontWeight: getPlatformFontWeight('600'),
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
+  },
+  addShortcutButton: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: theme.colors.primary + '18',
+  },
+  addShortcutButtonText: {
+    fontSize: 13,
+    fontWeight: getPlatformFontWeight('600'),
+    color: theme.colors.primary,
+    fontFamily: theme.typography.fontFamily,
   },
   shortcutsContent: {
-    paddingHorizontal: 20,
-    gap: 12,
+    paddingHorizontal: 12,
+    gap: 8,
     flexDirection: isRTL ? 'row-reverse' : 'row',
   },
   addShortcutMini: {
@@ -585,7 +624,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   shortcutChip: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
     alignItems: 'center',
@@ -604,13 +643,13 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: theme.colors.surface,
-    marginHorizontal: 20,
-    borderRadius: 24,
-    padding: 20,
+    marginHorizontal: 16,
+    borderRadius: 18,
+    padding: 16,
     ...getPlatformShadow('sm'),
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   sectionLabel: {
     fontSize: 14,
@@ -621,14 +660,14 @@ const styles = StyleSheet.create({
   },
   categoriesList: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
-    gap: 16,
+    gap: 10,
   },
   catItem: {
     alignItems: 'center',
     gap: 8,
     borderWidth: 2,
     padding: 4,
-    borderRadius: 24,
+    borderRadius: 18,
   },
   catItemActive: {
     // styles handled inline for color
@@ -650,7 +689,7 @@ const styles = StyleSheet.create({
   fieldRow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
     paddingVertical: 8,
   },
   fieldIcon: {
@@ -685,11 +724,11 @@ const styles = StyleSheet.create({
     marginLeft: 48, // Indent to align with text
   },
   footer: {
-    padding: 20,
+    padding: 16,
     backgroundColor: theme.colors.background,
   },
   saveBtn: {
-    height: 56,
+    height: 48,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
@@ -708,17 +747,23 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
+  modalOverlayCentered: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   modalContent: {
     backgroundColor: theme.colors.surfaceCard,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 24,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
     maxHeight: '60%',
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
-    marginBottom: 20,
+    marginBottom: 12,
     textAlign: 'center',
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
@@ -726,7 +771,7 @@ const styles = StyleSheet.create({
   modalItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
@@ -738,10 +783,8 @@ const styles = StyleSheet.create({
   alertBox: {
     backgroundColor: theme.colors.surface,
     width: '85%',
-    borderRadius: 24,
-    padding: 24,
-    alignSelf: 'center',
-    top: '30%',
+    borderRadius: 18,
+    padding: 16,
     ...getPlatformShadow('lg'),
   },
   alertTitle: {
@@ -755,12 +798,12 @@ const styles = StyleSheet.create({
   alertMsg: {
     textAlign: 'center',
     color: theme.colors.textSecondary,
-    marginBottom: 24,
+    marginBottom: 16,
     fontFamily: theme.typography.fontFamily,
   },
   alertActions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
   },
   alertBtn: {
     flex: 1,

@@ -1,9 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_CONFIG, getApiUrl } from '../config/api';
-
-const TOKEN_KEY = '@dnanir_access_token';
-const REFRESH_TOKEN_KEY = '@dnanir_refresh_token';
-const USER_KEY = '@dnanir_user';
+import { getApiUrl } from '../config/api';
+import { authStorage } from './authStorage';
 
 export interface ApiResponse<T = any> {
   data?: T;
@@ -22,7 +18,7 @@ export interface ApiError {
  */
 export const getAccessToken = async (): Promise<string | null> => {
   try {
-    return await AsyncStorage.getItem(TOKEN_KEY);
+    return await authStorage.getAccessToken();
   } catch (error) {
     console.error('Error getting access token:', error);
     return null;
@@ -34,7 +30,7 @@ export const getAccessToken = async (): Promise<string | null> => {
  */
 export const setAccessToken = async (token: string): Promise<void> => {
   try {
-    await AsyncStorage.setItem(TOKEN_KEY, token);
+    await authStorage.setAccessToken(token);
   } catch (error) {
     console.error('Error storing access token:', error);
   }
@@ -45,7 +41,7 @@ export const setAccessToken = async (token: string): Promise<void> => {
  */
 export const getRefreshToken = async (): Promise<string | null> => {
   try {
-    return await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+    return await authStorage.getRefreshToken();
   } catch (error) {
     console.error('Error getting refresh token:', error);
     return null;
@@ -57,7 +53,7 @@ export const getRefreshToken = async (): Promise<string | null> => {
  */
 export const setRefreshToken = async (token: string): Promise<void> => {
   try {
-    await AsyncStorage.setItem(REFRESH_TOKEN_KEY, token);
+    await authStorage.setRefreshToken(token);
   } catch (error) {
     console.error('Error storing refresh token:', error);
   }
@@ -68,7 +64,7 @@ export const setRefreshToken = async (token: string): Promise<void> => {
  */
 export const setUser = async (user: any): Promise<void> => {
   try {
-    await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
+    await authStorage.setUser(user);
   } catch (error) {
     console.error('Error storing user:', error);
   }
@@ -79,8 +75,7 @@ export const setUser = async (user: any): Promise<void> => {
  */
 export const getUser = async (): Promise<any | null> => {
   try {
-    const userStr = await AsyncStorage.getItem(USER_KEY);
-    return userStr ? JSON.parse(userStr) : null;
+    return await authStorage.getUser();
   } catch (error) {
     console.error('Error getting user:', error);
     return null;
@@ -92,7 +87,7 @@ export const getUser = async (): Promise<any | null> => {
  */
 export const clearAuthData = async (): Promise<void> => {
   try {
-    await AsyncStorage.multiRemove([TOKEN_KEY, REFRESH_TOKEN_KEY, USER_KEY]);
+    await authStorage.clearAuthData();
   } catch (error) {
     console.error('Error clearing auth data:', error);
   }

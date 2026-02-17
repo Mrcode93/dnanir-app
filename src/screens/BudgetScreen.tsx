@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,12 +10,14 @@ import {
   Animated,
   Pressable,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Searchbar } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
+import { useAppTheme, useThemedStyles } from '../utils/theme-context';
 import { getBudgets, deleteBudget, Budget } from '../database/database';
 import { calculateBudgetStatus, BudgetStatus } from '../services/budgetService';
 import { useCurrency } from '../hooks/useCurrency';
@@ -29,6 +31,8 @@ import { MonthFilter } from '../components/MonthFilter';
 import { getMonthData } from '../services/financialService';
 
 export const BudgetScreen = ({ navigation, route }: any) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const { formatCurrency, currencyCode } = useCurrency();
   const [budgets, setBudgets] = useState<BudgetStatus[]>([]);
   const [filteredBudgets, setFilteredBudgets] = useState<BudgetStatus[]>([]);
@@ -56,7 +60,7 @@ export const BudgetScreen = ({ navigation, route }: any) => {
       const { getExpenses, getBudgets } = await import('../database/database');
       const allExpenses = await getExpenses();
       const allBudgets = await getBudgets();
-      
+
       const monthsSet = new Set<string>();
       // Add months from expenses
       allExpenses.forEach(expense => {
@@ -69,23 +73,23 @@ export const BudgetScreen = ({ navigation, route }: any) => {
       allBudgets.forEach(budget => {
         monthsSet.add(`${budget.year}-${parseInt(budget.month)}`);
       });
-      
+
       const months = Array.from(monthsSet).map(key => {
         const [year, month] = key.split('-').map(Number);
         return { year, month };
       });
       setAvailableMonths(months);
-      
+
       // Get month data based on selected month
       let monthData;
       let monthBudgets: any[] = [];
-      
+
       if (selectedMonth && (selectedMonth.year !== 0 || selectedMonth.month !== 0)) {
         // Specific month selected
         monthData = await getMonthData(selectedMonth.year, selectedMonth.month);
         const targetMonth = selectedMonth.month.toString().padStart(2, '0');
         const targetYear = selectedMonth.year;
-        
+
         // Get budgets for the selected month
         const { getBudgets } = await import('../database/database');
         monthBudgets = await getBudgets(targetMonth, targetYear);
@@ -94,27 +98,44 @@ export const BudgetScreen = ({ navigation, route }: any) => {
         const { getExpenses } = await import('../database/database');
         const allExpenses = await getExpenses();
         const allIncome = await (await import('../database/database')).getIncome();
-        
+
         monthData = {
           expenses: allExpenses,
           income: allIncome,
         };
-        
+
         // Get all budgets
         const { getBudgets } = await import('../database/database');
         monthBudgets = await getBudgets(); // No parameters = all budgets
       }
-      
+
+      const customCats = await getCustomCategories('expense');
+      setCustomCategories(customCats);
+
       // Calculate budget status for selected period
       const statuses = monthBudgets.map(budget => {
         const periodExpenses = monthData.expenses.filter(
-          (expense) => expense.category === budget.category
+          (expense) => {
+            const expenseCat = expense.category;
+            const budgetCat = budget.category;
+
+            // Direct match
+            if (expenseCat === budgetCat) return true;
+
+            // Match English budget category with Arabic expense category
+            if (EXPENSE_CATEGORIES[budgetCat as keyof typeof EXPENSE_CATEGORIES] === expenseCat) return true;
+
+            // Match Arabic budget category with English expense category
+            if (EXPENSE_CATEGORIES[expenseCat as keyof typeof EXPENSE_CATEGORIES] === budgetCat) return true;
+
+            return false;
+          }
         );
         const spent = periodExpenses.reduce((sum, expense) => sum + expense.amount, 0);
         const remaining = budget.amount - spent;
         const percentage = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
         const isExceeded = spent > budget.amount;
-        
+
         return {
           budget,
           spent,
@@ -123,11 +144,8 @@ export const BudgetScreen = ({ navigation, route }: any) => {
           isExceeded,
         };
       });
-      
+
       setBudgets(statuses);
-      
-      const customCats = await getCustomCategories('expense');
-      setCustomCategories(customCats);
 
       // Convert amounts for each budget
       const converted: Record<number, number> = {};
@@ -161,38 +179,6 @@ export const BudgetScreen = ({ navigation, route }: any) => {
       navigation.setParams({ action: undefined });
     }
   }, [route?.params]);
-
-  useLayoutEffect(() => {
-    const parent = navigation.getParent();
-    if (parent) {
-      parent.setOptions({
-        tabBarStyle: { display: 'none' },
-        tabBarShowLabel: false,
-      });
-    }
-    return () => {
-      if (parent) {
-        parent.setOptions({
-          tabBarStyle: {
-            backgroundColor: theme.colors.surfaceCard,
-            borderTopColor: theme.colors.border,
-            borderTopWidth: 1,
-            height: 80,
-            paddingBottom: 20,
-            paddingTop: 8,
-            elevation: 8,
-            shadowColor: theme.colors.shadow,
-            shadowOffset: { width: 0, height: -2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 8,
-            flexDirection: 'row',
-            display: 'flex',
-          },
-          tabBarShowLabel: true,
-        });
-      }
-    };
-  }, [navigation]);
 
   useEffect(() => {
     let filtered = budgets;
@@ -252,7 +238,7 @@ export const BudgetScreen = ({ navigation, route }: any) => {
 
   const confirmDeleteBudget = async () => {
     if (budgetToDelete === null) return;
-    
+
     try {
       await deleteBudget(budgetToDelete);
       await loadData();
@@ -268,9 +254,9 @@ export const BudgetScreen = ({ navigation, route }: any) => {
   };
 
   const getCategoryName = (category: string) => {
-    return EXPENSE_CATEGORIES[category as keyof typeof EXPENSE_CATEGORIES] || 
-           customCategories.find(c => c.name === category)?.name || 
-           category;
+    return EXPENSE_CATEGORIES[category as keyof typeof EXPENSE_CATEGORIES] ||
+      customCategories.find(c => c.name === category)?.name ||
+      category;
   };
 
   const getCategoryIcon = (category: string) => {
@@ -287,10 +273,7 @@ export const BudgetScreen = ({ navigation, route }: any) => {
     return categoryIcons[category] || customCategories.find(c => c.name === category)?.icon || 'ellipse';
   };
 
-  const allCategories = [
-    ...Object.keys(EXPENSE_CATEGORIES),
-    ...customCategories.map(c => c.name),
-  ];
+  const allCategories = customCategories.map(c => c.name);
 
   const getSelectedCategoryLabel = () => {
     if (selectedCategory === 'all') return 'الكل';
@@ -354,8 +337,8 @@ export const BudgetScreen = ({ navigation, route }: any) => {
                   backgroundColor: isExceeded
                     ? '#EF4444'
                     : isWarning
-                    ? '#F59E0B'
-                    : theme.colors.primary,
+                      ? '#F59E0B'
+                      : theme.colors.primary,
                 },
               ]}
             />
@@ -399,241 +382,139 @@ export const BudgetScreen = ({ navigation, route }: any) => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={[]}>
-      {/* Header with Search and Filter */}
-      <View style={styles.header}>
-        <View style={styles.searchContainer}>
-          <Searchbar
-            placeholder="البحث في الميزانيات..."
-            onChangeText={setSearchQuery}
-            value={searchQuery}
-            style={styles.searchBar}
-            inputStyle={styles.searchInput}
-            placeholderTextColor={theme.colors.textMuted}
-          />
-        </View>
-        
-        {/* Month Filter */}
-        <View style={styles.monthFilterContainer}>
-          <MonthFilter
-            selectedMonth={selectedMonth}
-            onMonthChange={(year, month) => setSelectedMonth({ year, month })}
-            showAllOption={true}
-            availableMonths={availableMonths}
-          />
-        </View>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+      <FlatList
+        data={filteredBudgets}
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <View style={styles.searchContainer}>
+              <Searchbar
+                placeholder="البحث في الميزانيات..."
+                onChangeText={setSearchQuery}
+                value={searchQuery}
+                style={styles.searchBar}
+                inputStyle={styles.searchInput}
+                placeholderTextColor={theme.colors.textMuted}
+              />
+            </View>
 
-        {/* Filter Buttons Row */}
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterRow}
-          contentContainerStyle={styles.filterRowContent}
-        >
-          <TouchableOpacity
-            onPress={() => {
-              setSelectedCategory('all');
-            }}
-            style={styles.filterButton}
-            activeOpacity={0.7}
-          >
-            {selectedCategory === 'all' ? (
-              <LinearGradient
-                colors={theme.gradients.primary as any}
-                style={styles.filterButtonGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <Ionicons name="apps" size={16} color={theme.colors.textInverse} />
-                <Text style={styles.filterButtonTextActive}>الكل</Text>
-              </LinearGradient>
-            ) : (
-              <View style={styles.filterButtonDefault}>
-                <Ionicons name="apps-outline" size={16} color={theme.colors.textSecondary} />
-                <Text style={styles.filterButtonText}>الكل</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          {allCategories.slice(0, 8).map((category) => {
-            const isSelected = selectedCategory === category;
-            return (
+            {/* Month Filter */}
+            <View style={styles.monthFilterContainer}>
+              <MonthFilter
+                selectedMonth={selectedMonth}
+                onMonthChange={(year, month) => setSelectedMonth({ year, month })}
+                showAllOption={true}
+                availableMonths={availableMonths}
+              />
+            </View>
+
+            {/* Filter Buttons Row */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.filterRow}
+              contentContainerStyle={styles.filterRowContent}
+            >
               <TouchableOpacity
-                key={category}
                 onPress={() => {
-                  setSelectedCategory(category);
+                  setSelectedCategory('all');
                 }}
                 style={styles.filterButton}
                 activeOpacity={0.7}
               >
-                {isSelected ? (
+                {selectedCategory === 'all' ? (
                   <LinearGradient
-                    colors={theme.gradients.info as any}
+                    colors={theme.gradients.primary as any}
                     style={styles.filterButtonGradient}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                   >
-                    <Ionicons
-                      name={getCategoryIcon(category) as any}
-                      size={16}
-                      color={theme.colors.textInverse}
-                    />
-                    <Text style={styles.filterButtonTextActive} numberOfLines={1}>
-                      {getCategoryName(category)}
-                    </Text>
+                    <Ionicons name="apps" size={16} color={theme.colors.textInverse} />
+                    <Text style={styles.filterButtonTextActive}>الكل</Text>
                   </LinearGradient>
                 ) : (
                   <View style={styles.filterButtonDefault}>
-                    <Ionicons
-                      name={getCategoryIcon(category) as any}
-                      size={16}
-                      color={theme.colors.textSecondary}
-                    />
-                    <Text style={styles.filterButtonText} numberOfLines={1}>
-                      {getCategoryName(category)}
-                    </Text>
+                    <Ionicons name="apps-outline" size={16} color={theme.colors.textSecondary} />
+                    <Text style={styles.filterButtonText}>الكل</Text>
                   </View>
                 )}
               </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        {/* Summary Cards */}
-        <View style={styles.summaryRow}>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>إجمالي الميزانية</Text>
-            <Text style={styles.summaryAmount}>{formatCurrency(totalBudget)}</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>المصروف</Text>
-            <Text style={[styles.summaryAmount, { color: '#EF4444' }]}>
-              {formatCurrency(totalSpent)}
-            </Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>المتبقي</Text>
-            <Text style={[
-              styles.summaryAmount,
-              { color: totalRemaining >= 0 ? '#10B981' : '#EF4444' }
-            ]}>
-              {formatCurrency(totalRemaining)}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Filter Menu Modal */}
-      <Modal
-        visible={showFilterMenu}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowFilterMenu(false)}
-      >
-        <Pressable
-          style={styles.filterMenuOverlay}
-          onPress={() => setShowFilterMenu(false)}
-        >
-          <Animated.View
-            style={[
-              styles.filterMenuContainer,
-              {
-                opacity: filterMenuAnim,
-                transform: [
-                  {
-                    scale: filterMenuAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.9, 1],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            <Pressable onPress={(e) => e.stopPropagation()}>
-              <View style={styles.filterMenuHeader}>
-                <Text style={styles.filterMenuTitle}>اختر الفئة</Text>
-                <TouchableOpacity
-                  onPress={() => setShowFilterMenu(false)}
-                  style={styles.filterMenuCloseButton}
-                >
-                  <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
-                </TouchableOpacity>
-              </View>
-              <ScrollView style={styles.filterMenuScroll} contentContainerStyle={styles.filterMenuContent}>
-                <Pressable
-                  onPress={() => {
-                    setSelectedCategory('all');
-                    setShowFilterMenu(false);
-                  }}
-                  style={styles.filterMenuItem}
-                >
-                  <View style={[
-                    styles.filterMenuItemDefault,
-                    selectedCategory === 'all' && styles.filterMenuItemActive
-                  ]}>
-                    <Ionicons 
-                      name="apps" 
-                      size={20} 
-                      color={selectedCategory === 'all' ? theme.colors.textInverse : theme.colors.textPrimary} 
-                    />
-                    <Text style={[
-                      styles.filterMenuItemText,
-                      selectedCategory === 'all' && styles.filterMenuItemTextActive
-                    ]}>
-                      الكل
-                    </Text>
-                  </View>
-                </Pressable>
-                {allCategories.map((category) => (
-                  <Pressable
+              {allCategories.map((category) => {
+                const isSelected = selectedCategory === category;
+                return (
+                  <TouchableOpacity
                     key={category}
                     onPress={() => {
                       setSelectedCategory(category);
-                      setShowFilterMenu(false);
                     }}
-                    style={styles.filterMenuItem}
+                    style={styles.filterButton}
+                    activeOpacity={0.7}
                   >
-                    {selectedCategory === category ? (
+                    {isSelected ? (
                       <LinearGradient
                         colors={theme.gradients.info as any}
-                        style={styles.filterMenuItemGradient}
+                        style={styles.filterButtonGradient}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                       >
-                        <Ionicons 
-                          name={getCategoryIcon(category) as any} 
-                          size={20} 
-                          color={theme.colors.textInverse} 
+                        <Ionicons
+                          name={getCategoryIcon(category) as any}
+                          size={16}
+                          color={theme.colors.textInverse}
                         />
-                        <Text style={styles.filterMenuItemTextActive}>
+                        <Text style={styles.filterButtonTextActive} numberOfLines={1}>
                           {getCategoryName(category)}
                         </Text>
                       </LinearGradient>
                     ) : (
-                      <View style={styles.filterMenuItemDefault}>
-                        <Ionicons 
-                          name={getCategoryIcon(category) as any} 
-                          size={20} 
-                          color={theme.colors.textPrimary} 
+                      <View style={styles.filterButtonDefault}>
+                        <Ionicons
+                          name={getCategoryIcon(category) as any}
+                          size={16}
+                          color={theme.colors.textSecondary}
                         />
-                        <Text style={styles.filterMenuItemText}>
+                        <Text style={styles.filterButtonText} numberOfLines={1}>
                           {getCategoryName(category)}
                         </Text>
                       </View>
                     )}
-                  </Pressable>
-                ))}
-              </ScrollView>
-            </Pressable>
-          </Animated.View>
-        </Pressable>
-      </Modal>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
 
-      <FlatList
-        data={filteredBudgets}
+            {/* Summary Cards */}
+            <View style={styles.summaryRow}>
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryLabel}>إجمالي الميزانية</Text>
+                <Text style={styles.summaryAmount}>{formatCurrency(totalBudget)}</Text>
+              </View>
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryLabel}>المصروف</Text>
+                <Text style={[styles.summaryAmount, { color: '#EF4444' }]}>
+                  {formatCurrency(totalSpent)}
+                </Text>
+              </View>
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryLabel}>المتبقي</Text>
+                <Text style={[
+                  styles.summaryAmount,
+                  { color: totalRemaining >= 0 ? '#10B981' : '#EF4444' }
+                ]}>
+                  {formatCurrency(totalRemaining)}
+                </Text>
+              </View>
+            </View>
+          </View>
+        }
         renderItem={renderBudget}
         keyExtractor={(item) => item.budget.id.toString()}
         contentContainerStyle={styles.listContent}
+        initialNumToRender={10}
+        maxToRenderPerBatch={8}
+        windowSize={7}
+        updateCellsBatchingPeriod={50}
+        removeClippedSubviews={Platform.OS === 'android'}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -645,7 +526,7 @@ export const BudgetScreen = ({ navigation, route }: any) => {
               {searchQuery || selectedCategory !== 'all' ? 'لا توجد نتائج' : 'لا توجد ميزانيات محددة'}
             </Text>
             <Text style={styles.emptySubtext}>
-              {searchQuery || selectedCategory !== 'all' 
+              {searchQuery || selectedCategory !== 'all'
                 ? 'جرب البحث بكلمات مختلفة أو تغيير الفلتر'
                 : 'أضف ميزانية جديدة لتتبع إنفاقك'}
             </Text>
@@ -707,7 +588,7 @@ export const BudgetScreen = ({ navigation, route }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -741,6 +622,7 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     marginBottom: theme.spacing.sm,
+    direction: 'ltr',
   },
   monthFilterContainer: {
     marginBottom: theme.spacing.md,

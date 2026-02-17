@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { 
   getDebt,
   getDebtInstallments,
@@ -29,6 +29,8 @@ import { ConfirmAlert } from '../components/ConfirmAlert';
 import { PayDebtModal } from '../components/PayDebtModal';
 
 export const DebtDetailsScreen = ({ navigation, route }: any) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const { formatCurrency } = useCurrency();
   const [debt, setDebt] = useState<Debt | null>(null);
   const [installments, setInstallments] = useState<DebtInstallment[]>([]);
@@ -64,38 +66,6 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
     return unsubscribe;
   }, [navigation, debtId]);
 
-  useLayoutEffect(() => {
-    const parent = navigation.getParent()?.getParent();
-    if (parent) {
-      parent.setOptions({
-        tabBarStyle: { display: 'none' },
-        tabBarShowLabel: false,
-      });
-    }
-    return () => {
-      if (parent) {
-        parent.setOptions({
-          tabBarStyle: {
-            backgroundColor: theme.colors.surfaceCard,
-            borderTopColor: theme.colors.border,
-            borderTopWidth: 1,
-            height: 80,
-            paddingBottom: 20,
-            paddingTop: 8,
-            elevation: 8,
-            shadowColor: theme.colors.shadow,
-            shadowOffset: { width: 0, height: -2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 8,
-            flexDirection: 'row',
-            display: 'flex',
-          },
-          tabBarShowLabel: true,
-        });
-      }
-    };
-  }, [navigation]);
-
   const onRefresh = async () => {
     setRefreshing(true);
     await loadDebtData();
@@ -112,26 +82,29 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
     try {
       await payDebt(debt.id, amount);
       await loadDebtData();
-      const message = amount === debt.remainingAmount
-        ? 'تم دفع الدين بالكامل بنجاح'
-        : `تم دفع ${formatCurrency(amount)} بنجاح`;
+      const isOwedToMe = debt.direction === 'owed_to_me';
+      const message = isOwedToMe
+        ? (amount === debt.remainingAmount ? 'تم تسجيل التسديد بالكامل وتمت إضافته لرصيدك' : `تم تسجيل تسديد ${formatCurrency(amount)} وتمت إضافته لرصيدك`)
+        : (amount === debt.remainingAmount ? 'تم دفع الدين بالكامل بنجاح' : `تم دفع ${formatCurrency(amount)} بنجاح`);
       alertService.success('نجح', message);
       setShowPayModal(false);
     } catch (error) {
       console.error('Error paying debt:', error);
-      alertService.error('خطأ', 'حدث خطأ أثناء دفع الدين');
+      alertService.error('خطأ', debt.direction === 'owed_to_me' ? 'حدث خطأ أثناء تسجيل التسديد' : 'حدث خطأ أثناء دفع الدين');
       throw error;
     }
   };
 
   const handlePayInstallment = async (installment: DebtInstallment) => {
+    if (!debt) return;
     try {
       await payInstallment(installment.id);
       await loadDebtData();
-      alertService.success('نجح', 'تم دفع القسط بنجاح');
+      const isOwedToMe = debt.direction === 'owed_to_me';
+      alertService.success('نجح', isOwedToMe ? 'تم تسجيل تسديد القسط وإضافته لرصيدك' : 'تم دفع القسط بنجاح');
     } catch (error) {
       console.error('Error paying installment:', error);
-      alertService.error('خطأ', 'حدث خطأ أثناء دفع القسط');
+      alertService.error('خطأ', debt.direction === 'owed_to_me' ? 'حدث خطأ أثناء تسجيل تسديد القسط' : 'حدث خطأ أثناء دفع القسط');
     }
   };
 
@@ -236,7 +209,7 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
             <View style={styles.headerIcon}>
               <Ionicons name={typeIcons[debt.type] as any} size={48} color="#FFFFFF" />
             </View>
-            <Text style={styles.debtorName}>مدين لـ: {debt.debtorName}</Text>
+            <Text style={styles.debtorName}>{debt.direction === 'owed_to_me' ? 'مدين لي:' : 'مدين لـ:'} {debt.debtorName}</Text>
             <Text style={styles.debtType}>{DEBT_TYPES[debt.type]}</Text>
             <View style={styles.amountContainer}>
               <Text style={styles.totalAmount}>{formatCurrency(debt.totalAmount)}</Text>
@@ -456,7 +429,7 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
                           style={styles.payInstallmentButtonGradient}
                         >
                           <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
-                          <Text style={styles.payInstallmentButtonText}>دفع</Text>
+                          <Text style={styles.payInstallmentButtonText}>{debt.direction === 'owed_to_me' ? 'تسديد' : 'دفع'}</Text>
                         </LinearGradient>
                       </TouchableOpacity>
                     </TouchableOpacity>
@@ -547,7 +520,7 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
                 style={styles.payFullButtonGradient}
               >
                 <Ionicons name="checkmark-circle" size={24} color="#FFFFFF" />
-                <Text style={styles.payFullButtonText}>دفع الدين</Text>
+                <Text style={styles.payFullButtonText}>{debt.direction === 'owed_to_me' ? 'تسديد (استلام)' : 'دفع الدين'}</Text>
               </LinearGradient>
             </TouchableOpacity>
             <TouchableOpacity
@@ -600,7 +573,7 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -619,49 +592,49 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: theme.spacing.md,
+    padding: theme.spacing.sm,
   },
   headerCard: {
-    borderRadius: theme.borderRadius.xl,
-    padding: theme.spacing.xl,
-    marginBottom: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
     ...getPlatformShadow('lg'),
   },
   headerContent: {
     alignItems: 'center',
   },
   headerIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.xs,
   },
   debtorName: {
     fontSize: theme.typography.sizes.xxl,
     fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.xs,
+    marginBottom: 2,
   },
   debtType: {
     fontSize: theme.typography.sizes.md,
     color: 'rgba(255, 255, 255, 0.9)',
     fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.sm,
   },
   amountContainer: {
     alignItems: 'center',
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
   },
   totalAmount: {
     fontSize: theme.typography.sizes.xxl,
     fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.xs,
+    marginBottom: 2,
   },
   remainingAmount: {
     fontSize: theme.typography.sizes.md,
@@ -672,7 +645,7 @@ const styles = StyleSheet.create({
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     gap: theme.spacing.xs,
-    marginTop: theme.spacing.xs,
+    marginTop: 2,
   },
   paidStatusText: {
     fontSize: theme.typography.sizes.md,
@@ -684,9 +657,9 @@ const styles = StyleSheet.create({
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     gap: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    backgroundColor: 'rgba(35, 9, 9, 0.2)',
     borderRadius: theme.borderRadius.md,
   },
   paidTextHeader: {
@@ -697,16 +670,16 @@ const styles = StyleSheet.create({
   },
   progressCard: {
     backgroundColor: theme.colors.surfaceCard,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
     ...getPlatformShadow('md'),
   },
   paymentSummaryCard: {
     backgroundColor: theme.colors.surfaceCard,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
     borderWidth: 2,
     borderColor: '#10B981',
     ...getPlatformShadow('md'),
@@ -714,8 +687,8 @@ const styles = StyleSheet.create({
   paymentSummaryHeader: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    gap: theme.spacing.md,
-    marginBottom: theme.spacing.lg,
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
   },
   paymentSummaryTitle: {
     fontSize: theme.typography.sizes.xl,
@@ -724,13 +697,13 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   paymentSummaryContent: {
-    gap: theme.spacing.md,
+    gap: theme.spacing.sm,
   },
   paymentSummaryRow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
@@ -749,7 +722,7 @@ const styles = StyleSheet.create({
     flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.xs,
   },
   progressTitle: {
     fontSize: theme.typography.sizes.lg,
@@ -764,17 +737,17 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   progressBarContainer: {
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
   },
   progressBar: {
-    height: 12,
+    height: 10,
     backgroundColor: theme.colors.surfaceLight,
-    borderRadius: theme.borderRadius.md,
+    borderRadius: theme.borderRadius.sm,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: theme.borderRadius.md,
+    borderRadius: theme.borderRadius.sm,
   },
   progressStats: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -787,7 +760,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.sm,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.xs,
+    marginBottom: 2,
   },
   progressStatValue: {
     fontSize: theme.typography.sizes.lg,
@@ -797,9 +770,9 @@ const styles = StyleSheet.create({
   },
   detailsCard: {
     backgroundColor: theme.colors.surfaceCard,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
     ...getPlatformShadow('md'),
   },
   sectionTitle: {
@@ -807,16 +780,16 @@ const styles = StyleSheet.create({
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
     textAlign: isRTL ? 'right' : 'left',
   },
   detailRow: {
-    gap: theme.spacing.md,
+    gap: theme.spacing.sm,
   },
   detailItem: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    gap: theme.spacing.md,
+    gap: theme.spacing.sm,
   },
   detailContent: {
     flex: 1,
@@ -825,7 +798,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.sm,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.xs,
+    marginBottom: 2,
     textAlign: isRTL ? 'right' : 'left',
   },
   detailValue: {
@@ -847,22 +820,22 @@ const styles = StyleSheet.create({
   },
   installmentsCard: {
     backgroundColor: theme.colors.surfaceCard,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
     ...getPlatformShadow('md'),
   },
   sectionHeader: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
   },
   installmentsSummary: {
     backgroundColor: theme.colors.surfaceLight,
-    paddingHorizontal: theme.spacing.md,
+    paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing.xs,
-    borderRadius: theme.borderRadius.md,
+    borderRadius: theme.borderRadius.sm,
   },
   installmentsSummaryText: {
     fontSize: theme.typography.sizes.sm,
@@ -871,23 +844,23 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   installmentsSection: {
-    marginTop: theme.spacing.lg,
+    marginTop: theme.spacing.sm,
   },
   installmentsSubtitle: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
   },
   installmentItem: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: theme.spacing.md,
+    padding: theme.spacing.sm,
     backgroundColor: theme.colors.surfaceLight,
-    borderRadius: theme.borderRadius.md,
-    marginBottom: theme.spacing.sm,
+    borderRadius: theme.borderRadius.sm,
+    marginBottom: theme.spacing.xs,
   },
   paidInstallmentItem: {
     opacity: 0.7,
@@ -896,17 +869,17 @@ const styles = StyleSheet.create({
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     flex: 1,
-    gap: theme.spacing.md,
+    gap: theme.spacing.sm,
   },
   installmentNumberBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   installmentNumber: {
-    fontSize: theme.typography.sizes.md,
+    fontSize: theme.typography.sizes.sm,
     fontWeight: getPlatformFontWeight('700'),
     fontFamily: theme.typography.fontFamily,
   },
@@ -914,11 +887,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   installmentAmount: {
-    fontSize: theme.typography.sizes.lg,
+    fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.xs,
+    marginBottom: 2,
   },
   installmentDate: {
     fontSize: theme.typography.sizes.sm,
@@ -926,15 +899,15 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   payInstallmentButton: {
-    borderRadius: theme.borderRadius.md,
+    borderRadius: theme.borderRadius.sm,
     overflow: 'hidden',
     ...getPlatformShadow('sm'),
   },
   payInstallmentButtonGradient: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
     gap: theme.spacing.xs,
   },
   payInstallmentButtonText: {
@@ -945,8 +918,8 @@ const styles = StyleSheet.create({
   },
   paidBadgeSmall: {
     backgroundColor: '#D1FAE5',
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.xs,
+    paddingVertical: 2,
     borderRadius: theme.borderRadius.sm,
   },
   paidBadgeText: {
@@ -956,11 +929,11 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   actionsCard: {
-    gap: theme.spacing.md,
-    marginBottom: theme.spacing.xl,
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
   },
   payFullButton: {
-    borderRadius: theme.borderRadius.lg,
+    borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
     ...getPlatformShadow('md'),
   },
@@ -968,11 +941,11 @@ const styles = StyleSheet.create({
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: theme.spacing.lg,
-    gap: theme.spacing.md,
+    padding: theme.spacing.sm,
+    gap: theme.spacing.sm,
   },
   payFullButtonText: {
-    fontSize: theme.typography.sizes.lg,
+    fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
@@ -981,15 +954,15 @@ const styles = StyleSheet.create({
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: theme.spacing.md,
+    padding: theme.spacing.sm,
     backgroundColor: theme.colors.surfaceCard,
-    borderRadius: theme.borderRadius.lg,
-    gap: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
+    gap: theme.spacing.xs,
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
   editButtonText: {
-    fontSize: theme.typography.sizes.md,
+    fontSize: theme.typography.sizes.sm,
     fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily,
@@ -998,9 +971,9 @@ const styles = StyleSheet.create({
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.lg,
-    gap: theme.spacing.sm,
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
+    gap: theme.spacing.xs,
   },
   deleteButtonPaid: {
     backgroundColor: theme.colors.surfaceCard,
@@ -1021,24 +994,24 @@ const styles = StyleSheet.create({
     color: theme.colors.error,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
-    lineHeight: 20,
-    marginTop: theme.spacing.sm,
-    padding: theme.spacing.sm,
+    lineHeight: 18,
+    marginTop: theme.spacing.xs,
+    padding: theme.spacing.xs,
     backgroundColor: theme.colors.error + '10',
-    borderRadius: theme.borderRadius.md,
+    borderRadius: theme.borderRadius.sm,
   },
   paymentHistoryCard: {
     backgroundColor: theme.colors.surfaceCard,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
     ...getPlatformShadow('md'),
   },
   paymentHistorySummary: {
     backgroundColor: theme.colors.surfaceLight,
-    paddingHorizontal: theme.spacing.md,
+    paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing.xs,
-    borderRadius: theme.borderRadius.md,
+    borderRadius: theme.borderRadius.sm,
   },
   paymentHistorySummaryText: {
     fontSize: theme.typography.sizes.sm,
@@ -1048,26 +1021,26 @@ const styles = StyleSheet.create({
     textAlign: isRTL ? 'right' : 'left',
   },
   paymentHistoryList: {
-    marginTop: theme.spacing.md,
-    gap: theme.spacing.sm,
+    marginTop: theme.spacing.sm,
+    gap: theme.spacing.xs,
   },
   paymentHistoryItem: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    padding: theme.spacing.md,
+    padding: theme.spacing.sm,
     backgroundColor: theme.colors.surfaceLight,
-    borderRadius: theme.borderRadius.md,
+    borderRadius: theme.borderRadius.sm,
   },
   paymentHistoryLeft: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     flex: 1,
-    gap: theme.spacing.md,
+    gap: theme.spacing.sm,
   },
   paymentHistoryIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1075,18 +1048,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   paymentHistoryAmount: {
-    fontSize: theme.typography.sizes.lg,
+    fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
     color: '#10B981',
     fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.xs,
+    marginBottom: 2,
   },
   paymentHistoryDescription: {
-    fontSize: theme.typography.sizes.md,
+    fontSize: theme.typography.sizes.sm,
     fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.xs,
+    marginBottom: 2,
   },
   paymentHistoryDate: {
     fontSize: theme.typography.sizes.sm,

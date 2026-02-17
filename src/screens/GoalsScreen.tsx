@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
+import { useAppTheme, useThemedStyles } from '../utils/theme-context';
 import { GoalCard } from '../components/GoalCard';
 import {
   getFinancialGoals,
@@ -24,8 +25,11 @@ import { isRTL } from '../utils/rtl';
 import { alertService } from '../services/alertService';
 import { convertCurrency, formatCurrencyAmount } from '../services/currencyService';
 import { CURRENCIES } from '../types';
+import { authStorage } from '../services/authStorage';
 
 export const GoalsScreen = ({ navigation, route }: any) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const { formatCurrency, currencyCode } = useCurrency();
   const [goals, setGoals] = useState<FinancialGoal[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -46,7 +50,7 @@ export const GoalsScreen = ({ navigation, route }: any) => {
 
         for (const goal of active) {
           const goalCurrency = goal.currency || currencyCode;
-          
+
           // Add to breakdown by currency
           if (!breakdown[goalCurrency]) {
             breakdown[goalCurrency] = { current: 0, target: 0 };
@@ -90,38 +94,6 @@ export const GoalsScreen = ({ navigation, route }: any) => {
     return unsubscribe;
   }, [navigation]);
 
-  useLayoutEffect(() => {
-    const parent = navigation.getParent();
-    if (parent) {
-      parent.setOptions({
-        tabBarStyle: { display: 'none' },
-        tabBarShowLabel: false,
-      });
-    }
-    return () => {
-      if (parent) {
-        parent.setOptions({
-          tabBarStyle: {
-            backgroundColor: theme.colors.surfaceCard,
-            borderTopColor: theme.colors.border,
-            borderTopWidth: 1,
-            height: 80,
-            paddingBottom: 20,
-            paddingTop: 8,
-            elevation: 8,
-            shadowColor: theme.colors.shadow,
-            shadowOffset: { width: 0, height: -2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 8,
-            flexDirection: 'row',
-            display: 'flex',
-          },
-          tabBarShowLabel: true,
-        });
-      }
-    };
-  }, [navigation]);
-
   useEffect(() => {
     if (route?.params?.action === 'add') {
       navigation.navigate('AddGoal');
@@ -154,9 +126,38 @@ export const GoalsScreen = ({ navigation, route }: any) => {
     }
   };
 
+  const handlePlanPress = async (goal: FinancialGoal) => {
+    try {
+      const user = await authStorage.getUser<{ isPro?: boolean }>();
+      if (!user) {
+        alertService.show({
+          title: 'تسجيل الدخول',
+          message: 'يجب تسجيل الدخول أو إنشاء حساب لاستخدام خطة الهدف بالذكاء الاصطناعي.',
+          confirmText: 'تسجيل الدخول',
+          cancelText: 'إلغاء',
+          showCancel: true,
+          onConfirm: () => navigation.navigate('Auth'),
+        });
+        return;
+      }
+      if (!user.isPro) {
+        alertService.show({
+          title: 'حساب مميز',
+          message: 'خطة الهدف بالذكاء الاصطناعي متوفرة للحسابات المميزة فقط. يجب أن يكون نوع حسابك أو اشتراكك مميزاً لاستخدامها.',
+          confirmText: 'حسناً',
+        });
+        return;
+      }
+      navigation.navigate('GoalPlan', { goal });
+    } catch (e) {
+      console.error('Goal plan button error:', e);
+      alertService.error('خطأ', 'حدث خطأ. تأكد من تسجيل الدخول وحاول مرة أخرى.');
+    }
+  };
+
   const activeGoals = goals.filter(g => !g.completed);
   const completedGoals = goals.filter(g => g.completed);
-  
+
   // Use converted totals if available, otherwise calculate from active goals
   const totalTarget = convertedTotals?.target ?? activeGoals.reduce((sum, g) => sum + g.targetAmount, 0);
   const totalCurrent = convertedTotals?.current ?? activeGoals.reduce((sum, g) => sum + g.currentAmount, 0);
@@ -167,7 +168,7 @@ export const GoalsScreen = ({ navigation, route }: any) => {
   const hasMultipleCurrencies = uniqueCurrencies.size > 1;
 
   return (
-    <SafeAreaView style={styles.container} edges={[]}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -267,6 +268,7 @@ export const GoalsScreen = ({ navigation, route }: any) => {
                 goal={goal}
                 onEdit={() => handleEditGoal(goal)}
                 onDelete={() => handleDeleteGoal(goal.id)}
+                onPlan={() => handlePlanPress(goal)}
               />
             ))}
           </View>
@@ -282,6 +284,7 @@ export const GoalsScreen = ({ navigation, route }: any) => {
                 goal={goal}
                 onEdit={() => handleEditGoal(goal)}
                 onDelete={() => handleDeleteGoal(goal.id)}
+                onPlan={() => handlePlanPress(goal)}
               />
             ))}
           </View>
@@ -302,7 +305,7 @@ export const GoalsScreen = ({ navigation, route }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,

@@ -13,7 +13,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformFontWeight } from '../utils/theme';
+import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
+import { useAppTheme, useThemedStyles } from '../utils/theme-context';
+import { addCustomCategory, updateCustomCategory } from '../database/database';
+import { alertService } from '../services/alertService';
 
 interface AddCategoryScreenProps {
   navigation: any;
@@ -45,9 +48,11 @@ export const AddCategoryScreen: React.FC<AddCategoryScreenProps> = ({
   navigation,
   route,
 }) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const category = route?.params?.category;
   const type = route?.params?.type || 'expense';
-  const onSave = route?.params?.onSave;
+
 
   const [name, setName] = useState('');
   const [selectedIcon, setSelectedIcon] = useState('ellipse');
@@ -66,10 +71,29 @@ export const AddCategoryScreen: React.FC<AddCategoryScreenProps> = ({
     }
   }, [category]);
 
-  const handleSave = () => {
-    if (name.trim() && onSave) {
-      onSave(name.trim(), selectedIcon, selectedColor[0], category?.id);
+  const handleSave = async () => {
+    if (!name.trim()) return;
+
+    try {
+      if (category?.id) {
+        await updateCustomCategory(category.id, {
+          name: name.trim(),
+          icon: selectedIcon,
+          color: selectedColor[0]
+        });
+        alertService.success('نجح', 'تم تحديث الفئة بنجاح');
+      } else {
+        await addCustomCategory({
+          name: name.trim(),
+          type,
+          icon: selectedIcon,
+          color: selectedColor[0]
+        });
+        alertService.success('نجح', 'تم إضافة الفئة بنجاح');
+      }
       navigation.goBack();
+    } catch (error: any) {
+      alertService.error('خطأ', error?.message || 'حدث خطأ أثناء حفظ الفئة');
     }
   };
 
@@ -103,7 +127,7 @@ export const AddCategoryScreen: React.FC<AddCategoryScreenProps> = ({
             keyboardShouldPersistTaps="handled"
           >
             <Text style={styles.subtitle}>
-              {category 
+              {category
                 ? (type === 'expense' ? 'قم بتعديل بيانات فئة المصاريف' : 'قم بتعديل بيانات مصدر الدخل')
                 : (type === 'expense' ? 'أضف فئة جديدة للمصاريف' : 'أضف مصدر دخل جديد')
               }
@@ -228,7 +252,7 @@ export const AddCategoryScreen: React.FC<AddCategoryScreenProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -243,7 +267,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: theme.spacing.lg,
+    padding: theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
@@ -260,18 +284,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: theme.spacing.lg,
-    paddingBottom: theme.spacing.xl,
+    padding: theme.spacing.sm,
+    paddingBottom: theme.spacing.lg,
   },
   subtitle: {
     fontSize: theme.typography.sizes.md,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.sm,
     textAlign: 'right',
   },
   inputContainer: {
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.sm,
   },
   label: {
     fontSize: theme.typography.sizes.md,
@@ -293,7 +317,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   section: {
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.sm,
   },
   iconScroll: {
     marginTop: theme.spacing.sm,
@@ -344,16 +368,16 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row-reverse',
-    gap: theme.spacing.md,
-    marginTop: theme.spacing.lg,
-    padding: theme.spacing.lg,
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.sm,
+    padding: theme.spacing.sm,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
   },
   cancelButton: {
     flex: 1,
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: 10,
+    paddingHorizontal: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
     backgroundColor: theme.colors.surfaceLight,
     alignItems: 'center',
@@ -372,8 +396,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   saveButtonGradient: {
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: 10,
+    paddingHorizontal: theme.spacing.md,
     alignItems: 'center',
   },
   saveButtonText: {

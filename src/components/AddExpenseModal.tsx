@@ -17,7 +17,8 @@ import { TextInput, IconButton } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
+import type { AppTheme } from '../utils/theme';
 import { Expense, ExpenseCategory, EXPENSE_CATEGORIES, CURRENCIES } from '../types';
 import { addExpense, updateExpense, getExpenseShortcuts, addExpenseShortcut, deleteExpenseShortcut, updateExpenseShortcut, ExpenseShortcut, getCustomCategories, CustomCategory } from '../database/database';
 import { alertService } from '../services/alertService';
@@ -42,6 +43,8 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
   expense,
   onSave,
 }) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
   const { currencyCode, formatCurrency } = useCurrency();
   const [title, setTitle] = useState('');
@@ -1059,7 +1062,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   keyboardView: {
     flex: 1,
   },
@@ -1085,7 +1088,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: theme.spacing.lg,
+    padding: theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
     flexShrink: 0,
@@ -1127,11 +1130,11 @@ const styles = StyleSheet.create({
     flexGrow: 0,
   },
   scrollContent: {
-    padding: theme.spacing.lg,
-    paddingBottom: theme.spacing.xl,
+    padding: 12,
+    paddingBottom: theme.spacing.lg,
   },
   inputGroup: {
-    marginBottom: theme.spacing.lg,
+    marginBottom: 12,
   },
   label: {
     fontSize: theme.typography.sizes.sm,
@@ -1213,9 +1216,9 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.lg,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 12,
     gap: theme.spacing.sm,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
@@ -1225,7 +1228,7 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    height: 48,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: theme.borderRadius.md,
@@ -1247,8 +1250,8 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   addShortcutActionButton: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
     ...getPlatformShadow('sm'),
@@ -1261,7 +1264,7 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     flex: 2,
-    height: 48,
+    height: 44,
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
     ...getPlatformShadow('md'),
@@ -1327,7 +1330,7 @@ const styles = StyleSheet.create({
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: theme.spacing.lg,
+    padding: theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
@@ -1406,7 +1409,7 @@ const styles = StyleSheet.create({
     ...(isRTL ? { marginRight: theme.spacing.sm } : { marginLeft: theme.spacing.sm }),
   },
   shortcutsSection: {
-    marginBottom: theme.spacing.xl,
+    marginBottom: theme.spacing.lg,
     paddingTop: theme.spacing.md,
   },
   shortcutsHeader: {
@@ -1442,8 +1445,8 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surfaceLight,
   },
   shortcutsScrollView: {
-    marginHorizontal: -theme.spacing.lg,
-    paddingHorizontal: theme.spacing.lg,
+    marginHorizontal: -theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
   },
   shortcutsScroll: {
     paddingVertical: theme.spacing.xs,
@@ -1466,7 +1469,7 @@ const styles = StyleSheet.create({
     ...getPlatformShadow('lg'),
   },
   shortcutGradient: {
-    padding: theme.spacing.lg,
+    padding: theme.spacing.md,
     alignItems: 'center',
     justifyContent: 'space-between',
     minHeight: 140,
@@ -1500,7 +1503,7 @@ const styles = StyleSheet.create({
   },
   shortcutIconContainer: {
     width: 56,
-    height: 56,
+    height: 48,
     borderRadius: 28,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
@@ -1556,7 +1559,7 @@ const styles = StyleSheet.create({
   },
   addShortcutIconContainer: {
     width: 56,
-    height: 56,
+    height: 48,
     borderRadius: 28,
     backgroundColor: theme.colors.primaryLight,
     alignItems: 'center',
@@ -1579,13 +1582,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: theme.spacing.lg,
+    padding: theme.spacing.md,
     gap: theme.spacing.md,
   },
   addFirstShortcutIconContainer: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: 18,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1615,7 +1618,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: theme.spacing.lg,
+    padding: theme.spacing.md,
   },
   shortcutModalContainer: {
     width: '90%',
@@ -1625,13 +1628,13 @@ const styles = StyleSheet.create({
     ...getPlatformShadow('lg'),
   },
   shortcutModalGradient: {
-    padding: theme.spacing.lg,
+    padding: theme.spacing.md,
   },
   shortcutModalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
   },
   shortcutModalTitle: {
     fontSize: theme.typography.sizes.xl,
@@ -1644,7 +1647,7 @@ const styles = StyleSheet.create({
     padding: theme.spacing.xs,
   },
   shortcutModalContent: {
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
   },
   shortcutModalText: {
     fontSize: theme.typography.sizes.md,
@@ -1668,7 +1671,7 @@ const styles = StyleSheet.create({
   },
   shortcutModalCancelButton: {
     flex: 1,
-    paddingVertical: theme.spacing.md,
+    paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: theme.borderRadius.md,
@@ -1688,7 +1691,7 @@ const styles = StyleSheet.create({
     ...getPlatformShadow('md'),
   },
   shortcutModalSaveGradient: {
-    paddingVertical: theme.spacing.md,
+    paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },

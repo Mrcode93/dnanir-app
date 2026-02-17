@@ -1,8 +1,5 @@
 import { API_CONFIG, API_ENDPOINTS } from '../config/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const TOKEN_KEY = '@money_app:access_token';
-const REFRESH_TOKEN_KEY = '@money_app:refresh_token';
+import { authStorage } from './authStorage';
 
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -32,7 +29,7 @@ class ApiClient {
    */
   async getAccessToken(): Promise<string | null> {
     try {
-      return await AsyncStorage.getItem(TOKEN_KEY);
+      return await authStorage.getAccessToken();
     } catch (error) {
       console.error('Error getting access token:', error);
       return null;
@@ -44,7 +41,7 @@ class ApiClient {
    */
   async setAccessToken(token: string): Promise<void> {
     try {
-      await AsyncStorage.setItem(TOKEN_KEY, token);
+      await authStorage.setAccessToken(token);
     } catch (error) {
       console.error('Error storing access token:', error);
     }
@@ -55,7 +52,7 @@ class ApiClient {
    */
   async getRefreshToken(): Promise<string | null> {
     try {
-      return await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+      return await authStorage.getRefreshToken();
     } catch (error) {
       console.error('Error getting refresh token:', error);
       return null;
@@ -67,7 +64,7 @@ class ApiClient {
    */
   async setRefreshToken(token: string): Promise<void> {
     try {
-      await AsyncStorage.setItem(REFRESH_TOKEN_KEY, token);
+      await authStorage.setRefreshToken(token);
     } catch (error) {
       console.error('Error storing refresh token:', error);
     }
@@ -78,7 +75,7 @@ class ApiClient {
    */
   async clearTokens(): Promise<void> {
     try {
-      await AsyncStorage.multiRemove([TOKEN_KEY, REFRESH_TOKEN_KEY]);
+      await authStorage.clearTokens();
     } catch (error) {
       console.error('Error clearing tokens:', error);
     }
@@ -94,18 +91,63 @@ class ApiClient {
   /**
    * Enable/disable request logging
    */
-  private enableLogging: boolean = process.env.NODE_ENV !== 'production' || true; // Always log in dev, can be toggled
+  private enableLogging: boolean = API_CONFIG.ENABLE_LOGGING;
+
+  private isSensitiveKey(key: string): boolean {
+    return /password|token|authorization|secret/i.test(key);
+  }
+
+  private maskSensitive(value: unknown): unknown {
+    if (Array.isArray(value)) {
+      return value.map(item => this.maskSensitive(item));
+    }
+
+    if (value && typeof value === 'object') {
+      const result: Record<string, unknown> = {};
+      for (const [key, nestedValue] of Object.entries(value)) {
+        if (this.isSensitiveKey(key)) {
+          result[key] = '***';
+        } else {
+          result[key] = this.maskSensitive(nestedValue);
+        }
+      }
+      return result;
+    }
+
+    return value;
+  }
+
+  private sanitizeHeaders(headers?: HeadersInit): Record<string, string> | undefined {
+    if (!headers) return undefined;
+    const result: Record<string, string> = {};
+    const normalized = new Headers(headers);
+    normalized.forEach((value, key) => {
+      if (key.toLowerCase() === 'authorization') {
+        result[key] = 'Bearer ***';
+      } else {
+        result[key] = value;
+      }
+    });
+    return result;
+  }
+
+  private sanitizeBody(body?: unknown): unknown {
+    if (!body) return undefined;
+    return this.maskSensitive(body);
+  }
 
   /**
    * Log request details
    */
   private logRequest(method: string, url: string, body?: unknown, headers?: HeadersInit) {
     if (this.enableLogging) {
+      const safeBody = this.sanitizeBody(body);
+      const safeHeaders = this.sanitizeHeaders(headers);
       console.log('🌐 API Request:', {
         method,
         url,
-        body: body ? JSON.stringify(body, null, 2) : undefined,
-        headers: headers ? Object.fromEntries(new Headers(headers).entries()) : undefined,
+        body: safeBody ? JSON.stringify(safeBody, null, 2) : undefined,
+        headers: safeHeaders,
         timestamp: new Date().toISOString(),
       });
     }
@@ -116,11 +158,12 @@ class ApiClient {
    */
   private logResponse(method: string, url: string, response: ApiResponse<unknown>, duration: number) {
     if (this.enableLogging) {
+      const safeData = response.data ? this.sanitizeBody(response.data) : undefined;
       console.log('✅ API Response:', {
         method,
         url,
         status: response.success ? 'SUCCESS' : 'FAILED',
-        data: response.data ? JSON.stringify(response.data, null, 2) : undefined,
+        data: safeData ? JSON.stringify(safeData, null, 2) : undefined,
         error: response.error,
         duration: `${duration}ms`,
         timestamp: new Date().toISOString(),

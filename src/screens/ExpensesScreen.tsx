@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -17,8 +17,9 @@ import { Searchbar, FAB } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { TransactionItem } from '../components/TransactionItem';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
-import { getExpenses, deleteExpense, getCustomCategories, addCustomCategory, deleteCustomCategory, updateCustomCategory, CustomCategory } from '../database/database';
+import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
+import { useAppTheme, useThemedStyles } from '../utils/theme-context';
+import { getExpenses, getExpensesByRange, getAvailableExpenseMonths, deleteExpense, getCustomCategories, addCustomCategory, deleteCustomCategory, updateCustomCategory, CustomCategory } from '../database/database';
 import { Expense, ExpenseCategory, EXPENSE_CATEGORIES } from '../types';
 import { isRTL } from '../utils/rtl';
 import { useCurrency } from '../hooks/useCurrency';
@@ -28,6 +29,8 @@ import { getMonthRange } from '../utils/date';
 import { SmartAddModal } from '../components/SmartAddModal';
 
 export const ExpensesScreen = ({ navigation, route }: any) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const { formatCurrency } = useCurrency();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([]);
@@ -50,30 +53,18 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
 
   const loadExpenses = useCallback(async () => {
     try {
-      let expensesData = await getExpenses();
-
-      // Get available months (months that have expenses)
-      const monthsSet = new Set<string>();
-      expensesData.forEach(expense => {
-        const [year, month] = expense.date.split('-');
-        if (year && month) {
-          monthsSet.add(`${year}-${parseInt(month)}`);
-        }
-      });
-
-      const months = Array.from(monthsSet).map(key => {
-        const [year, month] = key.split('-').map(Number);
-        return { year, month };
-      });
+      const months = await getAvailableExpenseMonths();
       setAvailableMonths(months);
+
+      let expensesData: Expense[] = [];
 
       // Filter by selected month if a month is selected
       if (selectedMonth && (selectedMonth.year !== 0 || selectedMonth.month !== 0)) {
         const { firstDay, lastDay } = getMonthRange(selectedMonth.year, selectedMonth.month);
 
-        expensesData = expensesData.filter(
-          (expense) => expense.date >= firstDay && expense.date <= lastDay
-        );
+        expensesData = await getExpensesByRange(firstDay, lastDay);
+      } else {
+        expensesData = await getExpenses();
       }
 
       setExpenses(expensesData);
@@ -233,147 +224,142 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
     }
   };
 
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header Section */}
-      <View style={styles.header}>
-        <View style={styles.headerTopRow}>
-          <Text style={styles.pageTitle}>سجل المصاريف</Text>
+  const totalAmount = useMemo(
+    () => filteredExpenses.reduce((sum, expense) => sum + (expense.base_amount ?? expense.amount), 0),
+    [filteredExpenses]
+  );
 
-          <TouchableOpacity
-            onPress={() => navigation.navigate('ManageCategories', {
-              type: 'expense',
-              onCategoryChange: async () => {
-                await loadCustomCategories();
-              },
-            })}
-            style={styles.manageButton}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="settings-outline" size={20} color={theme.colors.textPrimary} />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.searchFilterRow}>
-          <Searchbar
-            placeholder="البحث في المصاريف..."
-            onChangeText={setSearchQuery}
-            value={searchQuery}
-            style={styles.searchBar}
-            inputStyle={styles.searchInput}
-            placeholderTextColor={theme.colors.textMuted}
-            iconColor={theme.colors.primary}
-          />
-          <View style={styles.monthFilterWrapper}>
-            <MonthFilter
-              selectedMonth={selectedMonth}
-              onMonthChange={(year, month) => setSelectedMonth({ year, month })}
-              showAllOption={true}
-              availableMonths={availableMonths}
-            />
+  const renderListHeader = useCallback(() => (
+    <View style={styles.summaryContainer}>
+      <LinearGradient
+        colors={['#EF4444', '#DC2626']}
+        style={styles.summaryCard}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <View style={styles.summaryContent}>
+          <View style={styles.summaryIconContainer}>
+            <Ionicons name="trending-down" size={24} color="#FFF" />
+          </View>
+          <View style={styles.summaryTextContainer}>
+            <Text style={styles.summaryLabel}>إجمالي المصاريف</Text>
+            <Text style={styles.summaryAmount}>{formatCurrency(totalAmount)}</Text>
           </View>
         </View>
-
-        {/* Categories Horizontal Scroll */}
-        <View style={styles.categoriesRow}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoriesContent}
-          >
-            <TouchableOpacity
-              onPress={() => handleCategorySelect('all')}
-              style={[
-                styles.categoryChip,
-                selectedCategory === 'all' && styles.categoryChipActive
-              ]}
-            >
-              <Text style={[
-                styles.categoryChipText,
-                selectedCategory === 'all' && styles.categoryChipTextActive
-              ]}>الكل</Text>
-            </TouchableOpacity>
-
-            {customCategories.map((category) => {
-              const isSelected = selectedCategory === category.name;
-              return (
-                <TouchableOpacity
-                  key={category.id}
-                  onPress={() => handleCategorySelect(category.name as ExpenseCategory)}
-                  style={[
-                    styles.categoryChip,
-                    isSelected && { backgroundColor: category.color + '20', borderColor: category.color, borderWidth: 1 }
-                  ]}
-                >
-                  <Ionicons
-                    name={category.icon as any}
-                    size={16}
-                    color={isSelected ? category.color : theme.colors.textSecondary}
-                    style={styles.categoryChipIcon}
-                  />
-                  <Text style={[
-                    styles.categoryChipText,
-                    isSelected && { color: category.color, fontWeight: '700' }
-                  ]}>{category.name}</Text>
-                </TouchableOpacity>
-              );
-            })}
-
-
-          </ScrollView>
+        <View style={styles.summaryFooter}>
+          <Text style={styles.summaryCount}>
+            {filteredExpenses.length} مصروف
+          </Text>
         </View>
-      </View>
+      </LinearGradient>
+    </View>
+  ), [filteredExpenses.length, formatCurrency, styles, totalAmount]);
 
+  const renderExpenseItem = useCallback(({ item }: { item: Expense }) => (
+    <TransactionItem
+      item={item}
+      type="expense"
+      formatCurrency={formatCurrency}
+      customCategories={customCategories}
+      onEdit={() => navigation.navigate('AddExpense', { expense: item })}
+      onDelete={async () => {
+        try {
+          await deleteExpense(item.id);
+          await loadExpenses();
+          alertService.success('نجح', 'تم حذف المصروف بنجاح');
+        } catch (error) {
+          alertService.error('خطأ', 'حدث خطأ أثناء حذف المصروف');
+        }
+      }}
+    />
+  ), [customCategories, formatCurrency, loadExpenses, navigation]);
+
+  return (
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <FlatList
         data={filteredExpenses}
-        ListHeaderComponent={() => {
-          const totalAmount = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
-          return (
-            <View style={styles.summaryContainer}>
-              <LinearGradient
-                colors={['#EF4444', '#DC2626']}
-                style={styles.summaryCard}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <View style={styles.summaryContent}>
-                  <View style={styles.summaryIconContainer}>
-                    <Ionicons name="trending-down" size={24} color="#FFF" />
-                  </View>
-                  <View style={styles.summaryTextContainer}>
-                    <Text style={styles.summaryLabel}>إجمالي المصاريف</Text>
-                    <Text style={styles.summaryAmount}>{formatCurrency(totalAmount)}</Text>
-                  </View>
+        ListHeaderComponent={
+          <>
+            {/* Header Section */}
+            <View style={styles.header}>
+              <View style={styles.searchFilterRow}>
+                <Searchbar
+                  placeholder="البحث في المصاريف..."
+                  onChangeText={setSearchQuery}
+                  value={searchQuery}
+                  style={styles.searchBar}
+                  inputStyle={styles.searchInput}
+                  placeholderTextColor={theme.colors.textMuted}
+                  iconColor={theme.colors.primary}
+                />
+                <View style={styles.monthFilterWrapper}>
+                  <MonthFilter
+                    selectedMonth={selectedMonth}
+                    onMonthChange={(year, month) => setSelectedMonth({ year, month })}
+                    showAllOption={true}
+                    availableMonths={availableMonths}
+                  />
                 </View>
-                <View style={styles.summaryFooter}>
-                  <Text style={styles.summaryCount}>
-                    {filteredExpenses.length} مصروف
-                  </Text>
-                </View>
-              </LinearGradient>
+              </View>
+
+              {/* Categories Horizontal Scroll */}
+              <View style={styles.categoriesRow}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.categoriesContent}
+                >
+                  <TouchableOpacity
+                    onPress={() => handleCategorySelect('all')}
+                    style={[
+                      styles.categoryChip,
+                      selectedCategory === 'all' && styles.categoryChipActive
+                    ]}
+                  >
+                    <Text style={[
+                      styles.categoryChipText,
+                      selectedCategory === 'all' && styles.categoryChipTextActive
+                    ]}>الكل</Text>
+                  </TouchableOpacity>
+
+                  {customCategories.map((category) => {
+                    const isSelected = selectedCategory === category.name;
+                    return (
+                      <TouchableOpacity
+                        key={category.id}
+                        onPress={() => handleCategorySelect(category.name as ExpenseCategory)}
+                        style={[
+                          styles.categoryChip,
+                          isSelected && { backgroundColor: category.color + '20', borderColor: category.color, borderWidth: 1 }
+                        ]}
+                      >
+                        <Ionicons
+                          name={category.icon as any}
+                          size={16}
+                          color={isSelected ? category.color : theme.colors.textSecondary}
+                          style={styles.categoryChipIcon}
+                        />
+                        <Text style={[
+                          styles.categoryChipText,
+                          isSelected && { color: category.color, fontWeight: '700' }
+                        ]}>{category.name}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
             </View>
-          );
-        }}
-        renderItem={({ item }) => (
-          <TransactionItem
-            item={item}
-            type="expense"
-            formatCurrency={formatCurrency}
-            customCategories={customCategories}
-            onEdit={() => navigation.navigate('AddExpense', { expense: item })}
-            onDelete={async () => {
-              try {
-                await deleteExpense(item.id);
-                await loadExpenses();
-                alertService.success('نجح', 'تم حذف المصروف بنجاح');
-              } catch (error) {
-                alertService.error('خطأ', 'حدث خطأ أثناء حذف المصروف');
-              }
-            }}
-          />
-        )}
+            {renderListHeader()}
+          </>
+        }
+        renderItem={renderExpenseItem}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.listContent}
+        initialNumToRender={10}
+        maxToRenderPerBatch={8}
+        windowSize={7}
+        updateCellsBatchingPeriod={50}
+        removeClippedSubviews={Platform.OS === 'android'}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
@@ -471,7 +457,7 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -527,14 +513,15 @@ const styles = StyleSheet.create({
   },
   categoriesRow: {
     marginTop: 4,
+    direction: "rtl"
   },
   categoriesContent: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     gap: 8,
     paddingHorizontal: 4, // create space for shadow
   },
   categoryChip: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row-reverse' : 'row-reverse',
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -562,51 +549,52 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 20,
-    paddingBottom: 100, // Space for FAB
+    paddingBottom: 80, // Space for FAB
   },
   summaryContainer: {
     marginBottom: 20,
   },
   summaryCard: {
-    borderRadius: 24,
-    padding: 20,
+    borderRadius: 20,
+    padding: 12,
     ...getPlatformShadow('md'),
   },
   summaryContent: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    marginBottom: 16,
   },
   summaryIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: isRTL ? 16 : 0,
-    marginRight: isRTL ? 0 : 16,
+    marginLeft: isRTL ? 12 : 0,
+    marginRight: isRTL ? 0 : 12,
   },
   summaryTextContainer: {
     flex: 1,
-    alignItems: isRTL ? 'flex-end' : 'flex-start',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   summaryLabel: {
     fontFamily: theme.typography.fontFamily,
-    fontSize: 14,
+    fontSize: 13,
     color: 'rgba(255,255,255,0.9)',
-    marginBottom: 4,
   },
   summaryAmount: {
     fontFamily: theme.typography.fontFamily,
-    fontSize: 28,
-    fontWeight: getPlatformFontWeight('700'),
+    fontSize: 22,
+    fontWeight: getPlatformFontWeight('800'),
     color: '#FFF',
   },
   summaryFooter: {
+    marginTop: 8,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.2)',
-    paddingTop: 12,
+    paddingTop: 8,
     flexDirection: isRTL ? 'row-reverse' : 'row',
   },
   summaryCount: {
@@ -644,7 +632,7 @@ const styles = StyleSheet.create({
   },
   fabContainer: {
     position: 'absolute',
-    bottom: 120,
+    bottom: 20,
     left: 24,
     right: 24,
     alignItems: isRTL ? 'flex-start' : 'flex-end',

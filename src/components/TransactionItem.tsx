@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Modal, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { Expense, Income, IncomeSource, INCOME_SOURCES, ExpenseCategory, EXPENSE_CATEGORIES } from '../types';
 import { isRTL } from '../utils/rtl';
 import { ConfirmAlert } from './ConfirmAlert';
@@ -19,9 +19,10 @@ interface TransactionItemProps {
   onPress?: () => void;
   formatCurrency?: (amount: number) => string;
   customCategories?: CustomCategory[];
+  showOptions?: boolean;
 }
 
-export const TransactionItem: React.FC<TransactionItemProps> = ({
+const TransactionItemComponent: React.FC<TransactionItemProps> = ({
   item,
   type,
   onEdit,
@@ -29,7 +30,10 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
   onPress,
   formatCurrency: propFormatCurrency,
   customCategories = [],
+  showOptions = true,
 }) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const { formatCurrency: hookFormatCurrency, currencyCode } = useCurrency();
   const formatCurrency = propFormatCurrency || hookFormatCurrency;
   const { isPrivacyEnabled } = usePrivacy();
@@ -277,16 +281,18 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
             </View>
 
             {/* Menu Trigger */}
-            <TouchableOpacity
-              style={styles.menuTrigger}
-              onPress={(e) => {
-                e.stopPropagation();
-                setShowMenu(true);
-              }}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons name="ellipsis-vertical" size={16} color={theme.colors.textMuted} />
-            </TouchableOpacity>
+            {showOptions && (
+              <TouchableOpacity
+                style={styles.menuTrigger}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  setShowMenu(true);
+                }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="ellipsis-vertical" size={16} color={theme.colors.textMuted} />
+              </TouchableOpacity>
+            )}
 
           </View>
         </TouchableOpacity>
@@ -370,7 +376,10 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+export const TransactionItem = React.memo(TransactionItemComponent);
+TransactionItem.displayName = 'TransactionItem';
+
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   wrapper: {
     marginBottom: 8,
     marginHorizontal: 1, // Prevent shadow clipping

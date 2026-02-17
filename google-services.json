@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "850423356875",
+    "project_id": "dnanir-app-f57f4",
+    "storage_bucket": "dnanir-app-f57f4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:850423356875:android:e5cd891e14703b04716a4e",
+        "android_client_info": {
+          "package_name": "com.mrcodeiq.dinar"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB2Frlrz0G0ZFPO8wvm6rqk8UXFIaj8zac"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

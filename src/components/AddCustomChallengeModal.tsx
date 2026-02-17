@@ -9,7 +9,7 @@ import {
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { ChallengeCategory, CHALLENGE_CATEGORIES } from '../types';
 import { isRTL } from '../utils/rtl';
 import { convertArabicToEnglish } from '../utils/numbers';
@@ -62,6 +62,8 @@ export const AddCustomChallengeModal = ({
   onSave,
   editingChallenge,
 }: AddCustomChallengeModalProps) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<ChallengeCategory>('discipline');
@@ -299,7 +301,7 @@ export const AddCustomChallengeModal = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -316,7 +318,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: theme.spacing.lg,
+    padding: theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
@@ -333,7 +335,7 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
   },
   inputGroup: {
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
   },
   label: {
     fontSize: theme.typography.sizes.md,

@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformFontWeight } from '../utils/theme';
+import { AppTheme, getPlatformFontWeight, useAppTheme, useThemedStyles } from '../utils/theme';
 import { useLockScreen } from '../hooks/useLockScreen';
 
 interface LockScreenProps {
@@ -20,6 +20,8 @@ interface LockScreenProps {
 }
 
 export const LockScreen: React.FC<LockScreenProps> = ({ onUnlock }) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const {
     password,
     setPassword,
@@ -120,7 +122,7 @@ export const LockScreen: React.FC<LockScreenProps> = ({ onUnlock }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
   },

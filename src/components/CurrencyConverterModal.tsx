@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { CURRENCIES, Currency } from '../types';
 import { convertCurrency, getOrFetchExchangeRate, formatCurrencyAmount } from '../services/currencyService';
 import { useCurrency } from '../hooks/useCurrency';
@@ -30,6 +30,8 @@ export const CurrencyConverterModal: React.FC<CurrencyConverterModalProps> = ({
   visible,
   onClose,
 }) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const { selectedCurrency, formatCurrency } = useCurrency();
   const [fromCurrency, setFromCurrency] = useState<string>(selectedCurrency);
   const [toCurrency, setToCurrency] = useState<string>('USD');
@@ -336,7 +338,7 @@ const CurrencyPickerModal: React.FC<CurrencyPickerModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   modalOverlay: {
     flex: 1,
     justifyContent: 'flex-end',

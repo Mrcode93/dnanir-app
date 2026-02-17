@@ -16,7 +16,7 @@ import { TextInput, IconButton } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformFontWeight } from '../utils/theme';
+import { AppTheme, getPlatformFontWeight, useAppTheme, useThemedStyles } from '../utils/theme';
 import { ExpenseCategory, EXPENSE_CATEGORIES, RECURRENCE_TYPES } from '../types';
 import {
   addRecurringExpense,
@@ -37,6 +37,8 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
   onClose,
   editingExpense,
 }) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
@@ -456,7 +458,7 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   modalOverlay: {
     flex: 1,
     justifyContent: 'flex-end',

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, I18nManager, Modal, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles, type AppTheme } from '../utils/theme';
 import { isRTL } from '../utils/rtl';
 import { FinancialGoal, GOAL_CATEGORIES } from '../types';
 import { useCurrency } from '../hooks/useCurrency';
@@ -14,14 +14,15 @@ interface GoalCardProps {
   goal: FinancialGoal;
   onEdit?: () => void;
   onDelete?: () => void;
+  onPlan?: () => void;
 }
 
 // Get gradient colors based on category
-const getCategoryGradient = (category: string, isCompleted: boolean): readonly string[] => {
+const getCategoryGradient = (category: string, isCompleted: boolean, theme: AppTheme): readonly string[] => {
   if (isCompleted) {
     return theme.gradients.success;
   }
-  
+
   const gradientMap: Record<string, readonly string[]> = {
     emergency: theme.gradients.goalRose,
     vacation: theme.gradients.goalBlue,
@@ -32,11 +33,13 @@ const getCategoryGradient = (category: string, isCompleted: boolean): readonly s
     business: theme.gradients.goalEmerald,
     other: theme.gradients.goalPurple,
   };
-  
+
   return gradientMap[category] || theme.gradients.goalPurple;
 };
 
-export const GoalCard: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete }) => {
+const GoalCardComponent: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete, onPlan }) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const [showConfirmAlert, setShowConfirmAlert] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const { formatCurrency, currencyCode } = useCurrency();
@@ -45,7 +48,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete }) =>
   const categoryInfo = GOAL_CATEGORIES[goal.category as keyof typeof GOAL_CATEGORIES] || GOAL_CATEGORIES.other;
   const remaining = goal.targetAmount - goal.currentAmount;
   const isCompleted = goal.completed || progress >= 100;
-  const gradientColors = getCategoryGradient(goal.category, isCompleted);
+  const gradientColors = getCategoryGradient(goal.category, isCompleted, theme);
   const [convertedTargetAmount, setConvertedTargetAmount] = useState<number | null>(null);
   const [convertedCurrentAmount, setConvertedCurrentAmount] = useState<number | null>(null);
   const [convertedRemaining, setConvertedRemaining] = useState<number | null>(null);
@@ -92,7 +95,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete }) =>
         // Get average monthly savings
         const avgSavings = await calculateAverageMonthlySavings(6);
         setAverageMonthlySavings(avgSavings);
-        
+
         // Convert remaining amount to primary currency if needed
         let remainingInPrimaryCurrency = remaining;
         if (goalCurrency !== currencyCode) {
@@ -130,7 +133,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete }) =>
   };
 
   return (
-    <View 
+    <View
       style={styles.cardWrapper}
     >
       <LinearGradient
@@ -284,6 +287,19 @@ export const GoalCard: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete }) =>
           onPress={() => setShowMenu(false)}
         >
           <View style={styles.menuContainer}>
+            {onPlan && (
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowMenu(false);
+                  onPlan();
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="sparkles" size={20} color={theme.colors.primary} />
+                <Text style={styles.menuItemText}>خطة بالذكاء الاصطناعي</Text>
+              </TouchableOpacity>
+            )}
             {onEdit && (
               <TouchableOpacity
                 style={styles.menuItem}
@@ -317,7 +333,10 @@ export const GoalCard: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete }) =>
   );
 };
 
-const styles = StyleSheet.create({
+export const GoalCard = React.memo(GoalCardComponent);
+GoalCard.displayName = 'GoalCard';
+
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   cardWrapper: {
     marginBottom: theme.spacing.md,
   },
