@@ -56,6 +56,13 @@ export const lightTheme = {
     round: 9999,
   },
   shadows: {
+    xs: {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 1,
+    },
     sm: {
       shadowColor: '#000000',
       shadowOffset: { width: 0, height: 2 },
@@ -135,7 +142,7 @@ export const theme = lightTheme;
 export const defaultTheme = lightTheme;
 
 // Helper function for platform-specific shadows
-export const getPlatformShadow = (size: 'sm' | 'md' | 'lg' | 'xl') => {
+export const getPlatformShadow = (size: 'xs' | 'sm' | 'md' | 'lg' | 'xl') => {
   const shadow = lightTheme.shadows[size];
   if (Platform.OS === 'android') {
     return {

@@ -402,7 +402,8 @@ const DebtsStack = () => {
         component={AddDebtScreen}
         options={{
           headerShown: false,
-          presentation: 'card',
+          presentation: 'transparentModal',
+          cardStyle: { backgroundColor: 'transparent' },
         }}
       />
     </Stack.Navigator>
@@ -649,7 +650,8 @@ export const AppNavigator = () => {
           component={AuthScreen}
           options={{
             gestureEnabled: true,
-            presentation: 'modal'
+            presentation: 'transparentModal',
+            cardStyle: { backgroundColor: 'transparent' },
           }}
         />
 
@@ -799,50 +801,6 @@ export const AppNavigator = () => {
             headerTitle: 'التحليلات الذكية',
             ...getCommonStackOptions(theme),
           })}
-        />
-
-        {/* Action screens also hide tab bar */}
-        <Stack.Screen
-          name="AddExpense"
-          component={AddExpenseScreen}
-          options={{
-            headerShown: false,
-            presentation: 'card',
-          }}
-        />
-        <Stack.Screen
-          name="AddIncome"
-          component={AddIncomeScreen}
-          options={{
-            headerShown: false,
-            presentation: 'card',
-          }}
-        />
-        <Stack.Screen
-          name="RecurringExpenses"
-          component={RecurringExpensesScreen}
-          options={({ navigation }) => ({
-            headerShown: true,
-            headerLeft: () => <HeaderLeft navigation={navigation} />,
-            headerTitle: 'المصاريف المتكررة',
-            ...getCommonStackOptions(theme),
-          })}
-        />
-        <Stack.Screen
-          name="ManageCategories"
-          component={ManageCategoriesScreen}
-          options={{
-            headerShown: false,
-            presentation: 'card',
-          }}
-        />
-        <Stack.Screen
-          name="AddCategory"
-          component={AddCategoryScreen}
-          options={{
-            headerShown: false,
-            presentation: 'card',
-          }}
         />
       </Stack.Navigator>
     </NavigationContainer>

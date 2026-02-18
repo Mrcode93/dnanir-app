@@ -129,27 +129,27 @@ export const DashboardScreen = ({ navigation }: any) => {
 
   const loadEssentialData = useCallback(async () => {
     try {
-      const financialSummary = await calculateFinancialSummary();
-      setSummary(financialSummary);
-
-      // FAST: Get available months using a SQL query instead of fetching all transactions
-      const months = await getAvailableMonths();
-      setAvailableMonths(months);
-
-      // Calculate today's data using optimized aggregated query
       const today = formatDateLocal(new Date());
       const { getFinancialStatsAggregated } = await import('../database/database');
-      const todayStats = await getFinancialStatsAggregated(today, today);
+
+      // Run ALL essential queries in parallel
+      const [financialSummary, months, todayStats, recent] = await Promise.all([
+        calculateFinancialSummary(),
+        getAvailableMonths(),
+        getFinancialStatsAggregated(today, today),
+        getRecentTransactions(5),
+      ]);
+
+      setSummary(financialSummary);
+      setAvailableMonths(months);
       setTodayData({
         income: todayStats.totalIncome,
         expenses: todayStats.totalExpenses,
         balance: todayStats.balance,
       });
-
-      // FAST: Fetch only the last 5 transactions from the DB
-      const recent = await getRecentTransactions(5);
       setRecentTransactions(recent);
 
+      // Month data can load slightly after
       await loadMonthData();
     } catch (error) {
       console.error('Error loading dashboard essential data:', error);
@@ -339,7 +339,7 @@ export const DashboardScreen = ({ navigation }: any) => {
 
         {/* Main Balance Hero */}
         <View style={styles.heroSection}>
-          {summary && (
+          {summary ? (
             <BalanceCard
               balance={filteredBalance !== null ? filteredBalance : summary.balance}
               selectedMonth={selectedBalanceMonth || undefined}
@@ -349,6 +349,17 @@ export const DashboardScreen = ({ navigation }: any) => {
               showFilter={true}
               availableMonths={availableMonths}
             />
+          ) : (
+            <LinearGradient
+              colors={['#001D33', '#003459', '#00527A', '#006A9E'] as any}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.balanceSkeleton}
+            >
+              <View style={styles.skeletonLine} />
+              <View style={[styles.skeletonLine, { width: '50%', height: 32, marginTop: 20 }]} />
+              <View style={[styles.skeletonLine, { width: '30%', height: 12, marginTop: 12 }]} />
+            </LinearGradient>
           )}
 
           {/* Today's Quick Look (Horizontal Tiles) */}
@@ -1617,5 +1628,19 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textInverse,
     ...(isRTL ? { marginRight: theme.spacing.sm } : { marginLeft: theme.spacing.sm }),
     fontFamily: theme.typography.fontFamily,
+  },
+  balanceSkeleton: {
+    borderRadius: 24,
+    padding: 20,
+    minHeight: 180,
+    ...getPlatformShadow('xl'),
+    overflow: 'hidden',
+    justifyContent: 'center',
+  },
+  skeletonLine: {
+    height: 16,
+    width: '40%',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: 8,
   },
 });

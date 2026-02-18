@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -11,206 +11,213 @@ import {
   Animated,
   Pressable,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Searchbar, FAB } from 'react-native-paper';
+import { Searchbar } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { TransactionItem } from '../components/TransactionItem';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
 import { useAppTheme, useThemedStyles } from '../utils/theme-context';
-import { getIncome, deleteIncome, getCustomCategories, addCustomCategory, deleteCustomCategory, updateCustomCategory, CustomCategory } from '../database/database';
-import { Income, IncomeSource, INCOME_SOURCES } from '../types';
+import {
+  getIncomePaginated,
+  getIncomeTotalAmount,
+  getIncomeCount,
+  getAvailableIncomeMonths,
+  deleteIncome,
+  getCustomCategories,
+  addCustomCategory,
+  deleteCustomCategory,
+  updateCustomCategory,
+  CustomCategory
+} from '../database/database';
+import { Income, INCOME_SOURCES } from '../types';
 import { isRTL } from '../utils/rtl';
 import { useCurrency } from '../hooks/useCurrency';
 import { alertService } from '../services/alertService';
 import { MonthFilter } from '../components/MonthFilter';
-import { getMonthRange } from '../utils/date';
+import { getMonthRange, formatDateLocal } from '../utils/date';
 import { SmartAddModal } from '../components/SmartAddModal';
+
+const ITEMS_PER_PAGE = 10;
 
 export const IncomeScreen = ({ navigation, route }: any) => {
   const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const { formatCurrency } = useCurrency();
-  const [income, setIncome] = useState<Income[]>([]);
-  const [filteredIncome, setFilteredIncome] = useState<Income[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedSource, setSelectedSource] = useState<IncomeSource | 'all'>('all');
-  const [showFilterMenu, setShowFilterMenu] = useState(false);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showSmartAdd, setShowSmartAdd] = useState(false);
-  const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
-  const filterMenuAnim = useRef(new Animated.Value(0)).current;
-  const addModalAnim = useRef(new Animated.Value(0)).current;
 
-  // Month filter state - default to current month
+  // Data State
+  const [income, setIncome] = useState<Income[]>([]);
+  const [totalAmount, setTotalAmount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+
+  // UI State
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // Filter State
+  const [filterType, setFilterType] = useState<'month' | 'day'>('month');
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | 'all'>('all');
+
+  // Month State
   const [selectedMonth, setSelectedMonth] = useState<{ year: number; month: number }>(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() + 1 };
   });
   const [availableMonths, setAvailableMonths] = useState<Array<{ year: number; month: number }>>([]);
 
-  const loadIncome = useCallback(async () => {
+  // Modal State
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
+
+  // Animations
+  const addModalAnim = useRef(new Animated.Value(0)).current;
+
+  const fetchIncome = useCallback(async (reset: boolean = false) => {
     try {
-      let incomeData = await getIncome();
-
-      // Get available months (months that have income)
-      const monthsSet = new Set<string>();
-      incomeData.forEach(income => {
-        const [year, month] = income.date.split('-');
-        if (year && month) {
-          monthsSet.add(`${year}-${parseInt(month)}`);
-        }
-      });
-
-      const months = Array.from(monthsSet).map(key => {
-        const [year, month] = key.split('-').map(Number);
-        return { year, month };
-      });
-      setAvailableMonths(months);
-
-      // Filter by selected month if a month is selected
-      if (selectedMonth && (selectedMonth.year !== 0 || selectedMonth.month !== 0)) {
-        const { firstDay, lastDay } = getMonthRange(selectedMonth.year, selectedMonth.month);
-
-        incomeData = incomeData.filter(
-          (income) => income.date >= firstDay && income.date <= lastDay
-        );
+      if (reset) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
       }
 
-      setIncome(incomeData);
-      setFilteredIncome(incomeData);
-    } catch (error) {
-      // Ignore error
-    }
-  }, [selectedMonth]);
+      const currentOffset = reset ? 0 : offset;
 
-  const loadCustomCategories = useCallback(async () => {
+      // Calculate date range
+      let startDateStr: string | undefined;
+      let endDateStr: string | undefined;
+
+      if (filterType === 'day') {
+        const dateStr = formatDateLocal(selectedDate);
+        startDateStr = dateStr;
+        endDateStr = dateStr;
+      } else if (selectedMonth && (selectedMonth.year !== 0 || selectedMonth.month !== 0)) {
+        const { firstDay, lastDay } = getMonthRange(selectedMonth.year, selectedMonth.month);
+        startDateStr = firstDay;
+        endDateStr = lastDay;
+      }
+
+      const filterOptions = {
+        startDate: startDateStr,
+        endDate: endDateStr,
+        category: selectedCategory === 'all' ? undefined : selectedCategory,
+      };
+
+      const [newIncome, total, count] = await Promise.all([
+        getIncomePaginated({
+          ...filterOptions,
+          limit: ITEMS_PER_PAGE,
+          offset: currentOffset,
+        }),
+        reset ? getIncomeTotalAmount(filterOptions) : Promise.resolve(null),
+        reset ? getIncomeCount(filterOptions) : Promise.resolve(null)
+      ]);
+
+      if (reset) {
+        if (total !== null) setTotalAmount(total);
+        if (count !== null) setTotalCount(count);
+        setIncome(newIncome);
+        setOffset(ITEMS_PER_PAGE);
+      } else {
+        setIncome(prev => [...prev, ...newIncome]);
+        setOffset(prev => prev + ITEMS_PER_PAGE);
+      }
+
+      setHasMore(newIncome.length >= ITEMS_PER_PAGE);
+
+      if (reset && filterType === 'month') {
+        const months = await getAvailableIncomeMonths();
+        setAvailableMonths(months);
+      }
+
+    } catch (error) {
+      console.error('Error loading income:', error);
+      alertService.error('خطأ', 'حدث خطأ أثناء تحميل البيانات');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+      setLoadingMore(false);
+    }
+  }, [selectedMonth, selectedCategory, offset, filterType, selectedDate]);
+
+  useEffect(() => {
+    fetchIncome(true);
+  }, [selectedMonth, selectedCategory, filterType, selectedDate]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchIncome(true);
+      loadCustomCategories();
+    });
+    return unsubscribe;
+  }, [navigation, fetchIncome]);
+
+  const loadCustomCategories = async () => {
     try {
       const categories = await getCustomCategories('income');
       setCustomCategories(categories);
     } catch (error) {
-      // Ignore error
+      // Ignore
     }
-  }, []);
+  };
 
-  useEffect(() => {
-    loadIncome();
-    loadCustomCategories();
-    const unsubscribe = navigation.addListener('focus', () => {
-      loadIncome();
-      loadCustomCategories();
-    });
-    return unsubscribe;
-  }, [navigation, selectedMonth, loadIncome, loadCustomCategories]);
-
-  useEffect(() => {
-    if (route?.params?.income) {
-      navigation.navigate('AddIncome', { income: route.params.income });
-      navigation.setParams({ income: undefined });
-    }
-  }, [route?.params, navigation]);
-
-  useEffect(() => {
-    let filtered = income;
-
-    if (searchQuery) {
-      filtered = filtered.filter(incomeItem =>
-        incomeItem.source.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        incomeItem.description?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    if (selectedSource !== 'all') {
-      filtered = filtered.filter(incomeItem => {
-        const sourceToCheck = incomeItem.category || incomeItem.source;
-        if (!sourceToCheck) return false;
-
-        // 1. Exact match (e.g. "راتب" === "راتب")
-        if (sourceToCheck === selectedSource) return true;
-
-        // 2. Map English Key to Arabic Name (e.g. "salary" maps to "راتب")
-        // If the item has "salary" and selectedSource is "راتب"
-        if (INCOME_SOURCES[sourceToCheck as IncomeSource] === selectedSource) return true;
-
-        // 3. Map Arabic Name to English Key (Reverse check)
-        // If the item has "راتب" and selectedSource is "salary" (Unlikely if chips are from DB names)
-        const englishKey = Object.keys(INCOME_SOURCES).find(
-          key => INCOME_SOURCES[key as IncomeSource] === sourceToCheck
-        );
-        if (englishKey === selectedSource) return true;
-
-        // 4. Case-insensitive check for English <-> English or custom
-        if (sourceToCheck.toLowerCase() === selectedSource.toLowerCase()) return true;
-
-        return false;
-      });
-    }
-
-    setFilteredIncome(filtered);
-  }, [income, searchQuery, selectedSource, customCategories]);
-
-  const onRefresh = async () => {
+  const onRefresh = () => {
     setRefreshing(true);
-    await loadIncome();
-    setRefreshing(false);
+    fetchIncome(true);
   };
 
-  useEffect(() => {
-    if (showFilterMenu) {
-      Animated.spring(filterMenuAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        tension: 50,
-        friction: 7,
-      }).start();
-    } else {
-      Animated.timing(filterMenuAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [showFilterMenu, filterMenuAnim]);
-
-  useEffect(() => {
-    if (showAddModal) {
-      Animated.spring(addModalAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        tension: 50,
-        friction: 7,
-      }).start();
-    } else {
-      Animated.timing(addModalAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [showAddModal, addModalAnim]);
-
-  const handleAddOption = (option: 'manual' | 'voice') => {
-    setShowAddModal(false);
-    if (option === 'manual') {
-      navigation.navigate('AddIncome');
-    } else {
-      setShowSmartAdd(true);
+  const handleLoadMore = () => {
+    if (!loadingMore && hasMore) {
+      fetchIncome(false);
     }
   };
 
-  const handleSourceSelect = (source: IncomeSource | 'all') => {
-    setSelectedSource(source);
-    setShowFilterMenu(false);
+  const handleCategorySelect = (category: string | 'all') => {
+    if (selectedCategory === category && category !== 'all') {
+      setSelectedCategory('all');
+    } else {
+      setSelectedCategory(category);
+    }
   };
 
-  const totalAmount = useMemo(
-    () => filteredIncome.reduce((sum, income) => sum + (income.base_amount ?? income.amount), 0),
-    [filteredIncome]
-  );
+  const onDateChange = (event: any, date?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    if (date) {
+      setSelectedDate(date);
+    }
+  };
 
-  const renderListHeader = useCallback(() => (
+  const renderIncomeItem = useCallback(({ item }: { item: Income }) => (
+    <View style={styles.itemWrapper}>
+      <TransactionItem
+        item={item}
+        type="income"
+        formatCurrency={formatCurrency}
+        customCategories={customCategories}
+        onEdit={() => navigation.navigate('AddIncome', { income: item })}
+        onDelete={async () => {
+          try {
+            await deleteIncome(item.id);
+            alertService.success('نجح', 'تم حذف الإيراد بنجاح');
+            fetchIncome(true);
+          } catch (error) {
+            alertService.error('خطأ', 'حدث خطأ أثناء حذف الإيراد');
+          }
+        }}
+      />
+    </View>
+  ), [customCategories, formatCurrency, navigation, fetchIncome]);
+
+  const renderListHeader = () => (
     <View style={styles.summaryContainer}>
       <LinearGradient
         colors={['#10B981', '#059669']}
@@ -223,67 +230,126 @@ export const IncomeScreen = ({ navigation, route }: any) => {
             <Ionicons name="trending-up" size={24} color="#FFF" />
           </View>
           <View style={styles.summaryTextContainer}>
-            <Text style={styles.summaryLabel}>إجمالي الدخل</Text>
+            <Text style={styles.summaryLabel}>إجمالي الإيرادات</Text>
             <Text style={styles.summaryAmount}>{formatCurrency(totalAmount)}</Text>
           </View>
         </View>
         <View style={styles.summaryFooter}>
           <Text style={styles.summaryCount}>
-            {filteredIncome.length} عملية دخل
+            {totalCount} عملية {filterType === 'day' ? 'لهذا اليوم' : 'لهذا الشهر'}
+          </Text>
+          <Text style={styles.summaryLoadedCount}>
+            ({income.length} معروض)
           </Text>
         </View>
       </LinearGradient>
     </View>
-  ), [filteredIncome.length, formatCurrency, styles, totalAmount]);
+  );
 
-  const renderIncomeItem = useCallback(({ item }: { item: Income }) => (
-    <TransactionItem
-      item={item}
-      type="income"
-      formatCurrency={formatCurrency}
-      customCategories={customCategories}
-      onEdit={() => navigation.navigate('AddIncome', { income: item })}
-      onDelete={async () => {
-        try {
-          await deleteIncome(item.id);
-          await loadIncome();
-          alertService.success('نجح', 'تم حذف الدخل بنجاح');
-        } catch (error) {
-          alertService.error('خطأ', 'حدث خطأ أثناء حذف الدخل');
-        }
-      }}
-    />
-  ), [customCategories, formatCurrency, loadIncome, navigation]);
+  const renderFooter = () => {
+    if (!hasMore && income.length > 0) return (
+      <View style={styles.endOfListContainer}>
+        <Text style={styles.endOfListText}>نهاية القائمة</Text>
+      </View>
+    );
+    if (!hasMore) return <View style={{ height: 20 }} />;
+
+    return (
+      <View style={styles.footerContainer}>
+        <TouchableOpacity
+          onPress={handleLoadMore}
+          style={styles.loadMoreButton}
+          disabled={loadingMore}
+        >
+          {loadingMore ? (
+            <ActivityIndicator size="small" color={theme.colors.primary} />
+          ) : (
+            <Text style={styles.loadMoreText}>عرض المزيد</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <FlatList
-        data={filteredIncome}
+        data={income}
         ListHeaderComponent={
           <>
-            {/* Header Section */}
             <View style={styles.header}>
-              <View style={styles.searchFilterRow}>
-                <Searchbar
-                  placeholder="البحث في الدخل..."
-                  onChangeText={setSearchQuery}
-                  value={searchQuery}
-                  style={styles.searchBar}
-                  inputStyle={styles.searchInput}
-                  placeholderTextColor={theme.colors.textMuted}
-                  iconColor={theme.colors.primary}
-                />
-                <View style={styles.monthFilterWrapper}>
-                  <MonthFilter
-                    selectedMonth={selectedMonth}
-                    onMonthChange={(year, month) => setSelectedMonth({ year, month })}
-                    showAllOption={true}
-                    availableMonths={availableMonths}
-                  />
+              {/* Filter Type Toggle & Date/Month Selector */}
+              <View style={styles.dateFilterRow}>
+                <View style={styles.filterTypeToggle}>
+                  <TouchableOpacity
+                    onPress={() => setFilterType('month')}
+                    style={[styles.toggleBtn, filterType === 'month' && styles.toggleBtnActive]}
+                  >
+                    <Text style={[styles.toggleText, filterType === 'month' && styles.toggleTextActive]}>شهري</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setFilterType('day')}
+                    style={[styles.toggleBtn, filterType === 'day' && styles.toggleBtnActive]}
+                  >
+                    <Text style={[styles.toggleText, filterType === 'day' && styles.toggleTextActive]}>يومي</Text>
+                  </TouchableOpacity>
                 </View>
+
+                {filterType === 'month' ? (
+                  <View style={styles.monthFilterWrapper}>
+                    <MonthFilter
+                      selectedMonth={selectedMonth}
+                      onMonthChange={(year, month) => setSelectedMonth({ year, month })}
+                      showAllOption={true}
+                      availableMonths={availableMonths}
+                    />
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.daySelector}
+                    onPress={() => setShowDatePicker(true)}
+                  >
+                    <Ionicons name="calendar-outline" size={20} color={theme.colors.primary} />
+                    <Text style={styles.daySelectorText}>{formatDateLocal(selectedDate)}</Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
-              {/* Categories Horizontal Scroll */}
+              {showDatePicker && (
+                Platform.OS === 'ios' ? (
+                  <Modal
+                    visible={showDatePicker}
+                    transparent={true}
+                    animationType="slide"
+                    onRequestClose={() => setShowDatePicker(false)}
+                  >
+                    <View style={styles.modalOverlay}>
+                      <View style={styles.pickerModalContent}>
+                        <View style={styles.pickerHeader}>
+                          <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                            <Text style={styles.pickerDoneText}>تم</Text>
+                          </TouchableOpacity>
+                        </View>
+                        <DateTimePicker
+                          value={selectedDate}
+                          mode="date"
+                          display="spinner"
+                          onChange={onDateChange}
+                          textColor="#000000"
+                        />
+                      </View>
+                    </View>
+                  </Modal>
+                ) : (
+                  <DateTimePicker
+                    value={selectedDate}
+                    mode="date"
+                    display="default"
+                    onChange={onDateChange}
+                  />
+                )
+              )}
+
               <View style={styles.categoriesRow}>
                 <ScrollView
                   horizontal
@@ -291,24 +357,24 @@ export const IncomeScreen = ({ navigation, route }: any) => {
                   contentContainerStyle={styles.categoriesContent}
                 >
                   <TouchableOpacity
-                    onPress={() => handleSourceSelect('all')}
+                    onPress={() => handleCategorySelect('all')}
                     style={[
                       styles.categoryChip,
-                      selectedSource === 'all' && styles.categoryChipActive
+                      selectedCategory === 'all' && styles.categoryChipActive
                     ]}
                   >
                     <Text style={[
                       styles.categoryChipText,
-                      selectedSource === 'all' && styles.categoryChipTextActive
+                      selectedCategory === 'all' && styles.categoryChipTextActive
                     ]}>الكل</Text>
                   </TouchableOpacity>
 
                   {customCategories.map((category) => {
-                    const isSelected = selectedSource === category.name;
+                    const isSelected = selectedCategory === category.name;
                     return (
                       <TouchableOpacity
                         key={category.id}
-                        onPress={() => handleSourceSelect(category.name as IncomeSource)}
+                        onPress={() => handleCategorySelect(category.name)}
                         style={[
                           styles.categoryChip,
                           isSelected && { backgroundColor: category.color + '20', borderColor: category.color, borderWidth: 1 }
@@ -336,31 +402,29 @@ export const IncomeScreen = ({ navigation, route }: any) => {
         renderItem={renderIncomeItem}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.listContent}
-        initialNumToRender={10}
-        maxToRenderPerBatch={8}
-        windowSize={7}
-        updateCellsBatchingPeriod={50}
-        removeClippedSubviews={Platform.OS === 'android'}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconContainer}>
-              <Ionicons name="wallet-outline" size={64} color={theme.colors.primary + '40'} />
+          !loading ? (
+            <View style={styles.emptyContainer}>
+              <View style={styles.emptyIconContainer}>
+                <Ionicons name="wallet-outline" size={64} color={theme.colors.primary + '40'} />
+              </View>
+              <Text style={styles.emptyText}>لا توجد إيرادات مسجلة</Text>
+              <Text style={styles.emptySubtext}>تأكد من الفلاتر أو أضف إيراداً جديداً</Text>
             </View>
-            <Text style={styles.emptyText}>لا يوجد دخل مسجل</Text>
-            <Text style={styles.emptySubtext}>اضغط على + لإضافة دخلك الأول لهذا الشهر</Text>
-          </View>
+          ) : null
         }
+        ListFooterComponent={renderFooter}
       />
 
       <View style={styles.fabContainer}>
         <TouchableOpacity
-          onPress={() => setShowAddModal(true)}
+          onPress={() => navigation.navigate('AddIncome')}
           activeOpacity={0.8}
           style={styles.fabButton}
         >
           <LinearGradient
-            colors={theme.gradients.primary as any}
+            colors={theme.gradients.success as any}
             style={styles.fabGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
@@ -369,71 +433,6 @@ export const IncomeScreen = ({ navigation, route }: any) => {
           </LinearGradient>
         </TouchableOpacity>
       </View>
-
-      {/* Add Options Modal */}
-      <Modal
-        visible={showAddModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowAddModal(false)}
-      >
-        <Pressable
-          style={styles.addModalOverlay}
-          onPress={() => setShowAddModal(false)}
-        >
-          <Animated.View
-            style={[
-              styles.addModalContainer,
-              {
-                transform: [{
-                  translateY: addModalAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [300, 0],
-                  }),
-                }],
-              },
-            ]}
-          >
-            <View style={styles.addModalHandle} />
-            <Text style={styles.addModalTitle}>إضافة دخل جديد</Text>
-
-            <View style={styles.addModalOptions}>
-              <TouchableOpacity
-                style={styles.addModalOption}
-                onPress={() => handleAddOption('manual')}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.addModalIconContainer, { backgroundColor: theme.colors.primary + '15' }]}>
-                  <Ionicons name="create-outline" size={28} color={theme.colors.primary} />
-                </View>
-                <Text style={styles.addModalOptionTitle}>إدخال يدوي</Text>
-                <Text style={styles.addModalOptionSubtitle}>أدخل التفاصيل بنفسك</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.addModalOption}
-                onPress={() => handleAddOption('voice')}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.addModalIconContainer, { backgroundColor: '#10B981' + '15' }]}>
-                  <Ionicons name="mic-outline" size={28} color="#10B981" />
-                </View>
-                <Text style={styles.addModalOptionTitle}>إدخال صوتي</Text>
-                <Text style={styles.addModalOptionSubtitle}>تحدث وسنسجل لك</Text>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
-        </Pressable>
-      </Modal>
-
-      {/* Smart Add Modal */}
-      <SmartAddModal
-        visible={showSmartAdd}
-        onClose={() => setShowSmartAdd(false)}
-        onSuccess={() => {
-          loadIncome();
-        }}
-      />
     </SafeAreaView>
   );
 };
@@ -445,52 +444,65 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   header: {
     backgroundColor: theme.colors.surface,
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 12,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    ...getPlatformShadow('sm'),
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+    ...getPlatformShadow('xs'),
     zIndex: 10,
   },
-  headerTopRow: {
+  dateFilterRow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    gap: 12,
   },
-  pageTitle: {
-    fontSize: 20,
-    fontFamily: theme.typography.fontFamily,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-  },
-  manageButton: {
-    padding: 8,
-    backgroundColor: theme.colors.surfaceLight,
-    borderRadius: 12,
-  },
-  searchFilterRow: {
+  filterTypeToggle: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
-  searchBar: {
-    flex: 1,
     backgroundColor: theme.colors.surfaceLight,
     borderRadius: 12,
-    elevation: 0,
-    height: 40,
+    padding: 4,
   },
-  searchInput: {
-    textAlign: isRTL ? 'right' : 'left',
+  toggleBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  toggleBtnActive: {
+    backgroundColor: theme.colors.surfaceCard,
+    ...getPlatformShadow('xs'),
+  },
+  toggleText: {
+    fontSize: 12,
     fontFamily: theme.typography.fontFamily,
-    fontSize: 13,
-    height: 40,
-    minHeight: 0,
+    color: theme.colors.textMuted,
+    fontWeight: getPlatformFontWeight('600'),
+  },
+  toggleTextActive: {
+    color: theme.colors.primary,
   },
   monthFilterWrapper: {
+    flex: 1,
+    alignItems: isRTL ? 'flex-start' : 'flex-end',
+  },
+  daySelector: {
+    flex: 1,
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: theme.colors.surfaceLight,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  daySelectorText: {
+    fontSize: 14,
+    fontFamily: theme.typography.fontFamily,
+    color: theme.colors.textPrimary,
+    fontWeight: getPlatformFontWeight('600'),
   },
   categoriesRow: {
     marginTop: 4,
@@ -499,10 +511,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   categoriesContent: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     gap: 8,
-    paddingHorizontal: 4, // create space for shadow
+    paddingHorizontal: 4,
   },
   categoryChip: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row-reverse' : 'row-reverse',
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -529,15 +541,19 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: '#FFF',
   },
   listContent: {
-    padding: 20,
-    paddingBottom: 80, // Space for FAB
+    paddingBottom: 80,
+  },
+  itemWrapper: {
+    paddingHorizontal: 20,
   },
   summaryContainer: {
     marginBottom: 20,
+    paddingHorizontal: 20,
+    marginTop: 20,
   },
   summaryCard: {
     borderRadius: 20,
-    padding: 12,
+    padding: 16,
     ...getPlatformShadow('md'),
   },
   summaryContent: {
@@ -545,48 +561,57 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center',
   },
   summaryIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: isRTL ? 12 : 0,
-    marginRight: isRTL ? 0 : 12,
+    marginLeft: isRTL ? 16 : 0,
+    marginRight: isRTL ? 0 : 16,
   },
   summaryTextContainer: {
     flex: 1,
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
   },
   summaryLabel: {
     fontFamily: theme.typography.fontFamily,
     fontSize: 13,
     color: 'rgba(255,255,255,0.9)',
+    marginBottom: 2,
+    textAlign: isRTL ? 'right' : 'left',
   },
   summaryAmount: {
     fontFamily: theme.typography.fontFamily,
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: getPlatformFontWeight('800'),
     color: '#FFF',
+    textAlign: isRTL ? 'right' : 'left',
   },
   summaryFooter: {
-    marginTop: 8,
+    marginTop: 12,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.2)',
-    paddingTop: 8,
+    paddingTop: 12,
     flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   summaryCount: {
     fontFamily: theme.typography.fontFamily,
     fontSize: 12,
-    color: 'rgba(255,255,255,0.8)',
+    color: 'rgba(255,255,255,1)',
+    fontWeight: getPlatformFontWeight('600'),
+  },
+  summaryLoadedCount: {
+    fontFamily: theme.typography.fontFamily,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.7)',
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
+    paddingHorizontal: 20,
   },
   emptyIconContainer: {
     width: 120,
@@ -613,130 +638,79 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   fabContainer: {
     position: 'absolute',
-    bottom: 20,
+    bottom: 24,
     left: 24,
     right: 24,
     alignItems: isRTL ? 'flex-start' : 'flex-end',
     pointerEvents: 'box-none',
   },
   fabButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 24,
+    width: 60,
+    height: 60,
+    borderRadius: 22,
     ...getPlatformShadow('lg'),
   },
   fabGradient: {
     flex: 1,
-    borderRadius: 24,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  // Modal Styles (Preserved but updated to match theme)
-  filterMenuOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  filterMenuContainer: {
-    backgroundColor: theme.colors.surfaceCard,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingBottom: 40,
-    maxHeight: '70%',
-  },
-  filterMenuHeader: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    justifyContent: 'space-between',
+  footerContainer: {
+    paddingVertical: 20,
     alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  filterMenuTitle: {
-    fontSize: 18,
-    fontFamily: theme.typography.fontFamily,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-  },
-  filterMenuContent: {
-    padding: 20,
-  },
-  filterMenuItem: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 8,
-    backgroundColor: theme.colors.surfaceLight,
-  },
-  filterMenuItemActive: {
-    backgroundColor: theme.colors.primary + '10',
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
-  },
-
-  // Add Modal Styles
-  addModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  addModalContainer: {
-    backgroundColor: theme.colors.surfaceCard,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingBottom: 40,
-    paddingTop: 12,
-  },
-  addModalHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: theme.colors.border,
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
-  addModalTitle: {
-    fontSize: 18,
-    fontFamily: theme.typography.fontFamily,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  addModalOptions: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    justifyContent: 'center',
     paddingHorizontal: 20,
-    gap: 16,
   },
-  addModalOption: {
-    flex: 1,
+  loadMoreButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
     backgroundColor: theme.colors.surfaceLight,
     borderRadius: 20,
-    padding: 20,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    flexDirection: 'row',
     alignItems: 'center',
-    ...getPlatformShadow('sm'),
   },
-  addModalIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 20,
+  loadMoreText: {
+    fontFamily: theme.typography.fontFamily,
+    fontSize: 14,
+    color: theme.colors.primary,
+    fontWeight: getPlatformFontWeight('600'),
+    marginRight: 8,
+  },
+  endOfListContainer: {
+    paddingVertical: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
   },
-  addModalOptionTitle: {
-    fontSize: 16,
+  endOfListText: {
     fontFamily: theme.typography.fontFamily,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    marginBottom: 4,
-  },
-  addModalOptionSubtitle: {
     fontSize: 12,
+    color: theme.colors.textMuted,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  pickerModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 20,
+    ...getPlatformShadow('xl'),
+  },
+  pickerHeader: {
+    flexDirection: isRTL ? 'row' : 'row-reverse',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  pickerDoneText: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
   },
 });

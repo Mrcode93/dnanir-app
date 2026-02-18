@@ -89,19 +89,19 @@ export const initDatabase = async () => {
     `);
     try {
       await db.execAsync('ALTER TABLE user_settings ADD COLUMN synced_at INTEGER;');
-    } catch (e) {}
+    } catch (e) { }
     try {
       await db.execAsync('ALTER TABLE user_settings ADD COLUMN userId TEXT;');
-    } catch (e) {}
+    } catch (e) { }
     try {
       await db.execAsync('ALTER TABLE user_settings ADD COLUMN phone TEXT;');
-    } catch (e) {}
+    } catch (e) { }
     try {
       await db.execAsync('ALTER TABLE user_settings ADD COLUMN email TEXT;');
-    } catch (e) {}
+    } catch (e) { }
     try {
       await db.execAsync('ALTER TABLE user_settings ADD COLUMN isPro INTEGER DEFAULT 0;');
-    } catch (e) {}
+    } catch (e) { }
 
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS app_settings (
@@ -115,10 +115,10 @@ export const initDatabase = async () => {
     `);
     try {
       await db.execAsync('ALTER TABLE app_settings ADD COLUMN synced_at INTEGER;');
-    } catch (e) {}
+    } catch (e) { }
     try {
       await db.execAsync('ALTER TABLE app_settings ADD COLUMN autoSyncEnabled INTEGER DEFAULT 0;');
-    } catch (e) {}
+    } catch (e) { }
 
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS notification_settings (
@@ -141,7 +141,7 @@ export const initDatabase = async () => {
     }
     try {
       await db.execAsync('ALTER TABLE notification_settings ADD COLUMN synced_at INTEGER;');
-    } catch (e) {}
+    } catch (e) { }
 
     // Initialize default notification settings if table is empty
     try {
@@ -179,7 +179,7 @@ export const initDatabase = async () => {
     }
     try {
       await db.execAsync('ALTER TABLE financial_goals ADD COLUMN synced_at INTEGER;');
-    } catch (e) {}
+    } catch (e) { }
 
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS custom_categories (
@@ -193,7 +193,7 @@ export const initDatabase = async () => {
     `);
     try {
       await db.execAsync('ALTER TABLE custom_categories ADD COLUMN synced_at INTEGER;');
-    } catch (e) {}
+    } catch (e) { }
 
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS budgets (
@@ -216,7 +216,7 @@ export const initDatabase = async () => {
     }
     try {
       await db.execAsync('ALTER TABLE budgets ADD COLUMN synced_at INTEGER;');
-    } catch (e) {}
+    } catch (e) { }
 
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS recurring_expenses (
@@ -236,7 +236,7 @@ export const initDatabase = async () => {
     `);
     try {
       await db.execAsync('ALTER TABLE recurring_expenses ADD COLUMN synced_at INTEGER;');
-    } catch (e) {}
+    } catch (e) { }
 
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS exchange_rates (
@@ -266,10 +266,10 @@ export const initDatabase = async () => {
     `);
     try {
       await db.execAsync('ALTER TABLE debts ADD COLUMN synced_at INTEGER;');
-    } catch (e) {}
+    } catch (e) { }
     try {
       await db.execAsync("ALTER TABLE debts ADD COLUMN direction TEXT DEFAULT 'owed_by_me';");
-    } catch (e) {}
+    } catch (e) { }
 
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS debt_installments (
@@ -329,7 +329,7 @@ export const initDatabase = async () => {
     }
     try {
       await db.execAsync('ALTER TABLE challenges ADD COLUMN synced_at INTEGER;');
-    } catch (e) {}
+    } catch (e) { }
 
     // Achievements and Badges table
     await db.execAsync(`
@@ -348,7 +348,7 @@ export const initDatabase = async () => {
     `);
     try {
       await db.execAsync('ALTER TABLE achievements ADD COLUMN synced_at INTEGER;');
-    } catch (e) {}
+    } catch (e) { }
 
     // Expense Shortcuts table
     await db.execAsync(`
@@ -364,7 +364,7 @@ export const initDatabase = async () => {
     `);
     try {
       await db.execAsync('ALTER TABLE expense_shortcuts ADD COLUMN synced_at INTEGER;');
-    } catch (e) {}
+    } catch (e) { }
 
     // Income Shortcuts table
     await db.execAsync(`
@@ -380,7 +380,7 @@ export const initDatabase = async () => {
     `);
     try {
       await db.execAsync('ALTER TABLE income_shortcuts ADD COLUMN synced_at INTEGER;');
-    } catch (e) {}
+    } catch (e) { }
 
     // Bills table
     await db.execAsync(`
@@ -410,7 +410,7 @@ export const initDatabase = async () => {
     }
     try {
       await db.execAsync('ALTER TABLE bills ADD COLUMN synced_at INTEGER;');
-    } catch (e) {}
+    } catch (e) { }
 
     // Bill payment history table
     await db.execAsync(`
@@ -453,7 +453,7 @@ export const initDatabase = async () => {
     }
     try {
       await db.execAsync('ALTER TABLE notifications ADD COLUMN synced_at INTEGER;');
-    } catch (e) {}
+    } catch (e) { }
 
     // AI Smart Insights cache (last response stored locally)
     await db.execAsync(`
@@ -471,11 +471,11 @@ export const initDatabase = async () => {
       const tableInfo = await db.getAllAsync<{ name: string }>("PRAGMA table_info(ai_insights_cache)");
       const hasMonthColumn = tableInfo.some((col) => col.name === 'month');
       const hasYearColumn = tableInfo.some((col) => col.name === 'year');
-      
+
       if (!hasMonthColumn || !hasYearColumn) {
         // Old table structure exists, migrate it
         await db.execAsync('CREATE TABLE IF NOT EXISTS ai_insights_cache_new (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT NOT NULL, analysis_type TEXT DEFAULT "full", month INTEGER NOT NULL, year INTEGER NOT NULL, created_at INTEGER NOT NULL);');
-        
+
         // Copy existing data if any
         const existingData = await db.getAllAsync<{ data: string; analysis_type: string | null; created_at: number }>('SELECT data, analysis_type, created_at FROM ai_insights_cache');
         if (existingData.length > 0) {
@@ -490,7 +490,7 @@ export const initDatabase = async () => {
             );
           }
         }
-        
+
         await db.execAsync('DROP TABLE ai_insights_cache;');
         await db.execAsync('ALTER TABLE ai_insights_cache_new RENAME TO ai_insights_cache;');
       }
@@ -516,11 +516,11 @@ export const initDatabase = async () => {
       const hasMonthColumn = tableInfo.some((col) => col.name === 'month');
       const hasYearColumn = tableInfo.some((col) => col.name === 'year');
       const hasIdColumn = tableInfo.some((col) => col.name === 'id');
-      
+
       if (!hasMonthColumn || !hasYearColumn || !hasIdColumn) {
         // Old table structure exists, migrate it
         await db.execAsync('CREATE TABLE IF NOT EXISTS goal_plan_cache_new (id INTEGER PRIMARY KEY AUTOINCREMENT, goal_id INTEGER NOT NULL, data TEXT NOT NULL, month INTEGER NOT NULL, year INTEGER NOT NULL, created_at INTEGER NOT NULL);');
-        
+
         // Copy existing data if any
         const existingData = await db.getAllAsync<{ goal_id: number; data: string; created_at: number }>('SELECT goal_id, data, created_at FROM goal_plan_cache');
         if (existingData.length > 0) {
@@ -535,11 +535,11 @@ export const initDatabase = async () => {
             );
           }
         }
-        
+
         await db.execAsync('DROP TABLE goal_plan_cache;');
         await db.execAsync('ALTER TABLE goal_plan_cache_new RENAME TO goal_plan_cache;');
       }
-      
+
       // Create indexes if they don't exist
       await db.execAsync('CREATE INDEX IF NOT EXISTS idx_goal_plan_cache_goal_id ON goal_plan_cache(goal_id);');
       await db.execAsync('CREATE INDEX IF NOT EXISTS idx_goal_plan_cache_month_year ON goal_plan_cache(year, month);');
@@ -556,7 +556,7 @@ export const initDatabase = async () => {
 
     // Initialize default categories
     await initializeDefaultCategories(db);
-    
+
     // Clean up old AI cache (keep last 6 months) - run in background, don't block initialization
     cleanupOldAiCache().catch(err => {
       console.error('Error cleaning up old AI cache:', err);
@@ -660,9 +660,35 @@ export const getExpenses = async (): Promise<import('../types').Expense[]> => {
   return result;
 };
 
-export const getExpensesCount = async (): Promise<number> => {
+export const getExpensesCount = async (options: {
+  startDate?: string;
+  endDate?: string;
+  searchQuery?: string;
+  category?: string;
+} = {}): Promise<number> => {
+  const { startDate, endDate, searchQuery, category } = options;
   const database = getDb();
-  const result = await database.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM expenses');
+  let query = 'SELECT COUNT(*) as count FROM expenses WHERE 1=1';
+  const params: any[] = [];
+
+  if (startDate) {
+    query += ' AND date >= ?';
+    params.push(startDate);
+  }
+  if (endDate) {
+    query += ' AND date <= ?';
+    params.push(endDate);
+  }
+  if (searchQuery) {
+    query += ' AND (title LIKE ? OR description LIKE ?)';
+    params.push(`%${searchQuery}%`, `%${searchQuery}%`);
+  }
+  if (category && category !== 'all') {
+    query += ' AND category = ?';
+    params.push(category);
+  }
+
+  const result = await database.getFirstAsync<{ count: number }>(query, params);
   return result?.count || 0;
 };
 
@@ -695,6 +721,74 @@ export const getRecentTransactions = async (limit: number = 5): Promise<(import(
   });
 
   return combined.slice(0, limit);
+};
+
+export const getExpensesPaginated = async (options: {
+  limit?: number;
+  offset?: number;
+  startDate?: string;
+  endDate?: string;
+  searchQuery?: string;
+  category?: string;
+}): Promise<import('../types').Expense[]> => {
+  const { limit = 20, offset = 0, startDate, endDate, searchQuery, category } = options;
+  const database = getDb();
+  let query = 'SELECT * FROM expenses WHERE 1=1';
+  const params: any[] = [];
+
+  if (startDate) {
+    query += ' AND date >= ?';
+    params.push(startDate);
+  }
+  if (endDate) {
+    query += ' AND date <= ?';
+    params.push(endDate);
+  }
+  if (searchQuery) {
+    query += ' AND (title LIKE ? OR description LIKE ?)';
+    params.push(`%${searchQuery}%`, `%${searchQuery}%`);
+  }
+  if (category && category !== 'all') {
+    query += ' AND category = ?';
+    params.push(category);
+  }
+
+  query += ' ORDER BY date DESC, id DESC LIMIT ? OFFSET ?';
+  params.push(limit, offset);
+
+  return await database.getAllAsync<import('../types').Expense>(query, params);
+};
+
+export const getExpensesTotalAmount = async (options: {
+  startDate?: string;
+  endDate?: string;
+  searchQuery?: string;
+  category?: string;
+}): Promise<number> => {
+  const { startDate, endDate, searchQuery, category } = options;
+  const database = getDb();
+  let query = 'SELECT SUM(base_amount) as total FROM expenses WHERE 1=1';
+  const params: any[] = [];
+
+  if (startDate) {
+    query += ' AND date >= ?';
+    params.push(startDate);
+  }
+  if (endDate) {
+    query += ' AND date <= ?';
+    params.push(endDate);
+  }
+  if (searchQuery) {
+    query += ' AND (title LIKE ? OR description LIKE ?)';
+    params.push(`%${searchQuery}%`, `%${searchQuery}%`);
+  }
+  if (category && category !== 'all') {
+    query += ' AND category = ?';
+    params.push(category);
+  }
+
+  const result = await database.getFirstAsync<{ total: number }>(query, params);
+  return result?.total || 0;
 };
 
 export const updateExpense = async (id: number, expense: Omit<import('../types').Expense, 'id'>): Promise<void> => {
@@ -763,9 +857,35 @@ export const getIncome = async (): Promise<import('../types').Income[]> => {
   return result;
 };
 
-export const getIncomeCount = async (): Promise<number> => {
+export const getIncomeCount = async (options: {
+  startDate?: string;
+  endDate?: string;
+  searchQuery?: string;
+  category?: string;
+} = {}): Promise<number> => {
+  const { startDate, endDate, searchQuery, category } = options;
   const database = getDb();
-  const result = await database.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM income');
+  let query = 'SELECT COUNT(*) as count FROM income WHERE 1=1';
+  const params: any[] = [];
+
+  if (startDate) {
+    query += ' AND date >= ?';
+    params.push(startDate);
+  }
+  if (endDate) {
+    query += ' AND date <= ?';
+    params.push(endDate);
+  }
+  if (searchQuery) {
+    query += ' AND (source LIKE ? OR description LIKE ?)';
+    params.push(`%${searchQuery}%`, `%${searchQuery}%`);
+  }
+  if (category && category !== 'all') {
+    query += ' AND category = ?';
+    params.push(category);
+  }
+
+  const result = await database.getFirstAsync<{ count: number }>(query, params);
   return result?.count || 0;
 };
 
@@ -776,6 +896,74 @@ export const getIncomeByRange = async (startDate: string, endDate: string): Prom
     [startDate, endDate]
   );
   return result;
+};
+
+export const getIncomePaginated = async (options: {
+  limit?: number;
+  offset?: number;
+  startDate?: string;
+  endDate?: string;
+  searchQuery?: string;
+  category?: string;
+}): Promise<import('../types').Income[]> => {
+  const { limit = 20, offset = 0, startDate, endDate, searchQuery, category } = options;
+  const database = getDb();
+  let query = 'SELECT * FROM income WHERE 1=1';
+  const params: any[] = [];
+
+  if (startDate) {
+    query += ' AND date >= ?';
+    params.push(startDate);
+  }
+  if (endDate) {
+    query += ' AND date <= ?';
+    params.push(endDate);
+  }
+  if (searchQuery) {
+    query += ' AND (source LIKE ? OR description LIKE ?)';
+    params.push(`%${searchQuery}%`, `%${searchQuery}%`);
+  }
+  if (category && category !== 'all') {
+    query += ' AND category = ?';
+    params.push(category);
+  }
+
+  query += ' ORDER BY date DESC, id DESC LIMIT ? OFFSET ?';
+  params.push(limit, offset);
+
+  return await database.getAllAsync<import('../types').Income>(query, params);
+};
+
+export const getIncomeTotalAmount = async (options: {
+  startDate?: string;
+  endDate?: string;
+  searchQuery?: string;
+  category?: string;
+}): Promise<number> => {
+  const { startDate, endDate, searchQuery, category } = options;
+  const database = getDb();
+  let query = 'SELECT SUM(base_amount) as total FROM income WHERE 1=1';
+  const params: any[] = [];
+
+  if (startDate) {
+    query += ' AND date >= ?';
+    params.push(startDate);
+  }
+  if (endDate) {
+    query += ' AND date <= ?';
+    params.push(endDate);
+  }
+  if (searchQuery) {
+    query += ' AND (source LIKE ? OR description LIKE ?)';
+    params.push(`%${searchQuery}%`, `%${searchQuery}%`);
+  }
+  if (category && category !== 'all') {
+    query += ' AND category = ?';
+    params.push(category);
+  }
+
+  const result = await database.getFirstAsync<{ total: number }>(query, params);
+  return result?.total || 0;
 };
 
 export const updateIncome = async (id: number, income: Omit<import('../types').Income, 'id'>): Promise<void> => {
@@ -845,7 +1033,7 @@ export const markExpensesSynced = async (ids: number[]): Promise<void> => {
   try {
     const { saveWidgetData } = await import('../services/widgetDataService');
     saveWidgetData().catch(() => { });
-  } catch (_) {}
+  } catch (_) { }
 };
 
 export const markIncomeSynced = async (ids: number[]): Promise<void> => {
@@ -860,7 +1048,7 @@ export const markIncomeSynced = async (ids: number[]): Promise<void> => {
   try {
     const { saveWidgetData } = await import('../services/widgetDataService');
     saveWidgetData().catch(() => { });
-  } catch (_) {}
+  } catch (_) { }
 };
 
 /** Mark all expenses and income as synced (e.g. after full backup upload). */
@@ -882,7 +1070,7 @@ export const markAllExpensesAndIncomeSynced = async (): Promise<void> => {
   try {
     const { saveWidgetData } = await import('../services/widgetDataService');
     saveWidgetData().catch(() => { });
-  } catch (_) {}
+  } catch (_) { }
 };
 
 const hasSyncedColumn = async (database: SQLite.SQLiteDatabase, table: string): Promise<boolean> => {
@@ -962,6 +1150,22 @@ export const getAvailableExpenseMonths = async (): Promise<{ year: number; month
 
   const query = `
     SELECT DISTINCT SUBSTR(date, 1, 7) as month_key FROM expenses
+    ORDER BY month_key DESC
+  `;
+
+  const results = await database.getAllAsync<{ month_key: string }>(query);
+
+  return results.map(row => {
+    const [year, month] = row.month_key.split('-').map(Number);
+    return { year, month };
+  });
+};
+
+export const getAvailableIncomeMonths = async (): Promise<{ year: number; month: number }[]> => {
+  const database = getDb();
+
+  const query = `
+    SELECT DISTINCT SUBSTR(date, 1, 7) as month_key FROM income
     ORDER BY month_key DESC
   `;
 
@@ -1120,7 +1324,7 @@ export const saveUserProfile = async (profile: UserProfile): Promise<void> => {
 export const clearUserProfile = async (): Promise<void> => {
   const database = getDb();
   const existing = await database.getFirstAsync<{ id: number }>('SELECT id FROM user_settings LIMIT 1');
-  
+
   if (existing) {
     await database.runAsync(
       'UPDATE user_settings SET userId = NULL, phone = NULL, email = NULL, isPro = 0 WHERE id = ?',
@@ -1134,7 +1338,7 @@ export const getUserProfile = async (): Promise<UserProfile | null> => {
   const result = await database.getFirstAsync<any>(
     'SELECT userId, phone, name, email, isPro FROM user_settings WHERE userId IS NOT NULL LIMIT 1'
   );
-  
+
   if (result && result.userId) {
     return {
       userId: result.userId,
@@ -2959,228 +3163,228 @@ export const importFullData = async (data: Record<string, unknown>): Promise<voi
 
   const expenses = (data.expenses as any[]) || [];
   await runSection('expenses', async () => {
-  for (const e of expenses) {
-    const title = str(e.title, 'بدون عنوان');
-    const amount = num(e.amount);
-    const category = str(e.category, 'أخرى');
-    const date = str(e.date, new Date().toISOString().slice(0, 10));
-    await database.runAsync(
-      'INSERT INTO expenses (id, title, amount, base_amount, category, date, description, currency, receipt_image_path, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [def(e.id, null), title, amount, safe(e.base_amount) ?? amount, category, date, safe(e.description), safe(e.currency) ?? 'IQD', safe(e.receipt_image_path), safe(e.synced_at)]
-    );
-  }
+    for (const e of expenses) {
+      const title = str(e.title, 'بدون عنوان');
+      const amount = num(e.amount);
+      const category = str(e.category, 'أخرى');
+      const date = str(e.date, new Date().toISOString().slice(0, 10));
+      await database.runAsync(
+        'INSERT INTO expenses (id, title, amount, base_amount, category, date, description, currency, receipt_image_path, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [def(e.id, null), title, amount, safe(e.base_amount) ?? amount, category, date, safe(e.description), safe(e.currency) ?? 'IQD', safe(e.receipt_image_path), safe(e.synced_at)]
+      );
+    }
   });
 
   const income = (data.income as any[]) || [];
   await runSection('income', async () => {
-  for (const i of income) {
-    const source = str(i.source, 'دخل');
-    const amount = num(i.amount);
-    const date = str(i.date, new Date().toISOString().slice(0, 10));
-    await database.runAsync(
-      'INSERT INTO income (id, source, amount, base_amount, date, description, currency, category, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [def(i.id, null), source, amount, safe(i.base_amount) ?? amount, date, safe(i.description), safe(i.currency) ?? 'IQD', safe(i.category) ?? 'other', safe(i.synced_at)]
-    );
-  }
+    for (const i of income) {
+      const source = str(i.source, 'دخل');
+      const amount = num(i.amount);
+      const date = str(i.date, new Date().toISOString().slice(0, 10));
+      await database.runAsync(
+        'INSERT INTO income (id, source, amount, base_amount, date, description, currency, category, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [def(i.id, null), source, amount, safe(i.base_amount) ?? amount, date, safe(i.description), safe(i.currency) ?? 'IQD', safe(i.category) ?? 'other', safe(i.synced_at)]
+      );
+    }
   });
 
   await runSection('user_settings', async () => {
-  const userSettingsRaw = data.user_settings;
-  const user_settings = Array.isArray(userSettingsRaw) ? userSettingsRaw : (userSettingsRaw ? [userSettingsRaw] : []);
-  if (user_settings.length > 0) {
-    const u = user_settings[0];
-    await database.runAsync(
-      'INSERT INTO user_settings (id, name, authMethod, passwordHash, biometricsEnabled, synced_at) VALUES (?, ?, ?, ?, ?, ?)',
-      [u.id, safe(u.name), safe(u.authMethod), safe(u.passwordHash), u.biometricsEnabled ? 1 : 0, safe(u.synced_at)]
-    );
-  }
+    const userSettingsRaw = data.user_settings;
+    const user_settings = Array.isArray(userSettingsRaw) ? userSettingsRaw : (userSettingsRaw ? [userSettingsRaw] : []);
+    if (user_settings.length > 0) {
+      const u = user_settings[0];
+      await database.runAsync(
+        'INSERT INTO user_settings (id, name, authMethod, passwordHash, biometricsEnabled, synced_at) VALUES (?, ?, ?, ?, ?, ?)',
+        [u.id, safe(u.name), safe(u.authMethod), safe(u.passwordHash), u.biometricsEnabled ? 1 : 0, safe(u.synced_at)]
+      );
+    }
   });
 
   await runSection('app_settings', async () => {
-  const appSettingsRaw = data.app_settings;
-  const app_settings = Array.isArray(appSettingsRaw) ? appSettingsRaw : (appSettingsRaw ? [appSettingsRaw] : []);
-  if (app_settings.length > 0) {
-    const a = app_settings[0];
-    await database.runAsync(
-      'INSERT INTO app_settings (id, notificationsEnabled, darkModeEnabled, autoBackupEnabled, autoSyncEnabled, currency, language, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [a.id, a.notificationsEnabled ? 1 : 0, a.darkModeEnabled ? 1 : 0, a.autoBackupEnabled ? 1 : 0, a.autoSyncEnabled ? 1 : 0, safe(a.currency), safe(a.language), safe(a.synced_at)]
-    );
-  }
+    const appSettingsRaw = data.app_settings;
+    const app_settings = Array.isArray(appSettingsRaw) ? appSettingsRaw : (appSettingsRaw ? [appSettingsRaw] : []);
+    if (app_settings.length > 0) {
+      const a = app_settings[0];
+      await database.runAsync(
+        'INSERT INTO app_settings (id, notificationsEnabled, darkModeEnabled, autoBackupEnabled, autoSyncEnabled, currency, language, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [a.id, a.notificationsEnabled ? 1 : 0, a.darkModeEnabled ? 1 : 0, a.autoBackupEnabled ? 1 : 0, a.autoSyncEnabled ? 1 : 0, safe(a.currency), safe(a.language), safe(a.synced_at)]
+      );
+    }
   });
 
   await runSection('notification_settings', async () => {
-  const notifSettingsRaw = data.notification_settings;
-  const notification_settings = Array.isArray(notifSettingsRaw) ? notifSettingsRaw : (notifSettingsRaw ? [notifSettingsRaw] : []);
-  if (notification_settings.length > 0) {
-    const n = notification_settings[0];
-    await database.runAsync(
-      'INSERT INTO notification_settings (id, dailyReminder, dailyReminderTime, expenseReminder, expenseReminderTime, incomeReminder, weeklySummary, monthlySummary, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [n.id, num(n.dailyReminder), safe(n.dailyReminderTime), num(n.expenseReminder), safe(n.expenseReminderTime), num(n.incomeReminder), num(n.weeklySummary), num(n.monthlySummary), safe(n.synced_at)]
-    );
-  }
+    const notifSettingsRaw = data.notification_settings;
+    const notification_settings = Array.isArray(notifSettingsRaw) ? notifSettingsRaw : (notifSettingsRaw ? [notifSettingsRaw] : []);
+    if (notification_settings.length > 0) {
+      const n = notification_settings[0];
+      await database.runAsync(
+        'INSERT INTO notification_settings (id, dailyReminder, dailyReminderTime, expenseReminder, expenseReminderTime, incomeReminder, weeklySummary, monthlySummary, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [n.id, num(n.dailyReminder), safe(n.dailyReminderTime), num(n.expenseReminder), safe(n.expenseReminderTime), num(n.incomeReminder), num(n.weeklySummary), num(n.monthlySummary), safe(n.synced_at)]
+      );
+    }
   });
 
   await runSection('custom_categories', async () => {
-  const custom_categories = (data.custom_categories as any[]) || [];
-  for (const c of custom_categories) {
-    const type = str(c.type, 'expense');
-    const createdAt = str(c.createdAt, new Date().toISOString());
-    await database.runAsync(
-      'INSERT INTO custom_categories (id, name, type, icon, color, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [c.id, str(c.name, 'فئة'), type, safe(c.icon) ?? 'ellipse', safe(c.color) ?? '#6B7280', createdAt, safe(c.synced_at)]
-    );
-  }
+    const custom_categories = (data.custom_categories as any[]) || [];
+    for (const c of custom_categories) {
+      const type = str(c.type, 'expense');
+      const createdAt = str(c.createdAt, new Date().toISOString());
+      await database.runAsync(
+        'INSERT INTO custom_categories (id, name, type, icon, color, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [c.id, str(c.name, 'فئة'), type, safe(c.icon) ?? 'ellipse', safe(c.color) ?? '#6B7280', createdAt, safe(c.synced_at)]
+      );
+    }
   });
 
   await runSection('budgets', async () => {
-  const budgets = (data.budgets as any[]) || [];
-  for (const b of budgets) {
-    const now = new Date();
-    const month = str(b.month, String(now.getMonth() + 1));
-    const year = num(b.year) || now.getFullYear();
-    await database.runAsync(
-      'INSERT INTO budgets (id, category, amount, month, year, synced_at) VALUES (?, ?, ?, ?, ?, ?)',
-      [b.id, str(b.category, 'أخرى'), num(b.amount), month, year, safe(b.synced_at)]
-    );
-  }
+    const budgets = (data.budgets as any[]) || [];
+    for (const b of budgets) {
+      const now = new Date();
+      const month = str(b.month, String(now.getMonth() + 1));
+      const year = num(b.year) || now.getFullYear();
+      await database.runAsync(
+        'INSERT INTO budgets (id, category, amount, month, year, synced_at) VALUES (?, ?, ?, ?, ?, ?)',
+        [b.id, str(b.category, 'أخرى'), num(b.amount), month, year, safe(b.synced_at)]
+      );
+    }
   });
 
   await runSection('financial_goals', async () => {
-  const financial_goals = (data.financial_goals as any[]) || [];
-  for (const g of financial_goals) {
-    await database.runAsync(
-      'INSERT INTO financial_goals (id, title, targetAmount, currentAmount, targetDate, category, description, createdAt, completed, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [g.id, str(g.title, 'هدف'), num(g.targetAmount), num(g.currentAmount), str(g.targetDate, new Date().toISOString().slice(0, 10)), str(g.category, 'أخرى'), safe(g.description), str(g.createdAt, new Date().toISOString()), g.completed ? 1 : 0, safe(g.synced_at)]
-    );
-  }
+    const financial_goals = (data.financial_goals as any[]) || [];
+    for (const g of financial_goals) {
+      await database.runAsync(
+        'INSERT INTO financial_goals (id, title, targetAmount, currentAmount, targetDate, category, description, createdAt, completed, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [g.id, str(g.title, 'هدف'), num(g.targetAmount), num(g.currentAmount), str(g.targetDate, new Date().toISOString().slice(0, 10)), str(g.category, 'أخرى'), safe(g.description), str(g.createdAt, new Date().toISOString()), g.completed ? 1 : 0, safe(g.synced_at)]
+      );
+    }
   });
 
   await runSection('recurring_expenses', async () => {
-  const recurring_expenses = (data.recurring_expenses as any[]) || [];
-  for (const r of recurring_expenses) {
-    const recurrenceType = str(r.recurrenceType ?? r.frequency, 'monthly');
-    const recurrenceValue = num(r.recurrenceValue) || 1;
-    const startDate = str(r.startDate, new Date().toISOString().slice(0, 10));
-    const createdAt = str(r.createdAt, new Date().toISOString());
-    await database.runAsync(
-      'INSERT INTO recurring_expenses (id, title, amount, category, recurrenceType, recurrenceValue, startDate, endDate, description, isActive, lastProcessedDate, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [r.id, str(r.title, 'بدون عنوان'), num(r.amount), str(r.category, 'أخرى'), recurrenceType, recurrenceValue, startDate, safe(r.endDate), safe(r.description), r.isActive !== false ? 1 : 0, safe(r.lastProcessedDate), createdAt, safe(r.synced_at)]
-    );
-  }
+    const recurring_expenses = (data.recurring_expenses as any[]) || [];
+    for (const r of recurring_expenses) {
+      const recurrenceType = str(r.recurrenceType ?? r.frequency, 'monthly');
+      const recurrenceValue = num(r.recurrenceValue) || 1;
+      const startDate = str(r.startDate, new Date().toISOString().slice(0, 10));
+      const createdAt = str(r.createdAt, new Date().toISOString());
+      await database.runAsync(
+        'INSERT INTO recurring_expenses (id, title, amount, category, recurrenceType, recurrenceValue, startDate, endDate, description, isActive, lastProcessedDate, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [r.id, str(r.title, 'بدون عنوان'), num(r.amount), str(r.category, 'أخرى'), recurrenceType, recurrenceValue, startDate, safe(r.endDate), safe(r.description), r.isActive !== false ? 1 : 0, safe(r.lastProcessedDate), createdAt, safe(r.synced_at)]
+      );
+    }
   });
 
   await runSection('debts', async () => {
-  const debts = (data.debts as any[]) || [];
-  const dirCol = 'direction';
-  for (const d of debts) {
-    const startDate = str(d.startDate, new Date().toISOString().slice(0, 10));
-    const createdAt = str(d.createdAt, new Date().toISOString());
-    const direction = d[dirCol] === 'owed_to_me' ? 'owed_to_me' : 'owed_by_me';
-    await database.runAsync(
-      'INSERT INTO debts (id, debtorName, totalAmount, remainingAmount, startDate, dueDate, description, type, direction, currency, isPaid, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [d.id, str(d.debtorName, 'دين'), num(d.totalAmount), num(d.remainingAmount), startDate, safe(d.dueDate), safe(d.description), str(d.type, 'debt'), direction, safe(d.currency) ?? 'IQD', d.isPaid ? 1 : 0, createdAt, safe(d.synced_at)]
-    );
-  }
+    const debts = (data.debts as any[]) || [];
+    const dirCol = 'direction';
+    for (const d of debts) {
+      const startDate = str(d.startDate, new Date().toISOString().slice(0, 10));
+      const createdAt = str(d.createdAt, new Date().toISOString());
+      const direction = d[dirCol] === 'owed_to_me' ? 'owed_to_me' : 'owed_by_me';
+      await database.runAsync(
+        'INSERT INTO debts (id, debtorName, totalAmount, remainingAmount, startDate, dueDate, description, type, direction, currency, isPaid, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [d.id, str(d.debtorName, 'دين'), num(d.totalAmount), num(d.remainingAmount), startDate, safe(d.dueDate), safe(d.description), str(d.type, 'debt'), direction, safe(d.currency) ?? 'IQD', d.isPaid ? 1 : 0, createdAt, safe(d.synced_at)]
+      );
+    }
   });
 
   await runSection('debt_installments', async () => {
-  const debt_installments = (data.debt_installments as any[]) || [];
-  for (const di of debt_installments) {
-    const dueDate = str(di.dueDate, new Date().toISOString().slice(0, 10));
-    const createdAt = str(di.createdAt, new Date().toISOString());
-    await database.runAsync(
-      'INSERT INTO debt_installments (id, debtId, amount, dueDate, isPaid, paidDate, installmentNumber, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [di.id, di.debtId, num(di.amount), dueDate, di.isPaid ? 1 : 0, safe(di.paidDate), num(di.installmentNumber), createdAt]
-    );
-  }
+    const debt_installments = (data.debt_installments as any[]) || [];
+    for (const di of debt_installments) {
+      const dueDate = str(di.dueDate, new Date().toISOString().slice(0, 10));
+      const createdAt = str(di.createdAt, new Date().toISOString());
+      await database.runAsync(
+        'INSERT INTO debt_installments (id, debtId, amount, dueDate, isPaid, paidDate, installmentNumber, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [di.id, di.debtId, num(di.amount), dueDate, di.isPaid ? 1 : 0, safe(di.paidDate), num(di.installmentNumber), createdAt]
+      );
+    }
   });
 
   await runSection('bills', async () => {
-  const bills = (data.bills as any[]) || [];
-  for (const b of bills) {
-    const title = str(b.title ?? b.name, 'فاتورة');
-    const dueDate = str(b.dueDate ?? b.dueDay, new Date().toISOString().slice(0, 10));
-    const createdAt = str(b.createdAt, new Date().toISOString());
-    await database.runAsync(
-      'INSERT INTO bills (id, title, amount, category, dueDate, recurrenceType, recurrenceValue, description, currency, isPaid, paidDate, reminderDaysBefore, image_path, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [b.id, title, num(b.amount), str(b.category, 'أخرى'), dueDate, safe(b.recurrenceType), safe(b.recurrenceValue), safe(b.description), safe(b.currency) ?? 'IQD', b.isPaid ? 1 : 0, safe(b.paidDate), num(b.reminderDaysBefore) || 3, safe(b.image_path), createdAt, safe(b.synced_at)]
-    );
-  }
+    const bills = (data.bills as any[]) || [];
+    for (const b of bills) {
+      const title = str(b.title ?? b.name, 'فاتورة');
+      const dueDate = str(b.dueDate ?? b.dueDay, new Date().toISOString().slice(0, 10));
+      const createdAt = str(b.createdAt, new Date().toISOString());
+      await database.runAsync(
+        'INSERT INTO bills (id, title, amount, category, dueDate, recurrenceType, recurrenceValue, description, currency, isPaid, paidDate, reminderDaysBefore, image_path, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [b.id, title, num(b.amount), str(b.category, 'أخرى'), dueDate, safe(b.recurrenceType), safe(b.recurrenceValue), safe(b.description), safe(b.currency) ?? 'IQD', b.isPaid ? 1 : 0, safe(b.paidDate), num(b.reminderDaysBefore) || 3, safe(b.image_path), createdAt, safe(b.synced_at)]
+      );
+    }
   });
 
   await runSection('bill_payments', async () => {
-  const bill_payments = (data.bill_payments as any[]) || [];
-  for (const bp of bill_payments) {
-    const paymentDate = str(bp.paymentDate ?? bp.paidDate, new Date().toISOString().slice(0, 10));
-    const createdAt = str(bp.createdAt, new Date().toISOString());
-    await database.runAsync(
-      'INSERT INTO bill_payments (id, billId, amount, paymentDate, description, createdAt) VALUES (?, ?, ?, ?, ?, ?)',
-      [bp.id, bp.billId, num(bp.amount), paymentDate, safe(bp.description), createdAt]
-    );
-  }
+    const bill_payments = (data.bill_payments as any[]) || [];
+    for (const bp of bill_payments) {
+      const paymentDate = str(bp.paymentDate ?? bp.paidDate, new Date().toISOString().slice(0, 10));
+      const createdAt = str(bp.createdAt, new Date().toISOString());
+      await database.runAsync(
+        'INSERT INTO bill_payments (id, billId, amount, paymentDate, description, createdAt) VALUES (?, ?, ?, ?, ?, ?)',
+        [bp.id, bp.billId, num(bp.amount), paymentDate, safe(bp.description), createdAt]
+      );
+    }
   });
 
   await runSection('challenges', async () => {
-  const challenges = (data.challenges as any[]) || [];
-  for (const ch of challenges) {
-    const createdAt = str(ch.createdAt, new Date().toISOString());
-    await database.runAsync(
-      'INSERT INTO challenges (id, type, title, description, category, icon, startDate, endDate, targetValue, targetCategory, currentProgress, targetProgress, completed, completedAt, reward, isCustom, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [ch.id, str(ch.type, 'custom'), str(ch.title, 'تحدي'), str(ch.description, ''), str(ch.category, 'أخرى'), str(ch.icon, 'flag'), str(ch.startDate, new Date().toISOString().slice(0, 10)), str(ch.endDate, new Date().toISOString().slice(0, 10)), num(ch.targetValue), safe(ch.targetCategory), num(ch.currentProgress), num(ch.targetProgress) || 1, ch.completed ? 1 : 0, safe(ch.completedAt), safe(ch.reward), ch.isCustom ? 1 : 0, createdAt, safe(ch.synced_at)]
-    );
-  }
+    const challenges = (data.challenges as any[]) || [];
+    for (const ch of challenges) {
+      const createdAt = str(ch.createdAt, new Date().toISOString());
+      await database.runAsync(
+        'INSERT INTO challenges (id, type, title, description, category, icon, startDate, endDate, targetValue, targetCategory, currentProgress, targetProgress, completed, completedAt, reward, isCustom, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [ch.id, str(ch.type, 'custom'), str(ch.title, 'تحدي'), str(ch.description, ''), str(ch.category, 'أخرى'), str(ch.icon, 'flag'), str(ch.startDate, new Date().toISOString().slice(0, 10)), str(ch.endDate, new Date().toISOString().slice(0, 10)), num(ch.targetValue), safe(ch.targetCategory), num(ch.currentProgress), num(ch.targetProgress) || 1, ch.completed ? 1 : 0, safe(ch.completedAt), safe(ch.reward), ch.isCustom ? 1 : 0, createdAt, safe(ch.synced_at)]
+      );
+    }
   });
 
   await runSection('achievements', async () => {
-  const achievements = (data.achievements as any[]) || [];
-  for (const ac of achievements) {
-    await database.runAsync(
-      'INSERT INTO achievements (id, type, title, description, icon, category, progress, targetProgress, unlockedAt, isUnlocked, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [ac.id, str(ac.type, 'default'), str(ac.title, ''), str(ac.description, ''), str(ac.icon, 'trophy'), str(ac.category, 'أخرى'), num(ac.progress), num(ac.targetProgress) || 1, safe(ac.unlockedAt), ac.isUnlocked ? 1 : 0, safe(ac.synced_at)]
-    );
-  }
+    const achievements = (data.achievements as any[]) || [];
+    for (const ac of achievements) {
+      await database.runAsync(
+        'INSERT INTO achievements (id, type, title, description, icon, category, progress, targetProgress, unlockedAt, isUnlocked, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [ac.id, str(ac.type, 'default'), str(ac.title, ''), str(ac.description, ''), str(ac.icon, 'trophy'), str(ac.category, 'أخرى'), num(ac.progress), num(ac.targetProgress) || 1, safe(ac.unlockedAt), ac.isUnlocked ? 1 : 0, safe(ac.synced_at)]
+      );
+    }
   });
 
   await runSection('expense_shortcuts', async () => {
-  const expense_shortcuts = (data.expense_shortcuts as any[]) || [];
-  for (const es of expense_shortcuts) {
-    const createdAt = str(es.createdAt, new Date().toISOString());
-    await database.runAsync(
-      'INSERT INTO expense_shortcuts (id, title, amount, category, currency, description, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [es.id, str(es.title, 'اختصار'), num(es.amount), str(es.category, 'أخرى'), safe(es.currency) ?? 'IQD', safe(es.description), createdAt, safe(es.synced_at)]
-    );
-  }
+    const expense_shortcuts = (data.expense_shortcuts as any[]) || [];
+    for (const es of expense_shortcuts) {
+      const createdAt = str(es.createdAt, new Date().toISOString());
+      await database.runAsync(
+        'INSERT INTO expense_shortcuts (id, title, amount, category, currency, description, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [es.id, str(es.title, 'اختصار'), num(es.amount), str(es.category, 'أخرى'), safe(es.currency) ?? 'IQD', safe(es.description), createdAt, safe(es.synced_at)]
+      );
+    }
   });
 
   await runSection('income_shortcuts', async () => {
-  const income_shortcuts = (data.income_shortcuts as any[]) || [];
-  for (const is_ of income_shortcuts) {
-    const createdAt = str(is_.createdAt, new Date().toISOString());
-    await database.runAsync(
-      'INSERT INTO income_shortcuts (id, source, amount, incomeSource, currency, description, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [is_.id, str(is_.source, 'دخل'), num(is_.amount), str(is_.incomeSource ?? is_.source, 'دخل'), safe(is_.currency) ?? 'IQD', safe(is_.description), createdAt, safe(is_.synced_at)]
-    );
-  }
+    const income_shortcuts = (data.income_shortcuts as any[]) || [];
+    for (const is_ of income_shortcuts) {
+      const createdAt = str(is_.createdAt, new Date().toISOString());
+      await database.runAsync(
+        'INSERT INTO income_shortcuts (id, source, amount, incomeSource, currency, description, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [is_.id, str(is_.source, 'دخل'), num(is_.amount), str(is_.incomeSource ?? is_.source, 'دخل'), safe(is_.currency) ?? 'IQD', safe(is_.description), createdAt, safe(is_.synced_at)]
+      );
+    }
   });
 
   await runSection('exchange_rates', async () => {
-  const exchange_rates = (data.exchange_rates as any[]) || [];
-  for (const er of exchange_rates) {
-    const updatedAt = str(er.updatedAt, new Date().toISOString());
-    await database.runAsync(
-      'INSERT INTO exchange_rates (id, fromCurrency, toCurrency, rate, updatedAt) VALUES (?, ?, ?, ?, ?)',
-      [er.id, str(er.baseCurrency ?? er.fromCurrency, 'USD'), str(er.targetCurrency ?? er.toCurrency, 'IQD'), num(er.rate), updatedAt]
-    );
-  }
+    const exchange_rates = (data.exchange_rates as any[]) || [];
+    for (const er of exchange_rates) {
+      const updatedAt = str(er.updatedAt, new Date().toISOString());
+      await database.runAsync(
+        'INSERT INTO exchange_rates (id, fromCurrency, toCurrency, rate, updatedAt) VALUES (?, ?, ?, ?, ?)',
+        [er.id, str(er.baseCurrency ?? er.fromCurrency, 'USD'), str(er.targetCurrency ?? er.toCurrency, 'IQD'), num(er.rate), updatedAt]
+      );
+    }
   });
 
   await runSection('notifications', async () => {
-  const notifications = (data.notifications as any[]) || [];
-  for (const n of notifications) {
-    await database.runAsync(
-      'INSERT INTO notifications (id, title, body, data, date, read, type, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [n.id, str(n.title, ''), str(n.body, ''), typeof n.data === 'string' ? n.data : JSON.stringify(n.data || {}), num(n.date) || Date.now(), n.read ? 1 : 0, str(n.type, 'default'), safe(n.synced_at)]
-    );
-  }
+    const notifications = (data.notifications as any[]) || [];
+    for (const n of notifications) {
+      await database.runAsync(
+        'INSERT INTO notifications (id, title, body, data, date, read, type, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [n.id, str(n.title, ''), str(n.body, ''), typeof n.data === 'string' ? n.data : JSON.stringify(n.data || {}), num(n.date) || Date.now(), n.read ? 1 : 0, str(n.type, 'default'), safe(n.synced_at)]
+      );
+    }
   });
 };

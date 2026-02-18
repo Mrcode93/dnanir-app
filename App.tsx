@@ -5,8 +5,7 @@ import { StyleSheet, View, Text, Image, I18nManager, Platform, AppState } from '
 import { Provider as PaperProvider, Portal, DefaultTheme, configureFonts } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
-import { ClerkProvider, ClerkLoaded } from '@clerk/clerk-expo';
-import { clerkTokenCache } from './src/services/clerkTokenCache';
+import * as SplashScreen from 'expo-splash-screen';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { LockScreen } from './src/screens/LockScreen';
 import { initDatabase } from './src/database/database';
@@ -20,7 +19,9 @@ import { AlertProvider } from './src/components/AlertProvider';
 import { PrivacyProvider } from './src/context/PrivacyContext';
 import PushNotificationManager from './src/components/PushNotificationManager';
 
-const CLERK_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
+// Prevent valid splash screen from auto-hiding
+// We call this at top level to catch it as early as possible
+SplashScreen.preventAutoHideAsync().catch(() => { });
 
 const fontConfig = {
   config: {
@@ -47,7 +48,6 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLocked, setIsLocked] = useState(false);
   const [isDark, setIsDark] = useState(false);
-  const [splashComplete, setSplashComplete] = useState(false);
 
   const activeTheme = isDark ? darkTheme : lightTheme;
 
@@ -96,33 +96,36 @@ export default function App() {
     }
 
     const initializeApp = async () => {
+      const startTime = Date.now();
       try {
+        // Critical: Database must be ready first
         await initDatabase();
-        await initializeNotifications();
 
-        // Initialize achievements
-        try {
-          const { initializeAchievements, checkAllAchievements } = await import('./src/services/achievementService');
-          await initializeAchievements();
-          await checkAllAchievements();
-        } catch (error) {
-          console.error('Error initializing achievements:', error);
-        }
-
-        // Initialize widget data
-        try {
-          const { initializeWidgetData } = await import('./src/services/widgetDataService');
-          await initializeWidgetData();
-        } catch (error) {
-          console.error('Error initializing widget data:', error);
-        }
-
+        // Only await the auth check — it's needed to decide lock screen
         const authEnabled = await isAuthenticationEnabled();
         setIsLocked(authEnabled);
 
-        setIsLoading(false);
+        // Non-critical: fire-and-forget in background
+        initializeNotifications().catch(e => console.warn('Notifications init skipped:', e));
+
+        import('./src/services/achievementService').then(async ({ initializeAchievements, checkAllAchievements }) => {
+          await initializeAchievements();
+          await checkAllAchievements();
+        }).catch(e => console.warn('Achievements init error:', e));
+
+        import('./src/services/widgetDataService').then(async ({ initializeWidgetData }) => {
+          await initializeWidgetData();
+        }).catch(e => console.warn('Widget data init error:', e));
+
+        // Brief splash so it doesn't just flash
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, 600 - elapsed);
+        if (remaining > 0) {
+          await new Promise(resolve => setTimeout(resolve, remaining));
+        }
       } catch (error) {
         console.error('Failed to initialize app:', error);
+      } finally {
         setIsLoading(false);
       }
     };
@@ -130,11 +133,14 @@ export default function App() {
     initializeApp();
   }, []);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setSplashComplete(true);
-    }, 3000);
-    return () => clearTimeout(timer);
+  const onLayoutRootView = useCallback(async () => {
+    // We hide the native splash screen as soon as our root view is ready.
+    // This happens for both our custom splash screen AND the actual app.
+    try {
+      await SplashScreen.hideAsync();
+    } catch (e) {
+      // Ignore errors if splash screen is already hidden
+    }
   }, []);
 
   const checkAndUpdateAuthStatus = useCallback(async () => {
@@ -232,26 +238,17 @@ export default function App() {
     return unsubscribe;
   }, [checkAndUpdateAuthStatus]);
 
-  // Check auth on focus is already handled by subscription and navigation listeners
-  // Removing interval to prevent performance degradation on Android
-  /*
-  useEffect(() => {
-    const interval = setInterval(() => {
-      checkAndUpdateAuthStatus();
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [checkAndUpdateAuthStatus]);
-  */
-
   const handleUnlock = () => {
     isUnlockedRef.current = true;
     setIsLocked(false);
   };
 
-  if (isLoading || !fontsLoaded || !splashComplete) {
+  if (isLoading || !fontsLoaded) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: activeTheme.colors.primary }]}>
+      <View
+        style={styles.loadingContainer}
+        onLayout={onLayoutRootView}
+      >
         <Image
           source={require('./assets/images/dnanir-splash.png')}
           style={styles.splashImage}
@@ -263,34 +260,32 @@ export default function App() {
 
   if (isLocked) {
     return (
-      <SafeAreaProvider>
-        <LockScreen onUnlock={handleUnlock} />
-      </SafeAreaProvider>
+      <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+        <SafeAreaProvider>
+          <LockScreen onUnlock={handleUnlock} />
+        </SafeAreaProvider>
+      </View>
     );
   }
 
   return (
-    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={clerkTokenCache}>
-      <ClerkLoaded>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <SafeAreaProvider>
-            <AlertProvider>
-              <PrivacyProvider>
-                <ThemeProvider value={{ theme: activeTheme, isDark, setIsDark }}>
-                  <PaperProvider theme={paperTheme}>
-                    <Portal.Host>
-                      <PushNotificationManager />
-                      <AppNavigator />
-                      <StatusBar style={isDark ? "light" : "dark"} backgroundColor={activeTheme.colors.background} />
-                    </Portal.Host>
-                  </PaperProvider>
-                </ThemeProvider>
-              </PrivacyProvider>
-            </AlertProvider>
-          </SafeAreaProvider>
-        </GestureHandlerRootView>
-      </ClerkLoaded>
-    </ClerkProvider>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: activeTheme.colors.background }} onLayout={onLayoutRootView}>
+      <SafeAreaProvider>
+        <AlertProvider>
+          <PrivacyProvider>
+            <ThemeProvider value={{ theme: activeTheme, isDark, setIsDark }}>
+              <PaperProvider theme={paperTheme}>
+                <Portal.Host>
+                  <PushNotificationManager />
+                  <AppNavigator />
+                  <StatusBar style={isDark ? "light" : "dark"} backgroundColor={activeTheme.colors.background} />
+                </Portal.Host>
+              </PaperProvider>
+            </ThemeProvider>
+          </PrivacyProvider>
+        </AlertProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -299,11 +294,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#003459',
+    padding: 40,
   },
   splashImage: {
-    width: '100%',
-    height: '100%',
-    maxWidth: '100%',
-    maxHeight: '100%',
+    width: '80%',
+    height: '80%',
   },
 });

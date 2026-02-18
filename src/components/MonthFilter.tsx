@@ -186,6 +186,23 @@ export const MonthFilter: React.FC<MonthFilterProps> = ({
               })}
               <View style={{ height: 40 }} />
             </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.confirmButton}
+                onPress={() => setShowMonthPicker(false)}
+                activeOpacity={0.8}
+              >
+                <LinearGradient
+                  colors={theme.gradients.primary as any}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.confirmGradient}
+                >
+                  <Text style={styles.confirmButtonText}>موافق</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -351,5 +368,27 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontWeight: '700',
     color: '#475569',
     fontFamily: theme.typography.fontFamily,
-  }
+  },
+  modalFooter: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  confirmButton: {
+    height: 50,
+    borderRadius: 15,
+    overflow: 'hidden',
+  },
+  confirmGradient: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    fontFamily: theme.typography.fontFamily,
+  },
 });
