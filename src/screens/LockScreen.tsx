@@ -14,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, useAppTheme, useThemedStyles } from '../utils/theme';
 import { useLockScreen } from '../hooks/useLockScreen';
+import { convertArabicToEnglishSimple } from '../utils/numbers';
 
 interface LockScreenProps {
   onUnlock: () => void;
@@ -62,7 +63,7 @@ export const LockScreen: React.FC<LockScreenProps> = ({ onUnlock }) => {
               <Animated.View style={[styles.inputContainer, { transform: [{ translateX }] }]}>
                 <TextInput
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={(v) => setPassword(convertArabicToEnglishSimple(v))}
                   placeholder="كلمة المرور"
                   placeholderTextColor={theme.colors.textSecondary}
                   secureTextEntry

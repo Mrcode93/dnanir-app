@@ -10,7 +10,7 @@ import {
   Pressable,
   Modal,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextInput } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,20 +20,18 @@ import { Income, IncomeSource, INCOME_SOURCES, CURRENCIES } from '../types';
 import {
   addIncome,
   updateIncome,
-  getIncomeShortcuts,
-  addIncomeShortcut,
-  deleteIncomeShortcut,
-  updateIncomeShortcut,
   IncomeShortcut,
   getCustomCategories,
   CustomCategory
 } from '../database/database';
+import { ManageShortcutsModal } from '../components/ManageShortcutsModal';
 import { alertService } from '../services/alertService';
 import { useCurrency } from '../hooks/useCurrency';
 import { isRTL } from '../utils/rtl';
 import { convertCurrency } from '../services/currencyService';
 import { convertArabicToEnglish } from '../utils/numbers';
 import { formatDateLocal } from '../utils/date';
+import { getSmartIncomeShortcuts } from '../services/smartShortcutsService';
 
 interface AddIncomeScreenProps {
   navigation: any;
@@ -45,6 +43,7 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
   route,
 }) => {
   const { theme } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const styles = useThemedStyles(createStyles);
   const { currencyCode, formatCurrency } = useCurrency();
   const income = route?.params?.income as Income | undefined;
@@ -68,9 +67,7 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
   const [categories, setCategories] = useState<CustomCategory[]>([]);
 
   // Shortcut Modal State
-  const [showAddShortcutModal, setShowAddShortcutModal] = useState(false);
-  const [showEditShortcutModal, setShowEditShortcutModal] = useState(false);
-  const [editingShortcut, setEditingShortcut] = useState<IncomeShortcut | null>(null);
+  const [showManageShortcuts, setShowManageShortcuts] = useState(false);
 
   useEffect(() => {
     setCurrency(currencyCode);
@@ -122,7 +119,7 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
 
   const loadShortcuts = async () => {
     try {
-      const data = await getIncomeShortcuts();
+      const data = await getSmartIncomeShortcuts();
       setShortcuts(data);
     } catch (e) { /* ignore */ }
   };
@@ -172,10 +169,10 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
 
       if (income) {
         await updateIncome(income.id, data);
-        alertService.success('تم', 'تم تحديث الدخل');
+        alertService.toastSuccess('تم تحديث الدخل');
       } else {
         await addIncome(data);
-        alertService.success('تم', 'تم إضافة الدخل');
+        alertService.toastSuccess('تم إضافة الدخل');
       }
       navigation.goBack();
       resetForm();
@@ -186,7 +183,8 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
     }
   };
 
-  const handleShortcutPress = async (s: IncomeShortcut) => {
+  const handleShortcutUsed = async (shortcut: any) => {
+    const s = shortcut as IncomeShortcut;
     try {
       await addIncome({
         source: s.source,
@@ -197,80 +195,12 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
         description: s.description || '',
       });
       navigation.goBack();
-      alertService.success('تم', 'أضيف من الاختصار');
+      alertService.toastSuccess('أضيف من الاختصار');
     } catch (e: any) {
       alertService.error('خطأ', e.message);
     }
   };
 
-  const handleAddShortcut = async () => {
-    if (!source.trim() || !amount.trim()) return;
-    try {
-      await addIncomeShortcut({
-        source: source.trim(),
-        amount: Number(amount),
-        incomeSource,
-        currency,
-        description: description.trim() || undefined
-      });
-      await loadShortcuts();
-      setShowAddShortcutModal(false);
-      alertService.success('تم', 'تم حفظ الاختصار');
-    } catch (e) {
-      alertService.error('خطأ', 'فشل حفظ الاختصار');
-    }
-  };
-
-  const handleDeleteShortcut = async (id: number) => {
-    try {
-      await deleteIncomeShortcut(id);
-      await loadShortcuts();
-    } catch (e) { /* ignore */ }
-  };
-
-  const handleUpdateShortcut = async () => {
-    if (!editingShortcut) return;
-    try {
-      await updateIncomeShortcut(editingShortcut.id, {
-        source: source.trim(),
-        amount: Number(amount),
-        incomeSource,
-        currency,
-        description: description.trim() || undefined
-      });
-      await loadShortcuts();
-      setShowEditShortcutModal(false);
-      setEditingShortcut(null);
-      alertService.success('تم', 'تم تحديث الاختصار');
-    } catch (e) {
-      alertService.error('خطأ', 'فشل التحديث');
-    }
-  };
-
-  const handleEditShortcutPress = (s: IncomeShortcut) => {
-    setSource(s.source);
-    setAmount(s.amount.toString());
-    setIncomeSource(s.incomeSource);
-    setCurrency(s.currency || currencyCode);
-    setDescription(s.description || '');
-    setEditingShortcut(s);
-    setShowEditShortcutModal(true);
-  };
-
-  const handleCancelEditShortcut = () => {
-    if (editingShortcut) {
-      // Reset form
-      if (income) {
-        setSource(income.source);
-        setAmount(income.amount.toString());
-        // ... restore others
-      } else {
-        resetForm();
-      }
-    }
-    setShowEditShortcutModal(false);
-    setEditingShortcut(null);
-  }
 
   const getSourceInfo = (name: string) => {
     const cat = categories.find(c => c.name === name);
@@ -281,11 +211,11 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
   const currentSourceInfo = getSourceInfo(incomeSource);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.flex1}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
       >
         <View style={styles.flex1}>
           {/* Header */}
@@ -329,21 +259,20 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
               <View style={styles.shortcutsRow}>
                 <View style={styles.shortcutsSectionHeader}>
                   <Text style={styles.shortcutsSectionTitle}>اختصارات سريعة</Text>
-                  <TouchableOpacity style={styles.addShortcutButton} onPress={() => setShowAddShortcutModal(true)}>
-                    <Ionicons name="add" size={18} color={theme.colors.success} />
-                    <Text style={styles.addShortcutButtonText}>إضافة اختصار</Text>
+                  <TouchableOpacity style={styles.addShortcutButton} onPress={() => setShowManageShortcuts(true)}>
+                    <Ionicons name="settings-outline" size={16} color={theme.colors.success} />
+                    <Text style={styles.addShortcutButtonText}>إدارة</Text>
                   </TouchableOpacity>
                 </View>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shortcutsContent}>
-                  <TouchableOpacity style={styles.addShortcutMini} onPress={() => setShowAddShortcutModal(true)}>
+                  <TouchableOpacity style={styles.addShortcutMini} onPress={() => setShowManageShortcuts(true)}>
                     <Ionicons name="add" size={20} color={theme.colors.success} />
                   </TouchableOpacity>
                   {shortcuts.map(s => (
                     <TouchableOpacity
                       key={s.id}
                       style={[styles.shortcutChip, { backgroundColor: theme.colors.surface }]}
-                      onPress={() => handleShortcutPress(s)}
-                      onLongPress={() => handleEditShortcutPress(s)}
+                      onPress={() => handleShortcutUsed(s)}
                     >
                       <Text style={styles.shortcutChipText}>{s.source}</Text>
                       <Text style={styles.shortcutChipAmount}>{s.amount}</Text>
@@ -432,7 +361,7 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
           </ScrollView>
 
           {/* Footer containing Button - NOT absolute */}
-          <View style={styles.footerContainer}>
+          <View style={[styles.footerContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
             <TouchableOpacity
               style={[styles.saveBtn, { backgroundColor: currentSourceInfo.color || theme.colors.success }]}
               onPress={handleSave}
@@ -473,35 +402,13 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
         </Pressable>
       </Modal>
 
-      {/* Add Shortcut Modal - لا يُغلق عند النقر على المحتوى */}
-      <Modal visible={showAddShortcutModal} transparent animationType="fade" onRequestClose={() => setShowAddShortcutModal(false)}>
-        <View style={styles.modalOverlayCentered}>
-          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setShowAddShortcutModal(false)} />
-          <View style={styles.alertBox} onStartShouldSetResponder={() => true}>
-            <Text style={styles.alertTitle}>إضافة اختصار</Text>
-            <Text style={styles.alertMsg}>هل تريد حفظ هذا الدخل كاختصار؟ (المصدر والمبلغ الحالية)</Text>
-            <View style={styles.alertActions}>
-              <TouchableOpacity style={styles.alertBtn} onPress={() => setShowAddShortcutModal(false)}><Text style={styles.alertBtnText}>إلغاء</Text></TouchableOpacity>
-              <TouchableOpacity style={[styles.alertBtn, { backgroundColor: theme.colors.success }]} onPress={handleAddShortcut}><Text style={[styles.alertBtnText, { color: '#FFF' }]}>حفظ</Text></TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Edit Shortcut Modal */}
-      <Modal visible={showEditShortcutModal} transparent animationType="fade" onRequestClose={handleCancelEditShortcut}>
-        <View style={styles.modalOverlayCentered}>
-          <Pressable style={StyleSheet.absoluteFillObject} onPress={handleCancelEditShortcut} />
-          <View style={styles.alertBox} onStartShouldSetResponder={() => true}>
-            <Text style={styles.alertTitle}>تعديل الاختصار</Text>
-            <Text style={styles.alertMsg}>اضغط تحديث لحفظ التغييرات</Text>
-            <View style={styles.alertActions}>
-              <TouchableOpacity style={styles.alertBtn} onPress={handleCancelEditShortcut}><Text style={styles.alertBtnText}>إلغاء</Text></TouchableOpacity>
-              <TouchableOpacity style={[styles.alertBtn, { backgroundColor: theme.colors.success }]} onPress={handleUpdateShortcut}><Text style={[styles.alertBtnText, { color: '#FFF' }]}>تحديث</Text></TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* Manage Shortcuts Modal */}
+      <ManageShortcutsModal
+        visible={showManageShortcuts}
+        type="income"
+        onClose={() => { setShowManageShortcuts(false); loadShortcuts(); }}
+        onShortcutUsed={handleShortcutUsed}
+      />
 
     </SafeAreaView>
   );
@@ -532,7 +439,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   scrollContent: {
-    paddingBottom: 12,
+    paddingBottom: 80,
   },
   amountSection: {
     flexDirection: 'row',

@@ -40,7 +40,7 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
 }) => {
   const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
-  const { currencyCode, formatCurrency } = useCurrency();
+  const { currencyCode, currency } = useCurrency();
   const bill = route?.params?.bill as Bill | undefined;
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
@@ -296,7 +296,7 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
                 outlineColor={theme.colors.border}
                 activeOutlineColor={theme.colors.primary}
                 right={
-                  <TextInput.Affix text={formatCurrency(0).replace('0', '').trim()} />
+                  <TextInput.Affix text={currency?.symbol || currencyCode} />
                 }
               />
             </View>

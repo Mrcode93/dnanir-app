@@ -82,8 +82,13 @@ export const NotificationsScreen = ({ navigation }: any) => {
         switch (type) {
             case 'budget-alerts':
                 return { name: 'warning', color: theme.colors.error };
+            case 'bill-alerts':
+                return { name: 'receipt', color: '#F59E0B' };
             case 'debt-reminders':
                 return { name: 'calendar', color: '#8B5CF6' };
+            case 'spending-alerts':
+            case 'insights':
+                return { name: 'analytics', color: '#0EA5E9' };
             case 'daily-reminder':
             case 'expense-reminder':
                 return { name: 'time', color: theme.colors.primary };

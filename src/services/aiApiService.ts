@@ -225,11 +225,11 @@ export const aiApiService = {
    */
   async getAiUsage(): Promise<{
     success: boolean;
-    data?: { insightsUsed: number; limit: number; remaining: number; isPro: boolean };
+    data?: { insightsUsed: number; limit: number; remaining: number; isPro: boolean; hasUnlimitedAi?: boolean };
     error?: string;
   }> {
     try {
-      const response = await apiClient.get<{ success?: boolean; data?: { insightsUsed: number; limit: number; remaining: number; isPro: boolean } }>(
+      const response = await apiClient.get<{ success?: boolean; data?: { insightsUsed: number; limit: number; remaining: number; isPro: boolean; hasUnlimitedAi?: boolean } }>(
         API_ENDPOINTS.AI.USAGE
       );
       const data = response.data?.data ?? (response.data as any)?.data;
@@ -241,6 +241,7 @@ export const aiApiService = {
             limit: data.limit ?? 1,
             remaining: data.remaining ?? 0,
             isPro: !!data.isPro,
+            hasUnlimitedAi: !!data.hasUnlimitedAi,
           },
         };
       }
@@ -280,14 +281,14 @@ export const aiApiService = {
   ): Promise<{
     success: boolean;
     data?: SmartInsightsData;
-    usage?: { insightsUsed: number; limit: number; remaining: number; isPro: boolean };
+    usage?: { insightsUsed: number; limit: number; remaining: number; isPro: boolean; hasUnlimitedAi?: boolean };
     error?: string;
   }> {
     try {
       const response = await apiClient.post<{
         success?: boolean;
         data?: Record<string, unknown>;
-        usage?: { insightsUsed: number; limit: number; remaining: number; isPro: boolean };
+        usage?: { insightsUsed: number; limit: number; remaining: number; isPro: boolean; hasUnlimitedAi?: boolean };
       }>(API_ENDPOINTS.AI.INSIGHTS, payload);
       const data = response.data?.data ?? response.data;
       const usage = (response.data as any)?.usage;
@@ -297,11 +298,12 @@ export const aiApiService = {
           data: data as any,
           usage: usage
             ? {
-                insightsUsed: usage.insightsUsed ?? 0,
-                limit: usage.limit ?? 1,
-                remaining: usage.remaining ?? 0,
-                isPro: !!usage.isPro,
-              }
+              insightsUsed: usage.insightsUsed ?? 0,
+              limit: usage.limit ?? 1,
+              remaining: usage.remaining ?? 0,
+              isPro: !!usage.isPro,
+              hasUnlimitedAi: !!usage.hasUnlimitedAi,
+            }
             : undefined,
         };
       }

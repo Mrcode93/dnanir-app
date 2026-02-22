@@ -29,11 +29,13 @@ import { alertService } from '../services/alertService';
 import { isRTL } from '../utils/rtl';
 import { MonthFilter } from '../components/MonthFilter';
 import { getMonthData } from '../services/financialService';
+import { usePrivacy } from '../context/PrivacyContext';
 
 export const BudgetScreen = ({ navigation, route }: any) => {
   const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const { formatCurrency, currencyCode } = useCurrency();
+  const { isPrivacyEnabled } = usePrivacy();
   const [budgets, setBudgets] = useState<BudgetStatus[]>([]);
   const [filteredBudgets, setFilteredBudgets] = useState<BudgetStatus[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -314,7 +316,7 @@ export const BudgetScreen = ({ navigation, route }: any) => {
                 {getCategoryName(item.budget.category)}
               </Text>
               <Text style={styles.budgetPercentage}>
-                {percentage.toFixed(1)}% مستخدم
+                {isPrivacyEnabled ? '**% مستخدم' : `${percentage.toFixed(1)}% مستخدم`}
               </Text>
             </View>
           </View>
@@ -350,7 +352,7 @@ export const BudgetScreen = ({ navigation, route }: any) => {
             <Text style={styles.budgetDetailLabel}>الميزانية</Text>
             <View>
               <Text style={styles.budgetDetailValue}>
-                {formatCurrencyAmount(item.budget.amount, item.budget.currency || currencyCode)}
+                {isPrivacyEnabled ? '****' : formatCurrencyAmount(item.budget.amount, item.budget.currency || currencyCode)}
               </Text>
               {convertedAmounts[item.budget.id] && item.budget.currency !== currencyCode && (
                 <Text style={styles.convertedAmountText}>

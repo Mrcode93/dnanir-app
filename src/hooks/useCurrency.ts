@@ -3,6 +3,7 @@ import { getAppSettings } from '../database/database';
 import { CURRENCIES } from '../types';
 import { formatCurrencyAmount } from '../services/currencyService';
 import { subscribeToCurrencyChanges } from '../services/currencyEvents';
+import { usePrivacy } from '../context/PrivacyContext';
 
 /**
  * Hook to get the selected currency and format function
@@ -10,6 +11,7 @@ import { subscribeToCurrencyChanges } from '../services/currencyEvents';
 export const useCurrency = () => {
   const [currencyCode, setCurrencyCode] = useState<string>('IQD');
   const [loading, setLoading] = useState(true);
+  const { isPrivacyEnabled } = usePrivacy();
 
   const loadCurrency = useCallback(async () => {
     try {
@@ -37,9 +39,19 @@ export const useCurrency = () => {
     };
   }, [loadCurrency]);
 
-  const formatCurrency = (amount: number): string => {
+  const formatCurrencyRaw = useCallback((amount: number): string => {
     return formatCurrencyAmount(amount, currencyCode);
-  };
+  }, [currencyCode]);
+
+  const formatCurrency = useCallback((
+    amount: number,
+    options?: { ignorePrivacy?: boolean }
+  ): string => {
+    if (isPrivacyEnabled && !options?.ignorePrivacy) {
+      return '****';
+    }
+    return formatCurrencyAmount(amount, currencyCode);
+  }, [currencyCode, isPrivacyEnabled]);
 
   const getCurrency = () => {
     return CURRENCIES.find(c => c.code === currencyCode);
@@ -47,8 +59,10 @@ export const useCurrency = () => {
 
   return {
     currencyCode,
+    selectedCurrency: currencyCode,
     currency: getCurrency(),
     formatCurrency,
+    formatCurrencyRaw,
     loading,
     refreshCurrency: async () => {
       await loadCurrency();

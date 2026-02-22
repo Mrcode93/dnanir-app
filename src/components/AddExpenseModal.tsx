@@ -20,7 +20,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import type { AppTheme } from '../utils/theme';
 import { Expense, ExpenseCategory, EXPENSE_CATEGORIES, CURRENCIES } from '../types';
-import { addExpense, updateExpense, getExpenseShortcuts, addExpenseShortcut, deleteExpenseShortcut, updateExpenseShortcut, ExpenseShortcut, getCustomCategories, CustomCategory } from '../database/database';
+import { addExpense, updateExpense, ExpenseShortcut, getCustomCategories, CustomCategory } from '../database/database';
+import { ManageShortcutsModal } from './ManageShortcutsModal';
 import { alertService } from '../services/alertService';
 import { formatDateLocal } from '../utils/date';
 import { useCurrency } from '../hooks/useCurrency';
@@ -29,6 +30,7 @@ import { convertCurrency } from '../services/currencyService';
 import { ReceiptScannerModal } from './ReceiptScannerModal';
 import { ReceiptData } from '../services/receiptOCRService';
 import { convertArabicToEnglish } from '../utils/numbers';
+import { getSmartExpenseShortcuts } from '../services/smartShortcutsService';
 
 interface AddExpenseModalProps {
   visible: boolean;
@@ -61,9 +63,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
   const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
   const [shortcuts, setShortcuts] = useState<ExpenseShortcut[]>([]);
   const [showShortcuts, setShowShortcuts] = useState(true);
-  const [showAddShortcutModal, setShowAddShortcutModal] = useState(false);
-  const [showEditShortcutModal, setShowEditShortcutModal] = useState(false);
-  const [editingShortcut, setEditingShortcut] = useState<ExpenseShortcut | null>(null);
+  const [showManageShortcuts, setShowManageShortcuts] = useState(false);
   const [categories, setCategories] = useState<CustomCategory[]>([]);
 
   useEffect(() => {
@@ -125,7 +125,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
 
   const loadShortcuts = async () => {
     try {
-      const shortcutsData = await getExpenseShortcuts();
+      const shortcutsData = await getSmartExpenseShortcuts();
       setShortcuts(shortcutsData);
     } catch (error) {
       // Ignore error
@@ -208,94 +208,13 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
       await addExpense(expenseData);
       onSave?.();
       onClose();
-      alertService.success('نجح', 'تم إضافة المصروف بنجاح');
+      alertService.toastSuccess('تم إضافة المصروف بنجاح');
     } catch (error) {
       alertService.error('خطأ', 'حدث خطأ أثناء إضافة المصروف');
     }
   };
 
-  const handleAddShortcut = async () => {
-    if (!title.trim()) {
-      alertService.warning('تنبيه', 'يرجى إدخال عنوان المصروف');
-      return;
-    }
 
-    if (!amount.trim() || isNaN(Number(amount)) || Number(amount) <= 0) {
-      alertService.warning('تنبيه', 'يرجى إدخال مبلغ صحيح');
-      return;
-    }
-
-    try {
-      await addExpenseShortcut({
-        title: title.trim(),
-        amount: Number(amount),
-        category: category,
-        currency: currency,
-        description: description.trim() || undefined,
-      });
-      await loadShortcuts();
-      setShowAddShortcutModal(false);
-      alertService.success('نجح', 'تم إضافة الاختصار بنجاح');
-    } catch (error) {
-      alertService.error('خطأ', 'حدث خطأ أثناء إضافة الاختصار');
-    }
-  };
-
-  const handleDeleteShortcut = async (id: number) => {
-    try {
-      await deleteExpenseShortcut(id);
-      await loadShortcuts();
-      alertService.success('نجح', 'تم حذف الاختصار بنجاح');
-    } catch (error) {
-      alertService.error('خطأ', 'حدث خطأ أثناء حذف الاختصار');
-    }
-  };
-
-  const handleEditShortcut = (shortcut: ExpenseShortcut) => {
-    setEditingShortcut(shortcut);
-    setShowEditShortcutModal(true);
-  };
-
-  const handleUpdateShortcut = async () => {
-    if (!editingShortcut) return;
-
-    if (!title.trim()) {
-      alertService.warning('تنبيه', 'يرجى إدخال عنوان المصروف');
-      return;
-    }
-
-    if (!amount.trim() || isNaN(Number(amount)) || Number(amount) <= 0) {
-      alertService.warning('تنبيه', 'يرجى إدخال مبلغ صحيح');
-      return;
-    }
-
-    try {
-      await updateExpenseShortcut(editingShortcut.id, {
-        title: title.trim(),
-        amount: Number(amount),
-        category: category,
-        currency: currency,
-        description: description.trim() || undefined,
-      });
-      await loadShortcuts();
-      setShowEditShortcutModal(false);
-      setEditingShortcut(null);
-      alertService.success('نجح', 'تم تحديث الاختصار بنجاح');
-    } catch (error) {
-      alertService.error('خطأ', 'حدث خطأ أثناء تحديث الاختصار');
-    }
-  };
-
-  const handleEditShortcutPress = (shortcut: ExpenseShortcut) => {
-    // Fill form with shortcut data
-    setTitle(shortcut.title);
-    setAmount(shortcut.amount.toString());
-    setCategory(shortcut.category as ExpenseCategory);
-    setCurrency(shortcut.currency || currencyCode);
-    setDescription(shortcut.description || '');
-    setEditingShortcut(shortcut);
-    setShowEditShortcutModal(true);
-  };
 
   const handleClose = () => {
     resetForm();
@@ -320,7 +239,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
       setDescription(receiptData.description);
     }
     setShowReceiptScanner(false);
-    alertService.success('نجح', 'تم استخراج بيانات الفاتورة بنجاح');
+    alertService.toastSuccess('تم استخراج بيانات الفاتورة بنجاح');
   };
 
   const categoryIcons: Record<ExpenseCategory, string> = {
@@ -442,42 +361,22 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                   keyboardShouldPersistTaps="handled"
                 >
                   {/* Shortcuts Section - Only show when adding new expense */}
-                  {!expense && showShortcuts && shortcuts.length > 0 && (
+                  {!expense && (
                     <View style={styles.shortcutsSection}>
                       <View style={styles.shortcutsHeader}>
                         <View style={styles.shortcutsHeaderLeft}>
-                          <View style={styles.shortcutsIconBadge}>
-                            <Ionicons name="flash" size={18} color={theme.colors.primary} />
-                          </View>
+                          <Ionicons name="flash" size={18} color={theme.colors.primary} />
                           <Text style={styles.shortcutsTitle}>الاختصارات السريعة</Text>
                         </View>
-                        <TouchableOpacity
-                          onPress={() => setShowShortcuts(!showShortcuts)}
-                          style={styles.toggleButton}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons
-                            name={showShortcuts ? "chevron-up" : "chevron-down"}
-                            size={20}
-                            color={theme.colors.textSecondary}
-                          />
+                        <TouchableOpacity onPress={() => setShowManageShortcuts(true)}>
+                          <Text style={{ color: theme.colors.primary, fontSize: 13, fontFamily: theme.typography.fontFamily }}>إدارة</Text>
                         </TouchableOpacity>
                       </View>
-                      <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.shortcutsScroll}
-                        style={styles.shortcutsScrollView}
-                      >
-                        {shortcuts.map((shortcut, index) => (
-                          <View
-                            key={shortcut.id}
-                            style={[
-                              styles.shortcutCard,
-                              index === 0 && styles.shortcutCardFirst,
-                            ]}
-                          >
+                      {shortcuts.length > 0 ? (
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shortcutsScroll}>
+                          {shortcuts.map(shortcut => (
                             <TouchableOpacity
+                              key={shortcut.id}
                               onPress={() => handleShortcutPress(shortcut)}
                               activeOpacity={0.8}
                               style={styles.shortcutCardPressable}
@@ -489,104 +388,41 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                                 end={{ x: 1, y: 1 }}
                               >
                                 <View style={styles.shortcutIconContainer}>
-                                  <Ionicons
-                                    name={getCategoryInfo(shortcut.category).icon as any}
-                                    size={28}
-                                    color="#FFFFFF"
-                                  />
+                                  <Ionicons name={getCategoryInfo(shortcut.category).icon as any} size={28} color="#FFFFFF" />
                                 </View>
-                                <Text style={styles.shortcutTitle} numberOfLines={1}>
-                                  {shortcut.title}
-                                </Text>
-                                <Text style={styles.shortcutAmount}>
-                                  {formatCurrency(shortcut.amount)}
-                                </Text>
-                                <View style={styles.shortcutBadge}>
-                                  <Ionicons name="flash" size={10} color="#FFFFFF" />
-                                </View>
+                                <Text style={styles.shortcutTitle} numberOfLines={1}>{shortcut.title}</Text>
+                                <Text style={styles.shortcutAmount}>{formatCurrency(shortcut.amount)}</Text>
                               </LinearGradient>
                             </TouchableOpacity>
-                            <View style={styles.shortcutActions}>
-                              <TouchableOpacity
-                                onPress={() => handleEditShortcutPress(shortcut)}
-                                style={styles.shortcutEditButton}
-                                activeOpacity={0.7}
-                              >
-                                <Ionicons name="create-outline" size={16} color="#FFFFFF" />
-                              </TouchableOpacity>
-                              <TouchableOpacity
-                                onPress={() => {
-                                  Alert.alert(
-                                    'حذف الاختصار',
-                                    `هل تريد حذف "${shortcut.title}"؟`,
-                                    [
-                                      {
-                                        text: 'إلغاء',
-                                        style: 'cancel',
-                                      },
-                                      {
-                                        text: 'حذف',
-                                        style: 'destructive',
-                                        onPress: async () => {
-                                          await handleDeleteShortcut(shortcut.id);
-                                        },
-                                      },
-                                    ],
-                                    { cancelable: true }
-                                  );
-                                }}
-                                style={styles.shortcutDeleteButton}
-                                activeOpacity={0.7}
-                              >
-                                <Ionicons name="trash-outline" size={16} color="#FFFFFF" />
-                              </TouchableOpacity>
+                          ))}
+                          <TouchableOpacity onPress={() => setShowManageShortcuts(true)} style={styles.addShortcutButton} activeOpacity={0.7}>
+                            <View style={styles.addShortcutContent}>
+                              <View style={styles.addShortcutIconContainer}>
+                                <Ionicons name="add" size={28} color={theme.colors.primary} />
+                              </View>
+                              <Text style={styles.addShortcutText}>إضافة</Text>
                             </View>
-                          </View>
-                        ))}
-                        <TouchableOpacity
-                          onPress={() => setShowAddShortcutModal(true)}
-                          style={styles.addShortcutButton}
-                          activeOpacity={0.7}
-                        >
-                          <View style={styles.addShortcutContent}>
-                            <View style={styles.addShortcutIconContainer}>
-                              <Ionicons name="add" size={28} color={theme.colors.primary} />
+                          </TouchableOpacity>
+                        </ScrollView>
+                      ) : (
+                        <TouchableOpacity onPress={() => setShowManageShortcuts(true)} activeOpacity={0.8}>
+                          <LinearGradient
+                            colors={['#10B981', '#059669'] as any}
+                            style={styles.addFirstShortcutGradient}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                          >
+                            <View style={styles.addFirstShortcutIconContainer}>
+                              <Ionicons name="flash" size={24} color="#FFFFFF" />
                             </View>
-                            <Text style={styles.addShortcutText}>إضافة اختصار</Text>
-                          </View>
+                            <View style={styles.addFirstShortcutTextContainer}>
+                              <Text style={styles.addFirstShortcutTitle}>أنشئ اختصاراً سريعاً</Text>
+                              <Text style={styles.addFirstShortcutSubtitle}>احفظ هذا المصروف كاختصار لإضافته بضغطة واحدة</Text>
+                            </View>
+                            <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+                          </LinearGradient>
                         </TouchableOpacity>
-                      </ScrollView>
-                    </View>
-                  )}
-
-                  {/* Show add shortcut button if no shortcuts exist */}
-                  {!expense && shortcuts.length === 0 && (
-                    <View style={styles.shortcutsSection}>
-                      <TouchableOpacity
-                        onPress={() => setShowAddShortcutModal(true)}
-                        style={styles.addFirstShortcutButton}
-                        activeOpacity={0.8}
-                      >
-                        <LinearGradient
-                          colors={['#10B981', '#059669'] as any}
-                          style={styles.addFirstShortcutGradient}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 0 }}
-                        >
-                          <View style={styles.addFirstShortcutIconContainer}>
-                            <Ionicons name="flash" size={24} color="#FFFFFF" />
-                          </View>
-                          <View style={styles.addFirstShortcutTextContainer}>
-                            <Text style={styles.addFirstShortcutTitle}>
-                              أنشئ اختصاراً سريعاً
-                            </Text>
-                            <Text style={styles.addFirstShortcutSubtitle}>
-                              احفظ هذا المصروف كاختصار لإضافته بضغطة واحدة
-                            </Text>
-                          </View>
-                          <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
-                        </LinearGradient>
-                      </TouchableOpacity>
+                      )}
                     </View>
                   )}
 
@@ -800,7 +636,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                   </TouchableOpacity>
                   {!expense && (
                     <TouchableOpacity
-                      onPress={() => setShowAddShortcutModal(true)}
+                      onPress={() => setShowManageShortcuts(true)}
                       style={styles.addShortcutActionButton}
                       activeOpacity={0.8}
                     >
@@ -919,145 +755,13 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
         onReceiptScanned={handleReceiptScanned}
       />
 
-      {/* Add Shortcut Confirmation Modal */}
-      <Modal
-        visible={showAddShortcutModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowAddShortcutModal(false)}
-      >
-        <Pressable
-          style={styles.shortcutModalOverlay}
-          onPress={() => setShowAddShortcutModal(false)}
-        >
-          <Pressable
-            style={styles.shortcutModalContainer}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <LinearGradient
-              colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-              style={styles.shortcutModalGradient}
-            >
-              <View style={styles.shortcutModalHeader}>
-                <Text style={styles.shortcutModalTitle}>إضافة اختصار</Text>
-                <TouchableOpacity
-                  onPress={() => setShowAddShortcutModal(false)}
-                  style={styles.shortcutModalCloseButton}
-                >
-                  <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.shortcutModalContent}>
-                <Text style={styles.shortcutModalText}>
-                  هل تريد إضافة "{title || 'مصروف جديد'}" كاختصار سريع؟
-                </Text>
-                <Text style={styles.shortcutModalSubtext}>
-                  يمكنك الضغط على الاختصار لإضافة المصروف مباشرة
-                </Text>
-              </View>
-              <View style={styles.shortcutModalActions}>
-                <TouchableOpacity
-                  onPress={() => setShowAddShortcutModal(false)}
-                  style={styles.shortcutModalCancelButton}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.shortcutModalCancelText}>إلغاء</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleAddShortcut}
-                  style={styles.shortcutModalSaveButton}
-                  activeOpacity={0.8}
-                >
-                  <LinearGradient
-                    colors={theme.gradients.primary as any}
-                    style={styles.shortcutModalSaveGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  >
-                    <Text style={styles.shortcutModalSaveText}>إضافة</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-            </LinearGradient>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      {/* Edit Shortcut Modal */}
-      <Modal
-        visible={showEditShortcutModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => {
-          setShowEditShortcutModal(false);
-          setEditingShortcut(null);
-        }}
-      >
-        <Pressable
-          style={styles.shortcutModalOverlay}
-          onPress={() => {
-            setShowEditShortcutModal(false);
-            setEditingShortcut(null);
-          }}
-        >
-          <Pressable
-            style={styles.shortcutModalContainer}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <LinearGradient
-              colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-              style={styles.shortcutModalGradient}
-            >
-              <View style={styles.shortcutModalHeader}>
-                <Text style={styles.shortcutModalTitle}>تعديل الاختصار</Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    setShowEditShortcutModal(false);
-                    setEditingShortcut(null);
-                  }}
-                  style={styles.shortcutModalCloseButton}
-                >
-                  <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.shortcutModalContent}>
-                <Text style={styles.shortcutModalText}>
-                  قم بتعديل بيانات الاختصار في النموذج أعلاه
-                </Text>
-                <Text style={styles.shortcutModalSubtext}>
-                  بعد التعديل، اضغط على "تحديث" لحفظ التغييرات
-                </Text>
-              </View>
-              <View style={styles.shortcutModalActions}>
-                <TouchableOpacity
-                  onPress={() => {
-                    setShowEditShortcutModal(false);
-                    setEditingShortcut(null);
-                  }}
-                  style={styles.shortcutModalCancelButton}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.shortcutModalCancelText}>إلغاء</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleUpdateShortcut}
-                  style={styles.shortcutModalSaveButton}
-                  activeOpacity={0.8}
-                >
-                  <LinearGradient
-                    colors={theme.gradients.primary as any}
-                    style={styles.shortcutModalSaveGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  >
-                    <Text style={styles.shortcutModalSaveText}>تحديث</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-            </LinearGradient>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      {/* Manage Shortcuts Modal */}
+      <ManageShortcutsModal
+        visible={showManageShortcuts}
+        type="expense"
+        onClose={() => { setShowManageShortcuts(false); loadShortcuts(); }}
+        onShortcutUsed={(s) => { handleShortcutPress(s as ExpenseShortcut); }}
+      />
     </Modal>
   );
 };

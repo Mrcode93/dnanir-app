@@ -119,6 +119,9 @@ export const initDatabase = async () => {
     try {
       await db.execAsync('ALTER TABLE app_settings ADD COLUMN autoSyncEnabled INTEGER DEFAULT 0;');
     } catch (e) { }
+    try {
+      await db.execAsync('ALTER TABLE app_settings ADD COLUMN lastAutoSyncTime INTEGER;');
+    } catch (e) { }
 
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS notification_settings (
@@ -1364,6 +1367,7 @@ export const getAppSettings = async (): Promise<import('../types').AppSettings |
       darkModeEnabled: result.darkModeEnabled === 1,
       autoBackupEnabled: result.autoBackupEnabled === 1,
       autoSyncEnabled: result.autoSyncEnabled === 1,
+      lastAutoSyncTime: result.lastAutoSyncTime,
     };
   }
   return null;
@@ -1374,14 +1378,16 @@ export const upsertAppSettings = async (settings: import('../types').AppSettings
   const existing = await database.getFirstAsync<{ id: number }>('SELECT id FROM app_settings LIMIT 1');
 
   const autoSync = settings.autoSyncEnabled ? 1 : 0;
+  const lastSyncTime = settings.lastAutoSyncTime ?? null;
   if (existing) {
     await database.runAsync(
-      'UPDATE app_settings SET notificationsEnabled = ?, darkModeEnabled = ?, autoBackupEnabled = ?, autoSyncEnabled = ?, currency = ?, language = ? WHERE id = ?',
+      'UPDATE app_settings SET notificationsEnabled = ?, darkModeEnabled = ?, autoBackupEnabled = ?, autoSyncEnabled = ?, lastAutoSyncTime = ?, currency = ?, language = ? WHERE id = ?',
       [
         settings.notificationsEnabled ? 1 : 0,
         settings.darkModeEnabled ? 1 : 0,
         settings.autoBackupEnabled ? 1 : 0,
         autoSync,
+        lastSyncTime,
         settings.currency,
         settings.language,
         existing.id,
@@ -1389,12 +1395,13 @@ export const upsertAppSettings = async (settings: import('../types').AppSettings
     );
   } else {
     await database.runAsync(
-      'INSERT INTO app_settings (notificationsEnabled, darkModeEnabled, autoBackupEnabled, autoSyncEnabled, currency, language) VALUES (?, ?, ?, ?, ?, ?)',
+      'INSERT INTO app_settings (notificationsEnabled, darkModeEnabled, autoBackupEnabled, autoSyncEnabled, lastAutoSyncTime, currency, language) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [
         settings.notificationsEnabled ? 1 : 0,
         settings.darkModeEnabled ? 1 : 0,
         settings.autoBackupEnabled ? 1 : 0,
         autoSync,
+        lastSyncTime,
         settings.currency,
         settings.language,
       ]

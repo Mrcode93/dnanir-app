@@ -8,8 +8,10 @@ export const NOTIFICATION_CATEGORIES = {
     DAILY_REMINDER: 'daily-reminder',
     EXPENSE_REMINDER: 'expense-reminder',
     BUDGET_ALERTS: 'budget-alerts',
+    BILL_ALERTS: 'bill-alerts',
     DEBT_REMINDERS: 'debt-reminders',
     INSIGHTS: 'insights',
+    SPENDING_ALERTS: 'spending-alerts',
     ACHIEVEMENTS: 'achievements',
 };
 
@@ -59,6 +61,18 @@ export const NOTIFICATION_MESSAGES = {
         title: '📅 موعد سداد',
         body: (name: string, amount: number) =>
             `تذكير: باجر لازم تسدد ${amount} دينار لـ ${name}.`,
+    },
+    BILL_DUE_SOON: {
+        title: (daysLeft: number) => daysLeft === 0 ? '🚨 فاتورة مستحقة اليوم' : daysLeft === 1 ? '⏰ فاتورة مستحقة غداً' : '📅 فاتورة قريبة الاستحقاق',
+        body: (billTitle: string, amount: number, currency: string, daysLeft: number) =>
+            daysLeft === 0
+                ? `فاتورة "${billTitle}" مستحقة اليوم بقيمة ${amount} ${currency}.`
+                : `فاتورة "${billTitle}" مستحقة خلال ${daysLeft} أيام بقيمة ${amount} ${currency}.`,
+    },
+    SPENDING_ANOMALY: {
+        title: '📊 نمط صرف غير طبيعي',
+        body: (todayTotal: number, average: number, percent: number) =>
+            `صرفك اليوم (${todayTotal}) أعلى من متوسطك اليومي (${average}) بحوالي ${percent}%.`,
     },
     WEEKLY_SUMMARY: {
         title: '📊 تقريرك الأسبوعي',

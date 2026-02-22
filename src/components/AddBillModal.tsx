@@ -41,7 +41,7 @@ export const AddBillModal: React.FC<AddBillModalProps> = ({
   const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
-  const { currencyCode, formatCurrency } = useCurrency();
+  const { currencyCode, currency } = useCurrency();
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<BillCategory>('utilities');
@@ -252,7 +252,7 @@ export const AddBillModal: React.FC<AddBillModalProps> = ({
                       outlineColor={theme.colors.border}
                       activeOutlineColor={theme.colors.primary}
                       right={
-                        <TextInput.Affix text={formatCurrency(0).replace('0', '').trim()} />
+                        <TextInput.Affix text={currency?.symbol || currencyCode} />
                       }
                     />
                   </View>

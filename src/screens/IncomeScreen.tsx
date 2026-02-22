@@ -40,6 +40,7 @@ import { alertService } from '../services/alertService';
 import { MonthFilter } from '../components/MonthFilter';
 import { getMonthRange, formatDateLocal } from '../utils/date';
 import { SmartAddModal } from '../components/SmartAddModal';
+import { usePrivacy } from '../context/PrivacyContext';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -47,6 +48,7 @@ export const IncomeScreen = ({ navigation, route }: any) => {
   const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const { formatCurrency } = useCurrency();
+  const { isPrivacyEnabled } = usePrivacy();
 
   // Data State
   const [income, setIncome] = useState<Income[]>([]);
@@ -75,10 +77,28 @@ export const IncomeScreen = ({ navigation, route }: any) => {
 
   // Modal State
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showSmartAdd, setShowSmartAdd] = useState(false);
   const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
 
   // Animations
   const addModalAnim = useRef(new Animated.Value(0)).current;
+
+  // Animate Modal
+  useEffect(() => {
+    if (showAddModal) {
+      Animated.spring(addModalAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        damping: 15,
+      }).start();
+    } else {
+      Animated.timing(addModalAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [showAddModal]);
 
   const fetchIncome = useCallback(async (reset: boolean = false) => {
     try {
@@ -187,6 +207,15 @@ export const IncomeScreen = ({ navigation, route }: any) => {
     }
   };
 
+  const handleAddOption = (option: 'manual' | 'voice') => {
+    setShowAddModal(false);
+    if (option === 'manual') {
+      navigation.navigate('AddIncome');
+    } else {
+      setShowSmartAdd(true);
+    }
+  };
+
   const onDateChange = (event: any, date?: Date) => {
     if (Platform.OS === 'android') {
       setShowDatePicker(false);
@@ -231,15 +260,19 @@ export const IncomeScreen = ({ navigation, route }: any) => {
           </View>
           <View style={styles.summaryTextContainer}>
             <Text style={styles.summaryLabel}>إجمالي الإيرادات</Text>
-            <Text style={styles.summaryAmount}>{formatCurrency(totalAmount)}</Text>
+            <Text style={styles.summaryAmount}>
+              {isPrivacyEnabled ? '****' : formatCurrency(totalAmount)}
+            </Text>
           </View>
         </View>
         <View style={styles.summaryFooter}>
           <Text style={styles.summaryCount}>
-            {totalCount} عملية {filterType === 'day' ? 'لهذا اليوم' : 'لهذا الشهر'}
+            {isPrivacyEnabled
+              ? `*** عملية ${filterType === 'day' ? 'لهذا اليوم' : 'لهذا الشهر'}`
+              : `${totalCount} عملية ${filterType === 'day' ? 'لهذا اليوم' : 'لهذا الشهر'}`}
           </Text>
           <Text style={styles.summaryLoadedCount}>
-            ({income.length} معروض)
+            {isPrivacyEnabled ? '(*** معروض)' : `(${income.length} معروض)`}
           </Text>
         </View>
       </LinearGradient>
@@ -419,7 +452,7 @@ export const IncomeScreen = ({ navigation, route }: any) => {
 
       <View style={styles.fabContainer}>
         <TouchableOpacity
-          onPress={() => navigation.navigate('AddIncome')}
+          onPress={() => setShowAddModal(true)}
           activeOpacity={0.8}
           style={styles.fabButton}
         >
@@ -433,7 +466,74 @@ export const IncomeScreen = ({ navigation, route }: any) => {
           </LinearGradient>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+
+
+      {/* Add Options Modal */}
+      <Modal
+        visible={showAddModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAddModal(false)}
+      >
+        <Pressable
+          style={styles.addModalOverlay}
+          onPress={() => setShowAddModal(false)}
+        >
+          <Animated.View
+            style={[
+              styles.addModalContainer,
+              {
+                transform: [{
+                  translateY: addModalAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [300, 0],
+                  }),
+                }],
+              },
+            ]}
+          >
+            <View style={styles.addModalHandle} />
+            <Text style={styles.addModalTitle}>إضافة إيراد جديد</Text>
+
+            <View style={styles.addModalOptions}>
+              <TouchableOpacity
+                style={styles.addModalOption}
+                onPress={() => handleAddOption('manual')}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.addModalIconContainer, { backgroundColor: theme.colors.primary + '15' }]}>
+                  <Ionicons name="create-outline" size={28} color={theme.colors.primary} />
+                </View>
+                <Text style={styles.addModalOptionTitle}>إدخال يدوي</Text>
+                <Text style={styles.addModalOptionSubtitle}>أدخل التفاصيل بنفسك</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.addModalOption}
+                onPress={() => handleAddOption('voice')}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.addModalIconContainer, { backgroundColor: '#10B981' + '15' }]}>
+                  <Ionicons name="mic-outline" size={28} color="#10B981" />
+                </View>
+                <Text style={styles.addModalOptionTitle}>إدخال صوتي</Text>
+                <Text style={styles.addModalOptionSubtitle}>تحدث وسنسجل لك</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </Pressable>
+      </Modal>
+
+      {/* Smart Add Modal */}
+      <SmartAddModal
+        visible={showSmartAdd}
+        onClose={() => setShowSmartAdd(false)}
+        onSuccess={() => {
+          fetchIncome(true);
+        }}
+        mode="income"
+      />
+    </SafeAreaView >
   );
 };
 
@@ -712,5 +812,68 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontWeight: '700',
     color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily,
+  },
+  // Add Modal Styles
+  addModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  addModalContainer: {
+    backgroundColor: theme.colors.surfaceCard,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 40,
+    paddingTop: 12,
+  },
+  addModalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: theme.colors.border,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  addModalTitle: {
+    fontSize: 18,
+    fontFamily: theme.typography.fontFamily,
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  addModalOptions: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    paddingHorizontal: 20,
+    gap: 16,
+  },
+  addModalOption: {
+    flex: 1,
+    backgroundColor: theme.colors.surfaceLight,
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+    ...getPlatformShadow('sm'),
+  },
+  addModalIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  addModalOptionTitle: {
+    fontSize: 16,
+    fontFamily: theme.typography.fontFamily,
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.textPrimary,
+    marginBottom: 4,
+  },
+  addModalOptionSubtitle: {
+    fontSize: 12,
+    fontFamily: theme.typography.fontFamily,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
   },
 });

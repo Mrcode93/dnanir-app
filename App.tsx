@@ -7,7 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { AppNavigator } from './src/navigation/AppNavigator';
-import { LockScreen } from './src/screens/LockScreen';
+// import { LockScreen } from './src/screens/LockScreen'; // Disabled: app lock feature is off
 import { initDatabase } from './src/database/database';
 import { lightTheme, darkTheme } from './src/utils/theme-constants';
 import { ThemeProvider } from './src/utils/theme-context';
@@ -26,14 +26,14 @@ SplashScreen.preventAutoHideAsync().catch(() => { });
 const fontConfig = {
   config: {
     regular: {
-      fontFamily: 'Cairo-Regular',
+      fontFamily: 'Tajawal-Regular',
       fontWeight: '400' as const,
       fontSize: 16,
       letterSpacing: 0.5,
       lineHeight: 24,
     },
     medium: {
-      fontFamily: 'Cairo-Regular',
+      fontFamily: 'Tajawal-Regular',
       fontWeight: '600' as const,
       fontSize: 16,
       letterSpacing: 0.5,
@@ -67,7 +67,7 @@ export default function App() {
   }), [activeTheme]);
   const isUnlockedRef = useRef(false);
   const [fontsLoaded] = useFonts({
-    'Cairo-Regular': require('./assets/fonts/Cairo-Regular.ttf'),
+    'Tajawal-Regular': require('./assets/fonts/Tajawal-Regular.ttf'),
   });
 
   useEffect(() => {
@@ -78,19 +78,21 @@ export default function App() {
         I18nManager.swapLeftAndRightInRTL(false);
       }
 
-      if (Platform.OS === 'android') {
-        (Text as any).defaultProps = {
-          ...(Text as any).defaultProps,
-          style: [
-            {
-              fontFamily: 'Cairo-Regular',
-              textAlign: 'right',
-              writingDirection: 'rtl',
-            },
-            (Text as any).defaultProps?.style,
-          ],
-        };
-      }
+      (Text as any).defaultProps = {
+        ...(Text as any).defaultProps,
+        style: [
+          {
+            fontFamily: 'Tajawal-Regular',
+            ...(Platform.OS === 'android'
+              ? {
+                textAlign: 'right',
+                writingDirection: 'rtl',
+              }
+              : {}),
+          },
+          (Text as any).defaultProps?.style,
+        ],
+      };
     } catch (error) {
       console.error('LTR initialization error:', error);
     }
@@ -166,8 +168,7 @@ export default function App() {
     }
   }, []);
 
-  const lastSyncRef = useRef<number>(0);
-  const SYNC_THROTTLE_MS = 60 * 1000; // 1 minute
+  const SYNC_THROTTLE_MS = 8 * 60 * 60 * 1000; // 8 hours (3 times a day)
 
   useEffect(() => {
     let subscription: any;
@@ -197,13 +198,26 @@ export default function App() {
 
       // Auto-sync when app comes to foreground (Pro only, throttled) – only if user enabled auto-sync
       try {
-        const { getAppSettings } = await import('./src/database/database');
+        const { getAppSettings, upsertAppSettings } = await import('./src/database/database');
         const appSettings = await getAppSettings();
         if (appSettings?.autoSyncEnabled) {
           const now = Date.now();
-          if (now - lastSyncRef.current >= SYNC_THROTTLE_MS) {
-            lastSyncRef.current = now;
-            syncNewToServer().catch(() => { });
+          const lastSync = appSettings.lastAutoSyncTime || 0;
+
+          if (now - lastSync >= SYNC_THROTTLE_MS) {
+            console.log('[Auto-Sync] Triggering sync (8-hour interval)');
+            // Update time BEFORE sync to avoid multiple triggers if sync takes time
+            await upsertAppSettings({
+              ...appSettings,
+              lastAutoSyncTime: now
+            });
+
+            syncNewToServer().catch((err) => {
+              console.error('[Auto-Sync] Sync failed:', err);
+            });
+          } else {
+            const hoursRemaining = ((SYNC_THROTTLE_MS - (now - lastSync)) / (1000 * 60 * 60)).toFixed(1);
+            console.log(`[Auto-Sync] Skipped. Next sync in ~${hoursRemaining} hours`);
           }
         }
       } catch (_) { }
@@ -258,15 +272,16 @@ export default function App() {
     );
   }
 
-  if (isLocked) {
-    return (
-      <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-        <SafeAreaProvider>
-          <LockScreen onUnlock={handleUnlock} />
-        </SafeAreaProvider>
-      </View>
-    );
-  }
+  // App lock disabled — LockScreen block commented out
+  // if (isLocked) {
+  //   return (
+  //     <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+  //       <SafeAreaProvider>
+  //         <LockScreen onUnlock={handleUnlock} />
+  //       </SafeAreaProvider>
+  //     </View>
+  //   );
+  // }
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: activeTheme.colors.background }} onLayout={onLayoutRootView}>

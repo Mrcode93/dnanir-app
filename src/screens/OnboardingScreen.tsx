@@ -1,291 +1,135 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
-  Animated,
-  FlatList,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  Platform,
-  useWindowDimensions,
+  Dimensions,
+  Image,
+  StatusBar,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
-import { useThemedStyles } from '../utils/theme-context';
+import { useThemedStyles, useAppTheme } from '../utils/theme-context';
 import { isRTL } from '../utils/rtl';
-import { ONBOARDING_SLIDES, type OnboardingSlide } from '../constants/onboardingData';
 import { onboardingStorage } from '../services/onboardingStorage';
+
+const { width, height } = Dimensions.get('window');
 
 type OnboardingScreenProps = {
   navigation: any;
   onFinish?: () => void;
 };
 
-type SlideItemProps = {
-  item: OnboardingSlide;
-  width: number;
-  height: number;
-  topInset: number;
-  bottomInset: number;
-  styles: ReturnType<typeof createStyles>;
-};
-
-const SlideItem = React.memo(
-  ({ item, width, height, topInset, bottomInset, styles }: SlideItemProps) => {
-    const contentTop = Math.max(topInset, 12) + 56;
-    const contentBottom = Math.max(bottomInset, 16) + 140;
-
-    return (
-      <View style={[styles.slide, { width, height, paddingTop: contentTop, paddingBottom: contentBottom }]}>
-        <View style={styles.illustrationContainer}>
-          <View style={styles.iconCircle}>
-            <Ionicons name={item.icon} size={64} color="#FFFFFF" />
-          </View>
-        </View>
-
-        <Text style={styles.title}>{item.title}</Text>
-
-        {item.description ? <Text style={styles.description}>{item.description}</Text> : null}
-
-        {item.bullets?.length ? (
-          <View style={styles.bullets}>
-            {item.bullets.map((bullet, index) => (
-              <View key={`${item.key}-bullet-${index}`} style={styles.bulletItem}>
-                <View style={styles.bulletDot} />
-                <View style={styles.bulletContent}>
-                  <Text style={styles.bulletTitle}>{bullet.title}</Text>
-                  {bullet.text ? <Text style={styles.bulletText}>{bullet.text}</Text> : null}
-                </View>
-              </View>
-            ))}
-          </View>
-        ) : null}
-      </View>
-    );
-  }
-);
-
-const Pagination = ({
-  data,
-  scrollX,
-  width,
-  styles,
-}: {
-  data: OnboardingSlide[];
-  scrollX: Animated.Value;
-  width: number;
-  styles: ReturnType<typeof createStyles>;
-}) => {
-  return (
-    <View style={styles.pagination}>
-      {data.map((_, index) => {
-        const inputRange = [
-          (index - 1) * width,
-          index * width,
-          (index + 1) * width,
-        ];
-        const scale = scrollX.interpolate({
-          inputRange,
-          outputRange: [0.8, 1.4, 0.8],
-          extrapolate: 'clamp',
-        });
-        const opacity = scrollX.interpolate({
-          inputRange,
-          outputRange: [0.35, 1, 0.35],
-          extrapolate: 'clamp',
-        });
-
-        return (
-          <Animated.View
-            key={`dot-${index}`}
-            style={[
-              styles.dot,
-              {
-                opacity,
-                transform: [{ scale }],
-              },
-            ]}
-          />
-        );
-      })}
-    </View>
-  );
-};
-
 export const OnboardingScreen = ({ navigation, onFinish }: OnboardingScreenProps) => {
+  const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
-  const insets = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
-
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [isCompleting, setIsCompleting] = useState(false);
 
-  const flatListRef = useRef<FlatList<OnboardingSlide> | null>(null);
-  const scrollX = useRef(new Animated.Value(0)).current;
-
-  const slides = useMemo(() => ONBOARDING_SLIDES, []);
-  const clampIndex = useCallback(
-    (index: number) => Math.max(0, Math.min(index, slides.length - 1)),
-    [slides.length]
-  );
-
-  const getIndexFromOffset = useCallback(
-    (offsetX: number) => {
-      const rawOffset = Math.abs(offsetX);
-      const index = Math.round(rawOffset / width);
-      return clampIndex(index);
-    },
-    [clampIndex, width]
-  );
-
-  const scrollToIndexOffset = useCallback(
-    (index: number) => {
-      const clamped = clampIndex(index);
-      flatListRef.current?.scrollToOffset({ offset: clamped * width, animated: true });
-    },
-    [clampIndex, width]
-  );
-
-  const handleMomentumScrollEnd = useCallback(
-    (event: any) => {
-      const offsetX = event?.nativeEvent?.contentOffset?.x ?? 0;
-      setCurrentIndex(getIndexFromOffset(offsetX));
-    },
-    [getIndexFromOffset]
-  );
-
-  const getItemLayout = useCallback(
-    (_: ArrayLike<OnboardingSlide> | null | undefined, index: number) => ({
-      length: width,
-      offset: width * index,
-      index,
-    }),
-    [width]
-  );
-
-  const handleScroll = useMemo(
-    () =>
-      Animated.event(
-        [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-        { useNativeDriver: true }
-      ),
-    [scrollX]
-  );
-
-  const navigateToAuth = useCallback(() => {
+  const navigateToAuth = useCallback((isLogin: boolean = true) => {
     navigation.reset({
       index: 1,
-      routes: [{ name: 'Main' }, { name: 'Auth' }],
+      routes: [{ name: 'Main' }, { name: 'Auth', params: { isLogin } }],
     });
   }, [navigation]);
 
-  const completeOnboarding = useCallback(async () => {
+  const navigateToMain = useCallback(() => {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Main' }],
+    });
+  }, [navigation]);
+
+  const handleStart = useCallback(async (mode: 'register' | 'login' | 'skip') => {
     if (isCompleting) return;
     setIsCompleting(true);
 
     await onboardingStorage.setHasSeenOnboarding(true);
     onFinish?.();
-    navigateToAuth();
-  }, [isCompleting, navigateToAuth, onFinish]);
 
-  const handleNext = useCallback(() => {
-    if (currentIndex < slides.length - 1) {
-      const nextIndex = currentIndex + 1;
-      setCurrentIndex(nextIndex);
-      scrollToIndexOffset(nextIndex);
+    if (mode === 'skip') {
+      navigateToMain();
     } else {
-      completeOnboarding();
+      navigateToAuth(mode === 'login');
     }
-  }, [completeOnboarding, currentIndex, scrollToIndexOffset, slides.length]);
-
-  const handleBack = useCallback(() => {
-    if (currentIndex > 0) {
-      const nextIndex = currentIndex - 1;
-      setCurrentIndex(nextIndex);
-      scrollToIndexOffset(nextIndex);
-    }
-  }, [currentIndex, scrollToIndexOffset]);
-
-  const renderItem = useCallback(
-    ({ item }: { item: OnboardingSlide }) => (
-      <SlideItem
-        item={item}
-        width={width}
-        height={height}
-        topInset={insets.top}
-        bottomInset={insets.bottom}
-        styles={styles}
-      />
-    ),
-    [height, insets.bottom, insets.top, styles, width]
-  );
-
-  const isLast = currentIndex === slides.length - 1;
-  const footerPaddingBottom = Math.max(insets.bottom, Platform.OS === 'android' ? 28 : 16);
+  }, [isCompleting, navigateToAuth, navigateToMain, onFinish]);
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      <Animated.FlatList
-        ref={flatListRef}
-        data={slides}
-        keyExtractor={(item) => item.key}
-        renderItem={renderItem}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        bounces={false}
-        onMomentumScrollEnd={handleMomentumScrollEnd}
-        getItemLayout={getItemLayout}
-        initialNumToRender={1}
-        windowSize={2}
-        maxToRenderPerBatch={2}
-        removeClippedSubviews
-        style={styles.list}
-        snapToInterval={width}
-        decelerationRate="fast"
-        disableIntervalMomentum
+      <LinearGradient
+        colors={['#0B5A7A', '#084B68', '#053C56']}
+        style={StyleSheet.absoluteFillObject}
       />
 
-      <SafeAreaView style={styles.overlay} pointerEvents="box-none" edges={['top', 'bottom']}>
-        <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
-          <TouchableOpacity
-            style={styles.skipButton}
-            onPress={completeOnboarding}
-            activeOpacity={0.8}
-            disabled={isCompleting}
-          >
-            <Text style={styles.skipText}>تخطي</Text>
-          </TouchableOpacity>
-        </View>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.content}>
+          {/* Top Section: Logo & Illustration */}
+          <View style={styles.topSection}>
+            <View style={styles.logoWrapper}>
+              <Image
+                source={require('../../assets/letters-logo.png')}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </View>
 
-        <View style={[styles.footer, { paddingBottom: footerPaddingBottom }]}>
-          <Pagination data={slides} scrollX={scrollX} width={width} styles={styles} />
+            <View style={styles.illustrationContainer}>
+              <View style={styles.iconCircle}>
+                <Ionicons name="wallet-outline" size={80} color="#FFFFFF" />
+              </View>
+              {/* Decorative elements */}
+              <View style={[styles.decorDot, { top: 20, right: -10, width: 12, height: 12, opacity: 0.6 }]} />
+              <View style={[styles.decorDot, { bottom: 40, left: -20, width: 20, height: 20, opacity: 0.4 }]} />
+              <View style={[styles.decorDot, { top: 60, left: 10, width: 8, height: 8, opacity: 0.8 }]} />
+            </View>
+          </View>
 
-          <View style={styles.buttonsRow}>
-            <TouchableOpacity
-              style={[styles.secondaryButton, currentIndex === 0 && styles.disabledButton]}
-              onPress={handleBack}
-              disabled={currentIndex === 0 || isCompleting}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.secondaryText, currentIndex === 0 && styles.disabledText]}>رجوع</Text>
-            </TouchableOpacity>
+          {/* Middle Section: Welcome Text */}
+          <View style={styles.textSection}>
+            <Text style={styles.title}>مرحباً بك في دنانير</Text>
+            <Text style={styles.subtitle}>
+              تحكّم بأموالك بطريقة ذكية وسهلة. تابع مصروفاتك، افهم دخلك، وحقق أهدافك المالية بثقة وأمان.
+            </Text>
+          </View>
 
+          {/* Bottom Section: Action Buttons */}
+          <View style={styles.buttonSection}>
             <TouchableOpacity
               style={styles.primaryButton}
-              onPress={handleNext}
+              onPress={() => handleStart('register')}
               disabled={isCompleting}
               activeOpacity={0.9}
             >
-              <Text style={styles.primaryText}>{isLast ? 'ابدأ' : 'التالي'}</Text>
+              <Text style={styles.primaryButtonText}>إنشاء حساب جديد</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={() => handleStart('login')}
+              disabled={isCompleting}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.secondaryButtonText}>تسجيل الدخول</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.skipButton}
+              onPress={() => handleStart('skip')}
+              disabled={isCompleting}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.skipButtonText}>التخطي والاستمرار كضيف</Text>
             </TouchableOpacity>
           </View>
+        </View>
+
+        {/* Footer Info */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>بذكاء، تدير دنانير حياتك المالية</Text>
         </View>
       </SafeAreaView>
     </View>
@@ -296,172 +140,123 @@ const createStyles = (theme: AppTheme) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: theme.colors.background,
-      direction: 'ltr',
-    },
-    list: {
-      ...StyleSheet.absoluteFillObject,
-    },
-    overlay: {
-      ...StyleSheet.absoluteFillObject,
-      justifyContent: 'space-between',
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: isRTL ? 'flex-start' : 'flex-end',
-      paddingHorizontal: theme.spacing.xl,
-      paddingBottom: theme.spacing.sm,
-    },
-    skipButton: {
-      paddingHorizontal: 14,
-      paddingVertical: 6,
-      borderRadius: 999,
-      backgroundColor: 'rgba(255, 255, 255, 0.14)',
-      borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.35)',
-      ...getPlatformShadow('sm'),
-    },
-    skipText: {
-      fontFamily: theme.typography.fontFamily,
-      fontSize: theme.typography.sizes.sm,
-      color: '#FFFFFF',
-      fontWeight: getPlatformFontWeight('600'),
-    },
-    slide: {
-      alignItems: 'center',
-      justifyContent: 'flex-start',
       backgroundColor: '#0B5A7A',
-      paddingHorizontal: theme.spacing.xl,
+    },
+    safeArea: {
+      flex: 1,
+    },
+    content: {
+      flex: 1,
+      paddingHorizontal: 30,
+      justifyContent: 'space-between',
+      paddingTop: 40,
+      paddingBottom: 20,
+    },
+    topSection: {
+      alignItems: 'center',
+    },
+    logoWrapper: {
+      marginBottom: 40,
+    },
+    logo: {
+      width: 160,
+      height: 60,
+      tintColor: '#FFFFFF', // Assuming logo can be tinted or use white version
     },
     illustrationContainer: {
-      width: 180,
-      height: 180,
+      position: 'relative',
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: 90,
-      backgroundColor: 'rgba(255, 255, 255, 0.12)',
-      marginBottom: theme.spacing.lg,
     },
     iconCircle: {
-      width: 120,
-      height: 120,
-      borderRadius: 60,
-      alignItems: 'center',
+      width: 160,
+      height: 160,
+      borderRadius: 80,
+      backgroundColor: 'rgba(255, 255, 255, 0.15)',
       justifyContent: 'center',
-      backgroundColor: 'rgba(255, 255, 255, 0.18)',
-      ...getPlatformShadow('md'),
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.3)',
+      ...getPlatformShadow('lg'),
+    },
+    decorDot: {
+      position: 'absolute',
+      backgroundColor: '#FFFFFF',
+      borderRadius: 999,
+    },
+    textSection: {
+      alignItems: 'center',
+      marginVertical: 40,
     },
     title: {
       fontFamily: theme.typography.fontFamily,
-      fontSize: theme.typography.sizes.xxl,
-      color: '#FFFFFF',
+      fontSize: 32,
       fontWeight: getPlatformFontWeight('800'),
+      color: '#FFFFFF',
       textAlign: 'center',
-      writingDirection: 'rtl',
-      marginBottom: theme.spacing.sm,
+      marginBottom: 16,
     },
-    description: {
+    subtitle: {
       fontFamily: theme.typography.fontFamily,
-      fontSize: theme.typography.sizes.md,
+      fontSize: 16,
       color: 'rgba(255, 255, 255, 0.85)',
       textAlign: 'center',
-      writingDirection: 'rtl',
       lineHeight: 26,
-      marginBottom: theme.spacing.md,
+      paddingHorizontal: 10,
     },
-    bullets: {
+    buttonSection: {
       width: '100%',
-      marginTop: theme.spacing.sm,
-      gap: 12,
-    },
-    bulletItem: {
-      flexDirection: isRTL ? 'row-reverse' : 'row',
-      alignItems: 'flex-start',
-      gap: 10,
-    },
-    bulletDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: '#FFFFFF',
-      marginTop: 6,
-    },
-    bulletContent: {
-      flex: 1,
-    },
-    bulletTitle: {
-      fontFamily: theme.typography.fontFamily,
-      fontSize: theme.typography.sizes.md,
-      color: '#FFFFFF',
-      fontWeight: getPlatformFontWeight('700'),
-      textAlign: 'right',
-      writingDirection: 'rtl',
-      marginBottom: 2,
-    },
-    bulletText: {
-      fontFamily: theme.typography.fontFamily,
-      fontSize: theme.typography.sizes.sm,
-      color: 'rgba(255, 255, 255, 0.8)',
-      textAlign: 'right',
-      writingDirection: 'rtl',
-      lineHeight: 22,
-    },
-    footer: {
-      paddingHorizontal: theme.spacing.xl,
-      paddingTop: theme.spacing.md,
-    },
-    pagination: {
-      flexDirection: isRTL ? 'row-reverse' : 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: theme.spacing.md,
-      gap: 8,
-    },
-    dot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: '#FFFFFF',
-    },
-    buttonsRow: {
-      flexDirection: isRTL ? 'row-reverse' : 'row',
-      alignItems: 'center',
-      gap: 12,
-    },
-    secondaryButton: {
-      flex: 1,
-      paddingVertical: 14,
-      borderRadius: theme.borderRadius.lg,
-      borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.4)',
-      backgroundColor: 'rgba(255, 255, 255, 0.12)',
-      alignItems: 'center',
-    },
-    secondaryText: {
-      fontFamily: theme.typography.fontFamily,
-      fontSize: theme.typography.sizes.md,
-      color: '#FFFFFF',
-      fontWeight: getPlatformFontWeight('600'),
+      gap: 14,
     },
     primaryButton: {
-      flex: 1,
-      paddingVertical: 14,
-      borderRadius: theme.borderRadius.lg,
       backgroundColor: '#FFFFFF',
+      height: 58,
+      borderRadius: 16,
+      justifyContent: 'center',
       alignItems: 'center',
       ...getPlatformShadow('md'),
     },
-    primaryText: {
+    primaryButtonText: {
       fontFamily: theme.typography.fontFamily,
-      fontSize: theme.typography.sizes.md,
-      color: '#003459',
+      fontSize: 18,
       fontWeight: getPlatformFontWeight('700'),
+      color: '#0B5A7A',
     },
-    disabledButton: {
-      opacity: 0.4,
+    secondaryButton: {
+      backgroundColor: 'rgba(255, 255, 255, 0.12)',
+      height: 58,
+      borderRadius: 16,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 1.5,
+      borderColor: 'rgba(255, 255, 255, 0.4)',
     },
-    disabledText: {
-      color: theme.colors.textMuted,
+    secondaryButtonText: {
+      fontFamily: theme.typography.fontFamily,
+      fontSize: 18,
+      fontWeight: getPlatformFontWeight('600'),
+      color: '#FFFFFF',
+    },
+    skipButton: {
+      marginTop: 6,
+      paddingVertical: 10,
+      alignItems: 'center',
+    },
+    skipButtonText: {
+      fontFamily: theme.typography.fontFamily,
+      fontSize: 15,
+      color: 'rgba(255, 255, 255, 0.7)',
+      fontWeight: getPlatformFontWeight('600'),
+      textDecorationLine: 'underline',
+    },
+    footer: {
+      paddingBottom: 20,
+      alignItems: 'center',
+    },
+    footerText: {
+      fontFamily: theme.typography.fontFamily,
+      fontSize: 12,
+      color: 'rgba(255, 255, 255, 0.4)',
+      letterSpacing: 0.5,
     },
   });

@@ -14,6 +14,7 @@ import { IncomeScreen } from '../screens/IncomeScreen';
 import { InsightsScreen } from '../screens/InsightsScreen';
 import { AISmartInsightsScreen } from '../screens/AISmartInsightsScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { ProfileScreen } from '../screens/ProfileScreen';
 import { GoalsScreen } from '../screens/GoalsScreen';
 import { BudgetScreen } from '../screens/BudgetScreen';
 import { RecurringExpensesScreen } from '../screens/RecurringExpensesScreen';
@@ -38,8 +39,10 @@ import { AddDebtScreen } from '../screens/AddDebtScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { usePrivacy } from '../context/PrivacyContext';
 import { authStorage } from '../services/authStorage';
+import { onboardingStorage } from '../services/onboardingStorage';
 import { syncNewToServer } from '../services/syncService';
 import { alertService } from '../services/alertService';
+import { OnboardingScreen } from '../screens/OnboardingScreen';
 
 const DashboardHeaderRight = ({ navigation }: { navigation: any }) => {
   const { theme } = useAppTheme();
@@ -170,6 +173,14 @@ const SettingsScreenStack = () => {
           headerTitle: 'الإعدادات',
         }}
       />
+      <Stack.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={({ navigation }) => ({
+          headerTitle: 'الحساب والملف الشخصي',
+          headerLeft: () => <HeaderLeft navigation={navigation} />,
+        })}
+      />
     </Stack.Navigator>
   );
 };
@@ -186,6 +197,38 @@ const HeaderLeft = ({ navigation }: { navigation: any }) => {
       }}
     >
       <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={28} color={theme.colors.primary} />
+    </TouchableOpacity>
+  );
+};
+
+const HeaderBackWithLabel = ({ navigation, label }: { navigation: any; label: string }) => {
+  const { theme } = useAppTheme();
+  return (
+    <TouchableOpacity
+      onPress={() => navigation.goBack()}
+      style={{
+        marginLeft: isRTL ? 0 : 16,
+        marginRight: isRTL ? 16 : 0,
+        paddingVertical: 8,
+        paddingHorizontal: 8,
+        flexDirection: isRTL ? 'row-reverse' : 'row',
+        alignItems: 'center',
+        gap: 4,
+      }}
+      activeOpacity={0.7}
+    >
+      <Text
+        style={{
+          fontFamily: theme.typography.fontFamily,
+          fontSize: 16,
+          fontWeight: getPlatformFontWeight('600'),
+          color: theme.colors.primary,
+        }}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+      <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={28} color={theme.colors.primary} />
     </TouchableOpacity>
   );
 };
@@ -217,6 +260,25 @@ const ExpensesStack = () => {
           ),
         })}
       />
+      <Stack.Screen
+        name="ManageCategories"
+        component={ManageCategoriesScreen}
+        options={({ navigation }) => ({
+          headerShown: true,
+          headerTitle: 'إدارة الفئات',
+          headerLeft: () => <HeaderBackWithLabel navigation={navigation} label="سجل المصاريف" />,
+          headerBackTitleVisible: false,
+          headerBackTitle: '',
+        })}
+      />
+      <Stack.Screen
+        name="AddCategory"
+        component={AddCategoryScreen}
+        options={{
+          headerShown: false,
+          presentation: 'modal',
+        }}
+      />
     </Stack.Navigator>
   );
 };
@@ -246,6 +308,25 @@ const IncomeStack = () => {
             </TouchableOpacity>
           ),
         })}
+      />
+      <Stack.Screen
+        name="ManageCategories"
+        component={ManageCategoriesScreen}
+        options={({ navigation }) => ({
+          headerShown: true,
+          headerTitle: 'إدارة الفئات',
+          headerLeft: () => <HeaderBackWithLabel navigation={navigation} label="سجل الدخل" />,
+          headerBackTitleVisible: false,
+          headerBackTitle: '',
+        })}
+      />
+      <Stack.Screen
+        name="AddCategory"
+        component={AddCategoryScreen}
+        options={{
+          headerShown: false,
+          presentation: 'modal',
+        }}
       />
     </Stack.Navigator>
 
@@ -636,6 +717,23 @@ const MainTabs = () => {
 
 export const AppNavigator = () => {
   const { theme } = useAppTheme();
+  const [isLoadingOnboarding, setIsLoadingOnboarding] = useState(true);
+  const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false);
+
+  React.useEffect(() => {
+    onboardingStorage.getHasSeenOnboarding().then((seen) => {
+      setHasSeenOnboarding(seen);
+      setIsLoadingOnboarding(false);
+    });
+  }, []);
+
+  if (isLoadingOnboarding) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <NavigationContainer
@@ -643,7 +741,13 @@ export const AppNavigator = () => {
       onReady={() => {
       }}
     >
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator
+        initialRouteName={hasSeenOnboarding ? "Main" : "Onboarding"}
+        screenOptions={{ headerShown: false }}
+      >
+        {!hasSeenOnboarding && (
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+        )}
         <Stack.Screen name="Main" component={MainTabs} />
         <Stack.Screen
           name="Auth"
@@ -652,6 +756,22 @@ export const AppNavigator = () => {
             gestureEnabled: true,
             presentation: 'transparentModal',
             cardStyle: { backgroundColor: 'transparent' },
+          }}
+        />
+        <Stack.Screen
+          name="AddExpense"
+          component={AddExpenseScreen}
+          options={{
+            headerShown: false,
+            presentation: 'modal',
+          }}
+        />
+        <Stack.Screen
+          name="AddIncome"
+          component={AddIncomeScreen}
+          options={{
+            headerShown: false,
+            presentation: 'modal',
           }}
         />
 

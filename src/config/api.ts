@@ -6,10 +6,9 @@
  * For production, use your production server URL.
  */
 
-// Development: Use your local IP address (e.g., http://192.168.1.100:3000)
-// To find your IP: On Mac/Linux run `ifconfig | grep "inet "`, on Windows run `ipconfig`
-// Or use localhost if running on simulator/emulator
-// const DEV_API_URL = 'http://192.168.0.101:3000'; // Change to your local IP if testing on physical device (e.g., 'http://192.168.1.100:3000')
+// Development: Uses production server (no separate dev server).
+// To test locally, uncomment the localhost line below and set to your IP.
+// const DEV_API_URL = 'http://192.168.0.101:3000';
 const DEV_API_URL = 'https://urcash.up.railway.app';
 // const DEV_API_URL = 'http://localhost:3002';
 
@@ -26,7 +25,7 @@ export const API_CONFIG = {
   BASE_URL: isDev ? DEV_API_URL : PROD_API_URL,
   TIMEOUT: 30000, // 30 seconds (default)
   OCR_TIMEOUT: 60000, // 60 seconds for OCR requests (longer processing time)
-  VERSION: '1.0.6',
+  VERSION: '1.1.8',
   ENABLE_LOGGING: false,
 };
 
@@ -41,9 +40,11 @@ export const API_ENDPOINTS = {
     REGISTER: '/api/dnanir/auth/register',
     LOGIN: '/api/dnanir/auth/login',
     CHECK: '/api/dnanir/auth/check',
-    GOOGLE: '/api/dnanir/auth/google',
-    APPLE: '/api/dnanir/auth/apple',
-    CLERK: '/api/dnanir/auth/clerk',
+    SEND_OTP: '/api/dnanir/auth/otp/send',
+    VERIFY_OTP: '/api/dnanir/auth/otp/verify',
+    RESET_PASSWORD: '/api/dnanir/auth/reset-password',
+    UPDATE_PROFILE: '/api/dnanir/auth/update-profile',
+    REFRESH_TOKEN: '/api/dnanir/auth/refresh-token',
   },
   // Subscription
   SUBSCRIPTION: {
@@ -74,5 +75,10 @@ export const API_ENDPOINTS = {
     UPLOAD: '/api/dnanir/sync/upload',
     FULL: '/api/dnanir/sync/full',
     ITEMS: '/api/dnanir/sync/items',
+  },
+  // Referral (Growth)
+  REFERRAL: {
+    INFO: '/api/dnanir/referral/info',
+    APPLY: '/api/dnanir/referral/apply',
   },
 };

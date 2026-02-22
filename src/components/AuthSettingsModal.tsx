@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles, type AppTheme } from '../utils/theme';
 import { useAuthSettings } from '../hooks/useAuthSettings';
+import { convertArabicToEnglishSimple } from '../utils/numbers';
 
 interface AuthSettingsModalProps {
   visible: boolean;
@@ -186,7 +187,7 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
                       <Ionicons name="lock-closed" size={20} color={theme.colors.textSecondary} style={styles.inputIcon} />
                       <TextInput
                         value={password}
-                        onChangeText={setPassword}
+                        onChangeText={(v) => setPassword(convertArabicToEnglishSimple(v))}
                         placeholder="كلمة المرور (4 أحرف على الأقل)"
                         secureTextEntry
                         style={styles.input}
@@ -197,7 +198,7 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
                       <Ionicons name="lock-closed" size={20} color={theme.colors.textSecondary} style={styles.inputIcon} />
                       <TextInput
                         value={confirmPassword}
-                        onChangeText={setConfirmPassword}
+                        onChangeText={(v) => setConfirmPassword(convertArabicToEnglishSimple(v))}
                         placeholder="تأكيد كلمة المرور"
                         secureTextEntry
                         style={styles.input}
@@ -370,7 +371,7 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
               <Ionicons name="lock-closed" size={20} color={theme.colors.textSecondary} style={styles.passwordPromptIcon} />
               <TextInput
                 value={promptPassword}
-                onChangeText={setPromptPassword}
+                onChangeText={(v) => setPromptPassword(convertArabicToEnglishSimple(v))}
                 placeholder="كلمة المرور"
                 secureTextEntry
                 style={styles.passwordPromptInput}

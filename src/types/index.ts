@@ -84,6 +84,7 @@ export interface AppSettings {
   darkModeEnabled: boolean;
   autoBackupEnabled: boolean;
   autoSyncEnabled?: boolean;
+  lastAutoSyncTime?: number;
   currency: string;
   language: string;
 }

@@ -20,6 +20,7 @@ import { convertCurrency, getOrFetchExchangeRate, formatCurrencyAmount } from '.
 import { useCurrency } from '../hooks/useCurrency';
 import { alertService } from '../services/alertService';
 import { convertArabicToEnglish } from '../utils/numbers';
+import { usePrivacy } from '../context/PrivacyContext';
 
 interface CurrencyConverterModalProps {
   visible: boolean;
@@ -33,6 +34,7 @@ export const CurrencyConverterModal: React.FC<CurrencyConverterModalProps> = ({
   const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const { selectedCurrency, formatCurrency } = useCurrency();
+  const { isPrivacyEnabled } = usePrivacy();
   const [fromCurrency, setFromCurrency] = useState<string>(selectedCurrency);
   const [toCurrency, setToCurrency] = useState<string>('USD');
   const [amount, setAmount] = useState<string>('');
@@ -233,9 +235,9 @@ export const CurrencyConverterModal: React.FC<CurrencyConverterModalProps> = ({
                     ) : convertedAmount !== null ? (
                       <>
                         <Text style={styles.convertedAmount}>
-                          {formatCurrencyAmount(convertedAmount, toCurrency)}
+                          {isPrivacyEnabled ? '****' : formatCurrencyAmount(convertedAmount, toCurrency)}
                         </Text>
-                        {exchangeRate !== null && exchangeRate !== 1 && (
+                        {!isPrivacyEnabled && exchangeRate !== null && exchangeRate !== 1 && (
                           <Text style={styles.exchangeRateText}>
                             1 {fromCurrency} = {exchangeRate.toFixed(6)} {toCurrency}
                           </Text>

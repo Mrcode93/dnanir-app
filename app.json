@@ -13,7 +13,7 @@
     ],
     "name": "دنانير",
     "slug": "dnanir",
-    "version": "1.1.6",
+    "version": "1.1.8",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "light",
@@ -31,7 +31,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.mrcodeiq.dinar",
       "googleServicesFile": "./GoogleService-Info.plist",
-      "buildNumber": "12",
+      "buildNumber": "15",
       "infoPlist": {
         "CFBundleURLTypes": [
           {
@@ -65,7 +65,7 @@
         "locale": "ar"
       },
       "fonts": [
-        "./assets/fonts/Cairo-Regular.ttf"
+        "./assets/fonts/Tajawal-Regular.ttf"
       ],
       "notificationMode": "production",
       "usesAppleSignIn": false,
@@ -83,9 +83,9 @@
       "locale": "ar",
       "package": "com.mrcodeiq.dinar",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 13,
+      "versionCode": 15,
       "fonts": [
-        "./assets/fonts/Cairo-Regular.ttf"
+        "./assets/fonts/Tajawal-Regular.ttf"
       ],
       "permissions": [
         "android.permission.INTERNET",

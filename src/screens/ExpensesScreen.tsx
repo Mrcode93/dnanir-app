@@ -40,6 +40,7 @@ import { alertService } from '../services/alertService';
 import { MonthFilter } from '../components/MonthFilter';
 import { getMonthRange, formatDateLocal } from '../utils/date';
 import { SmartAddModal } from '../components/SmartAddModal';
+import { usePrivacy } from '../context/PrivacyContext';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -47,6 +48,7 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
   const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const { formatCurrency } = useCurrency();
+  const { isPrivacyEnabled } = usePrivacy();
 
   // Data State
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -80,6 +82,23 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
 
   // Animations
   const addModalAnim = useRef(new Animated.Value(0)).current;
+
+  // Animate Modal
+  useEffect(() => {
+    if (showAddModal) {
+      Animated.spring(addModalAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        damping: 15,
+      }).start();
+    } else {
+      Animated.timing(addModalAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [showAddModal]);
 
   const fetchExpenses = useCallback(async (reset: boolean = false) => {
     try {
@@ -244,15 +263,19 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
           </View>
           <View style={styles.summaryTextContainer}>
             <Text style={styles.summaryLabel}>إجمالي المصاريف</Text>
-            <Text style={styles.summaryAmount}>{formatCurrency(totalAmount)}</Text>
+            <Text style={styles.summaryAmount}>
+              {isPrivacyEnabled ? '****' : formatCurrency(totalAmount)}
+            </Text>
           </View>
         </View>
         <View style={styles.summaryFooter}>
           <Text style={styles.summaryCount}>
-            {totalCount} مصروف {filterType === 'day' ? 'لهذا اليوم' : 'لهذا الشهر'}
+            {isPrivacyEnabled
+              ? `*** مصروف ${filterType === 'day' ? 'لهذا اليوم' : 'لهذا الشهر'}`
+              : `${totalCount} مصروف ${filterType === 'day' ? 'لهذا اليوم' : 'لهذا الشهر'}`}
           </Text>
           <Text style={styles.summaryLoadedCount}>
-            ({expenses.length} معروض)
+            {isPrivacyEnabled ? '(*** معروض)' : `(${expenses.length} معروض)`}
           </Text>
         </View>
       </LinearGradient>

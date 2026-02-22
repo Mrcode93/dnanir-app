@@ -253,9 +253,6 @@ export async function syncNewToServer(): Promise<NewSyncResult> {
     }
 
     if (__DEV__) console.log('[sync] incremental done, syncedCount:', syncedCount);
-    // تحديث النسخة الكاملة على السيرفر حتى تعمل "استعادة من السيرفر" بآخر البيانات
-    await syncFullToServer();
-    if (__DEV__) console.log('[sync] full upload done');
     return { success: true, count: syncedCount };
   } catch (err: any) {
     if (__DEV__) console.error('[sync] syncNewToServer error:', err?.message ?? err);

@@ -27,6 +27,7 @@ import {
 import { alertService } from '../services/alertService';
 import { EXPENSE_CATEGORIES, ExpenseCategory } from '../types';
 import { authApiService } from '../services/authApiService';
+import { usePrivacy } from '../context/PrivacyContext';
 
 interface ReceiptScannerModalProps {
   visible: boolean;
@@ -41,6 +42,7 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
 }) => {
   const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
+  const { isPrivacyEnabled } = usePrivacy();
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [scannedData, setScannedData] = useState<ReceiptData | null>(null);
@@ -340,7 +342,7 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
                           <View style={styles.dataItemContent}>
                             <Text style={styles.dataItemLabel}>المبلغ</Text>
                             <Text style={[styles.dataItemValue, styles.amountValue]}>
-                              {scannedData.amount.toLocaleString()} د.ع
+                              {isPrivacyEnabled ? '****' : `${scannedData.amount.toLocaleString()} د.ع`}
                             </Text>
                           </View>
                         </View>

@@ -33,7 +33,7 @@ export const AISmartInsightsScreen = ({ navigation }: any) => {
   const [insights, setInsights] = useState<SmartInsightsData | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [needsAuth, setNeedsAuth] = useState(false);
-  const [usage, setUsage] = useState<{ insightsUsed: number; limit: number; remaining: number; isPro: boolean } | null>(null);
+  const [usage, setUsage] = useState<{ insightsUsed: number; limit: number; remaining: number; isPro: boolean; hasUnlimitedAi?: boolean } | null>(null);
 
   // Guard: redirect to Auth if not logged in
   React.useEffect(() => {
@@ -125,7 +125,7 @@ export const AISmartInsightsScreen = ({ navigation }: any) => {
         setInsights(result.data);
         setError(null);
         if (result.usage) setUsage(result.usage);
-        
+
         // Save to local database (always save, even if there's an error)
         try {
           await saveAiInsightsCache(result.data as unknown as Record<string, unknown>, 'full');
@@ -155,7 +155,7 @@ export const AISmartInsightsScreen = ({ navigation }: any) => {
     try {
       const res = await aiApiService.getAiUsage();
       if (res.success && res.data) setUsage(res.data);
-    } catch (_) {}
+    } catch (_) { }
   }, []);
 
   const onRefresh = useCallback(() => {
@@ -176,7 +176,7 @@ export const AISmartInsightsScreen = ({ navigation }: any) => {
   }, [loadInsights, loadUsage]);
 
   const onAnalyzePress = useCallback(() => {
-    if (usage != null && usage.remaining <= 0) {
+    if (usage != null && !usage.hasUnlimitedAi && usage.remaining <= 0) {
       alertService.show({
         title: 'انتهت المحاولات',
         message: usage.isPro
@@ -245,7 +245,10 @@ export const AISmartInsightsScreen = ({ navigation }: any) => {
               <View style={[styles.usageBadge, { backgroundColor: theme.colors.primary + '18' }]}>
                 <Ionicons name="sparkles" size={14} color={theme.colors.primary} />
                 <Text style={[styles.usageText, { color: theme.colors.textPrimary }]}>
-                  المحاولات: {usage.insightsUsed} مستهلكة، {usage.remaining} متبقية من {usage.limit}
+                  {usage.hasUnlimitedAi
+                    ? `المحاولات: ${usage.insightsUsed} (وصول لامحدود ♾️)`
+                    : `المحاولات: ${usage.insightsUsed} مستهلكة، ${usage.remaining} متبقية من ${usage.limit}`
+                  }
                 </Text>
               </View>
             )}
@@ -256,7 +259,7 @@ export const AISmartInsightsScreen = ({ navigation }: any) => {
             disabled={loading || (usage != null && usage.remaining <= 0)}
           >
             <LinearGradient
-              colors={theme.gradients.primary}
+              colors={theme.gradients.primary as any}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.refreshBadgeGradient}
@@ -292,7 +295,7 @@ export const AISmartInsightsScreen = ({ navigation }: any) => {
               disabled={usage != null && usage.remaining <= 0}
             >
               <LinearGradient
-                colors={theme.gradients.primary}
+                colors={theme.gradients.primary as any}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.largeAnalyzeBtnGradient}
@@ -462,7 +465,7 @@ export const AISmartInsightsScreen = ({ navigation }: any) => {
                   .map((item, i) => (
                     <View key={i} style={[styles.actionItemCard, { backgroundColor: theme.colors.surfaceCard }]}>
                       <LinearGradient
-                        colors={theme.gradients.primary}
+                        colors={theme.gradients.primary as any}
                         style={styles.priorityBadge}
                       >
                         <Text style={styles.priorityText}>{item.priority}</Text>
@@ -517,7 +520,7 @@ export const AISmartInsightsScreen = ({ navigation }: any) => {
               disabled={loading || (usage != null && usage.remaining <= 0)}
             >
               <LinearGradient
-                colors={theme.gradients.primary}
+                colors={theme.gradients.primary as any}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.bottomAnalyzeBtnGradient}

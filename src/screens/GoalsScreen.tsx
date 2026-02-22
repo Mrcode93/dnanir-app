@@ -26,11 +26,13 @@ import { alertService } from '../services/alertService';
 import { convertCurrency, formatCurrencyAmount } from '../services/currencyService';
 import { CURRENCIES } from '../types';
 import { authStorage } from '../services/authStorage';
+import { usePrivacy } from '../context/PrivacyContext';
 
 export const GoalsScreen = ({ navigation, route }: any) => {
   const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const { formatCurrency, currencyCode } = useCurrency();
+  const { isPrivacyEnabled } = usePrivacy();
   const [goals, setGoals] = useState<FinancialGoal[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [convertedTotals, setConvertedTotals] = useState<{ current: number; target: number } | null>(null);
@@ -207,7 +209,7 @@ export const GoalsScreen = ({ navigation, route }: any) => {
                 />
               </View>
               <Text style={styles.progressText}>
-                {Math.round(overallProgress)}% من إجمالي الأهداف
+                {isPrivacyEnabled ? '***' : `${Math.round(overallProgress)}% من إجمالي الأهداف`}
               </Text>
             </View>
 
@@ -225,7 +227,7 @@ export const GoalsScreen = ({ navigation, route }: any) => {
                         if (!currencyData || amounts.current === 0) return null;
                         return (
                           <Text key={curr} style={styles.currencyBreakdownText}>
-                            {formatCurrencyAmount(amounts.current, curr)}
+                            {isPrivacyEnabled ? '****' : formatCurrencyAmount(amounts.current, curr)}
                           </Text>
                         );
                       })}
@@ -246,7 +248,7 @@ export const GoalsScreen = ({ navigation, route }: any) => {
                         if (!currencyData || amounts.target === 0) return null;
                         return (
                           <Text key={curr} style={styles.currencyBreakdownText}>
-                            {formatCurrencyAmount(amounts.target, curr)}
+                            {isPrivacyEnabled ? '****' : formatCurrencyAmount(amounts.target, curr)}
                           </Text>
                         );
                       })}

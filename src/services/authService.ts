@@ -109,7 +109,7 @@ export const authenticateWithBiometric = async (): Promise<boolean> => {
 export const setupPassword = async (password: string): Promise<boolean> => {
   try {
     const hashedPassword = await buildPasswordHash(password);
-    
+
     const currentSettings = await getUserSettings();
     // Keep existing biometricsEnabled if it's already enabled
     await upsertUserSettings({
@@ -243,19 +243,19 @@ export const disableBiometric = async (): Promise<void> => {
 export const disableAuthentication = async (): Promise<void> => {
   try {
     const currentSettings = await getUserSettings();
-    
+
     const newSettings = {
-      name: currentSettings?.name || null,
+      name: currentSettings?.name || undefined,
       authMethod: 'none' as const,
       passwordHash: null as any,
       biometricsEnabled: false,
     };
-    
+
     await upsertUserSettings(newSettings);
-    
+
     // Wait for database to commit
     await new Promise(resolve => setTimeout(resolve, 100));
-    
+
     // Verify the change was saved
     const verifySettings = await getUserSettings();
     if (verifySettings?.authMethod !== 'none') {
@@ -272,8 +272,12 @@ export const disableAuthentication = async (): Promise<void> => {
  */
 export const isAuthenticationEnabled = async (): Promise<boolean> => {
   try {
+    // Temporarily disabled as requested by user
+    return false;
+    /*
     const settings = await getUserSettings();
     return settings?.authMethod !== undefined && settings?.authMethod !== 'none';
+    */
   } catch (error) {
     console.error('Error checking authentication status:', error);
     return false;
@@ -288,7 +292,7 @@ export const getAuthenticationMethod = async (): Promise<'none' | 'password' | '
   try {
     const settings = await getUserSettings();
     if (!settings) return 'none';
-    
+
     // On Android, only use password - ignore biometric even if enabled
     if (Platform.OS === 'android') {
       if (settings.passwordHash) {
@@ -296,7 +300,7 @@ export const getAuthenticationMethod = async (): Promise<'none' | 'password' | '
       }
       return 'none';
     }
-    
+
     // On iOS, use biometric if available, otherwise password
     // If both are enabled, prefer biometric
     if (settings.biometricsEnabled && settings.passwordHash) {

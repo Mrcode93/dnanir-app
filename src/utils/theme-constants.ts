@@ -93,7 +93,7 @@ export const lightTheme = {
     },
   },
   typography: {
-    fontFamily: 'Cairo-Regular',
+    fontFamily: 'Tajawal-Regular',
     sizes: {
       xs: 12,
       sm: 14,

@@ -19,6 +19,7 @@ export interface ApiError {
  */
 class ApiClient {
   private baseURL: string;
+  private isRefreshing: boolean = false;
 
   constructor() {
     this.baseURL = API_CONFIG.BASE_URL;
@@ -193,7 +194,7 @@ class ApiClient {
   /**
    * Handle API response
    */
-  private async handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
+  private async handleResponse<T>(response: Response): Promise<ApiResponse<T> & { statusCode?: number }> {
     const contentType = response.headers.get('content-type');
     const isJson = contentType?.includes('application/json');
 
@@ -213,8 +214,9 @@ class ApiClient {
         : { error: typeof data === 'string' ? data : 'Unknown error' };
       return {
         success: false,
-        error: apiError.error || 'Request failed',
+        error: apiError.error || apiError.message || 'Request failed',
         message: apiError.message,
+        statusCode: response.status,
       };
     }
 
@@ -225,6 +227,50 @@ class ApiClient {
         ? (data as { message?: string }).message
         : undefined,
     };
+  }
+
+  /**
+   * Try to refresh the access token using the stored refresh token.
+   * Returns true on success, false on failure.
+   */
+  private async tryRefreshToken(): Promise<boolean> {
+    if (this.isRefreshing) return false;
+    this.isRefreshing = true;
+
+    try {
+      const refreshToken = await this.getRefreshToken();
+      if (!refreshToken) return false;
+
+      const url = this.buildURL(API_ENDPOINTS.AUTH.REFRESH_TOKEN);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+
+      if (!response.ok) {
+        // Refresh failed — clear auth
+        await authStorage.clearAuthData();
+        return false;
+      }
+
+      const data = await response.json();
+      if (data.tokens) {
+        await this.setAccessToken(data.tokens.accessToken);
+        await this.setRefreshToken(data.tokens.refreshToken);
+        if (data.user) {
+          await authStorage.setUser(data.user);
+        }
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Token refresh failed:', error);
+      return false;
+    } finally {
+      this.isRefreshing = false;
+    }
   }
 
   /**
@@ -257,6 +303,16 @@ class ApiClient {
       });
 
       cleanup();
+
+      // Auto-refresh on 401
+      if (response.status === 401 && includeAuth && !this.isRefreshing) {
+        const refreshed = await this.tryRefreshToken();
+        if (refreshed) {
+          // Retry with new token
+          return this.get<T>(endpoint, includeAuth);
+        }
+      }
+
       const result = await this.handleResponse<T>(response);
       const duration = Date.now() - startTime;
       this.logResponse('GET', url, result, duration);
@@ -311,6 +367,15 @@ class ApiClient {
       });
 
       cleanup();
+
+      // Auto-refresh on 401 (skip for refresh-token endpoint itself)
+      if (response.status === 401 && includeAuth && !this.isRefreshing && !endpoint.includes('refresh-token')) {
+        const refreshed = await this.tryRefreshToken();
+        if (refreshed) {
+          return this.post<T>(endpoint, body, includeAuth);
+        }
+      }
+
       const result = await this.handleResponse<T>(response);
       const duration = Date.now() - startTime;
       this.logResponse('POST', url, result, duration);

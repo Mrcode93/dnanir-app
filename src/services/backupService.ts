@@ -7,12 +7,17 @@ import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import { exportFullData, importFullData } from '../database/database';
 
-const BACKUP_FILENAME = 'dnanir-backup.json';
+const BACKUP_LATEST = 'dnanir-backup-latest.json';
 
 function getBackupPath(): string {
   const dir = FileSystem.documentDirectory || '';
   const date = new Date().toISOString().slice(0, 10);
   return `${dir}dnanir-backup-${date}.json`;
+}
+
+function getLatestBackupPath(): string {
+  const dir = FileSystem.documentDirectory || '';
+  return `${dir}${BACKUP_LATEST}`;
 }
 
 export type LocalBackupResult =
@@ -21,14 +26,25 @@ export type LocalBackupResult =
 
 /**
  * Create a full backup and save to app directory. Optionally share so user can save to Files/iCloud.
+ * Also writes a stable "latest" copy so restore always finds the most recent backup.
  */
 export async function createLocalBackup(): Promise<LocalBackupResult> {
   try {
     const data = await exportFullData();
+    const jsonString = JSON.stringify(data, null, 2);
     const path = getBackupPath();
-    await FileSystem.writeAsStringAsync(path, JSON.stringify(data, null, 2), {
+
+    // Write date-stamped backup
+    await FileSystem.writeAsStringAsync(path, jsonString, {
       encoding: FileSystem.EncodingType.UTF8,
     });
+
+    // Also write a stable "latest" copy so restore works regardless of date
+    const latestPath = getLatestBackupPath();
+    await FileSystem.writeAsStringAsync(latestPath, jsonString, {
+      encoding: FileSystem.EncodingType.UTF8,
+    });
+
     const canShare = await Sharing.isAvailableAsync();
     if (canShare) {
       await Sharing.shareAsync(path, {
@@ -47,22 +63,39 @@ export type RestoreFromLocalResult =
   | { success: false; error: string };
 
 /**
- * Restore from the last backup file (same path we write to). Use after createLocalBackup without deleting app.
- * For restore after reinstall, user should use "استعادة من السيرفر" (Pro) or re-import the shared file if we add picker later.
+ * Restore from the last backup file.
+ * Checks: today's backup → stable "latest" backup → scans for most recent dated backup.
  */
 export async function restoreFromLastLocalBackup(): Promise<RestoreFromLocalResult> {
   try {
-    const path = getBackupPath();
-    const exists = await FileSystem.getInfoAsync(path, { size: false });
-    if (!exists.exists) {
-      return { success: false, error: 'لا توجد نسخة احتياطية محلية. أنشئ نسخة أولاً من الإعدادات.' };
+    // 1. Try today's backup first
+    const todayPath = getBackupPath();
+    const todayExists = await FileSystem.getInfoAsync(todayPath);
+    if (todayExists.exists) {
+      return await restoreFromFileUri(todayPath);
     }
-    const content = await FileSystem.readAsStringAsync(path, {
-      encoding: FileSystem.EncodingType.UTF8,
-    });
-    const data = JSON.parse(content) as Record<string, unknown>;
-    await importFullData(data);
-    return { success: true };
+
+    // 2. Try the stable "latest" copy
+    const latestPath = getLatestBackupPath();
+    const latestExists = await FileSystem.getInfoAsync(latestPath);
+    if (latestExists.exists) {
+      return await restoreFromFileUri(latestPath);
+    }
+
+    // 3. Scan for any dnanir-backup-*.json files and pick the most recent
+    const dir = FileSystem.documentDirectory || '';
+    const files = await FileSystem.readDirectoryAsync(dir);
+    const backupFiles = files
+      .filter(f => f.startsWith('dnanir-backup-') && f.endsWith('.json') && f !== BACKUP_LATEST)
+      .sort()
+      .reverse(); // Most recent date first (YYYY-MM-DD sorts correctly)
+
+    if (backupFiles.length > 0) {
+      const mostRecent = `${dir}${backupFiles[0]}`;
+      return await restoreFromFileUri(mostRecent);
+    }
+
+    return { success: false, error: 'لا توجد نسخة احتياطية محلية. أنشئ نسخة أولاً من الإعدادات.' };
   } catch (err: any) {
     return { success: false, error: err?.message || 'فشل في استعادة النسخة الاحتياطية' };
   }

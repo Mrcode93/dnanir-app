@@ -1,6 +1,7 @@
 import { getExpenses, getIncome } from '../database/database';
 import { formatCurrencyAmount } from './currencyService';
 import { getSelectedCurrencyCode } from './financialService';
+import { getSmartExpenseShortcuts, getSmartIncomeShortcuts } from './smartShortcutsService';
 
 export interface WidgetBalanceData {
   totalIncome: number;
@@ -198,13 +199,13 @@ export const updateWidgets = async (): Promise<void> => {
  */
 export const getWidgetQuickAddData = async (): Promise<WidgetQuickAddData> => {
   try {
-    const dbModule = await import('../database/database');
-    const { getExpenseShortcuts, getIncomeShortcuts } = dbModule;
     const { EXPENSE_CATEGORIES } = await import('../types');
     const { INCOME_SOURCES } = await import('../types');
     
-    const expenseShortcuts = await getExpenseShortcuts();
-    const incomeShortcuts = await getIncomeShortcuts();
+    const [expenseShortcuts, incomeShortcuts] = await Promise.all([
+      getSmartExpenseShortcuts(),
+      getSmartIncomeShortcuts(),
+    ]);
     
     // Get recent categories from expenses
     const { getExpenses } = await import('../database/database');

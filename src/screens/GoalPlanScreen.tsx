@@ -17,12 +17,14 @@ import { FinancialGoal } from '../types';
 import { aiApiService, type GoalPlanData } from '../services/aiApiService';
 import { getGoalPlanCache, saveGoalPlanCache } from '../database/goalPlanCache';
 import { getCurrentMonthData, getMonthData } from '../services/financialService';
+import { usePrivacy } from '../context/PrivacyContext';
 
 export const GoalPlanScreen = ({ route, navigation }: any) => {
   const goal = route?.params?.goal as FinancialGoal | undefined;
   const { theme, isDark } = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const { formatCurrency, currencyCode } = useCurrency();
+  const { isPrivacyEnabled } = usePrivacy();
   const [loading, setLoading] = useState(false);
   const [plan, setPlan] = useState<GoalPlanData | null>(null);
   const [cachedAt, setCachedAt] = useState<number | null>(null);
@@ -157,7 +159,9 @@ export const GoalPlanScreen = ({ route, navigation }: any) => {
           <View>
             <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]} numberOfLines={1}>{goal.title}</Text>
             <Text style={[styles.headerSubtitle, { color: theme.colors.textSecondary }]}>
-              {goal.currentAmount.toLocaleString('ar-IQ')} / {goal.targetAmount.toLocaleString('ar-IQ')} {goalCurrency}
+              {isPrivacyEnabled
+                ? `**** / **** ${goalCurrency}`
+                : `${goal.currentAmount.toLocaleString('ar-IQ')} / ${goal.targetAmount.toLocaleString('ar-IQ')} ${goalCurrency}`}
             </Text>
           </View>
           <TouchableOpacity

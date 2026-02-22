@@ -30,8 +30,6 @@ import {
   getAchievements,
   getRecentTransactions,
   getAvailableMonths,
-  getExpenseShortcuts,
-  getIncomeShortcuts,
   addExpense,
   addIncome,
   type ExpenseShortcut,
@@ -49,10 +47,13 @@ import { convertCurrency, formatCurrencyAmount } from '../services/currencyServi
 
 import { usePrivacy } from '../context/PrivacyContext';
 import { SmartAddModal } from '../components/SmartAddModal';
-import { AddShortcutModal } from '../components/AddShortcutModal';
+import { ManageShortcutsModal } from '../components/ManageShortcutsModal';
 import { authStorage } from '../services/authStorage';
 import { authApiService } from '../services/authApiService';
 import { alertService } from '../services/alertService';
+import { ReferralModal } from '../components/ReferralModal';
+import { referralService } from '../services/referralService';
+import { getSmartExpenseShortcuts, getSmartIncomeShortcuts } from '../services/smartShortcutsService';
 
 const { width } = Dimensions.get('window');
 const MONTH_NAMES = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
@@ -72,7 +73,9 @@ export const DashboardScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const [summary, setSummary] = useState<any>(null);
   const [showSmartAdd, setShowSmartAdd] = useState(false);
-  const [showAddShortcutModal, setShowAddShortcutModal] = useState(false);
+  const [showManageShortcuts, setShowManageShortcuts] = useState(false);
+  const [manageShortcutsType, setManageShortcutsType] = useState<'expense' | 'income'>('expense');
+  const [showReferralModal, setShowReferralModal] = useState(false);
   const [recentTransactions, setRecentTransactions] = useState<(Expense | Income)[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [userName, setUserName] = useState<string>('');
@@ -179,8 +182,8 @@ export const DashboardScreen = ({ navigation }: any) => {
           await updateAllChallenges();
           return getChallenges();
         })(),
-        getExpenseShortcuts(),
-        getIncomeShortcuts(),
+        getSmartExpenseShortcuts(),
+        getSmartIncomeShortcuts(),
       ]);
 
       if (userSettings?.name) {
@@ -264,6 +267,20 @@ export const DashboardScreen = ({ navigation }: any) => {
   const loadData = useCallback(async () => {
     await loadEssentialData();
     scheduleSecondaryLoad();
+
+    // Check if we should show referral modal
+    try {
+      const user = await authStorage.getUser();
+      if (user && !user.referredBy) {
+        const isDismissed = await referralService.isDismissed();
+        if (!isDismissed) {
+          // Show modal after a short delay
+          setTimeout(() => setShowReferralModal(true), 2000);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking referral status:', error);
+    }
   }, [loadEssentialData, scheduleSecondaryLoad]);
 
   const onRefresh = async () => {
@@ -400,7 +417,7 @@ export const DashboardScreen = ({ navigation }: any) => {
         <View style={styles.actionGrid}>
           <TouchableOpacity
             style={styles.actionItem}
-            onPress={() => navigation.navigate('Expenses', { screen: 'AddExpense' })}
+            onPress={() => navigation.navigate('AddExpense')}
           >
             <View style={[styles.actionIconBg, { backgroundColor: '#EF444420' }]}>
               <Ionicons name="remove-circle" size={28} color="#EF4444" />
@@ -410,7 +427,7 @@ export const DashboardScreen = ({ navigation }: any) => {
 
           <TouchableOpacity
             style={styles.actionItem}
-            onPress={() => navigation.navigate('Income', { screen: 'AddIncome' })}
+            onPress={() => navigation.navigate('AddIncome')}
           >
             <View style={[styles.actionIconBg, { backgroundColor: '#10B98120' }]}>
               <Ionicons name="add-circle" size={28} color="#10B981" />
@@ -442,12 +459,19 @@ export const DashboardScreen = ({ navigation }: any) => {
         {/* اختصارات سريعة - إضافة مصروف/دخل بضغطة دون فتح النموذج */}
         <View style={styles.shortcutsSection}>
           <View style={styles.shortcutsSectionHeader}>
-            <Text style={styles.shortcutsSectionTitle}>اختصارات سريعة</Text>
-            <TouchableOpacity
-              onPress={() => setShowAddShortcutModal(true)}
-            >
-              <Text style={styles.shortcutsSectionLink}>+ إضافة اختصار</Text>
-            </TouchableOpacity>
+            <Text style={styles.shortcutsSectionTitle}>اختصارات ذكية</Text>
+            <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', gap: 12 }}>
+              <TouchableOpacity
+                onPress={() => { setManageShortcutsType('expense'); setShowManageShortcuts(true); }}
+              >
+                <Text style={styles.shortcutsSectionLink}>إدارة المصروفات</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => { setManageShortcutsType('income'); setShowManageShortcuts(true); }}
+              >
+                <Text style={[styles.shortcutsSectionLink, { color: theme.colors.success }]}>إدارة الدخل</Text>
+              </TouchableOpacity>
+            </View>
           </View>
           {(expenseShortcuts.length > 0 || incomeShortcuts.length > 0) ? (
             <ScrollView
@@ -528,7 +552,7 @@ export const DashboardScreen = ({ navigation }: any) => {
           ) : (
             <TouchableOpacity
               style={styles.shortcutsEmptyHint}
-              onPress={() => setShowAddShortcutModal(true)}
+              onPress={() => { setManageShortcutsType('expense'); setShowManageShortcuts(true); }}
             >
               <Ionicons name="flash-outline" size={24} color={theme.colors.textSecondary} />
               <Text style={styles.shortcutsEmptyHintText}>لا توجد اختصارات. اضغط لإضافة اسم، فئة ومبلغ ثم استخدمها من هنا دون فتح النموذج.</Text>
@@ -583,11 +607,60 @@ export const DashboardScreen = ({ navigation }: any) => {
           <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={22} color="#06B6D4" />
         </TouchableOpacity>
 
-        <AddShortcutModal
-          visible={showAddShortcutModal}
-          onClose={() => setShowAddShortcutModal(false)}
-          onExpense={() => navigation.navigate('Expenses', { screen: 'AddExpense' })}
-          onIncome={() => navigation.navigate('Income', { screen: 'AddIncome' })}
+        <ManageShortcutsModal
+          visible={showManageShortcuts}
+          type={manageShortcutsType}
+          onClose={() => { setShowManageShortcuts(false); loadData(); }}
+          onShortcutUsed={(s) => {
+            // When a shortcut is used from the modal, add the transaction directly
+            if (manageShortcutsType === 'expense') {
+              const es = s as ExpenseShortcut;
+              alertService.confirm(
+                'تأكيد إضافة مصروف',
+                `${es.title}\n${formatCurrency(es.amount)}\n\nهل تريد إضافة هذا المصروف؟`,
+                async () => {
+                  try {
+                    const dateStr = formatDateLocal(new Date());
+                    await addExpense({
+                      title: es.title,
+                      amount: es.amount,
+                      category: es.category as any,
+                      date: dateStr,
+                      description: es.description || '',
+                      currency: es.currency || currencyCode,
+                    });
+                    loadData();
+                    alertService.toastSuccess(`تمت إضافة المصروف: ${es.title}`);
+                  } catch (err: any) {
+                    alertService.toastError(err?.message || 'فشل الإضافة');
+                  }
+                }
+              );
+            } else {
+              const is = s as IncomeShortcut;
+              alertService.confirm(
+                'تأكيد إضافة دخل',
+                `${is.source}\n${formatCurrency(is.amount)}\n\nهل تريد إضافة هذا الدخل؟`,
+                async () => {
+                  try {
+                    const dateStr = formatDateLocal(new Date());
+                    await addIncome({
+                      source: is.source,
+                      amount: is.amount,
+                      date: dateStr,
+                      category: (is.incomeSource || is.source) as any,
+                      currency: is.currency || currencyCode,
+                      description: is.description || '',
+                    });
+                    loadData();
+                    alertService.toastSuccess(`تمت إضافة الدخل: ${is.source}`);
+                  } catch (err: any) {
+                    alertService.toastError(err?.message || 'فشل الإضافة');
+                  }
+                }
+              );
+            }
+          }}
         />
         <SmartAddModal
           visible={showSmartAdd}
@@ -595,6 +668,13 @@ export const DashboardScreen = ({ navigation }: any) => {
           onSuccess={() => {
             loadData();
             // Maybe show a toast
+          }}
+        />
+        <ReferralModal
+          visible={showReferralModal}
+          onClose={() => setShowReferralModal(false)}
+          onSuccess={(rewardDays) => {
+            loadData(); // To refresh Pro status if updated
           }}
         />
 
@@ -645,9 +725,11 @@ export const DashboardScreen = ({ navigation }: any) => {
                   />
                 </View>
                 <Text style={styles.progressText}>
-                  {Math.round((currentMonthData.totalExpenses / (currentMonthData.totalIncome || 1)) * 100) > 100
-                    ? '⚠️ تجاوزت حد دخلك لهذا الشهر!'
-                    : `استهلكت ${Math.round((currentMonthData.totalExpenses / (currentMonthData.totalIncome || 1)) * 100)}% من دخلك`}
+                  {isPrivacyEnabled
+                    ? '****'
+                    : Math.round((currentMonthData.totalExpenses / (currentMonthData.totalIncome || 1)) * 100) > 100
+                      ? '⚠️ تجاوزت حد دخلك لهذا الشهر!'
+                      : `استهلكت ${Math.round((currentMonthData.totalExpenses / (currentMonthData.totalIncome || 1)) * 100)}% من دخلك`}
                 </Text>
               </View>
             </LinearGradient>
@@ -684,7 +766,7 @@ export const DashboardScreen = ({ navigation }: any) => {
                     </View>
                     <Text style={styles.goalCardAmount}>{formatCurrency(goalAmounts.current)}</Text>
                     <View style={styles.goalCardProgressRow}>
-                      <Text style={styles.goalPercentText}>{Math.round(percent)}%</Text>
+                      <Text style={styles.goalPercentText}>{isPrivacyEnabled ? '**%' : `${Math.round(percent)}%`}</Text>
                       <View style={styles.goalProgressBar}>
                         <View style={[styles.goalProgressFill, { width: `${percent}%` }]} />
                       </View>
@@ -774,7 +856,7 @@ export const DashboardScreen = ({ navigation }: any) => {
                     </View>
                     <View style={styles.challengePreviewPercentBadge}>
                       <Text style={styles.challengePreviewPercentText}>
-                        {Math.round((challenge.currentProgress / (challenge.targetProgress || 1)) * 100)}%
+                        {isPrivacyEnabled ? '**%' : `${Math.round((challenge.currentProgress / (challenge.targetProgress || 1)) * 100)}%`}
                       </Text>
                     </View>
 
@@ -843,9 +925,9 @@ export const DashboardScreen = ({ navigation }: any) => {
                 showOptions={false}
                 onPress={() => {
                   if ((item as any).type === 'expense') {
-                    navigation.navigate('Expenses', { screen: 'AddExpense', params: { editExpense: item } });
+                    navigation.navigate('AddExpense', { expense: item });
                   } else {
-                    navigation.navigate('Income', { screen: 'AddIncome', params: { editIncome: item } });
+                    navigation.navigate('AddIncome', { income: item });
                   }
                 }}
               />

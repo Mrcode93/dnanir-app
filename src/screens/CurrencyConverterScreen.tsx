@@ -20,11 +20,13 @@ import { convertCurrency, getOrFetchExchangeRate, formatCurrencyAmount } from '.
 import { useCurrency } from '../hooks/useCurrency';
 import { alertService } from '../services/alertService';
 import { convertArabicToEnglish } from '../utils/numbers';
+import { usePrivacy } from '../context/PrivacyContext';
 
 export const CurrencyConverterScreen = ({ navigation }: any) => {
   const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const { currencyCode, formatCurrency } = useCurrency();
+  const { isPrivacyEnabled } = usePrivacy();
   const [fromCurrency, setFromCurrency] = useState<string>(currencyCode);
   const [toCurrency, setToCurrency] = useState<string>('USD');
   const [amount, setAmount] = useState<string>('');
@@ -209,9 +211,9 @@ export const CurrencyConverterScreen = ({ navigation }: any) => {
               ) : convertedAmount !== null ? (
                 <>
                   <Text style={styles.convertedAmount}>
-                    {formatCurrencyAmount(convertedAmount, toCurrency)}
+                    {isPrivacyEnabled ? '****' : formatCurrencyAmount(convertedAmount, toCurrency)}
                   </Text>
-                  {exchangeRate !== null && exchangeRate !== 1 && (
+                  {!isPrivacyEnabled && exchangeRate !== null && exchangeRate !== 1 && (
                     <View style={styles.rateInfo}>
                       <View style={styles.rateInfoContainer}>
                         <Ionicons name="trending-up" size={16} color={theme.colors.primary} />

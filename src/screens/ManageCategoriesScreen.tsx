@@ -111,15 +111,7 @@ export const ManageCategoriesScreen: React.FC<ManageCategoriesScreenProps> = ({
           colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
           style={styles.gradient}
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>
-              {type === 'income' ? 'إدارة مصادر الدخل' : 'إدارة الفئات'}
-            </Text>
-            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
-            </TouchableOpacity>
-          </View>
+
 
           {/* Content */}
           <ScrollView

@@ -9,6 +9,7 @@ import { useCurrency } from '../hooks/useCurrency';
 import { convertCurrency, formatCurrencyAmount } from '../services/currencyService';
 import { calculateAverageMonthlySavings, calculateTimeToReachGoal } from '../services/financialService';
 import { ConfirmAlert } from './ConfirmAlert';
+import { usePrivacy } from '../context/PrivacyContext';
 
 interface GoalCardProps {
   goal: FinancialGoal;
@@ -43,6 +44,7 @@ const GoalCardComponent: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete, on
   const [showConfirmAlert, setShowConfirmAlert] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const { formatCurrency, currencyCode } = useCurrency();
+  const { isPrivacyEnabled } = usePrivacy();
   const goalCurrency = goal.currency || currencyCode;
   const progress = goal.targetAmount > 0 ? (goal.currentAmount / goal.targetAmount) * 100 : 0;
   const categoryInfo = GOAL_CATEGORIES[goal.category as keyof typeof GOAL_CATEGORIES] || GOAL_CATEGORIES.other;
@@ -188,7 +190,7 @@ const GoalCardComponent: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete, on
           </View>
           <View style={styles.progressText}>
             <Text style={styles.progressPercent}>
-              {Math.round(progress)}%
+              {isPrivacyEnabled ? '**%' : `${Math.round(progress)}%`}
             </Text>
           </View>
         </View>
@@ -198,7 +200,7 @@ const GoalCardComponent: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete, on
             <Text style={styles.amountLabel}>المحقق</Text>
             <View>
               <Text style={styles.amountValue}>
-                {formatCurrencyAmount(goal.currentAmount, goalCurrency)}
+                {isPrivacyEnabled ? '****' : formatCurrencyAmount(goal.currentAmount, goalCurrency)}
               </Text>
               {convertedCurrentAmount !== null && goalCurrency !== currencyCode && (
                 <Text style={styles.convertedAmount}>
@@ -211,7 +213,7 @@ const GoalCardComponent: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete, on
             <Text style={styles.amountLabel}>المستهدف</Text>
             <View>
               <Text style={styles.amountValue}>
-                {formatCurrencyAmount(goal.targetAmount, goalCurrency)}
+                {isPrivacyEnabled ? '****' : formatCurrencyAmount(goal.targetAmount, goalCurrency)}
               </Text>
               {convertedTargetAmount !== null && goalCurrency !== currencyCode && (
                 <Text style={styles.convertedAmount}>
@@ -227,8 +229,8 @@ const GoalCardComponent: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete, on
             <Ionicons name="time-outline" size={14} color={theme.colors.textInverse} />
             <View style={styles.remainingInfo}>
               <Text style={styles.remainingText}>
-                متبقي: {formatCurrencyAmount(remaining, goalCurrency)}
-                {daysRemaining !== null && daysRemaining > 0 && (
+                متبقي: {isPrivacyEnabled ? '****' : formatCurrencyAmount(remaining, goalCurrency)}
+                {!isPrivacyEnabled && daysRemaining !== null && daysRemaining > 0 && (
                   <Text> • {daysRemaining} يوم</Text>
                 )}
               </Text>
@@ -242,7 +244,7 @@ const GoalCardComponent: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete, on
                   <Ionicons name="hourglass-outline" size={12} color={theme.colors.textInverse} />
                   <View style={styles.estimatedTimeContent}>
                     <Text style={styles.estimatedTimeText}>
-                      الوقت المتوقع: {estimatedTime.formatted}
+                      الوقت المتوقع: {isPrivacyEnabled ? '****' : estimatedTime.formatted}
                     </Text>
                     {averageMonthlySavings !== null && averageMonthlySavings > 0 && (
                       <Text style={styles.estimatedTimeExplanation}>

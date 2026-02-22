@@ -12,23 +12,27 @@ import {
     Animated,
     ScrollView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, useAppTheme, useThemedStyles } from '../utils/theme';
 import { parseTransactionText, ParsedTransaction, CATEGORY_DISPLAY_NAMES, EXPENSE_CATEGORY_LIST, INCOME_CATEGORY_LIST } from '../utils/smartParser';
 import { addExpense, addIncome } from '../database/database';
 import { ConfirmAlert } from './ConfirmAlert';
 import { LinearGradient } from 'expo-linear-gradient';
+import { usePrivacy } from '../context/PrivacyContext';
 
 interface SmartAddModalProps {
     visible: boolean;
     onClose: () => void;
     onSuccess: () => void;
+    mode?: 'expense' | 'income';
 }
 
-export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, onSuccess }) => {
+export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, onSuccess, mode = 'expense' }) => {
     const { theme } = useAppTheme();
+    const insets = useSafeAreaInsets();
     const styles = useThemedStyles(createStyles);
+    const { isPrivacyEnabled } = usePrivacy();
     const [text, setText] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [parsedResult, setParsedResult] = useState<ParsedTransaction | null>(null);
@@ -47,11 +51,11 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
             setText('');
             setParsedResult(null);
             setSelectedCategory('');
-            setSelectedType('expense');
+            setSelectedType(mode);
             setEditedTitle('');
             startPulse();
         }
-    }, [visible]);
+    }, [visible, mode]);
 
     const startPulse = () => {
         Animated.loop(
@@ -137,26 +141,24 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
             transparent={false}
             animationType="slide"
             onRequestClose={onClose}
+            statusBarTranslucent={true}
         >
-            <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffff' }}>
+            <View style={{ flex: 1, backgroundColor: '#ffffff' }}>
                 <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                     style={styles.container}
+                    keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
                 >
                     <LinearGradient
                         colors={['#ffffff', '#f8fafc']}
                         style={styles.fullBackground}
                     >
-                        <View style={styles.header}>
-                            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                                <Ionicons name="close" size={24} color="#64748B" />
-                            </TouchableOpacity>
+                        <View style={[styles.header, { paddingTop: insets.top || 12 }]}>
+                            <View style={styles.headerLeft} />
                             <Text style={styles.title}>إضافة ذكية</Text>
-                            <View style={styles.headerRight}>
-                                <View style={styles.iconCircle}>
-                                    <Ionicons name="mic" size={20} color={theme.colors.primary} />
-                                </View>
-                            </View>
+                            <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                                <Ionicons name="close" size={28} color="#64748B" />
+                            </TouchableOpacity>
                         </View>
 
                         <ScrollView
@@ -268,7 +270,7 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
                                         <View style={[styles.resultRow, { marginBottom: 16 }]}>
                                             <Text style={styles.resultLabel}>المبلغ</Text>
                                             <Text style={styles.resultValueAmount}>
-                                                {parsedResult.amount?.toLocaleString()} د.ع
+                                                {isPrivacyEnabled ? '****' : `${parsedResult.amount?.toLocaleString()} د.ع`}
                                             </Text>
                                         </View>
 
@@ -339,32 +341,34 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
                                             </ScrollView>
                                         </View>
                                     </View>
-
-                                    <View style={styles.actions}>
-                                        <TouchableOpacity
-                                            style={[styles.actionButton, styles.cancelAction]}
-                                            onPress={() => {
-                                                setParsedResult(null);
-                                                setText('');
-                                            }}
-                                        >
-                                            <Text style={styles.cancelActionText}>تعديل</Text>
-                                        </TouchableOpacity>
-
-                                        <TouchableOpacity
-                                            style={[styles.actionButton, styles.confirmAction]}
-                                            onPress={handleConfirm}
-                                        >
-                                            <Text style={styles.confirmActionText}>تأكيد وإضافة</Text>
-                                        </TouchableOpacity>
-                                    </View>
                                 </View>
                             )}
                         </ScrollView>
+
+                        {parsedResult && (
+                            <View style={[styles.actions, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+                                <TouchableOpacity
+                                    style={[styles.actionButton, styles.cancelAction]}
+                                    onPress={() => {
+                                        setParsedResult(null);
+                                        setText('');
+                                    }}
+                                >
+                                    <Text style={styles.cancelActionText}>تعديل</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={[styles.actionButton, styles.confirmAction]}
+                                    onPress={handleConfirm}
+                                >
+                                    <Text style={styles.confirmActionText}>تأكيد وإضافة</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
                     </LinearGradient>
                 </KeyboardAvoidingView>
-            </SafeAreaView>
-        </Modal>
+            </View>
+        </Modal >
     );
 };
 
@@ -382,28 +386,20 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     scrollContent: {
         padding: 16,
         paddingTop: 8,
+        paddingBottom: 100,
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 12,
-        paddingVertical: 12,
+        paddingHorizontal: 16,
+        paddingBottom: 12,
         borderBottomWidth: 1,
         borderBottomColor: '#f1f5f9',
         backgroundColor: '#ffffff',
     },
-    headerRight: {
-        width: 40,
-        alignItems: 'flex-end',
-    },
-    iconCircle: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#eff6ff', // blue-50
-        alignItems: 'center',
-        justifyContent: 'center',
+    headerLeft: {
+        width: 44,
     },
     title: {
         fontSize: 18,
@@ -412,7 +408,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         fontFamily: theme.typography.fontFamily,
     },
     closeBtn: {
-        padding: 4,
+        width: 44,
+        height: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     subtitle: {
         fontSize: 14,
@@ -612,6 +611,11 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     actions: {
         flexDirection: 'row-reverse',
         gap: 8,
+        paddingHorizontal: 16,
+        paddingTop: 8,
+        backgroundColor: '#ffffff',
+        borderTopWidth: 1,
+        borderTopColor: '#f1f5f9',
     },
     actionButton: {
         flex: 1,

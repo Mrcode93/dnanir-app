@@ -16,3 +16,11 @@ export const convertArabicToEnglish = (str: string): string => {
     result = result.replace(/[^0-9.]/g, '');
     return result;
 };
+
+export const convertArabicToEnglishSimple = (str: string): string => {
+    if (!str) return str;
+    const arabicNumbers = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    return str.replace(/[٠-٩]/g, (d) => {
+        return arabicNumbers.indexOf(d).toString();
+    });
+};

@@ -11,20 +11,22 @@ import {
   Alert,
   Modal,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextInput, IconButton } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { Expense, ExpenseCategory, EXPENSE_CATEGORIES, CURRENCIES } from '../types';
-import { addExpense, updateExpense, getExpenseShortcuts, addExpenseShortcut, deleteExpenseShortcut, updateExpenseShortcut, ExpenseShortcut, getCustomCategories, CustomCategory } from '../database/database';
+import { addExpense, updateExpense, ExpenseShortcut, getCustomCategories, CustomCategory } from '../database/database';
+import { ManageShortcutsModal } from '../components/ManageShortcutsModal';
 import { alertService } from '../services/alertService';
 import { useCurrency } from '../hooks/useCurrency';
 import { isRTL } from '../utils/rtl';
 import { convertCurrency } from '../services/currencyService';
 import { convertArabicToEnglish } from '../utils/numbers';
 import { formatDateLocal } from '../utils/date';
+import { getSmartExpenseShortcuts } from '../services/smartShortcutsService';
 
 interface AddExpenseScreenProps {
   navigation: any;
@@ -36,6 +38,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
   route,
 }) => {
   const { theme } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const styles = useThemedStyles(createStyles);
   const { currencyCode, formatCurrency } = useCurrency();
   const expense = route?.params?.expense as Expense | undefined;
@@ -60,9 +63,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
   const [categories, setCategories] = useState<CustomCategory[]>([]);
 
   // Shortcut Modal State
-  const [showAddShortcutModal, setShowAddShortcutModal] = useState(false);
-  const [showEditShortcutModal, setShowEditShortcutModal] = useState(false);
-  const [editingShortcut, setEditingShortcut] = useState<ExpenseShortcut | null>(null);
+  const [showManageShortcuts, setShowManageShortcuts] = useState(false);
 
   useEffect(() => {
     setCurrency(currencyCode);
@@ -106,7 +107,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
 
   const loadShortcuts = async () => {
     try {
-      const shortcutsData = await getExpenseShortcuts();
+      const shortcutsData = await getSmartExpenseShortcuts();
       setShortcuts(shortcutsData);
     } catch (error) {
       // Ignore
@@ -160,10 +161,10 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
 
       if (expense) {
         await updateExpense(expense.id, expenseData);
-        alertService.success('تم', 'تم التحديث بنجاح');
+        alertService.toastSuccess('تم التحديث بنجاح');
       } else {
         await addExpense(expenseData);
-        alertService.success('تم', 'تمت الإضافة بنجاح');
+        alertService.toastSuccess('تمت الإضافة بنجاح');
       }
       navigation.goBack();
       resetForm();
@@ -174,94 +175,22 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
     }
   };
 
-  const handleShortcutPress = async (shortcut: ExpenseShortcut) => {
+  const handleShortcutUsed = async (shortcut: any) => {
+    const s = shortcut as ExpenseShortcut;
     try {
       await addExpense({
-        title: shortcut.title,
-        amount: shortcut.amount,
-        category: shortcut.category as ExpenseCategory,
+        title: s.title,
+        amount: s.amount,
+        category: s.category as ExpenseCategory,
         date: new Date().toISOString().split('T')[0],
-        description: shortcut.description || '',
-        currency: shortcut.currency || currencyCode,
+        description: s.description || '',
+        currency: s.currency || currencyCode,
       });
       navigation.goBack();
-      alertService.success('تم', 'أضيف من الاختصار');
+      alertService.toastSuccess('أضيف من الاختصار');
     } catch (error: any) {
       alertService.error('خطأ', error.message);
     }
-  };
-
-  const handleAddShortcut = async () => {
-    if (!title.trim() || !amount.trim()) return;
-    try {
-      await addExpenseShortcut({
-        title: title.trim(),
-        amount: Number(amount),
-        category,
-        currency,
-        description: description.trim() || undefined,
-      });
-      await loadShortcuts();
-      setShowAddShortcutModal(false);
-      alertService.success('تم', 'تم حفظ الاختصار');
-    } catch (e) {
-      alertService.error('خطأ', 'فشل حفظ الاختصار');
-    }
-  };
-
-  const handleDeleteShortcut = async (id: number) => {
-    try {
-      await deleteExpenseShortcut(id);
-      await loadShortcuts();
-    } catch (e) {
-      // ignore
-    }
-  };
-
-  const handleUpdateShortcut = async () => {
-    if (!editingShortcut) return;
-    try {
-      await updateExpenseShortcut(editingShortcut.id, {
-        title: title.trim(),
-        amount: Number(amount),
-        category: category,
-        currency: currency,
-        description: description.trim() || undefined,
-      });
-      await loadShortcuts();
-      setShowEditShortcutModal(false);
-      setEditingShortcut(null);
-      alertService.success('تم', 'تم تحديث الاختصار');
-    } catch (error) {
-      alertService.error('خطأ', 'فشل التحديث');
-    }
-  };
-
-  const handleEditShortcutPress = (shortcut: ExpenseShortcut) => {
-    setTitle(shortcut.title);
-    setAmount(shortcut.amount.toString());
-    setCategory(shortcut.category as ExpenseCategory);
-    setCurrency(shortcut.currency || currencyCode);
-    setDescription(shortcut.description || '');
-    setEditingShortcut(shortcut);
-    setShowEditShortcutModal(true);
-  };
-
-  const handleCancelEditShortcut = () => {
-    if (editingShortcut) {
-      if (expense) {
-        setTitle(expense.title);
-        setAmount(expense.amount.toString());
-        setCategory(expense.category as ExpenseCategory);
-        setDate(new Date(expense.date));
-        setDescription(expense.description || '');
-        setCurrency(expense.currency || currencyCode);
-      } else {
-        resetForm();
-      }
-    }
-    setShowEditShortcutModal(false);
-    setEditingShortcut(null);
   };
 
 
@@ -280,7 +209,11 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex1}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.flex1}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
+      >
 
         {/* Header */}
         <View style={styles.header}>
@@ -324,21 +257,20 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
             <View style={styles.shortcutsRow}>
               <View style={styles.shortcutsSectionHeader}>
                 <Text style={styles.shortcutsSectionTitle}>اختصارات سريعة</Text>
-                <TouchableOpacity style={styles.addShortcutButton} onPress={() => setShowAddShortcutModal(true)}>
-                  <Ionicons name="add" size={18} color={theme.colors.primary} />
-                  <Text style={styles.addShortcutButtonText}>إضافة اختصار</Text>
+                <TouchableOpacity style={styles.addShortcutButton} onPress={() => setShowManageShortcuts(true)}>
+                  <Ionicons name="settings-outline" size={16} color={theme.colors.primary} />
+                  <Text style={styles.addShortcutButtonText}>إدارة</Text>
                 </TouchableOpacity>
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shortcutsContent}>
-                <TouchableOpacity style={styles.addShortcutMini} onPress={() => setShowAddShortcutModal(true)}>
+                <TouchableOpacity style={styles.addShortcutMini} onPress={() => setShowManageShortcuts(true)}>
                   <Ionicons name="add" size={20} color={theme.colors.primary} />
                 </TouchableOpacity>
                 {shortcuts.map(s => (
                   <TouchableOpacity
                     key={s.id}
                     style={[styles.shortcutChip, { backgroundColor: theme.colors.surface }]}
-                    onPress={() => handleShortcutPress(s)}
-                    onLongPress={() => handleEditShortcutPress(s)}
+                    onPress={() => handleShortcutUsed(s)}
                   >
                     <Text style={styles.shortcutChipText}>{s.title}</Text>
                     <Text style={styles.shortcutChipAmount}>{s.amount}</Text>
@@ -430,7 +362,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
         </ScrollView>
 
         {/* Floating Save Button */}
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
           <TouchableOpacity style={[styles.saveBtn, { backgroundColor: currentCategoryInfo.color || theme.colors.primary }]} onPress={handleSave} disabled={loading}>
             {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveBtnText}>حفظ المصروف</Text>}
           </TouchableOpacity>
@@ -467,35 +399,13 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
         </Pressable>
       </Modal>
 
-      {/* Add Shortcut Modal - لا يُغلق عند النقر على المحتوى */}
-      <Modal visible={showAddShortcutModal} transparent animationType="fade" onRequestClose={() => setShowAddShortcutModal(false)}>
-        <View style={styles.modalOverlayCentered}>
-          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setShowAddShortcutModal(false)} />
-          <View style={styles.alertBox} onStartShouldSetResponder={() => true}>
-            <Text style={styles.alertTitle}>إضافة اختصار</Text>
-            <Text style={styles.alertMsg}>هل تريد حفظ هذا المصروف كاختصار؟ (الاسم، الفئة والمبلغ الحالية)</Text>
-            <View style={styles.alertActions}>
-              <TouchableOpacity style={styles.alertBtn} onPress={() => setShowAddShortcutModal(false)}><Text style={styles.alertBtnText}>إلغاء</Text></TouchableOpacity>
-              <TouchableOpacity style={[styles.alertBtn, { backgroundColor: theme.colors.primary }]} onPress={handleAddShortcut}><Text style={[styles.alertBtnText, { color: '#FFF' }]}>حفظ</Text></TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Edit Shortcut Modal */}
-      <Modal visible={showEditShortcutModal} transparent animationType="fade" onRequestClose={handleCancelEditShortcut}>
-        <View style={styles.modalOverlayCentered}>
-          <Pressable style={StyleSheet.absoluteFillObject} onPress={handleCancelEditShortcut} />
-          <View style={styles.alertBox} onStartShouldSetResponder={() => true}>
-            <Text style={styles.alertTitle}>تعديل الاختصار</Text>
-            <Text style={styles.alertMsg}>اضغط تحديث لحفظ التغييرات التي قمت بها في النموذج.</Text>
-            <View style={styles.alertActions}>
-              <TouchableOpacity style={styles.alertBtn} onPress={handleCancelEditShortcut}><Text style={styles.alertBtnText}>إلغاء</Text></TouchableOpacity>
-              <TouchableOpacity style={[styles.alertBtn, { backgroundColor: theme.colors.primary }]} onPress={handleUpdateShortcut}><Text style={[styles.alertBtnText, { color: '#FFF' }]}>تحديث</Text></TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* Manage Shortcuts Modal */}
+      <ManageShortcutsModal
+        visible={showManageShortcuts}
+        type="expense"
+        onClose={() => { setShowManageShortcuts(false); loadShortcuts(); }}
+        onShortcutUsed={handleShortcutUsed}
+      />
 
     </SafeAreaView>
   );
@@ -529,7 +439,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   scrollContent: {
-    paddingBottom: 72,
+    paddingBottom: 80,
   },
   amountSection: {
     flexDirection: 'row',
