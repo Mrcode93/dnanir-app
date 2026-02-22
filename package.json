@@ -1,6 +1,6 @@
 {
   "name": "dnanir",
-  "version": "1.1.8",
+  "version": "1.1.9",
   "description": "دنانير - Smart Iraqi-themed financial app for expense and income tracking",
   "main": "index.ts",
   "scripts": {

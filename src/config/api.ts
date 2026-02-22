@@ -10,12 +10,12 @@
 // To test locally, uncomment the localhost line below and set to your IP.
 // const DEV_API_URL = 'http://192.168.0.101:3000';
 const DEV_API_URL = 'https://urcash.up.railway.app';
-// const DEV_API_URL = 'http://localhost:3002';
+// const DEV_API_URL = 'http://192.168.31.221:8080';
 
 // Production API URL
 // const PROD_API_URL = 'https://api.dnanir.com';
 const PROD_API_URL = 'https://urcash.up.railway.app';
-// const PROD_API_URL = 'http://localhost:3002';
+// const PROD_API_URL = 'http://192.168.31.221:8080';
 
 // Check if we're in development mode
 // In React Native/Expo, __DEV__ is available at runtime but TypeScript doesn't know about it

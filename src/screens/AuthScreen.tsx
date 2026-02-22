@@ -186,7 +186,8 @@ export const AuthScreen = ({ navigation, route }: any) => {
         setLoading(true);
         try {
             const fullPhone = getFullPhone();
-            const result = await authApiService.sendOtp(fullPhone, country);
+            const purpose = isForgotMode ? 'reset_password' : 'register';
+            const result = await authApiService.sendOtp(fullPhone, country, purpose);
             if (result.success) {
                 setResendCountdown(60);
                 setOtpCode('');
@@ -203,9 +204,10 @@ export const AuthScreen = ({ navigation, route }: any) => {
 
     const handleOtpFlow = async () => {
         const fullPhone = getFullPhone();
+        const purpose = isForgotMode ? 'reset_password' : 'register';
         setLoading(true);
         try {
-            const result = await authApiService.sendOtp(fullPhone, country);
+            const result = await authApiService.sendOtp(fullPhone, country, purpose);
             if (result.success) {
                 setOtpVisible(true);
                 if (result.devMode) {
@@ -459,9 +461,9 @@ export const AuthScreen = ({ navigation, route }: any) => {
                                 <TouchableOpacity
                                     activeOpacity={1}
                                     onPress={() => otpInputRef.current?.focus()}
-                                    style={styles.otpInputRow}
+                                    style={[styles.otpInputRow, { flexDirection: 'row' }]}
                                 >
-                                    {[5, 4, 3, 2, 1, 0].map((index) => (
+                                    {[0, 1, 2, 3, 4, 5].map((index) => (
                                         <View
                                             key={index}
                                             style={[

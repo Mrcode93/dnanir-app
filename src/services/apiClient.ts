@@ -204,7 +204,7 @@ class ApiClient {
     } catch (error) {
       return {
         success: false,
-        error: 'Failed to parse response',
+        error: 'فشل في معالجة رد السيرفر',
       };
     }
 
@@ -214,7 +214,7 @@ class ApiClient {
         : { error: typeof data === 'string' ? data : 'Unknown error' };
       return {
         success: false,
-        error: apiError.error || apiError.message || 'Request failed',
+        error: apiError.error || apiError.message || 'فشل الطلب',
         message: apiError.message,
         statusCode: response.status,
       };
@@ -320,7 +320,7 @@ class ApiClient {
     } catch (error: unknown) {
       cleanup();
       const duration = Date.now() - startTime;
-      const errorMessage = error instanceof Error ? error.message : 'Network error';
+      const errorMessage = error instanceof Error ? error.message : 'خطأ في الاتصال بالشبكة';
       const errorName = error instanceof Error ? error.name : '';
       console.error('❌ GET request error:', {
         endpoint,
@@ -330,7 +330,7 @@ class ApiClient {
       if (errorName === 'AbortError') {
         return {
           success: false,
-          error: 'Request timeout',
+          error: 'انتهت مهلة الطلب، يرجى المحاولة مرة أخرى',
         };
       }
       return {
@@ -383,7 +383,7 @@ class ApiClient {
     } catch (error: unknown) {
       cleanup();
       const duration = Date.now() - startTime;
-      const errorMessage = error instanceof Error ? error.message : 'Network error';
+      const errorMessage = error instanceof Error ? error.message : 'خطأ في الاتصال بالشبكة';
       const errorName = error instanceof Error ? error.name : '';
       console.error('❌ POST request error:', {
         endpoint,
@@ -393,7 +393,7 @@ class ApiClient {
       if (errorName === 'AbortError') {
         return {
           success: false,
-          error: 'Request timeout',
+          error: 'انتهت مهلة الطلب، يرجى المحاولة مرة أخرى',
         };
       }
       return {

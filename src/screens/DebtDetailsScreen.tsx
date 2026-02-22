@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
-import { 
+import {
   getDebt,
   getDebtInstallments,
   deleteDebt,
@@ -42,7 +42,7 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
 
   const loadDebtData = async () => {
     if (!debtId) return;
-    
+
     try {
       const debtData = await getDebt(debtId);
       if (debtData) {
@@ -109,18 +109,13 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
   };
 
   const handleEdit = () => {
-    if (debt && !debt.isPaid) {
-      navigation.navigate('Debts', { 
-        screen: 'DebtsList',
-        params: { editDebt: debt }
-      });
+    if (debt) {
+      navigation.replace('AddDebt', { debt });
     }
   };
 
   const handleDelete = () => {
-    if (debt?.isPaid) {
-      setShowDeleteAlert(true);
-    }
+    setShowDeleteAlert(true);
   };
 
   const confirmDelete = async () => {
@@ -160,13 +155,13 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
 
   // Use green colors for paid debts, original colors for unpaid
   const baseColors = typeColors[debt.type];
-  const colors = debt.isPaid 
+  const colors = debt.isPaid
     ? ['#10B981', '#059669'] // Green gradient for paid debts
     : baseColors;
   const paidInstallments = installments.filter(inst => inst.isPaid);
   const unpaidInstallments = installments.filter(inst => !inst.isPaid);
-  const progress = debt.totalAmount > 0 
-    ? ((debt.totalAmount - debt.remainingAmount) / debt.totalAmount) * 100 
+  const progress = debt.totalAmount > 0
+    ? ((debt.totalAmount - debt.remainingAmount) / debt.totalAmount) * 100
     : 0;
 
   const formatDate = (dateStr?: string) => {
@@ -318,16 +313,16 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
             </View>
             {debt.dueDate && (
               <View style={styles.detailItem}>
-                <Ionicons 
-                  name="time-outline" 
-                  size={20} 
+                <Ionicons
+                  name="time-outline"
+                  size={20}
                   color={
-                    debt.isPaid 
-                      ? '#10B981' 
-                      : getDaysUntilDue(debt.dueDate)! < 0 
-                        ? '#DC2626' 
+                    debt.isPaid
+                      ? '#10B981'
+                      : getDaysUntilDue(debt.dueDate)! < 0
+                        ? '#DC2626'
                         : theme.colors.textSecondary
-                  } 
+                  }
                 />
                 <View style={styles.detailContent}>
                   <Text style={styles.detailLabel}>تاريخ الاستحقاق</Text>
@@ -367,7 +362,7 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
                   styles.installmentsSummaryText,
                   debt.isPaid && { color: '#059669', fontWeight: getPlatformFontWeight('700') }
                 ]}>
-                  {debt.isPaid 
+                  {debt.isPaid
                     ? `✓ ${paidInstallments.length}/${installments.length} مدفوعة بالكامل`
                     : `${paidInstallments.length}/${installments.length} مدفوعة`
                   }
@@ -383,7 +378,7 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
                   const daysUntilDue = getDaysUntilDue(inst.dueDate);
                   const isOverdue = daysUntilDue !== null && daysUntilDue < 0;
                   const isDueSoon = daysUntilDue !== null && daysUntilDue >= 0 && daysUntilDue <= 3;
-                  
+
                   return (
                     <TouchableOpacity
                       key={inst.id}
@@ -507,9 +502,9 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
           </View>
         )}
 
-        {/* Actions - Only show for unpaid debts */}
-        {!debt.isPaid && (
-          <View style={styles.actionsCard}>
+        {/* Actions Card */}
+        <View style={styles.actionsCard}>
+          {!debt.isPaid && (
             <TouchableOpacity
               style={styles.payFullButton}
               onPress={handlePayDebt}
@@ -523,6 +518,9 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
                 <Text style={styles.payFullButtonText}>{debt.direction === 'owed_to_me' ? 'تسديد (استلام)' : 'دفع الدين'}</Text>
               </LinearGradient>
             </TouchableOpacity>
+          )}
+
+          <View style={styles.secondaryActions}>
             <TouchableOpacity
               style={styles.editButton}
               onPress={handleEdit}
@@ -531,34 +529,38 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
               <Ionicons name="pencil" size={20} color={theme.colors.primary} />
               <Text style={styles.editButtonText}>تعديل</Text>
             </TouchableOpacity>
-          </View>
-        )}
 
-        {/* Actions for paid debts - Only delete option with strong warning */}
-        {debt.isPaid && (
-          <View style={styles.actionsCard}>
             <TouchableOpacity
-              style={[styles.deleteButton, styles.deleteButtonPaid]}
+              style={[styles.deleteButton, debt.isPaid && styles.deleteButtonPaid]}
               onPress={handleDelete}
               activeOpacity={0.7}
             >
               <Ionicons name="trash-outline" size={20} color={theme.colors.error} />
-              <Text style={[styles.deleteButtonText, styles.deleteButtonTextPaid]}>حذف الدين المدفوع</Text>
+              <Text style={[styles.deleteButtonText, debt.isPaid && styles.deleteButtonTextPaid]}>
+                {debt.isPaid ? 'حذف الدين المدفوع' : 'حذف الدين'}
+              </Text>
             </TouchableOpacity>
+          </View>
+
+          {debt.isPaid && (
             <Text style={styles.deleteWarningText}>
               ⚠️ تحذير: حذف الدين المدفوع سيؤدي إلى حذف جميع السجلات المرتبطة به بشكل دائم
             </Text>
-          </View>
-        )}
+          )}
+        </View>
       </ScrollView>
 
       <ConfirmAlert
         visible={showDeleteAlert}
         onCancel={() => setShowDeleteAlert(false)}
         onConfirm={confirmDelete}
-        title="⚠️ حذف دين مدفوع"
-        message={`هل أنت متأكد تماماً من حذف هذا الدين المدفوع؟\n\nسيتم حذف:\n• الدين بالكامل\n• جميع الأقساط المرتبطة به\n• جميع السجلات التاريخية\n\n⚠️ هذا الإجراء لا يمكن التراجع عنه!`}
-        confirmText="نعم، احذف"
+        title={debt.isPaid ? '⚠️ حذف دين مدفوع' : 'حذف الدين'}
+        message={
+          debt.isPaid
+            ? `هل أنت متأكد تماماً من حذف هذا الدين المدفوع؟\n\nسيتم حذف:\n• الدين بالكامل\n• جميع الأقساط المرتبطة به\n• جميع السجلات التاريخية\n\n⚠️ هذا الإجراء لا يمكن التراجع عنه!`
+            : 'هل أنت متأكد من حذف هذا الدين؟ سيتم حذف جميع الأقساط والسقوف المرتبطة به. لا يمكن التراجع عن هذا الإجراء.'
+        }
+        confirmText={debt.isPaid ? 'نعم، احذف الكل' : 'حذف'}
         cancelText="إلغاء"
         type="danger"
       />
@@ -950,7 +952,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
+  secondaryActions: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    gap: theme.spacing.sm,
+  },
   editButton: {
+    flex: 1,
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -968,6 +975,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   deleteButton: {
+    flex: 1,
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',

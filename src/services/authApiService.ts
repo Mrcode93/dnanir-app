@@ -88,7 +88,7 @@ export const authApiService = {
 
     return {
       success: false,
-      error: response.error || response.message || 'Registration failed',
+      error: response.error || response.message || 'فشل إنشاء الحساب',
     };
   },
 
@@ -109,7 +109,7 @@ export const authApiService = {
 
     return {
       success: false,
-      error: response.error || response.message || 'Login failed',
+      error: response.error || response.message || 'فشل تسجيل الدخول',
     };
   },
 
@@ -119,7 +119,7 @@ export const authApiService = {
   async refreshAccessToken(): Promise<{ success: boolean; user?: UserData; error?: string }> {
     const refreshToken = await authStorage.getRefreshToken();
     if (!refreshToken) {
-      return { success: false, error: 'No refresh token available' };
+      return { success: false, error: 'انتهت الجلسة، يرجى تسجيل الدخول مرة أخرى' };
     }
 
     const response = await apiClient.post<AuthResponse>(
@@ -139,7 +139,7 @@ export const authApiService = {
 
     return {
       success: false,
-      error: response.error || 'Token refresh failed',
+      error: response.error || 'فشل تحديث بيانات الدخول',
     };
   },
 
@@ -214,10 +214,10 @@ export const authApiService = {
   /**
    * Send OTP code to phone
    */
-  async sendOtp(phone: string, country?: string): Promise<{ success: boolean; error?: string; devMode?: boolean }> {
+  async sendOtp(phone: string, country?: string, purpose?: 'register' | 'reset_password'): Promise<{ success: boolean; error?: string; devMode?: boolean }> {
     const response = await apiClient.post<any>(
       API_ENDPOINTS.AUTH.SEND_OTP,
-      { phone, country },
+      { phone, country, purpose },
       false
     );
 
@@ -230,7 +230,7 @@ export const authApiService = {
 
     return {
       success: false,
-      error: response.error || response.message || 'Failed to send OTP',
+      error: response.error || response.message || 'فشل إرسال رمز التحقق',
     };
   },
 
@@ -250,7 +250,7 @@ export const authApiService = {
 
     return {
       success: false,
-      error: response.error || response.message || 'Verification failed',
+      error: response.error || response.message || 'فشل التحقق من الرمز',
     };
   },
 
@@ -270,7 +270,7 @@ export const authApiService = {
 
     return {
       success: false,
-      error: response.error || response.message || 'Reset password failed',
+      error: response.error || response.message || 'فشل إعادة تعيين كلمة المرور',
     };
   },
 
@@ -300,7 +300,7 @@ export const authApiService = {
 
     return {
       success: false,
-      error: response.error || response.message || 'Failed to update profile',
+      error: response.error || response.message || 'فشل تحديث الملف الشخصي',
     };
   }
 };

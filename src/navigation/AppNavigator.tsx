@@ -133,15 +133,23 @@ const getCommonStackOptions = (theme: AppTheme) => ({
     shadowOpacity: 0,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
+    height: Platform.OS === 'ios' ? 110 : 80,
   },
   headerTitleStyle: {
     fontFamily: theme.typography.fontFamily,
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
+    marginBottom: Platform.OS === 'ios' ? 0 : 10,
   },
   headerTitleAlign: 'center' as const,
   headerTintColor: theme.colors.primary,
+  headerLeftContainerStyle: {
+    paddingBottom: Platform.OS === 'ios' ? 0 : 15,
+  },
+  headerRightContainerStyle: {
+    paddingBottom: Platform.OS === 'ios' ? 0 : 15,
+  },
 });
 
 const SettingsScreenStack = () => {
@@ -191,12 +199,12 @@ const HeaderLeft = ({ navigation }: { navigation: any }) => {
     <TouchableOpacity
       onPress={() => navigation.goBack()}
       style={{
-        marginLeft: isRTL ? 0 : 16,
+        marginLeft: 16,
         marginRight: isRTL ? 16 : 0,
         padding: 8,
       }}
     >
-      <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={28} color={theme.colors.primary} />
+      <Ionicons name={isRTL ? "chevron-back" : "chevron-back"} size={28} color={theme.colors.primary} />
     </TouchableOpacity>
   );
 };
@@ -207,8 +215,7 @@ const HeaderBackWithLabel = ({ navigation, label }: { navigation: any; label: st
     <TouchableOpacity
       onPress={() => navigation.goBack()}
       style={{
-        marginLeft: isRTL ? 0 : 16,
-        marginRight: isRTL ? 16 : 0,
+        marginLeft: 16,
         paddingVertical: 8,
         paddingHorizontal: 8,
         flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -388,7 +395,7 @@ const InsightsStack = () => {
 const DebtsStack = () => {
   const { theme } = useAppTheme();
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={{ ...getCommonStackOptions(theme) }}>
       <Stack.Screen
         name="DebtsList"
         component={DebtsScreen}
@@ -483,8 +490,7 @@ const DebtsStack = () => {
         component={AddDebtScreen}
         options={{
           headerShown: false,
-          presentation: 'transparentModal',
-          cardStyle: { backgroundColor: 'transparent' },
+          presentation: 'modal',
         }}
       />
     </Stack.Navigator>
@@ -827,12 +833,13 @@ export const AppNavigator = () => {
               <TouchableOpacity
                 onPress={() => navigation.navigate('AddBudget')}
                 style={{
-                  marginRight: isRTL ? 0 : 16,
-                  marginLeft: isRTL ? 16 : 0,
+                  marginRight: 16,
                   padding: 8,
+                  justifyContent: 'center',
+                  alignItems: 'center',
                 }}
               >
-                <Ionicons name="add-circle" size={28} color={theme.colors.primary} />
+                <Ionicons name="add-circle" size={32} color={theme.colors.primary} />
               </TouchableOpacity>
             ),
             ...getCommonStackOptions(theme),

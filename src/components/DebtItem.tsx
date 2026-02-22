@@ -291,6 +291,7 @@ const DebtItemComponent: React.FC<DebtItemProps> = ({
         transparent={true}
         animationType="fade"
         onRequestClose={() => setShowMenu(false)}
+        statusBarTranslucent={true}
       >
         <Pressable
           style={styles.menuOverlay}
@@ -310,7 +311,7 @@ const DebtItemComponent: React.FC<DebtItemProps> = ({
                 <Text style={styles.menuItemText}>عرض التفاصيل</Text>
               </TouchableOpacity>
             )}
-            {onEdit && !item.isPaid && (
+            {onEdit && (
               <TouchableOpacity
                 style={styles.menuItem}
                 onPress={() => {
@@ -336,7 +337,7 @@ const DebtItemComponent: React.FC<DebtItemProps> = ({
                 <Text style={[styles.menuItemText, { color: '#10B981' }]}>{isOwedToMe ? 'تسديد' : 'دفع'}</Text>
               </TouchableOpacity>
             )}
-            {onDelete && !item.isPaid && (
+            {onDelete && (
               <TouchableOpacity
                 style={[styles.menuItem, styles.menuItemDanger]}
                 onPress={() => {
