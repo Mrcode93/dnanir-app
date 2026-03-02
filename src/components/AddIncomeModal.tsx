@@ -32,7 +32,7 @@ import { formatDateLocal } from '../utils/date';
 import { useCurrency } from '../hooks/useCurrency';
 import { isRTL } from '../utils/rtl';
 import { convertCurrency } from '../services/currencyService';
-import { convertArabicToEnglish } from '../utils/numbers';
+import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 import { getSmartIncomeShortcuts } from '../services/smartShortcutsService';
 
 interface AddIncomeModalProps {
@@ -88,9 +88,10 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
   // Convert amount when it changes
   useEffect(() => {
     const convertAmount = async () => {
-      if (amount && !isNaN(Number(amount)) && Number(amount) > 0) {
+      const cleanAmount = amount.replace(/,/g, '');
+      if (cleanAmount && !isNaN(Number(cleanAmount)) && Number(cleanAmount) > 0) {
         if (currency !== currencyCode) {
-          const converted = await convertCurrency(Number(amount), currency, currencyCode);
+          const converted = await convertCurrency(Number(cleanAmount), currency, currencyCode);
           setConvertedAmount(converted);
         } else {
           setConvertedAmount(null);
@@ -112,7 +113,7 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
   useEffect(() => {
     if (income) {
       setSource(income.source);
-      setAmount(income.amount.toString());
+      setAmount(formatNumberWithCommas(income.amount));
       setDate(new Date(income.date));
       setDescription(income.description || '');
       setCurrency(income.currency || currencyCode);
@@ -186,7 +187,8 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
       return;
     }
 
-    if (!amount.trim() || isNaN(Number(amount)) || Number(amount) <= 0) {
+    const cleanAmount = amount.replace(/,/g, '');
+    if (!cleanAmount.trim() || isNaN(Number(cleanAmount)) || Number(cleanAmount) <= 0) {
       alertService.warning('تنبيه', 'يرجى إدخال مبلغ صحيح');
       return;
     }
@@ -196,7 +198,7 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
     try {
       const incomeData = {
         source: source.trim(),
-        amount: Number(amount),
+        amount: Number(cleanAmount),
         date: formatDateLocal(date),
         description: description.trim(),
         currency: currency,
@@ -303,9 +305,9 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
       statusBarTranslucent
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardView}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -500}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
         <TouchableOpacity
           style={styles.overlay}
@@ -446,9 +448,12 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
                     <View style={styles.inputWrapper}>
                       <TextInput
                         value={amount}
-                        onChangeText={(val) => setAmount(convertArabicToEnglish(val))}
+                        onChangeText={(val) => {
+                          const cleaned = convertArabicToEnglish(val);
+                          setAmount(formatNumberWithCommas(cleaned));
+                        }}
                         placeholder="0.00"
-                        keyboardType="numeric"
+                        keyboardType="decimal-pad"
                         mode="flat"
                         style={styles.input}
                         contentStyle={styles.inputContent}

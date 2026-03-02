@@ -17,7 +17,7 @@ import { AppTheme, getPlatformShadow, useAppTheme, useThemedStyles } from '../ut
 import { isRTL } from '../utils/rtl';
 import { alertService } from '../services/alertService';
 import { useCurrency } from '../hooks/useCurrency';
-import { convertArabicToEnglish } from '../utils/numbers';
+import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 import {
     ExpenseShortcut,
     IncomeShortcut,
@@ -111,14 +111,14 @@ export const ManageShortcutsModal: React.FC<ManageShortcutsModalProps> = ({
         if (isExpense) {
             const s = shortcut as ExpenseShortcut;
             setFormTitle(s.title);
-            setFormAmount(s.amount.toString());
+            setFormAmount(formatNumberWithCommas(s.amount));
             setFormCategory(s.category);
             setFormCurrency(s.currency || currencyCode);
             setFormDescription(s.description || '');
         } else {
             const s = shortcut as IncomeShortcut;
             setFormTitle(s.source);
-            setFormAmount(s.amount.toString());
+            setFormAmount(formatNumberWithCommas(s.amount));
             setFormCategory(s.incomeSource);
             setFormCurrency(s.currency || currencyCode);
             setFormDescription(s.description || '');
@@ -131,8 +131,9 @@ export const ManageShortcutsModal: React.FC<ManageShortcutsModalProps> = ({
             alertService.toastError(isExpense ? 'يرجى إدخال عنوان المصروف' : 'يرجى إدخال مصدر الدخل');
             return;
         }
-        const parsedAmount = Number(convertArabicToEnglish(formAmount));
-        if (!formAmount.trim() || isNaN(parsedAmount) || parsedAmount <= 0) {
+        const cleanAmount = formAmount.replace(/,/g, '');
+        const parsedAmount = Number(convertArabicToEnglish(cleanAmount));
+        if (!cleanAmount.trim() || isNaN(parsedAmount) || parsedAmount <= 0) {
             alertService.toastError('يرجى إدخال مبلغ صحيح');
             return;
         }
@@ -342,7 +343,10 @@ export const ManageShortcutsModal: React.FC<ManageShortcutsModalProps> = ({
                         <TextInput
                             style={styles.formInput}
                             value={formAmount}
-                            onChangeText={(t) => setFormAmount(convertArabicToEnglish(t))}
+                            onChangeText={(t) => {
+                                const cleaned = convertArabicToEnglish(t);
+                                setFormAmount(formatNumberWithCommas(cleaned));
+                            }}
                             placeholder="0"
                             placeholderTextColor={theme.colors.textMuted}
                             keyboardType="decimal-pad"

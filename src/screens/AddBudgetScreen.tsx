@@ -22,7 +22,7 @@ import { useCurrency } from '../hooks/useCurrency';
 import { isRTL } from '../utils/rtl';
 import { convertCurrency } from '../services/currencyService';
 import { alertService } from '../services/alertService';
-import { convertArabicToEnglish } from '../utils/numbers';
+import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 
 // Category icons mapping
 const CATEGORY_ICONS: Record<string, string> = {
@@ -58,17 +58,22 @@ export const AddBudgetScreen: React.FC<AddBudgetScreenProps> = ({
   const [customCategories, setCustomCategories] = useState<any[]>([]);
   const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const amountInputRef = React.useRef<any>(null);
 
   useEffect(() => {
     loadCustomCategories();
     if (editingBudget) {
-      setAmount(editingBudget.amount.toString());
+      setAmount(formatNumberWithCommas(editingBudget.amount));
       setSelectedCategory(editingBudget.category);
       setCurrency((editingBudget as any).currency || currencyCode);
     } else {
       resetForm();
+      // Small delay for focus on Android is often more stable
+      setTimeout(() => {
+        amountInputRef.current?.focus();
+      }, 300);
     }
-  }, [editingBudget]);
+  }, [editingBudget, currencyCode]);
 
   useEffect(() => {
     setCurrency(currencyCode);
@@ -77,9 +82,10 @@ export const AddBudgetScreen: React.FC<AddBudgetScreenProps> = ({
   // Convert amount when it changes
   useEffect(() => {
     const convertAmount = async () => {
-      if (amount && !isNaN(Number(amount)) && Number(amount) > 0) {
+      const cleanAmount = amount.replace(/,/g, '');
+      if (cleanAmount && !isNaN(Number(cleanAmount)) && Number(cleanAmount) > 0) {
         if (currency !== currencyCode) {
-          const converted = await convertCurrency(Number(amount), currency, currencyCode);
+          const converted = await convertCurrency(Number(cleanAmount), currency, currencyCode);
           setConvertedAmount(converted);
         } else {
           setConvertedAmount(null);
@@ -115,12 +121,13 @@ export const AddBudgetScreen: React.FC<AddBudgetScreenProps> = ({
   const handleSave = async () => {
     Keyboard.dismiss();
 
-    if (!amount.trim()) {
+    const cleanAmount = amount.replace(/,/g, '');
+    if (!cleanAmount.trim()) {
       alertService.warning('تنبيه', 'يرجى إدخال مبلغ الميزانية');
       return;
     }
 
-    if (isNaN(Number(amount)) || Number(amount) <= 0) {
+    if (isNaN(Number(cleanAmount)) || Number(cleanAmount) <= 0) {
       alertService.warning('تنبيه', 'يرجى إدخال مبلغ صحيح');
       return;
     }
@@ -140,7 +147,7 @@ export const AddBudgetScreen: React.FC<AddBudgetScreenProps> = ({
       if (editingBudget) {
         await updateBudget(editingBudget.id, {
           category: selectedCategory,
-          amount: parseFloat(amount),
+          amount: parseFloat(cleanAmount),
           month,
           year,
           currency: currency,
@@ -149,7 +156,7 @@ export const AddBudgetScreen: React.FC<AddBudgetScreenProps> = ({
       } else {
         await addBudget({
           category: selectedCategory,
-          amount: parseFloat(amount),
+          amount: parseFloat(cleanAmount),
           month,
           year,
           currency: currency,
@@ -229,24 +236,29 @@ export const AddBudgetScreen: React.FC<AddBudgetScreenProps> = ({
 
               <View style={styles.amountInputContainer}>
                 <TextInput
+                  ref={amountInputRef}
                   style={styles.amountInput}
                   value={amount}
-                  onChangeText={(val) => setAmount(convertArabicToEnglish(val))}
+                  onChangeText={(val) => {
+                    const cleaned = convertArabicToEnglish(val);
+                    setAmount(formatNumberWithCommas(cleaned));
+                  }}
                   placeholder="0"
                   placeholderTextColor={theme.colors.textMuted}
-                  keyboardType="numeric"
-                  autoFocus
+                  keyboardType="decimal-pad"
                 />
                 <Text style={styles.currencyLabel}>
                   {CURRENCIES.find(c => c.code === currency)?.symbol || 'د.ع'}
                 </Text>
               </View>
 
-              {convertedAmount !== null && currency !== currencyCode && (
-                <Text style={styles.convertedAmountText}>
-                  ≈ {formatCurrency(convertedAmount)}
-                </Text>
-              )}
+              <View style={{ height: 24, justifyContent: 'center' }}>
+                {convertedAmount !== null && currency !== currencyCode && (
+                  <Text style={styles.convertedAmountText}>
+                    ≈ {formatCurrency(convertedAmount)}
+                  </Text>
+                )}
+              </View>
 
               {/* Currency Selection */}
               <TouchableOpacity

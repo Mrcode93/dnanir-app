@@ -669,6 +669,7 @@ export const DashboardScreen = ({ navigation }: any) => {
             loadData();
             // Maybe show a toast
           }}
+          navigation={navigation}
         />
         <ReferralModal
           visible={showReferralModal}

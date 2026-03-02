@@ -2,7 +2,7 @@ import * as Print from 'expo-print';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { getExpenses, getIncome, getCustomCategories } from '../database/database';
-import { calculateFinancialSummary, getCurrentMonthData, getSelectedCurrencyCode } from './financialService';
+import { calculateFinancialSummary, getCurrentMonthData, getSelectedCurrencyCode, getMonthData } from './financialService';
 import { getCurrentMonthBudgets, calculateBudgetStatus } from './budgetService';
 import { EXPENSE_CATEGORIES } from '../types';
 import { formatCurrencyAmount } from './currencyService';
@@ -14,19 +14,27 @@ const getCategoryName = (category: string, customCategories: any[]) => {
     category;
 };
 
-export const generateMonthlyReport = async (): Promise<string> => {
+export const generateMonthlyReport = async (month?: number, year?: number): Promise<string> => {
   try {
     const now = new Date();
+    const targetMonth = month !== undefined ? month : now.getMonth(); // 0-indexed
+    const targetYear = year !== undefined ? year : now.getFullYear();
+
     const monthNames = [
       'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
       'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
     ];
-    const monthName = monthNames[now.getMonth()];
-    const year = now.getFullYear();
+    const monthName = monthNames[targetMonth];
 
-    const summary = await calculateFinancialSummary();
-    const monthlyData = await getCurrentMonthData();
-    const budgets = await getCurrentMonthBudgets();
+    const monthlyData = await getMonthData(targetYear, targetMonth + 1);
+    const summary = {
+      totalIncome: monthlyData.totalIncome,
+      totalExpenses: monthlyData.totalExpenses,
+      balance: monthlyData.balance,
+      topExpenseCategories: monthlyData.topExpenseCategories
+    };
+
+    const budgets = await getCurrentMonthBudgets(); // Note: budgets are usually current, but we could filter if needed
     const budgetStatuses = await calculateBudgetStatus();
     const customCategories = await getCustomCategories();
     const currencyCode = await getSelectedCurrencyCode();
@@ -164,7 +172,7 @@ export const generateMonthlyReport = async (): Promise<string> => {
       <body>
         <div class="header">
           <h1>تقرير مالي شهري</h1>
-          <p>${monthName} ${year}</p>
+          <p>${monthName} ${targetYear}</p>
           <p>تم الإنشاء: ${new Date().toLocaleDateString('ar-IQ')}</p>
         </div>
         
@@ -228,7 +236,7 @@ export const generateMonthlyReport = async (): Promise<string> => {
               </tr>
             </thead>
             <tbody>
-              ${summary.topExpenseCategories.map(cat => `
+              ${summary.topExpenseCategories.map((cat: any) => `
                 <tr>
                   <td>${getCategoryName(cat.category, customCategories)}</td>
                   <td>${formatCurrency(cat.amount)}</td>
@@ -251,7 +259,7 @@ export const generateMonthlyReport = async (): Promise<string> => {
               </tr>
             </thead>
             <tbody>
-              ${monthlyData.expenses.slice(0, 50).map(expense => `
+              ${monthlyData.expenses.slice(0, 50).map((expense: any) => `
                 <tr>
                   <td>${new Date(expense.date).toLocaleDateString('ar-IQ')}</td>
                   <td>${expense.title}</td>
@@ -274,7 +282,7 @@ export const generateMonthlyReport = async (): Promise<string> => {
               </tr>
             </thead>
             <tbody>
-              ${monthlyData.income.map(inc => `
+              ${monthlyData.income.map((inc: any) => `
                 <tr>
                   <td>${new Date(inc.date).toLocaleDateString('ar-IQ')}</td>
                   <td>${inc.source}</td>
@@ -515,6 +523,79 @@ export const generateAdvancedPDFReport = async (reportData: AdvancedReportData):
     return uri;
   } catch (error) {
     console.error('Error generating advanced PDF:', error);
+    throw error;
+  }
+};
+
+export const generateFullReport = async (): Promise<string> => {
+  try {
+    const { getExpenses, getIncome, getCustomCategories } = await import('../database/database');
+    const expenses = await getExpenses();
+    const income = await getIncome();
+    const customCategories = await getCustomCategories();
+    const currencyCode = await getSelectedCurrencyCode();
+    const formatCurrency = (amount: number) => formatCurrencyAmount(amount, currencyCode);
+
+    const totalIncome = income.reduce((sum, i) => sum + i.amount, 0);
+    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+    const balance = totalIncome - totalExpenses;
+
+    const html = `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+          body { font-family: 'Cairo', sans-serif; padding: 20px; direction: rtl; color: #111827; }
+          .header { text-align: center; margin-bottom: 30px; border-bottom: 3px solid #3B82F6; padding-bottom: 20px; }
+          .section { margin-bottom: 30px; page-break-inside: avoid; }
+          .section-title { background: #3B82F6; color: white; padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; font-size: 18px; font-weight: bold; }
+          .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; }
+          .summary-card { background: #F8F9FA; padding: 15px; border-radius: 8px; text-align: center; border: 2px solid #E5E7EB; }
+          .summary-card h3 { margin: 0 0 10px 0; color: #6B7280; font-size: 14px; }
+          .amount { font-size: 20px; font-weight: bold; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          th, td { padding: 10px; text-align: right; border-bottom: 1px solid #E5E7EB; font-size: 12px; }
+          th { background: #F8F9FA; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>تقرير مالي كامل (جميع البيانات)</h1>
+          <p>تم الإنشاء: ${new Date().toLocaleDateString('ar-IQ')}</p>
+        </div>
+        <div class="section">
+          <div class="section-title">ملخص مالي شامل</div>
+          <div class="summary-grid">
+            <div class="summary-card"><h3>إجمالي الدخل</h3><div class="amount" style="color: #10B981">${formatCurrency(totalIncome)}</div></div>
+            <div class="summary-card"><h3>إجمالي المصاريف</h3><div class="amount" style="color: #EF4444">${formatCurrency(totalExpenses)}</div></div>
+            <div class="summary-card"><h3>الرصيد الكلي</h3><div class="amount" style="color: #3B82F6">${formatCurrency(balance)}</div></div>
+          </div>
+        </div>
+        <div class="section">
+          <div class="section-title">أحدث العمليات (آخر 100)</div>
+          <table>
+            <thead><tr><th>التاريخ</th><th>الوصف</th><th>الفئة</th><th>المبلغ</th></tr></thead>
+            <tbody>
+              ${expenses.slice(0, 100).map(e => `
+                <tr>
+                  <td>${new Date(e.date).toLocaleDateString('ar-IQ')}</td>
+                  <td>${e.title}</td>
+                  <td>${getCategoryName(e.category, customCategories)}</td>
+                  <td>${formatCurrency(e.amount)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </body>
+      </html>
+    `;
+    const { uri } = await Print.printToFileAsync({ html });
+    return uri;
+  } catch (error) {
+    console.error('Error generating full PDF:', error);
     throw error;
   }
 };

@@ -29,7 +29,7 @@ import { isRTL } from '../utils/rtl';
 import { convertCurrency } from '../services/currencyService';
 import { ReceiptScannerModal } from './ReceiptScannerModal';
 import { ReceiptData } from '../services/receiptOCRService';
-import { convertArabicToEnglish } from '../utils/numbers';
+import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 import { getSmartExpenseShortcuts } from '../services/smartShortcutsService';
 
 interface AddExpenseModalProps {
@@ -86,9 +86,10 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
   // Convert amount when it changes
   useEffect(() => {
     const convertAmount = async () => {
-      if (amount && !isNaN(Number(amount)) && Number(amount) > 0) {
+      const cleanAmount = amount.replace(/,/g, '');
+      if (cleanAmount && !isNaN(Number(cleanAmount)) && Number(cleanAmount) > 0) {
         if (currency !== currencyCode) {
-          const converted = await convertCurrency(Number(amount), currency, currencyCode);
+          const converted = await convertCurrency(Number(cleanAmount), currency, currencyCode);
           setConvertedAmount(converted);
         } else {
           setConvertedAmount(null);
@@ -110,7 +111,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
   useEffect(() => {
     if (expense) {
       setTitle(expense.title);
-      setAmount(expense.amount.toString());
+      setAmount(formatNumberWithCommas(expense.amount));
       setCategory(expense.category as ExpenseCategory);
       setDate(new Date(expense.date));
       setDescription(expense.description || '');
@@ -161,7 +162,8 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
       return;
     }
 
-    if (!amount.trim() || isNaN(Number(amount)) || Number(amount) <= 0) {
+    const cleanAmount = amount.replace(/,/g, '');
+    if (!cleanAmount.trim() || isNaN(Number(cleanAmount)) || Number(cleanAmount) <= 0) {
       alertService.warning('تنبيه', 'يرجى إدخال مبلغ صحيح');
       return;
     }
@@ -171,7 +173,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
     try {
       const expenseData = {
         title: title.trim(),
-        amount: Number(amount),
+        amount: Number(cleanAmount),
         category: category,
         date: formatDateLocal(date),
         description: description.trim(),
@@ -306,9 +308,9 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
       statusBarTranslucent
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardView}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -500}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
         <TouchableOpacity
           style={styles.overlay}
@@ -471,9 +473,12 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                     <View style={styles.inputWrapper}>
                       <TextInput
                         value={amount}
-                        onChangeText={(val) => setAmount(convertArabicToEnglish(val))}
+                        onChangeText={(val) => {
+                          const cleaned = convertArabicToEnglish(val);
+                          setAmount(formatNumberWithCommas(cleaned));
+                        }}
                         placeholder="0.00"
-                        keyboardType="numeric"
+                        keyboardType="decimal-pad"
                         mode="flat"
                         style={styles.input}
                         contentStyle={styles.inputContent}

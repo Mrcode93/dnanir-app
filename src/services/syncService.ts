@@ -323,3 +323,27 @@ export async function getFullFromServer(): Promise<RestoreFromServerResult> {
     return { success: false, error: message, code: 'NETWORK' };
   }
 }
+
+/**
+ * Delete all sync data for the current user from the server.
+ */
+export async function deleteSyncDataFromServer(): Promise<{ success: boolean; error?: string }> {
+  try {
+    const token = await apiClient.getAccessToken();
+    if (!token) return { success: true }; // Not logged in, nothing to delete on server
+
+    const response = await apiClient.delete(API_ENDPOINTS.SYNC.DELETE_DATA);
+
+    if (!response.success) {
+      return {
+        success: false,
+        error: response.error || 'فشل في حذف البيانات من السيرفر',
+      };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('[sync] deleteSyncDataFromServer error:', err);
+    return { success: false, error: 'فشل في حذف البيانات من السيرفر' };
+  }
+}

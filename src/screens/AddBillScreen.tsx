@@ -27,7 +27,7 @@ import { alertService } from '../services/alertService';
 import { isRTL } from '../utils/rtl';
 import { useCurrency } from '../hooks/useCurrency';
 import { requestImagePermissions, pickImageFromLibrary, takePhotoWithCamera } from '../services/receiptOCRService';
-import { convertArabicToEnglish } from '../utils/numbers';
+import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 
 interface AddBillScreenProps {
   navigation: any;
@@ -58,7 +58,7 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
   useEffect(() => {
     if (bill) {
       setTitle(bill.title);
-      setAmount(bill.amount.toString());
+      setAmount(formatNumberWithCommas(bill.amount));
       setCategory(bill.category as BillCategory);
       setDueDate(new Date(bill.dueDate));
       setDescription(bill.description || '');
@@ -148,7 +148,8 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
 
     Keyboard.dismiss();
 
-    if (!amount.trim() || isNaN(Number(amount)) || Number(amount) <= 0) {
+    const cleanAmount = amount.replace(/,/g, '');
+    if (!cleanAmount.trim() || isNaN(Number(cleanAmount)) || Number(cleanAmount) <= 0) {
       alertService.warning('تنبيه', 'يرجى إدخال مبلغ صحيح');
       return;
     }
@@ -163,7 +164,7 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
     try {
       const billData = {
         title: title.trim(),
-        amount: Number(amount),
+        amount: Number(cleanAmount),
         category: category,
         dueDate: dueDate.toISOString().split('T')[0],
         recurrenceType: hasRecurrence ? recurrenceType : undefined,
@@ -287,7 +288,10 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
               <Text style={styles.label}>المبلغ *</Text>
               <TextInput
                 value={amount}
-                onChangeText={(val) => setAmount(convertArabicToEnglish(val))}
+                onChangeText={(val) => {
+                  const cleaned = convertArabicToEnglish(val);
+                  setAmount(formatNumberWithCommas(cleaned));
+                }}
                 placeholder="0"
                 mode="outlined"
                 keyboardType="numeric"

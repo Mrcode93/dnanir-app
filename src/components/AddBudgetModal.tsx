@@ -24,7 +24,7 @@ import { useCurrency } from '../hooks/useCurrency';
 import { isRTL } from '../utils/rtl';
 import { convertCurrency } from '../services/currencyService';
 import { alertService } from '../services/alertService';
-import { convertArabicToEnglish } from '../utils/numbers';
+import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 
 interface AddBudgetModalProps {
   visible: boolean;
@@ -74,9 +74,10 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
   // Convert amount when it changes
   useEffect(() => {
     const convertAmount = async () => {
-      if (amount && !isNaN(Number(amount)) && Number(amount) > 0) {
+      const cleanAmount = amount.replace(/,/g, '');
+      if (cleanAmount && !isNaN(Number(cleanAmount)) && Number(cleanAmount) > 0) {
         if (currency !== currencyCode) {
-          const converted = await convertCurrency(Number(amount), currency, currencyCode);
+          const converted = await convertCurrency(Number(cleanAmount), currency, currencyCode);
           setConvertedAmount(converted);
         } else {
           setConvertedAmount(null);
@@ -92,7 +93,7 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
   useEffect(() => {
     if (visible) {
       if (budget) {
-        setAmount(budget.amount.toString());
+        setAmount(formatNumberWithCommas(budget.amount));
         setSelectedCategory(budget.category);
         setCurrency((budget as any).currency || currencyCode);
       } else {
@@ -127,12 +128,13 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
   const handleSave = async () => {
     Keyboard.dismiss();
 
-    if (!amount.trim()) {
+    const cleanAmount = amount.replace(/,/g, '');
+    if (!cleanAmount.trim()) {
       alertService.warning('تنبيه', 'يرجى إدخال مبلغ الميزانية');
       return;
     }
 
-    if (isNaN(Number(amount)) || Number(amount) <= 0) {
+    if (isNaN(Number(cleanAmount)) || Number(cleanAmount) <= 0) {
       alertService.warning('تنبيه', 'يرجى إدخال مبلغ صحيح');
       return;
     }
@@ -150,7 +152,7 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
       if (budget) {
         await updateBudget(budget.id, {
           category: selectedCategory,
-          amount: parseFloat(amount),
+          amount: parseFloat(cleanAmount),
           month,
           year,
           currency: currency,
@@ -159,7 +161,7 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
       } else {
         await addBudget({
           category: selectedCategory,
-          amount: parseFloat(amount),
+          amount: parseFloat(cleanAmount),
           month,
           year,
           currency: currency,
@@ -248,13 +250,16 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
                   <TextInput
                     style={styles.amountInput}
                     value={amount}
-                    onChangeText={(val) => setAmount(convertArabicToEnglish(val))}
+                    onChangeText={(val) => {
+                      const cleaned = convertArabicToEnglish(val);
+                      setAmount(formatNumberWithCommas(cleaned));
+                    }}
                     placeholder="0"
                     placeholderTextColor={theme.colors.textMuted}
                     keyboardType="numeric"
                     autoFocus
                   />
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     onPress={() => setShowCurrencyPicker(true)}
                     style={styles.currencyButton}
                   >
@@ -279,7 +284,7 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
                     const isSelected = selectedCategory === category;
                     const customCat = customCategories.find(c => c.name === category);
                     const categoryColor = customCat?.color || theme.colors.primary;
-                    
+
                     return (
                       <TouchableOpacity
                         key={category}
@@ -291,7 +296,7 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
                         ]}
                       >
                         <LinearGradient
-                          colors={isSelected 
+                          colors={isSelected
                             ? [categoryColor, categoryColor + 'DD'] as any
                             : [theme.colors.surfaceLight, theme.colors.surfaceLight] as any
                           }

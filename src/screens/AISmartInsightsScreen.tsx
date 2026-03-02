@@ -559,7 +559,8 @@ const createStyles = (theme: any) =>
       alignItems: 'center',
       justifyContent: 'space-between',
       marginBottom: 24,
-      marginTop: 10,
+      marginTop: Platform.OS === 'android' ? 16 : 10,
+      paddingVertical: Platform.OS === 'android' ? 8 : 0,
     },
     headerLeft: {
       flex: 1,

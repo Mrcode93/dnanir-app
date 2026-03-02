@@ -24,7 +24,7 @@ import {
   RecurringExpense
 } from '../database/database';
 import { getCustomCategories } from '../database/database';
-import { convertArabicToEnglish } from '../utils/numbers';
+import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 
 interface AddRecurringExpenseModalProps {
   visible: boolean;
@@ -74,7 +74,7 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
     loadCustomCategories();
     if (editingExpense) {
       setTitle(editingExpense.title);
-      setAmount(editingExpense.amount.toString());
+      setAmount(formatNumberWithCommas(editingExpense.amount));
       setCategory(editingExpense.category as ExpenseCategory);
       setRecurrenceType(editingExpense.recurrenceType);
       setRecurrenceValue(editingExpense.recurrenceValue.toString());
@@ -114,7 +114,8 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
       return;
     }
 
-    if (!amount.trim() || isNaN(Number(amount)) || Number(amount) <= 0) {
+    const cleanAmount = amount.replace(/,/g, '');
+    if (!cleanAmount.trim() || isNaN(Number(cleanAmount)) || Number(cleanAmount) <= 0) {
       Alert.alert('تنبيه', 'يرجى إدخال مبلغ صحيح');
       return;
     }
@@ -135,7 +136,7 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
     try {
       const expenseData = {
         title: title.trim(),
-        amount: Number(amount),
+        amount: Number(cleanAmount),
         category: category,
         recurrenceType: recurrenceType,
         recurrenceValue: recValue,
@@ -245,7 +246,10 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
                 <Text style={styles.label}>المبلغ</Text>
                 <TextInput
                   value={amount}
-                  onChangeText={(val) => setAmount(convertArabicToEnglish(val))}
+                  onChangeText={(val) => {
+                    const cleaned = convertArabicToEnglish(val);
+                    setAmount(formatNumberWithCommas(cleaned));
+                  }}
                   placeholder="0.00"
                   keyboardType="decimal-pad"
                   mode="outlined"

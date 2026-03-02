@@ -200,7 +200,7 @@ export const AuthScreen = ({ navigation, route }: any) => {
         } finally {
             setLoading(false);
         }
-    }, [resendCountdown, loading, country]);
+    }, [resendCountdown, loading, country, isForgotMode]);
 
     const handleOtpFlow = async () => {
         const fullPhone = getFullPhone();
@@ -370,7 +370,7 @@ export const AuthScreen = ({ navigation, route }: any) => {
                                     onChangeText={(v) => setReferralCode(convertArabicToEnglishSimple(v))}
                                     placeholder="كود الإحالة (اختياري)"
                                     placeholderTextColor={theme.colors.textMuted}
-                                    style={styles.input}
+                                    style={[styles.input, { fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', letterSpacing: 2 }]}
                                     autoCapitalize="characters"
                                     autoCorrect={false}
                                     textAlign={isRTL ? 'right' : 'left'}

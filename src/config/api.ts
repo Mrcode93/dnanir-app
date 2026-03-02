@@ -62,6 +62,8 @@ export const API_ENDPOINTS = {
     USAGE: '/api/dnanir/ai/usage',
     INSIGHTS: '/api/dnanir/ai/insights',
     GOAL_PLAN: '/api/dnanir/ai/goal-plan',
+    SMART_ADD: '/api/dnanir/ai/smart-add',
+    SMART_ADD_USAGE: '/api/dnanir/ai/smart-add/usage',
   },
   // Health
   HEALTH: '/health',
@@ -75,6 +77,7 @@ export const API_ENDPOINTS = {
     UPLOAD: '/api/dnanir/sync/upload',
     FULL: '/api/dnanir/sync/full',
     ITEMS: '/api/dnanir/sync/items',
+    DELETE_DATA: '/api/dnanir/sync/data',
   },
   // Referral (Growth)
   REFERRAL: {

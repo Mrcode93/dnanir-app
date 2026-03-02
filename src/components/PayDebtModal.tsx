@@ -18,7 +18,7 @@ import { Debt } from '../types';
 import { useCurrency } from '../hooks/useCurrency';
 import { isRTL } from '../utils/rtl';
 import { alertService } from '../services/alertService';
-import { convertArabicToEnglish } from '../utils/numbers';
+import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 
 interface PayDebtModalProps {
   visible: boolean;
@@ -43,7 +43,7 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
   useEffect(() => {
     if (visible && debt) {
       if (paymentType === 'all') {
-        setAmount(debt.remainingAmount.toString());
+        setAmount(formatNumberWithCommas(debt.remainingAmount));
       } else {
         setAmount('');
       }
@@ -53,7 +53,7 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
   const handlePayAll = () => {
     setPaymentType('all');
     if (debt) {
-      setAmount(debt.remainingAmount.toString());
+      setAmount(formatNumberWithCommas(debt.remainingAmount));
     }
   };
 
@@ -67,9 +67,10 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
 
     Keyboard.dismiss();
 
-    const paymentAmount = Number(amount);
+    const cleanAmount = amount.replace(/,/g, '');
+    const paymentAmount = Number(cleanAmount);
 
-    if (!amount.trim() || isNaN(paymentAmount) || paymentAmount <= 0) {
+    if (!cleanAmount.trim() || isNaN(paymentAmount) || paymentAmount <= 0) {
       alertService.warning('تنبيه', 'يرجى إدخال مبلغ صحيح');
       return;
     }
@@ -228,7 +229,10 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
                   <View style={styles.amountInputWrapper}>
                     <TextInput
                       value={amount}
-                      onChangeText={(val) => setAmount(convertArabicToEnglish(val))}
+                      onChangeText={(val) => {
+                        const cleaned = convertArabicToEnglish(val);
+                        setAmount(formatNumberWithCommas(cleaned));
+                      }}
                       placeholder="0.00"
                       keyboardType="numeric"
                       style={styles.amountInput}
@@ -238,12 +242,12 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
                       {debt.currency || currencyCode}
                     </Text>
                   </View>
-                  {amount && !isNaN(Number(amount)) && Number(amount) > 0 && (
+                  {amount && !isNaN(Number(amount.replace(/,/g, ''))) && Number(amount.replace(/,/g, '')) > 0 && (
                     <View style={styles.amountInfo}>
                       <Text style={styles.amountInfoText}>
                         المتبقي بعد الدفع:{' '}
                         <Text style={styles.amountInfoValue}>
-                          {formatCurrency(Math.max(0, debt.remainingAmount - Number(amount)))}
+                          {formatCurrency(Math.max(0, debt.remainingAmount - Number(amount.replace(/,/g, ''))))}
                         </Text>
                       </Text>
                     </View>

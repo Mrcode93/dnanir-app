@@ -570,6 +570,64 @@ export const initDatabase = async () => {
   }
 };
 
+/**
+ * Delete all data from all tables and reset to defaults
+ */
+export const deleteAllData = async () => {
+  const database = getDb();
+  console.log('--- DELETING ALL APP DATA ---');
+
+  const tables = [
+    'expenses', 'income', 'financial_goals', 'budgets',
+    'recurring_expenses', 'exchange_rates', 'debt_payments',
+    'debt_installments', 'debts', 'challenges', 'achievements',
+    'expense_shortcuts', 'income_shortcuts', 'bill_payments',
+    'bills', 'notifications', 'ai_insights_cache', 'goal_plan_cache',
+    'custom_categories', 'user_settings', 'app_settings',
+    'notification_settings'
+  ];
+
+  try {
+    for (const table of tables) {
+      try {
+        await database.runAsync(`DELETE FROM ${table}`);
+      } catch (error) {
+        console.warn(`Could not delete from table ${table}:`, error);
+      }
+    }
+
+    try {
+      await database.execAsync('VACUUM;');
+    } catch (e) {
+      console.warn('Vacuum failed:', e);
+    }
+
+    // Re-initialize default categories
+    await initializeDefaultCategories(database);
+
+    // Re-initialize default settings
+    await database.runAsync(
+      'INSERT INTO notification_settings (dailyReminder, dailyReminderTime, expenseReminder, expenseReminderTime, incomeReminder, weeklySummary, monthlySummary) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [0, '20:00', 0, '20:00', 1, 1, 1]
+    );
+
+    await database.runAsync(
+      'INSERT INTO app_settings (notificationsEnabled, darkModeEnabled, autoBackupEnabled, currency, language) VALUES (?, ?, ?, ?, ?)',
+      [1, 0, 0, 'دينار عراقي', 'ar']
+    );
+
+    await database.runAsync(
+      'INSERT INTO user_settings (name, authMethod, biometricsEnabled) VALUES (?, ?, ?)',
+      ['المستخدم', 'none', 0]
+    );
+
+    return true;
+  } catch (error) {
+    console.error('Error deleting all data:', error);
+    throw error;
+  }
+};
+
 // Initialize default categories for expenses and income
 const initializeDefaultCategories = async (database: SQLite.SQLiteDatabase) => {
   const now = new Date().toISOString();

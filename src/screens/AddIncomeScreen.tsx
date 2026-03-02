@@ -29,7 +29,7 @@ import { alertService } from '../services/alertService';
 import { useCurrency } from '../hooks/useCurrency';
 import { isRTL } from '../utils/rtl';
 import { convertCurrency } from '../services/currencyService';
-import { convertArabicToEnglish } from '../utils/numbers';
+import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 import { formatDateLocal } from '../utils/date';
 import { getSmartIncomeShortcuts } from '../services/smartShortcutsService';
 
@@ -45,8 +45,10 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const styles = useThemedStyles(createStyles);
-  const { currencyCode, formatCurrency } = useCurrency();
+  const { currencyCode, formatCurrency, loading: currencyLoading } = useCurrency();
   const income = route?.params?.income as Income | undefined;
+  const isInitialized = React.useRef(false);
+  const amountInputRef = React.useRef<any>(null);
 
   // State
   const [source, setSource] = useState('');
@@ -75,9 +77,10 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
 
   useEffect(() => {
     const convert = async () => {
-      if (amount && !isNaN(Number(amount)) && Number(amount) > 0) {
+      const cleanAmount = amount.replace(/,/g, '');
+      if (cleanAmount && !isNaN(Number(cleanAmount)) && Number(cleanAmount) > 0) {
         if (currency !== currencyCode) {
-          const converted = await convertCurrency(Number(amount), currency, currencyCode);
+          const converted = await convertCurrency(Number(cleanAmount), currency, currencyCode);
           setConvertedAmount(converted);
         } else {
           setConvertedAmount(null);
@@ -94,28 +97,40 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
   }, []);
 
   useEffect(() => {
-    if (income) {
-      setSource(income.source);
-      setAmount(income.amount.toString());
-      setDate(new Date(income.date));
-      setDescription(income.description || '');
-      setCurrency(income.currency || currencyCode);
+    if (currencyLoading) return;
 
-      // Match category/source
-      const match = categories.find(c => c.name === income.source);
-      if (match) {
-        setIncomeSource(match.name);
-      } else if (income.category) {
-        setIncomeSource(income.category as IncomeSource);
-      } else {
-        // fallback
-        setIncomeSource(income.source);
+    if (income) {
+      if (!isInitialized.current) {
+        setSource(income.source);
+        setAmount(formatNumberWithCommas(income.amount));
+        setDate(new Date(income.date));
+        setDescription(income.description || '');
+        setCurrency(income.currency || currencyCode);
+
+        // Match category/source
+        const match = categories.find(c => c.name === income.source);
+        if (match) {
+          setIncomeSource(match.name);
+        } else if (income.category) {
+          setIncomeSource(income.category as IncomeSource);
+        } else {
+          // fallback
+          setIncomeSource(income.source);
+        }
+        isInitialized.current = true;
       }
     } else {
-      resetForm();
-      loadShortcuts();
+      if (!isInitialized.current) {
+        resetForm();
+        loadShortcuts();
+        isInitialized.current = true;
+        // Small delay for focus on Android is often more stable
+        setTimeout(() => {
+          amountInputRef.current?.focus();
+        }, 300);
+      }
     }
-  }, [income, currencyCode, categories]); // Added categories dep to re-match if loaded later
+  }, [income, currencyCode, categories, currencyLoading]);
 
   const loadShortcuts = async () => {
     try {
@@ -150,7 +165,8 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
       alertService.warning('تنبيه', 'يرجى إدخال المصدر');
       return;
     }
-    if (!amount.trim() || isNaN(Number(amount)) || Number(amount) <= 0) {
+    const cleanAmount = amount.replace(/,/g, '');
+    if (!cleanAmount.trim() || isNaN(Number(cleanAmount)) || Number(cleanAmount) <= 0) {
       alertService.warning('تنبيه', 'يرجى إدخال مبلغ صحيح');
       return;
     }
@@ -159,8 +175,8 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
     try {
       const data = {
         source: finalSource,
-        amount: Number(amount),
-        base_amount: convertedAmount !== null ? convertedAmount : Number(amount),
+        amount: Number(cleanAmount),
+        base_amount: convertedAmount !== null ? convertedAmount : Number(cleanAmount),
         date: formatDateLocal(date),
         description: description.trim(),
         currency: currency,
@@ -233,21 +249,26 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
             <View style={styles.amountSection}>
               <Text style={styles.currencySymbol}>{CURRENCIES.find(c => c.code === currency)?.symbol}</Text>
               <TextInput
+                ref={amountInputRef}
                 value={amount}
-                onChangeText={(v) => setAmount(convertArabicToEnglish(v))}
+                onChangeText={(v) => {
+                  const cleaned = convertArabicToEnglish(v);
+                  setAmount(formatNumberWithCommas(cleaned));
+                }}
                 placeholder="0"
                 placeholderTextColor={theme.colors.textMuted + '80'}
                 style={styles.amountInput}
-                keyboardType="numeric"
-                autoFocus={!income}
+                keyboardType="decimal-pad"
                 selectionColor={theme.colors.success}
                 underlineColor="transparent"
                 activeUnderlineColor="transparent"
               />
             </View>
-            {convertedAmount !== null && (
-              <Text style={styles.convertedText}>≈ {formatCurrency(convertedAmount)}</Text>
-            )}
+            <View style={{ height: 24, justifyContent: 'center' }}>
+              {convertedAmount !== null && (
+                <Text style={styles.convertedText}>≈ {formatCurrency(convertedAmount)}</Text>
+              )}
+            </View>
 
             <TouchableOpacity onPress={() => setShowCurrencyPicker(true)} style={styles.currencyPill}>
               <Text style={styles.currencyPillText}>{currency}</Text>
@@ -425,7 +446,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingTop: Platform.OS === 'android' ? 16 : 12,
+    paddingBottom: Platform.OS === 'android' ? 12 : 12,
   },
   closeBtn: {
     padding: 8,

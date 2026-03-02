@@ -202,34 +202,104 @@ export const parseMultipleTransactions = (fullText: string): ParsedTransaction[]
     const trimmed = fullText.trim();
     if (!trimmed) return [];
 
-    const segments = trimmed
-        .split(/\s+و\s+|\s+ثم\s+|\s+بعدين\s+|\s*،\s*|\s*\.\s*|\n+/)
-        .map(s => s.trim())
-        .filter(s => s.length > 0);
+    const cleaned = convertArabicNumerals(trimmed);
+    const lowerCleaned = cleaned.toLowerCase();
 
-    const results: ParsedTransaction[] = [];
-    let lastCategory = 'other';
-    let lastType: 'expense' | 'income' = 'expense';
+    // Filler words to strip from titles
+    const FILLER_WORDS = /\b(اليوم|رحت|طلعت|بره|برا|من|على|عند|مع|في|ب|مال|هسه|بعد|قبل|هم|هاي|هذا|ذاك|للمطعم|لل)\b/g;
 
-    for (const segment of segments) {
-        const parsed = parseTransactionText(segment);
+    // --- Strategy: Find all amount patterns, then extract context around each ---
 
-        // Inheritance logic
-        if (parsed.amount !== null) {
-            if (parsed.category === 'other' && lastCategory !== 'other') {
-                parsed.category = lastCategory;
-                parsed.type = lastType;
-                parsed.confidence = Math.min(parsed.confidence + 0.1, 1);
+    // Match: digits (with commas), optionally followed by multiplier/unit words
+    const amountRegex = /(\d+(?:[.,]\d+)?)\s*(الف|الاف|آلاف|مليون|ملايين|ورقة|شدة|دينار|k|m)?\s*(و?نص|و?ربع|و?نصف)?/g;
+
+    interface AmountMatch {
+        fullMatch: string;
+        startIndex: number;
+        endIndex: number;
+        rawAmount: number;
+    }
+
+    const amountMatches: AmountMatch[] = [];
+    let match;
+
+    while ((match = amountRegex.exec(lowerCleaned)) !== null) {
+        const rawNum = parseFloat(match[1].replace(/,/g, ''));
+        if (rawNum <= 0) continue;
+
+        // Calculate real amount using parseIraqiAmount on this match
+        const realAmount = parseIraqiAmount(match[0]);
+        if (realAmount === null || realAmount <= 0) continue;
+
+        amountMatches.push({
+            fullMatch: match[0],
+            startIndex: match.index,
+            endIndex: match.index + match[0].length,
+            rawAmount: realAmount,
+        });
+    }
+
+    console.log('  Found', amountMatches.length, 'amount(s):', amountMatches.map(a => `${a.rawAmount} @${a.startIndex}`));
+
+    if (amountMatches.length === 0) {
+        // No numeric amounts found, try single parse (might catch word-based numbers)
+        return [];
+    }
+
+    if (amountMatches.length === 1) {
+        // Single amount - use existing single parser
+        const result = parseTransactionText(cleaned);
+        if (result.amount && result.amount > 0) {
+            result.title = result.title.replace(FILLER_WORDS, '').replace(/\s+/g, ' ').trim();
+            if (!result.title || result.title.length < 2) {
+                result.title = CATEGORY_DISPLAY_NAMES[result.category] || 'معاملة';
             }
-
-            if (parsed.confidence > 0.3) {
-                results.push(parsed);
-                lastCategory = parsed.category;
-                lastType = parsed.type;
-            }
+            return [result];
         }
+        return [];
+    }
+
+    // --- Multiple amounts: split text into regions around each amount ---
+    const results: ParsedTransaction[] = [];
+
+    for (let i = 0; i < amountMatches.length; i++) {
+        const current = amountMatches[i];
+
+        // Context region: from end of previous amount to start of next amount
+        const regionStart = i === 0 ? 0 : amountMatches[i - 1].endIndex;
+        const regionEnd = i === amountMatches.length - 1 ? cleaned.length : amountMatches[i + 1].startIndex;
+
+        // Get the text region for this amount (context before + amount + context after)
+        const region = cleaned.substring(regionStart, regionEnd).trim();
+
+        if (!region) continue;
+
+        console.log(`  Region[${i}]: "${region}" → amount=${current.rawAmount}`);
+
+        // Parse the region for category/type/title
+        const parsed = parseTransactionText(region);
+
+        // Override amount with our accurately parsed amount
+        parsed.amount = current.rawAmount;
+
+        // Clean the title
+        let cleanTitle = parsed.title
+            .replace(FILLER_WORDS, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        if (!cleanTitle || cleanTitle.length < 2) {
+            cleanTitle = CATEGORY_DISPLAY_NAMES[parsed.category] || 'معاملة';
+        }
+        parsed.title = cleanTitle;
+
+        // Ensure minimum confidence
+        parsed.confidence = Math.max(0.4, parsed.confidence);
+
+        results.push(parsed);
     }
 
     return results;
 };
+
 

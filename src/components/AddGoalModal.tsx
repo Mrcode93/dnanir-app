@@ -23,7 +23,7 @@ import { FinancialGoal, GoalCategory, GOAL_CATEGORIES, CURRENCIES } from '../typ
 import { useCurrency } from '../hooks/useCurrency';
 import { alertService } from '../services/alertService';
 import { convertCurrency, formatCurrencyAmount } from '../services/currencyService';
-import { convertArabicToEnglish } from '../utils/numbers';
+import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 
 interface AddGoalModalProps {
   visible: boolean;
@@ -77,9 +77,12 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
   // Convert amounts when they change
   useEffect(() => {
     const convertAmounts = async () => {
-      if (targetAmount && !isNaN(Number(targetAmount)) && Number(targetAmount) > 0) {
+      const cleanTargetAmount = targetAmount.replace(/,/g, '');
+      const cleanCurrentAmount = currentAmount.replace(/,/g, '');
+
+      if (cleanTargetAmount && !isNaN(Number(cleanTargetAmount)) && Number(cleanTargetAmount) > 0) {
         if (currency !== currencyCode) {
-          const converted = await convertCurrency(Number(targetAmount), currency, currencyCode);
+          const converted = await convertCurrency(Number(cleanTargetAmount), currency, currencyCode);
           setConvertedTargetAmount(converted);
         } else {
           setConvertedTargetAmount(null);
@@ -88,9 +91,9 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
         setConvertedTargetAmount(null);
       }
 
-      if (currentAmount && !isNaN(Number(currentAmount)) && Number(currentAmount) > 0) {
+      if (cleanCurrentAmount && !isNaN(Number(cleanCurrentAmount)) && Number(cleanCurrentAmount) > 0) {
         if (currency !== currencyCode) {
-          const converted = await convertCurrency(Number(currentAmount), currency, currencyCode);
+          const converted = await convertCurrency(Number(cleanCurrentAmount), currency, currencyCode);
           setConvertedCurrentAmount(converted);
         } else {
           setConvertedCurrentAmount(null);
@@ -106,8 +109,8 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
   useEffect(() => {
     if (editingGoal) {
       setTitle(editingGoal.title);
-      setTargetAmount(editingGoal.targetAmount.toString());
-      setCurrentAmount(editingGoal.currentAmount.toString());
+      setTargetAmount(formatNumberWithCommas(editingGoal.targetAmount));
+      setCurrentAmount(formatNumberWithCommas(editingGoal.currentAmount));
       setCategory(editingGoal.category);
       setDescription(editingGoal.description || '');
       setTargetDate(editingGoal.targetDate ? new Date(editingGoal.targetDate) : null);
@@ -137,13 +140,16 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
 
     Keyboard.dismiss();
 
-    if (!targetAmount.trim() || isNaN(Number(targetAmount)) || Number(targetAmount) <= 0) {
+    const cleanTargetAmount = targetAmount.replace(/,/g, '');
+    const cleanCurrentAmount = currentAmount.replace(/,/g, '');
+
+    if (!cleanTargetAmount.trim() || isNaN(Number(cleanTargetAmount)) || Number(cleanTargetAmount) <= 0) {
       alertService.warning('تنبيه', 'يرجى إدخال مبلغ مستهدف صحيح');
       return;
     }
 
-    const targetAmountNum = parseFloat(targetAmount);
-    const currentAmountNum = parseFloat(currentAmount) || 0;
+    const targetAmountNum = parseFloat(cleanTargetAmount);
+    const currentAmountNum = parseFloat(cleanCurrentAmount) || 0;
 
     if (isNaN(targetAmountNum) || targetAmountNum <= 0) {
       alertService.warning('تنبيه', 'يرجى إدخال مبلغ مستهدف صحيح');
@@ -296,7 +302,10 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
                       <View style={styles.inputWrapper}>
                         <TextInput
                           value={targetAmount}
-                          onChangeText={(val) => setTargetAmount(convertArabicToEnglish(val))}
+                          onChangeText={(val) => {
+                            const cleaned = convertArabicToEnglish(val);
+                            setTargetAmount(formatNumberWithCommas(cleaned));
+                          }}
                           placeholder="0.00"
                           keyboardType="numeric"
                           mode="flat"
@@ -325,7 +334,10 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
                       <View style={styles.inputWrapper}>
                         <TextInput
                           value={currentAmount}
-                          onChangeText={(val) => setCurrentAmount(convertArabicToEnglish(val))}
+                          onChangeText={(val) => {
+                            const cleaned = convertArabicToEnglish(val);
+                            setCurrentAmount(formatNumberWithCommas(cleaned));
+                          }}
                           placeholder="0.00"
                           keyboardType="numeric"
                           mode="flat"

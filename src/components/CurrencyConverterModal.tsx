@@ -19,7 +19,7 @@ import { CURRENCIES, Currency } from '../types';
 import { convertCurrency, getOrFetchExchangeRate, formatCurrencyAmount } from '../services/currencyService';
 import { useCurrency } from '../hooks/useCurrency';
 import { alertService } from '../services/alertService';
-import { convertArabicToEnglish } from '../utils/numbers';
+import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 import { usePrivacy } from '../context/PrivacyContext';
 
 interface CurrencyConverterModalProps {
@@ -54,7 +54,8 @@ export const CurrencyConverterModal: React.FC<CurrencyConverterModalProps> = ({
   }, [visible, selectedCurrency]);
 
   useEffect(() => {
-    if (amount && fromCurrency && toCurrency && parseFloat(amount) > 0) {
+    const cleanAmount = amount.replace(/,/g, '');
+    if (cleanAmount && fromCurrency && toCurrency && parseFloat(cleanAmount) > 0) {
       handleConvert();
     } else {
       setConvertedAmount(null);
@@ -63,7 +64,8 @@ export const CurrencyConverterModal: React.FC<CurrencyConverterModalProps> = ({
   }, [amount, fromCurrency, toCurrency]);
 
   const handleConvert = async () => {
-    const numAmount = parseFloat(amount);
+    const cleanAmount = amount.replace(/,/g, '');
+    const numAmount = parseFloat(cleanAmount);
     if (isNaN(numAmount) || numAmount <= 0) {
       setConvertedAmount(null);
       setExchangeRate(null);
@@ -96,8 +98,8 @@ export const CurrencyConverterModal: React.FC<CurrencyConverterModalProps> = ({
     setFromCurrency(toCurrency);
     setToCurrency(temp);
     if (convertedAmount && amount) {
-      setAmount(convertedAmount.toString());
-      setConvertedAmount(parseFloat(amount));
+      setAmount(formatNumberWithCommas(convertedAmount));
+      setConvertedAmount(parseFloat(amount.replace(/,/g, '')));
     }
   };
 
@@ -181,7 +183,10 @@ export const CurrencyConverterModal: React.FC<CurrencyConverterModalProps> = ({
                     <TextInput
                       style={styles.amountInput}
                       value={amount}
-                      onChangeText={(val) => setAmount(convertArabicToEnglish(val))}
+                      onChangeText={(val) => {
+                        const cleaned = convertArabicToEnglish(val);
+                        setAmount(formatNumberWithCommas(cleaned));
+                      }}
                       placeholder="0.00"
                       placeholderTextColor={theme.colors.textSecondary}
                       keyboardType="decimal-pad"
@@ -289,6 +294,8 @@ const CurrencyPickerModal: React.FC<CurrencyPickerModalProps> = ({
   onSelect,
   onClose,
 }) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   return (
     <Modal
       visible={visible}

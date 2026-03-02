@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -23,7 +23,7 @@ import { useCurrency } from '../hooks/useCurrency';
 import { isRTL } from '../utils/rtl';
 import { convertCurrency } from '../services/currencyService';
 import { alertService } from '../services/alertService';
-import { convertArabicToEnglish } from '../utils/numbers';
+import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 
 interface AddGoalScreenProps {
   navigation: any;
@@ -60,7 +60,15 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
   const { currencyCode, formatCurrency } = useCurrency();
-  const editingGoal = route?.params?.goal as FinancialGoal | undefined;
+  const [editingGoal, setEditingGoal] = useState<FinancialGoal | null>(null);
+
+  useEffect(() => {
+    if (!isInitialized) {
+      setIsInitialized(true);
+      // Optional: focus title if adding new, or just delay it for stability
+      // For now, let's keep it manual or rely on no autoFocus
+    }
+  }, []);
 
   const [title, setTitle] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
@@ -74,13 +82,16 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
   const [currency, setCurrency] = useState<string>(currencyCode);
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const amountInputRef = useRef<TextInput>(null);
+  const currentAmountInputRef = useRef<TextInput>(null);
   const [convertedTargetAmount, setConvertedTargetAmount] = useState<number | null>(null);
 
   useEffect(() => {
     if (editingGoal) {
       setTitle(editingGoal.title);
-      setTargetAmount(editingGoal.targetAmount.toString());
-      setCurrentAmount(editingGoal.currentAmount.toString());
+      setTargetAmount(formatNumberWithCommas(editingGoal.targetAmount));
+      setCurrentAmount(formatNumberWithCommas(editingGoal.currentAmount));
       setCategory(editingGoal.category);
       setDescription(editingGoal.description || '');
       setTargetDate(editingGoal.targetDate ? new Date(editingGoal.targetDate) : null);
@@ -98,9 +109,10 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
 
   useEffect(() => {
     const convertAmount = async () => {
-      if (targetAmount && !isNaN(Number(targetAmount)) && Number(targetAmount) > 0) {
+      const cleanTargetAmount = targetAmount.replace(/,/g, '');
+      if (cleanTargetAmount && !isNaN(Number(cleanTargetAmount)) && Number(cleanTargetAmount) > 0) {
         if (currency !== currencyCode) {
-          const converted = await convertCurrency(Number(targetAmount), currency, currencyCode);
+          const converted = await convertCurrency(Number(cleanTargetAmount), currency, currencyCode);
           setConvertedTargetAmount(converted);
         } else {
           setConvertedTargetAmount(null);
@@ -132,12 +144,15 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
   const handleSave = async () => {
     Keyboard.dismiss();
 
+    const cleanTargetAmount = targetAmount.replace(/,/g, '');
+    const cleanCurrentAmount = currentAmount.replace(/,/g, '');
+
     if (!title.trim()) {
       alertService.warning('تنبيه', 'يرجى إدخال عنوان الهدف');
       return;
     }
 
-    if (!targetAmount.trim() || isNaN(Number(targetAmount)) || Number(targetAmount) <= 0) {
+    if (!cleanTargetAmount.trim() || isNaN(Number(cleanTargetAmount)) || Number(cleanTargetAmount) <= 0) {
       alertService.warning('تنبيه', 'يرجى إدخال مبلغ مستهدف صحيح');
       return;
     }
@@ -147,8 +162,8 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
     try {
       const goalData = {
         title: title.trim(),
-        targetAmount: parseFloat(targetAmount),
-        currentAmount: parseFloat(currentAmount) || 0,
+        targetAmount: parseFloat(cleanTargetAmount),
+        currentAmount: parseFloat(cleanCurrentAmount) || 0,
         targetDate: hasTargetDate && targetDate ? targetDate.toISOString().split('T')[0] : undefined,
         category,
         description: description.trim() || undefined,
@@ -226,7 +241,6 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
                 onChangeText={setTitle}
                 placeholder="مثال: توفير لسيارة جديدة"
                 placeholderTextColor={theme.colors.textMuted}
-                autoFocus
               />
             </View>
 
@@ -241,12 +255,16 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
 
               <View style={styles.amountInputContainer}>
                 <TextInput
+                  ref={amountInputRef}
                   style={styles.amountInput}
                   value={targetAmount}
-                  onChangeText={(val) => setTargetAmount(convertArabicToEnglish(val))}
+                  onChangeText={(val) => {
+                    const cleaned = convertArabicToEnglish(val);
+                    setTargetAmount(formatNumberWithCommas(cleaned));
+                  }}
                   placeholder="0"
                   placeholderTextColor={theme.colors.textMuted}
-                  keyboardType="numeric"
+                  keyboardType="decimal-pad"
                 />
                 <Text style={[styles.currencyLabel, { color: categoryColors[category][0] }]}>
                   {CURRENCIES.find(c => c.code === currency)?.symbol || 'د.ع'}
@@ -264,12 +282,16 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
                 <Text style={styles.currentAmountLabel}>المبلغ الحالي:</Text>
                 <View style={styles.currentAmountInput}>
                   <TextInput
+                    ref={currentAmountInputRef}
                     style={styles.currentAmountTextInput}
                     value={currentAmount}
-                    onChangeText={(val) => setCurrentAmount(convertArabicToEnglish(val))}
+                    onChangeText={(val) => {
+                      const cleaned = convertArabicToEnglish(val);
+                      setCurrentAmount(formatNumberWithCommas(cleaned));
+                    }}
                     placeholder="0"
                     placeholderTextColor={theme.colors.textMuted}
-                    keyboardType="numeric"
+                    keyboardType="decimal-pad"
                   />
                   <Text style={styles.currentAmountCurrency}>
                     {CURRENCIES.find(c => c.code === currency)?.symbol}

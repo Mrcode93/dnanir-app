@@ -2749,8 +2749,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontSize: 24,
     fontWeight: getPlatformFontWeight('900'),
     color: theme.colors.primary,
-    fontFamily: theme.typography.fontFamily,
-    letterSpacing: 1,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    letterSpacing: 4,
   },
   copyButton: {
     width: 40,

@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { ChallengeCategory, CHALLENGE_CATEGORIES } from '../types';
 import { isRTL } from '../utils/rtl';
-import { convertArabicToEnglish } from '../utils/numbers';
+import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 
 interface AddCustomChallengeModalProps {
   visible: boolean;
@@ -82,7 +82,7 @@ export const AddCustomChallengeModal = ({
       const endDate = new Date(editingChallenge.endDate);
       const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
       setDuration(daysDiff.toString());
-      setTargetValue(editingChallenge.targetValue?.toString() || '');
+      setTargetValue(formatNumberWithCommas(editingChallenge.targetValue || ''));
       setTargetProgress(editingChallenge.targetProgress.toString());
     } else if (!editingChallenge && visible) {
       // Reset form for new challenge
@@ -102,7 +102,8 @@ export const AddCustomChallengeModal = ({
     }
 
     const durationNum = parseInt(duration) || 7;
-    const targetValueNum = targetValue ? parseFloat(targetValue) : undefined;
+    const cleanTargetValue = targetValue.replace(/,/g, '');
+    const targetValueNum = cleanTargetValue ? parseFloat(cleanTargetValue) : undefined;
     const targetProgressNum = parseFloat(targetProgress) || 1;
 
     onSave({
@@ -253,8 +254,11 @@ export const AddCustomChallengeModal = ({
               <TextInput
                 style={styles.input}
                 value={targetValue}
-                onChangeText={(val) => setTargetValue(convertArabicToEnglish(val))}
-                placeholder="مثال: 50000"
+                onChangeText={(val) => {
+                  const cleaned = convertArabicToEnglish(val);
+                  setTargetValue(formatNumberWithCommas(cleaned));
+                }}
+                placeholder="مثال: 50,000"
                 placeholderTextColor={theme.colors.textMuted}
                 keyboardType="numeric"
                 textAlign="right"

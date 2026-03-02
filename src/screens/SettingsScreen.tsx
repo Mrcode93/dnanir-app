@@ -26,7 +26,7 @@ import { useAppTheme, useThemedStyles } from '../utils/theme-context';
 import { isRTL } from '../utils/rtl';
 import { getUserSettings, getAppSettings, upsertAppSettings, getNotificationSettings, upsertNotificationSettings, upsertUserSettings } from '../database/database';
 import { initializeNotifications, requestPermissions, scheduleDailyReminder, sendExpenseReminder, cancelNotification, rescheduleAllNotifications, sendTestNotification, verifyScheduledNotifications } from '../services/notificationService';
-import { generateMonthlyReport, sharePDF } from '../services/pdfService';
+import { generateMonthlyReport, generateFullReport, sharePDF } from '../services/pdfService';
 import { AuthSettingsModal } from '../components/AuthSettingsModal';
 import { ConfirmAlert } from '../components/ConfirmAlert';
 import { CURRENCIES, Currency } from '../types';
@@ -35,9 +35,11 @@ import { getExchangeRate, upsertExchangeRate } from '../database/database';
 import * as Notifications from 'expo-notifications';
 import { authApiService } from '../services/authApiService';
 import { authStorage } from '../services/authStorage';
-import { syncNewToServer, hasUnsyncedData, getFullFromServer } from '../services/syncService';
+import { syncNewToServer, hasUnsyncedData, getFullFromServer, deleteSyncDataFromServer } from '../services/syncService';
 import { createLocalBackup, restoreFromLastLocalBackup, pickBackupFileAndRestore } from '../services/backupService';
 import { referralService, ReferralInfo } from '../services/referralService';
+import { authenticateWithDevice } from '../services/authService';
+import { deleteAllData } from '../database/database';
 
 import { CONTACT_INFO, APP_LINKS, SHARE_APP_MESSAGE } from '../constants/contactConstants';
 import { convertArabicToEnglish } from '../utils/numbers';
@@ -91,6 +93,12 @@ export const SettingsScreen = ({ navigation }: any) => {
   const [showRestoreServerConfirm, setShowRestoreServerConfirm] = useState(false);
   const [referralInfo, setReferralInfo] = useState<ReferralInfo | null>(null);
   const [loadingReferral, setLoadingReferral] = useState(false);
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportMode, setExportMode] = useState<'monthly' | 'all'>('monthly');
+  const [exportMonth, setExportMonth] = useState(new Date().getMonth());
+  const [exportYear, setExportYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
     loadSettings();
@@ -712,22 +720,24 @@ export const SettingsScreen = ({ navigation }: any) => {
         setUsdToIqdRate('1');
       }
     }
-  };
-
-  const handleExportPDF = async () => {
+  }; const handleExportPDF = async () => {
     try {
       setExportingPDF(true);
-      const uri = await generateMonthlyReport();
+      let uri = '';
+      if (exportMode === 'all') {
+        uri = await generateFullReport();
+      } else {
+        uri = await generateMonthlyReport(exportMonth, exportYear);
+      }
       await sharePDF(uri);
-      alertService.success('نجح', 'تم تصدير التقرير بنجاح');
+      setShowExportModal(false);
     } catch (error) {
-      alertService.error('خطأ', 'حدث خطأ أثناء تصدير التقرير');
+      console.error('Error exporting PDF:', error);
+      alertService.error('خطأ', 'فشل تصدير التقرير');
     } finally {
       setExportingPDF(false);
     }
   };
-
-
 
   const handleSaveExchangeRate = async () => {
     if (selectedCurrency === 'USD') {
@@ -827,6 +837,35 @@ export const SettingsScreen = ({ navigation }: any) => {
       });
     } catch (error) {
       console.error('Error sharing referral:', error);
+    }
+  };
+
+  const handleDeleteAllData = async () => {
+    try {
+      const authenticated = await authenticateWithDevice('يرجى التحقق من الهوية لحذف جميع البيانات');
+
+      if (authenticated) {
+        setDeletingAll(true);
+
+        // 1. Delete local data
+        await deleteAllData();
+
+        // 2. Delete server data if logged in
+        try {
+          await deleteSyncDataFromServer();
+        } catch (serverError) {
+          console.error('Error deleting server data:', serverError);
+          // We don't block local success because local data is already gone
+        }
+
+        setDeletingAll(false);
+        alertService.success('تم الحذف', 'تم حذف جميع بيانات التطبيق بنجاح (محلياً ومن السيرفر)');
+        await loadSettings();
+      }
+    } catch (error) {
+      setDeletingAll(false);
+      console.error('Error deleting all data:', error);
+      alertService.error('خطأ', 'حدث خطأ أثناء مسح البيانات');
     }
   };
 
@@ -1285,7 +1324,7 @@ export const SettingsScreen = ({ navigation }: any) => {
             </View>
 
             <TouchableOpacity
-              onPress={handleExportPDF}
+              onPress={() => setShowExportModal(true)}
               disabled={exportingPDF}
               style={styles.exportButton}
               activeOpacity={0.8}
@@ -1302,12 +1341,57 @@ export const SettingsScreen = ({ navigation }: any) => {
                   <>
                     <Ionicons name="document-text" size={20} color={theme.colors.textInverse} />
                     <Text style={styles.exportButtonText}>
-                      تصدير تقرير شهري PDF
+                      تصدير البيانات
                     </Text>
                   </>
                 )}
               </LinearGradient>
             </TouchableOpacity>
+
+            <View style={{ height: 12 }} />
+
+            <TouchableOpacity
+              onPress={() => setShowDeleteAllConfirm(true)}
+              style={[
+                styles.actionItem,
+                {
+                  backgroundColor: theme.colors.error + '10',
+                  borderColor: theme.colors.error + '30',
+                  borderWidth: 1,
+                  borderRadius: 12,
+                  marginHorizontal: 0
+                }
+              ]}
+              activeOpacity={0.7}
+              disabled={deletingAll}
+            >
+              <View style={[styles.actionItemGradient, { paddingVertical: 12 }]}>
+                <View style={styles.actionItemLeft}>
+                  <View style={[styles.actionIconContainer, { backgroundColor: theme.colors.error + '20', width: 40, height: 40, borderRadius: 20 }]}>
+                    {deletingAll ? <ActivityIndicator size="small" color={theme.colors.error} /> : <Ionicons name="trash" size={22} color={theme.colors.error} />}
+                  </View>
+                  <View style={styles.actionItemInfo}>
+                    <Text style={[styles.actionItemTitleWhite, { color: theme.colors.error, fontSize: 16 }]}>حذف جميع البيانات</Text>
+                    <Text style={[styles.actionItemDescriptionWhite, { color: theme.colors.textSecondary, fontSize: 12 }]}>سيتم مسح كافة البيانات بشكل نهائي.</Text>
+                  </View>
+                </View>
+              </View>
+            </TouchableOpacity>
+
+            {showDeleteAllConfirm && (
+              <ConfirmAlert
+                visible={showDeleteAllConfirm}
+                title="حذف جميع البيانات؟"
+                message="سيتم حذف كافة المصاريف والأهداف والديون بشكل نهائي. هل أنت متأكد من رغبتك في المتابعة؟"
+                confirmText="حذف الكل"
+                cancelText="إلغاء"
+                onConfirm={() => {
+                  setShowDeleteAllConfirm(false);
+                  handleDeleteAllData();
+                }}
+                onCancel={() => setShowDeleteAllConfirm(false)}
+              />
+            )}
           </View>
         </View>
 
@@ -1416,6 +1500,7 @@ export const SettingsScreen = ({ navigation }: any) => {
             <Text style={styles.versionText}>v.{Constants.expoConfig?.version ?? '1.1.5'}</Text>
           </LinearGradient>
         </View>
+
       </ScrollView >
 
       <AuthSettingsModal
@@ -1572,8 +1657,20 @@ export const SettingsScreen = ({ navigation }: any) => {
         </KeyboardAvoidingView>
       </Modal>
 
+      <ExportPeriodModal
+        visible={showExportModal}
+        exportMode={exportMode}
+        setExportMode={setExportMode}
+        exportMonth={exportMonth}
+        setExportMonth={setExportMonth}
+        exportYear={exportYear}
+        setExportYear={setExportYear}
+        onConfirm={handleExportPDF}
+        onClose={() => setShowExportModal(false)}
+        loading={exportingPDF}
+      />
 
-    </SafeAreaView >
+    </SafeAreaView>
   );
 };
 
@@ -2854,8 +2951,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontSize: 24,
     fontWeight: getPlatformFontWeight('900'),
     color: theme.colors.primary,
-    fontFamily: theme.typography.fontFamily,
-    letterSpacing: 1,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    letterSpacing: 4,
   },
   copyButton: {
     width: 40,
@@ -2910,6 +3007,127 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: '#EF444410',
     padding: 12,
     borderRadius: 12,
+  },
+  exportModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  exportModalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  exportModalContainer: {
+    width: '100%',
+    maxHeight: '90%',
+  },
+  exportModalGradient: {
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    padding: theme.spacing.lg,
+    paddingBottom: Platform.OS === 'ios' ? 40 : theme.spacing.lg,
+  },
+  exportModalHeader: {
+    flexDirection: isRTL ? 'row' : 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.lg,
+  },
+  exportModalCloseButton: {
+    padding: 4,
+  },
+  exportModalTitle: {
+    fontSize: 20,
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
+  },
+  exportModalContent: {
+    paddingBottom: 8,
+  },
+  modeToggle: {
+    flexDirection: isRTL ? 'row' : 'row-reverse',
+    backgroundColor: theme.colors.surfaceLight,
+    borderRadius: 16,
+    padding: 4,
+    marginBottom: 24,
+  },
+  modeButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 12,
+  },
+  modeButtonActive: {
+    backgroundColor: theme.colors.surfaceCard,
+    ...getPlatformShadow('sm'),
+  },
+  modeButtonText: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+  },
+  modeButtonTextActive: {
+    color: theme.colors.primary,
+    fontWeight: getPlatformFontWeight('700'),
+  },
+  periodSelectors: {
+    marginBottom: 24,
+  },
+  selectorGroup: {
+    marginBottom: 20,
+  },
+  selectorLabel: {
+    fontSize: 14,
+    fontWeight: getPlatformFontWeight('600'),
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+    marginBottom: 12,
+    textAlign: 'left',
+  },
+  selectorScroll: {
+    paddingRight: 4,
+  },
+  periodOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: theme.colors.surfaceLight,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  periodOptionActive: {
+    backgroundColor: theme.colors.primary + '10',
+    borderColor: theme.colors.primary + '30',
+  },
+  periodOptionText: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+  },
+  periodOptionTextActive: {
+    color: theme.colors.primary,
+    fontWeight: getPlatformFontWeight('600'),
+  },
+  confirmExportButton: {
+    marginTop: 8,
+  },
+  confirmExportGradient: {
+    height: 56,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...getPlatformShadow('md'),
+  },
+  confirmExportText: {
+    fontSize: 17,
+    fontWeight: getPlatformFontWeight('700'),
+    color: '#FFFFFF',
+    fontFamily: theme.typography.fontFamily,
   },
 });
 
@@ -3041,6 +3259,104 @@ const ExchangeRateModal: React.FC<ExchangeRateModalProps> = ({
             </LinearGradient>
           </View>
         </KeyboardAvoidingView>
+      </View>
+    </Modal>
+  );
+};
+
+interface ExportPeriodModalProps {
+  visible: boolean;
+  exportMode: 'monthly' | 'all';
+  setExportMode: (mode: 'monthly' | 'all') => void;
+  exportMonth: number;
+  setExportMonth: (month: number) => void;
+  exportYear: number;
+  setExportYear: (year: number) => void;
+  onConfirm: () => void;
+  onClose: () => void;
+  loading: boolean;
+}
+
+const ExportPeriodModal: React.FC<ExportPeriodModalProps> = ({
+  visible,
+  exportMode,
+  setExportMode,
+  exportMonth,
+  setExportMonth,
+  exportYear,
+  setExportYear,
+  onConfirm,
+  onClose,
+  loading,
+}) => {
+  const { theme } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+  const months = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+  const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
+      <View style={styles.exportModalOverlay}>
+        <TouchableOpacity style={styles.exportModalBackdrop} activeOpacity={1} onPress={onClose} />
+        <View style={styles.exportModalContainer}>
+          <LinearGradient colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]} style={styles.exportModalGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+            <View style={styles.exportModalHeader}>
+              <TouchableOpacity onPress={onClose} activeOpacity={0.7} style={styles.exportModalCloseButton}>
+                <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
+              </TouchableOpacity>
+              <Text style={styles.exportModalTitle}>تصدير البيانات</Text>
+              <View style={styles.placeholder} />
+            </View>
+
+            <View style={styles.exportModalContent}>
+              <View style={styles.modeToggle}>
+                <TouchableOpacity
+                  onPress={() => setExportMode('monthly')}
+                  style={[styles.modeButton, exportMode === 'monthly' && styles.modeButtonActive]}
+                >
+                  <Text style={[styles.modeButtonText, exportMode === 'monthly' && styles.modeButtonTextActive]}>تقرير شهري</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setExportMode('all')}
+                  style={[styles.modeButton, exportMode === 'all' && styles.modeButtonActive]}
+                >
+                  <Text style={[styles.modeButtonText, exportMode === 'all' && styles.modeButtonTextActive]}>جميع البيانات</Text>
+                </TouchableOpacity>
+              </View>
+
+              {exportMode === 'monthly' && (
+                <View style={styles.periodSelectors}>
+                  <View style={styles.selectorGroup}>
+                    <Text style={styles.selectorLabel}>الشهر</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorScroll}>
+                      {months.map((m, i) => (
+                        <TouchableOpacity key={m} onPress={() => setExportMonth(i)} style={[styles.periodOption, exportMonth === i && styles.periodOptionActive]}>
+                          <Text style={[styles.periodOptionText, exportMonth === i && styles.periodOptionTextActive]}>{m}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                  <View style={styles.selectorGroup}>
+                    <Text style={styles.selectorLabel}>السنة</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorScroll}>
+                      {years.map(y => (
+                        <TouchableOpacity key={y} onPress={() => setExportYear(y)} style={[styles.periodOption, exportYear === y && styles.periodOptionActive]}>
+                          <Text style={[styles.periodOptionText, exportYear === y && styles.periodOptionTextActive]}>{y}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                </View>
+              )}
+
+              <TouchableOpacity onPress={onConfirm} disabled={loading} style={styles.confirmExportButton}>
+                <LinearGradient colors={theme.gradients.primary as any} style={styles.confirmExportGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                  {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.confirmExportText}>تصدير PDF</Text>}
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
+        </View>
       </View>
     </Modal>
   );

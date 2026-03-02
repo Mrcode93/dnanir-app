@@ -133,22 +133,22 @@ const getCommonStackOptions = (theme: AppTheme) => ({
     shadowOpacity: 0,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
-    height: Platform.OS === 'ios' ? 110 : 80,
+    height: Platform.OS === 'ios' ? 110 : 85,
   },
   headerTitleStyle: {
     fontFamily: theme.typography.fontFamily,
     fontSize: 20,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
-    marginBottom: Platform.OS === 'ios' ? 0 : 10,
+    marginBottom: Platform.OS === 'ios' ? 0 : 5,
   },
   headerTitleAlign: 'center' as const,
   headerTintColor: theme.colors.primary,
   headerLeftContainerStyle: {
-    paddingBottom: Platform.OS === 'ios' ? 0 : 15,
+    paddingBottom: Platform.OS === 'ios' ? 0 : 5,
   },
   headerRightContainerStyle: {
-    paddingBottom: Platform.OS === 'ios' ? 0 : 15,
+    paddingBottom: Platform.OS === 'ios' ? 0 : 5,
   },
 });
 

@@ -533,6 +533,7 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
         onSuccess={() => {
           fetchExpenses(true);
         }}
+        navigation={navigation}
       />
     </SafeAreaView>
   );

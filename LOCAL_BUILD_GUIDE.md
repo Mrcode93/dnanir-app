@@ -14,6 +14,9 @@ npm run ios:prebuild
 npm run ios:setup
 ```
 
+### IOS
+npx expo prebuild --platform ios --clean
+
 ### 2. تثبيت CocoaPods (إذا لم تستخدم ios:setup)
 ```bash
 cd ios && pod install && cd ..

@@ -11,129 +11,238 @@ import {
     ActivityIndicator,
     Animated,
     ScrollView,
+    Linking,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, useAppTheme, useThemedStyles } from '../utils/theme';
-import { parseTransactionText, ParsedTransaction, CATEGORY_DISPLAY_NAMES, EXPENSE_CATEGORY_LIST, INCOME_CATEGORY_LIST } from '../utils/smartParser';
+import { parseTransactionText, parseMultipleTransactions, ParsedTransaction, CATEGORY_DISPLAY_NAMES, EXPENSE_CATEGORY_LIST, INCOME_CATEGORY_LIST } from '../utils/smartParser';
+import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
+import { parseWithGemini } from '../services/geminiService';
+import { getSmartAddUsageInfo, incrementSmartAddUsage, SmartAddUsageInfo } from '../services/smartAddUsage';
 import { addExpense, addIncome } from '../database/database';
-import { ConfirmAlert } from './ConfirmAlert';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePrivacy } from '../context/PrivacyContext';
+import { alertService } from '../services/alertService';
+import { CONTACT_INFO } from '../constants/contactConstants';
 
 interface SmartAddModalProps {
     visible: boolean;
     onClose: () => void;
     onSuccess: () => void;
     mode?: 'expense' | 'income';
+    navigation?: any;
 }
 
-export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, onSuccess, mode = 'expense' }) => {
+export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, onSuccess, mode = 'expense', navigation }) => {
     const { theme } = useAppTheme();
     const insets = useSafeAreaInsets();
     const styles = useThemedStyles(createStyles);
     const { isPrivacyEnabled } = usePrivacy();
     const [text, setText] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
-    const [parsedResult, setParsedResult] = useState<ParsedTransaction | null>(null);
-    const [showConfirm, setShowConfirm] = useState(false);
-    const [selectedCategory, setSelectedCategory] = useState<string>('');
-    const [selectedType, setSelectedType] = useState<'expense' | 'income'>('expense');
-    const [editedTitle, setEditedTitle] = useState<string>('');
+    const [parsedResults, setParsedResults] = useState<ParsedTransaction[]>([]);
+    const [usageInfo, setUsageInfo] = useState<SmartAddUsageInfo | null>(null);
     const inputRef = useRef<TextInput>(null);
 
-    // Animation for the "mic" pulse effect (visual only)
+    // Animations
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const slideAnim = useRef(new Animated.Value(30)).current;
     const pulseAnim = useRef(new Animated.Value(1)).current;
 
     useEffect(() => {
-        if (visible) {
-            setTimeout(() => inputRef.current?.focus(), 100);
-            setText('');
-            setParsedResult(null);
-            setSelectedCategory('');
-            setSelectedType(mode);
-            setEditedTitle('');
-            startPulse();
+        if (isProcessing) {
+            Animated.loop(
+                Animated.sequence([
+                    Animated.timing(pulseAnim, {
+                        toValue: 1.15,
+                        duration: 800,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(pulseAnim, {
+                        toValue: 1,
+                        duration: 800,
+                        useNativeDriver: true,
+                    }),
+                ])
+            ).start();
+        } else {
+            pulseAnim.setValue(1);
         }
-    }, [visible, mode]);
+    }, [isProcessing]);
 
-    const startPulse = () => {
-        Animated.loop(
-            Animated.sequence([
-                Animated.timing(pulseAnim, {
-                    toValue: 1.2,
-                    duration: 1000,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(pulseAnim, {
-                    toValue: 1,
-                    duration: 1000,
-                    useNativeDriver: true,
-                }),
-            ])
-        ).start();
-    };
+    useEffect(() => {
+        if (visible) {
+            setTimeout(() => inputRef.current?.focus(), 300);
+            setText('');
+            setParsedResults([]);
+            // Load usage info
+            getSmartAddUsageInfo().then(setUsageInfo);
+            // Entrance animation
+            Animated.parallel([
+                Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+                Animated.timing(slideAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
+            ]).start();
+        } else {
+            fadeAnim.setValue(0);
+            slideAnim.setValue(30);
+        }
+    }, [visible]);
 
     const handleProcess = async () => {
         if (!text.trim()) return;
 
-        setIsProcessing(true);
+        // Check usage limits
+        const currentUsage = await getSmartAddUsageInfo();
+        setUsageInfo(currentUsage);
 
-        // Simulate a small delay for "AI" feel
-        setTimeout(() => {
-            const result = parseTransactionText(text);
-            setParsedResult(result);
-            setSelectedCategory(result.category);
-            setSelectedType(result.type);
-            setEditedTitle(result.title);
-            setIsProcessing(false);
-        }, 600);
-    };
-
-    const handleConfirm = async () => {
-        if (!parsedResult || !parsedResult.amount) {
-            alert('يرجى التأكد من وجود مبلغ في النص');
+        if (!currentUsage.isLoggedIn) {
+            onClose();
+            setTimeout(() => {
+                alertService.show({
+                    title: 'تسجيل الدخول مطلوب',
+                    message: 'يجب تسجيل الدخول لاستخدام ميزة الإضافة الذكية بالذكاء الاصطناعي.',
+                    type: 'warning',
+                    confirmText: 'تسجيل دخول',
+                    cancelText: 'إلغاء',
+                    showCancel: true,
+                    onConfirm: () => {
+                        if (navigation) navigation.navigate('Auth');
+                    },
+                });
+            }, 300);
             return;
         }
 
+        if (!currentUsage.canUse) {
+            onClose();
+            setTimeout(() => {
+                alertService.show({
+                    title: 'انتهت المحاولات',
+                    message: currentUsage.isPro
+                        ? `وصلت للحد اليومي (${currentUsage.limit} محاولة). يتجدد غداً.`
+                        : 'انتهت تجربتك المجانية للإضافة الذكية. ترقية للحساب المميز تمنحك 10 محاولات يومياً!',
+                    type: 'warning',
+                    confirmText: currentUsage.isPro ? 'حسناً' : 'تواصل معنا',
+                    cancelText: 'إلغاء',
+                    showCancel: !currentUsage.isPro,
+                    onConfirm: currentUsage.isPro ? undefined : async () => {
+                        const msg = encodeURIComponent('مرحباً، أريد الترقية للحساب المميز في تطبيق دنانير');
+                        const whatsappUrl = `https://wa.me/${CONTACT_INFO.whatsappNumber}?text=${msg}`;
+                        try {
+                            const canOpen = await Linking.canOpenURL(whatsappUrl);
+                            if (canOpen) {
+                                await Linking.openURL(whatsappUrl);
+                            } else {
+                                const appUrl = `whatsapp://send?phone=${CONTACT_INFO.whatsappNumber}&text=${msg}`;
+                                await Linking.openURL(appUrl);
+                            }
+                        } catch {
+                            alertService.warning('تنبيه', 'يرجى تثبيت تطبيق WhatsApp');
+                        }
+                    },
+                });
+            }, 300);
+            return;
+        }
+
+        setIsProcessing(true);
+
+        try {
+            // Try Gemini AI first
+            console.log('=== SMART PARSER (Gemini) ===');
+            const geminiResults = await parseWithGemini(text);
+
+            if (geminiResults && geminiResults.length > 0) {
+                // Increment usage counter on successful AI parse
+                await incrementSmartAddUsage();
+                const updatedUsage = await getSmartAddUsageInfo();
+                setUsageInfo(updatedUsage);
+
+                const results: ParsedTransaction[] = geminiResults.map(g => ({
+                    amount: g.amount,
+                    category: g.category,
+                    type: g.type,
+                    title: g.title,
+                    confidence: 0.95,
+                }));
+                setParsedResults(results);
+                setIsProcessing(false);
+                return;
+            }
+        } catch (error) {
+            console.log('Gemini failed, falling back to local parser:', error);
+        }
+
+        // Fallback: local regex parser
+        console.log('=== SMART PARSER (Local Fallback) ===');
+        let results = parseMultipleTransactions(text);
+        if (results.length === 0) {
+            results = [parseTransactionText(text)];
+        }
+        setParsedResults(results);
+        setIsProcessing(false);
+    };
+
+    const updateTransaction = (index: number, field: keyof ParsedTransaction, value: any) => {
+        const updated = [...parsedResults];
+        updated[index] = { ...updated[index], [field]: value };
+
+        if (field === 'type') {
+            updated[index].category = value === 'expense' ? EXPENSE_CATEGORY_LIST[0] : INCOME_CATEGORY_LIST[0];
+        }
+
+        setParsedResults(updated);
+    };
+
+    const handleConfirm = async () => {
+        if (parsedResults.length === 0) return;
+
+        setIsProcessing(true);
         try {
             const now = new Date();
-            // Format YYYY-MM-DD manually to avoid timezone issues with ISOString
             const year = now.getFullYear();
             const month = (now.getMonth() + 1).toString().padStart(2, '0');
             const day = now.getDate().toString().padStart(2, '0');
             const dateStr = `${year}-${month}-${day}`;
 
-            // Use selected category, type, and title (which user may have changed)
-            const finalTitle = editedTitle.trim() || CATEGORY_DISPLAY_NAMES[selectedCategory] || 'معاملة';
+            for (const item of parsedResults) {
+                if (!item.amount) continue;
 
-            if (selectedType === 'expense') {
-                await addExpense({
-                    title: finalTitle,
-                    amount: parsedResult.amount,
-                    category: selectedCategory as any,
-                    date: dateStr,
-                    description: '',
-                    currency: 'IQD',
-                });
-            } else {
-                await addIncome({
-                    source: finalTitle,
-                    amount: parsedResult.amount,
-                    date: dateStr,
-                    category: selectedCategory,
-                    description: '',
-                    currency: 'IQD',
-                });
+                const finalTitle = item.title.trim() || CATEGORY_DISPLAY_NAMES[item.category] || 'معاملة';
+
+                if (item.type === 'expense') {
+                    await addExpense({
+                        title: finalTitle,
+                        amount: item.amount,
+                        category: item.category as any,
+                        date: dateStr,
+                        description: '',
+                        currency: 'IQD',
+                    });
+                } else {
+                    await addIncome({
+                        source: finalTitle,
+                        amount: item.amount,
+                        date: dateStr,
+                        category: item.category,
+                        description: '',
+                        currency: 'IQD',
+                    });
+                }
             }
 
             onSuccess();
             onClose();
         } catch (error) {
-            console.error('Error saving smart transaction:', error);
+            console.error('Error saving smart transactions:', error);
             alert('حدث خطأ أثناء الحفظ. يرجى المحاولة مرة أخرى.');
+        } finally {
+            setIsProcessing(false);
         }
     };
+
+    const exampleText = 'صرفت ٣٠ الف على الغدا وشربت شاي ب٣ الاف واستلمت ٤٠٠ الف من بيع مادة';
 
     return (
         <Modal
@@ -143,568 +252,715 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
             onRequestClose={onClose}
             statusBarTranslucent={true}
         >
-            <View style={{ flex: 1, backgroundColor: '#ffffff' }}>
+            <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                    style={styles.container}
-                    keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
+                    style={{ flex: 1 }}
+                    keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
                 >
+                    {/* Header */}
                     <LinearGradient
-                        colors={['#ffffff', '#f8fafc']}
-                        style={styles.fullBackground}
+                        colors={theme.gradients.primary as any}
+                        style={[styles.header, { paddingTop: (insets.top || 12) + 8 }]}
                     >
-                        <View style={[styles.header, { paddingTop: insets.top || 12 }]}>
-                            <View style={styles.headerLeft} />
-                            <Text style={styles.title}>إضافة ذكية</Text>
-                            <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                                <Ionicons name="close" size={28} color="#64748B" />
-                            </TouchableOpacity>
+                        <TouchableOpacity onPress={onClose} style={styles.headerBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                            <Ionicons name="close" size={24} color="#fff" />
+                        </TouchableOpacity>
+                        <View style={styles.headerCenter}>
+                            <Ionicons name="sparkles" size={20} color="#FFD700" />
+                            <Text style={styles.headerTitle}>الإضافة الذكية</Text>
                         </View>
+                        <View style={styles.headerBtn} />
+                    </LinearGradient>
 
-                        <ScrollView
-                            style={styles.scrollView}
-                            contentContainerStyle={styles.scrollContent}
-                            showsVerticalScrollIndicator={false}
-                        >
+                    <ScrollView
+                        style={styles.scrollView}
+                        contentContainerStyle={styles.scrollContent}
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                    >
+                        {parsedResults.length === 0 ? (
+                            <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+                                {/* AI Badge */}
+                                <View style={styles.aiBadge}>
+                                    <Ionicons name="flash" size={16} color={theme.colors.primary} />
+                                    <Text style={styles.aiBadgeText}>مدعوم بالذكاء الاصطناعي</Text>
+                                </View>
 
-                            {!parsedResult ? (
-                                <>
-                                    <Text style={styles.subtitle}>
-                                        اكتب أو تحدث عن المعاملة المالية وسيتم تحليلها تلقائياً
-                                    </Text>
-
-                                    {/* How to use section */}
-                                    <View style={styles.howToUseContainer}>
-                                        <View style={styles.howToUseHeader}>
-                                            <Ionicons name="information-circle" size={18} color={theme.colors.primary} />
-                                            <Text style={styles.howToUseTitle}>كيفية الاستخدام</Text>
-                                        </View>
-                                        <View style={styles.howToUseStep}>
-                                            <View style={styles.stepNumber}>
-                                                <Text style={styles.stepNumberText}>1</Text>
-                                            </View>
-                                            <Text style={styles.stepText}>اضغط على أيقونة 🎤 في لوحة المفاتيح للتحدث</Text>
-                                        </View>
-                                        <View style={styles.howToUseStep}>
-                                            <View style={styles.stepNumber}>
-                                                <Text style={styles.stepNumberText}>2</Text>
-                                            </View>
-                                            <Text style={styles.stepText}>قل اسم المعاملة والمبلغ (مثال: "غداء خمسة آلاف")</Text>
-                                        </View>
-                                        <View style={styles.howToUseStep}>
-                                            <View style={styles.stepNumber}>
-                                                <Text style={styles.stepNumberText}>3</Text>
-                                            </View>
-                                            <Text style={styles.stepText}>راجع النتيجة وعدّل التصنيف إذا لزم الأمر</Text>
-                                        </View>
-                                    </View>
-
-                                    <View style={styles.inputContainer}>
-                                        <TextInput
-                                            ref={inputRef}
-                                            style={styles.input}
-                                            placeholder="اكتب أو تحدث هنا..."
-                                            placeholderTextColor="#94A3B8"
-                                            value={text}
-                                            onChangeText={setText}
-                                            onSubmitEditing={handleProcess}
-                                            returnKeyType="done"
-                                            textAlign="right"
+                                {/* Usage Badge */}
+                                {usageInfo && (
+                                    <View style={[styles.usageBadge, {
+                                        backgroundColor: !usageInfo.isLoggedIn
+                                            ? '#FEF3C7'
+                                            : usageInfo.remaining > 0
+                                                ? (usageInfo.isPro ? '#FEF3C7' : theme.colors.primary + '12')
+                                                : '#FEE2E2'
+                                    }]}>
+                                        <Ionicons
+                                            name={!usageInfo.isLoggedIn ? 'lock-closed' : usageInfo.isPro ? 'diamond' : 'sparkles-outline'}
+                                            size={14}
+                                            color={!usageInfo.isLoggedIn
+                                                ? '#B45309'
+                                                : usageInfo.remaining > 0
+                                                    ? (usageInfo.isPro ? '#B45309' : theme.colors.primary)
+                                                    : '#DC2626'
+                                            }
                                         />
-                                        {text.length > 0 && (
-                                            <TouchableOpacity onPress={handleProcess} style={styles.sendButton}>
-                                                <Ionicons name="arrow-up" size={20} color="#fff" />
-                                            </TouchableOpacity>
-                                        )}
+                                        <Text style={[styles.usageBadgeText, {
+                                            color: !usageInfo.isLoggedIn
+                                                ? '#92400E'
+                                                : usageInfo.remaining > 0
+                                                    ? (usageInfo.isPro ? '#92400E' : theme.colors.primary)
+                                                    : '#DC2626'
+                                        }]}>
+                                            {!usageInfo.isLoggedIn
+                                                ? 'سجل دخول لاستخدام الميزة'
+                                                : usageInfo.isPro ? 'حساب مميز' : 'حساب مجاني'
+                                            }
+                                            {usageInfo.isLoggedIn && (
+                                                <>
+                                                    {' · '}
+                                                    {usageInfo.isPro
+                                                        ? (usageInfo.remaining > 0
+                                                            ? `${usageInfo.remaining} محاولة متبقية اليوم`
+                                                            : 'انتهت المحاولات اليومية')
+                                                        : (usageInfo.remaining > 0
+                                                            ? 'تجربة مجانية متاحة'
+                                                            : 'انتهت التجربة المجانية')
+                                                    }
+                                                </>
+                                            )}
+                                        </Text>
                                     </View>
+                                )}
 
-                                    {/* Examples section */}
-                                    <View style={styles.examplesContainer}>
-                                        <Text style={styles.examplesTitle}>أمثلة باللهجة العراقية:</Text>
-                                        <View style={styles.examplesGrid}>
-                                            <TouchableOpacity onPress={() => setText('تكسي بربع')} style={styles.exampleChip}>
-                                                <Ionicons name="remove-circle" size={14} color="#EF4444" />
-                                                <Text style={styles.exampleText}>تكسي بربع</Text>
+                                {/* Instruction */}
+                                <Text style={styles.instruction}>
+                                    تحدث أو اكتب معاملاتك المالية وسيتم تحليلها تلقائياً
+                                </Text>
+
+                                {/* Steps */}
+                                <View style={[styles.stepsCard, { backgroundColor: theme.colors.surface }]}>
+                                    <View style={styles.stepRow}>
+                                        <View style={[styles.stepIcon, { backgroundColor: theme.colors.primary + '15' }]}>
+                                            <Ionicons name="mic-outline" size={18} color={theme.colors.primary} />
+                                        </View>
+                                        <Text style={[styles.stepText, { color: theme.colors.text }]}>اضغط المايكروفون في الكيبورد</Text>
+                                    </View>
+                                    <View style={styles.stepDivider} />
+                                    <View style={styles.stepRow}>
+                                        <View style={[styles.stepIcon, { backgroundColor: theme.colors.primary + '15' }]}>
+                                            <Ionicons name="chatbubble-outline" size={18} color={theme.colors.primary} />
+                                        </View>
+                                        <Text style={[styles.stepText, { color: theme.colors.text }]}>اذكر المعاملات مع المبالغ</Text>
+                                    </View>
+                                    <View style={styles.stepDivider} />
+                                    <View style={styles.stepRow}>
+                                        <View style={[styles.stepIcon, { backgroundColor: theme.colors.primary + '15' }]}>
+                                            <Ionicons name="checkmark-circle-outline" size={18} color={theme.colors.primary} />
+                                        </View>
+                                        <Text style={[styles.stepText, { color: theme.colors.text }]}>راجع النتائج وأكّد الحفظ</Text>
+                                    </View>
+                                </View>
+
+                                {/* Input */}
+                                <View style={[styles.inputWrapper, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                                    <TextInput
+                                        ref={inputRef}
+                                        style={[styles.input, { color: theme.colors.text }]}
+                                        placeholder="اكتب أو تحدث هنا..."
+                                        placeholderTextColor={theme.colors.textMuted}
+                                        value={text}
+                                        onChangeText={setText}
+                                        onSubmitEditing={handleProcess}
+                                        returnKeyType="done"
+                                        textAlign="right"
+                                        multiline
+                                    />
+                                    {text.length > 0 && (
+                                        <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+                                            <TouchableOpacity
+                                                onPress={handleProcess}
+                                                style={[
+                                                    styles.sendBtn,
+                                                    { backgroundColor: theme.colors.primary },
+                                                    isProcessing && { opacity: 0.8 }
+                                                ]}
+                                                disabled={isProcessing}
+                                                activeOpacity={0.7}
+                                            >
+                                                {isProcessing ? (
+                                                    <ActivityIndicator size="small" color="#fff" />
+                                                ) : (
+                                                    <Ionicons name="arrow-up" size={24} color="#fff" />
+                                                )}
                                             </TouchableOpacity>
-                                            <TouchableOpacity onPress={() => setText('غدا بخمسة')} style={styles.exampleChip}>
-                                                <Ionicons name="remove-circle" size={14} color="#EF4444" />
-                                                <Text style={styles.exampleText}>غدا بخمسة</Text>
-                                            </TouchableOpacity>
-                                            <TouchableOpacity onPress={() => setText('بانزين ب١٠')} style={styles.exampleChip}>
-                                                <Ionicons name="remove-circle" size={14} color="#EF4444" />
-                                                <Text style={styles.exampleText}>بانزين ب١٠</Text>
-                                            </TouchableOpacity>
-                                            <TouchableOpacity onPress={() => setText('مسواك ب٢٥ الف')} style={styles.exampleChip}>
-                                                <Ionicons name="remove-circle" size={14} color="#EF4444" />
-                                                <Text style={styles.exampleText}>مسواك ب٢٥ الف</Text>
-                                            </TouchableOpacity>
-                                            <TouchableOpacity onPress={() => setText('راتب مليون ونص')} style={styles.exampleChip}>
-                                                <Ionicons name="add-circle" size={14} color="#10B981" />
-                                                <Text style={styles.exampleText}>راتب مليون ونص</Text>
-                                            </TouchableOpacity>
-                                            <TouchableOpacity onPress={() => setText('كارت رصيد ب٥')} style={styles.exampleChip}>
-                                                <Ionicons name="remove-circle" size={14} color="#EF4444" />
-                                                <Text style={styles.exampleText}>كارت رصيد ب٥</Text>
+                                        </Animated.View>
+                                    )}
+                                </View>
+
+                                {/* Example */}
+                                <TouchableOpacity
+                                    style={[styles.exampleCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
+                                    onPress={() => setText(exampleText)}
+                                    activeOpacity={0.7}
+                                >
+                                    <View style={styles.exampleHeader}>
+                                        <Ionicons name="bulb-outline" size={16} color={theme.colors.warning} />
+                                        <Text style={[styles.exampleLabel, { color: theme.colors.textSecondary }]}>جرب هذا المثال</Text>
+                                    </View>
+                                    <Text style={[styles.exampleText, { color: theme.colors.text }]}>
+                                        {exampleText}
+                                    </Text>
+                                </TouchableOpacity>
+
+                                {/* Processing Indicator */}
+                                {isProcessing && (
+                                    <View style={styles.processingContainer}>
+                                        <ActivityIndicator size="large" color={theme.colors.primary} />
+                                        <Text style={[styles.processingText, { color: theme.colors.textSecondary }]}>جاري التحليل بالذكاء الاصطناعي...</Text>
+                                    </View>
+                                )}
+                            </Animated.View>
+                        ) : (
+                            /* Results */
+                            <View>
+                                <View style={styles.resultsHeader}>
+                                    <View style={styles.resultsHeaderLeft}>
+                                        <Ionicons name="checkmark-done" size={20} color={theme.colors.success} />
+                                        <Text style={[styles.resultsTitle, { color: theme.colors.text }]}>
+                                            تم استخراج {parsedResults.length} {parsedResults.length === 1 ? 'معاملة' : 'معاملات'}
+                                        </Text>
+                                    </View>
+                                </View>
+
+                                {parsedResults.map((item, index) => (
+                                    <View key={index} style={[styles.resultCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                                        {/* Card Header */}
+                                        <View style={styles.cardHeader}>
+                                            <View style={[
+                                                styles.typeBadge,
+                                                { backgroundColor: item.type === 'expense' ? '#FEE2E2' : '#D1FAE5' }
+                                            ]}>
+                                                <Ionicons
+                                                    name={item.type === 'expense' ? 'arrow-down' : 'arrow-up'}
+                                                    size={12}
+                                                    color={item.type === 'expense' ? '#EF4444' : '#10B981'}
+                                                />
+                                                <Text style={[
+                                                    styles.typeBadgeText,
+                                                    { color: item.type === 'expense' ? '#DC2626' : '#059669' }
+                                                ]}>
+                                                    {item.type === 'expense' ? 'مصروف' : 'دخل'}
+                                                </Text>
+                                            </View>
+                                            <TouchableOpacity
+                                                style={styles.deleteBtn}
+                                                onPress={() => {
+                                                    const updated = [...parsedResults];
+                                                    updated.splice(index, 1);
+                                                    setParsedResults(updated);
+                                                    if (updated.length === 0) setText('');
+                                                }}
+                                            >
+                                                <Ionicons name="close-circle" size={22} color={theme.colors.textMuted} />
                                             </TouchableOpacity>
                                         </View>
-                                    </View>
-                                </>
-                            ) : (
-                                <View style={styles.resultContainer}>
-                                    <Text style={styles.resultTitle}>هل تقصد هذا؟</Text>
 
-                                    <View style={styles.resultCard}>
-                                        {/* Title Input */}
-                                        <View style={styles.titleInputContainer}>
-                                            <Text style={styles.resultLabel}>العنوان</Text>
+                                        {/* Title */}
+                                        <View style={styles.fieldRow}>
+                                            <Ionicons name="pricetag-outline" size={16} color={theme.colors.textSecondary} />
                                             <TextInput
-                                                style={styles.titleInput}
-                                                value={editedTitle}
-                                                onChangeText={setEditedTitle}
-                                                placeholder="أدخل اسم المعاملة"
-                                                placeholderTextColor="#94A3B8"
+                                                style={[styles.fieldInput, { color: theme.colors.text, borderColor: theme.colors.border }]}
+                                                value={item.title}
+                                                onChangeText={(val) => updateTransaction(index, 'title', val)}
+                                                placeholder="اسم المعاملة"
+                                                placeholderTextColor={theme.colors.textMuted}
                                                 textAlign="right"
                                             />
                                         </View>
 
-                                        <View style={[styles.resultRow, { marginBottom: 16 }]}>
-                                            <Text style={styles.resultLabel}>المبلغ</Text>
-                                            <Text style={styles.resultValueAmount}>
-                                                {isPrivacyEnabled ? '****' : `${parsedResult.amount?.toLocaleString()} د.ع`}
-                                            </Text>
+                                        {/* Amount */}
+                                        <View style={styles.fieldRow}>
+                                            <Ionicons name="cash-outline" size={16} color={theme.colors.textSecondary} />
+                                            <TextInput
+                                                style={[styles.fieldInput, styles.amountInput, {
+                                                    color: item.type === 'expense' ? '#EF4444' : '#10B981',
+                                                    borderColor: theme.colors.border,
+                                                }]}
+                                                value={item.amount ? formatNumberWithCommas(item.amount) : ''}
+                                                onChangeText={(val) => {
+                                                    const cleaned = convertArabicToEnglish(val);
+                                                    const amountStr = cleaned.replace(/,/g, '');
+                                                    updateTransaction(index, 'amount', parseFloat(amountStr) || 0);
+                                                }}
+                                                placeholder="المبلغ"
+                                                keyboardType="numeric"
+                                                placeholderTextColor={theme.colors.textMuted}
+                                                textAlign="right"
+                                            />
+                                            <Text style={[styles.currencyLabel, { color: theme.colors.textMuted }]}>د.ع</Text>
                                         </View>
 
                                         {/* Type Toggle */}
-                                        <View style={styles.resultRow}>
-                                            <Text style={styles.resultLabel}>النوع</Text>
-                                            <View style={styles.typeToggle}>
-                                                <TouchableOpacity
-                                                    style={[
-                                                        styles.typeOption,
-                                                        selectedType === 'expense' && styles.typeOptionActiveExpense
-                                                    ]}
-                                                    onPress={() => {
-                                                        setSelectedType('expense');
-                                                        setSelectedCategory(EXPENSE_CATEGORY_LIST[0]);
-                                                    }}
-                                                >
-                                                    <Text style={[
-                                                        styles.typeOptionText,
-                                                        selectedType === 'expense' && styles.typeOptionTextActive
-                                                    ]}>مصروف</Text>
-                                                </TouchableOpacity>
-                                                <TouchableOpacity
-                                                    style={[
-                                                        styles.typeOption,
-                                                        selectedType === 'income' && styles.typeOptionActiveIncome
-                                                    ]}
-                                                    onPress={() => {
-                                                        setSelectedType('income');
-                                                        setSelectedCategory(INCOME_CATEGORY_LIST[0]);
-                                                    }}
-                                                >
-                                                    <Text style={[
-                                                        styles.typeOptionText,
-                                                        selectedType === 'income' && styles.typeOptionTextActive
-                                                    ]}>دخل</Text>
-                                                </TouchableOpacity>
-                                            </View>
-                                        </View>
-
-                                        {/* Category Selector */}
-                                        <View style={styles.categorySection}>
-                                            <Text style={styles.resultLabel}>التصنيف</Text>
-                                            <ScrollView
-                                                horizontal
-                                                showsHorizontalScrollIndicator={false}
-                                                contentContainerStyle={styles.categoryScroll}
+                                        <View style={styles.toggleRow}>
+                                            <TouchableOpacity
+                                                style={[
+                                                    styles.toggleBtn,
+                                                    item.type === 'expense' && styles.toggleBtnActiveExpense
+                                                ]}
+                                                onPress={() => updateTransaction(index, 'type', 'expense')}
                                             >
-                                                {(selectedType === 'expense' ? EXPENSE_CATEGORY_LIST : INCOME_CATEGORY_LIST).map((cat) => (
-                                                    <TouchableOpacity
-                                                        key={cat}
-                                                        style={[
-                                                            styles.categoryChip,
-                                                            selectedCategory === cat && (selectedType === 'expense'
-                                                                ? styles.categoryChipActiveExpense
-                                                                : styles.categoryChipActiveIncome)
-                                                        ]}
-                                                        onPress={() => setSelectedCategory(cat)}
-                                                    >
-                                                        <Text style={[
-                                                            styles.categoryChipText,
-                                                            selectedCategory === cat && styles.categoryChipTextActive
-                                                        ]}>
-                                                            {CATEGORY_DISPLAY_NAMES[cat] || cat}
-                                                        </Text>
-                                                    </TouchableOpacity>
-                                                ))}
-                                            </ScrollView>
+                                                <Ionicons name="arrow-down-circle-outline" size={16} color={item.type === 'expense' ? '#DC2626' : theme.colors.textMuted} />
+                                                <Text style={[styles.toggleText, item.type === 'expense' && { color: '#DC2626', fontWeight: '700' }]}>مصروف</Text>
+                                            </TouchableOpacity>
+                                            <TouchableOpacity
+                                                style={[
+                                                    styles.toggleBtn,
+                                                    item.type === 'income' && styles.toggleBtnActiveIncome
+                                                ]}
+                                                onPress={() => updateTransaction(index, 'type', 'income')}
+                                            >
+                                                <Ionicons name="arrow-up-circle-outline" size={16} color={item.type === 'income' ? '#059669' : theme.colors.textMuted} />
+                                                <Text style={[styles.toggleText, item.type === 'income' && { color: '#059669', fontWeight: '700' }]}>دخل</Text>
+                                            </TouchableOpacity>
                                         </View>
+
+                                        {/* Category */}
+                                        <ScrollView
+                                            horizontal
+                                            showsHorizontalScrollIndicator={false}
+                                            contentContainerStyle={styles.categoryScroll}
+                                        >
+                                            {(item.type === 'expense' ? EXPENSE_CATEGORY_LIST : INCOME_CATEGORY_LIST).map((cat) => (
+                                                <TouchableOpacity
+                                                    key={cat}
+                                                    style={[
+                                                        styles.categoryChip,
+                                                        { borderColor: theme.colors.border },
+                                                        item.category === cat && (item.type === 'expense'
+                                                            ? styles.categoryChipActiveExpense
+                                                            : styles.categoryChipActiveIncome)
+                                                    ]}
+                                                    onPress={() => updateTransaction(index, 'category', cat)}
+                                                >
+                                                    <Text style={[
+                                                        styles.categoryChipText,
+                                                        { color: theme.colors.textSecondary },
+                                                        item.category === cat && styles.categoryChipTextActive
+                                                    ]}>
+                                                        {CATEGORY_DISPLAY_NAMES[cat] || cat}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </ScrollView>
                                     </View>
-                                </View>
-                            )}
-                        </ScrollView>
+                                ))}
 
-                        {parsedResult && (
-                            <View style={[styles.actions, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+                                {/* Add More */}
                                 <TouchableOpacity
-                                    style={[styles.actionButton, styles.cancelAction]}
-                                    onPress={() => {
-                                        setParsedResult(null);
-                                        setText('');
-                                    }}
+                                    style={[styles.addMoreBtn, { borderColor: theme.colors.border }]}
+                                    onPress={() => { setParsedResults([]); setText(''); setTimeout(() => inputRef.current?.focus(), 100); }}
                                 >
-                                    <Text style={styles.cancelActionText}>تعديل</Text>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity
-                                    style={[styles.actionButton, styles.confirmAction]}
-                                    onPress={handleConfirm}
-                                >
-                                    <Text style={styles.confirmActionText}>تأكيد وإضافة</Text>
+                                    <Ionicons name="add-circle-outline" size={18} color={theme.colors.primary} />
+                                    <Text style={[styles.addMoreText, { color: theme.colors.primary }]}>إضافة معاملات أخرى</Text>
                                 </TouchableOpacity>
                             </View>
                         )}
-                    </LinearGradient>
+                    </ScrollView>
+
+                    {/* Bottom Actions */}
+                    {parsedResults.length > 0 && (
+                        <View style={[styles.bottomActions, { paddingBottom: Math.max(insets.bottom, 16), backgroundColor: theme.colors.background, borderTopColor: theme.colors.border }]}>
+                            <TouchableOpacity
+                                style={[styles.actionBtn, styles.cancelBtn, { borderColor: theme.colors.border }]}
+                                onPress={() => {
+                                    setParsedResults([]);
+                                    setText('');
+                                    setTimeout(() => inputRef.current?.focus(), 100);
+                                }}
+                            >
+                                <Ionicons name="refresh-outline" size={18} color={theme.colors.textSecondary} />
+                                <Text style={[styles.cancelBtnText, { color: theme.colors.textSecondary }]}>إعادة</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[styles.actionBtn, styles.confirmBtn]}
+                                onPress={handleConfirm}
+                                disabled={isProcessing}
+                            >
+                                {isProcessing ? (
+                                    <ActivityIndicator size="small" color="#fff" />
+                                ) : (
+                                    <>
+                                        <Ionicons name="checkmark-circle" size={18} color="#fff" />
+                                        <Text style={styles.confirmBtnText}>
+                                            حفظ {parsedResults.length > 1 ? `الكل (${parsedResults.length})` : ''}
+                                        </Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    )}
                 </KeyboardAvoidingView>
             </View>
-        </Modal >
+        </Modal>
     );
 };
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#ffffff',
     },
-    fullBackground: {
-        flex: 1,
-    },
-    scrollView: {
-        flex: 1,
-    },
-    scrollContent: {
-        padding: 16,
-        paddingTop: 8,
-        paddingBottom: 100,
-    },
+    // Header
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 16,
-        paddingBottom: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f1f5f9',
-        backgroundColor: '#ffffff',
+        paddingBottom: 16,
     },
-    headerLeft: {
-        width: 44,
-    },
-    title: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#1e293b',
-        fontFamily: theme.typography.fontFamily,
-    },
-    closeBtn: {
-        width: 44,
-        height: 44,
+    headerBtn: {
+        width: 40,
+        height: 40,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    subtitle: {
-        fontSize: 14,
-        color: '#64748b',
-        textAlign: 'right',
-        marginBottom: 16,
-        fontFamily: theme.typography.fontFamily,
-        lineHeight: 20,
-    },
-    inputContainer: {
-        flexDirection: 'row-reverse',
-        alignItems: 'center',
-        backgroundColor: '#F1F5F9',
-        borderRadius: 16,
-        paddingHorizontal: 12,
-        paddingVertical: 4,
-        borderWidth: 1,
-        borderColor: 'transparent',
-    },
-    input: {
-        flex: 1,
-        height: 50,
-        fontSize: 18,
-        fontFamily: theme.typography.fontFamily,
-        color: '#0F172A',
-        textAlign: 'right',
-    },
-    sendButton: {
-        width: 36,
-        height: 36,
-        backgroundColor: theme.colors.primary,
-        borderRadius: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginLeft: 8,
-    },
-    // How to use section styles
-    howToUseContainer: {
-        backgroundColor: '#EFF6FF',
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 12,
-        borderWidth: 1,
-        borderColor: '#BFDBFE',
-    },
-    howToUseHeader: {
+    headerCenter: {
         flexDirection: 'row-reverse',
         alignItems: 'center',
         gap: 8,
-        marginBottom: 12,
     },
-    howToUseTitle: {
-        fontSize: 15,
-        fontWeight: '700',
-        color: '#1E40AF',
-        fontFamily: theme.typography.fontFamily,
-    },
-    howToUseStep: {
-        flexDirection: 'row-reverse',
-        alignItems: 'center',
-        gap: 10,
-        marginBottom: 8,
-    },
-    stepNumber: {
-        width: 22,
-        height: 22,
-        borderRadius: 11,
-        backgroundColor: theme.colors.primary,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    stepNumberText: {
-        fontSize: 12,
+    headerTitle: {
+        fontSize: 18,
         fontWeight: '700',
         color: '#FFFFFF',
         fontFamily: theme.typography.fontFamily,
+    },
+    // Scroll
+    scrollView: {
+        flex: 1,
+    },
+    scrollContent: {
+        padding: 16,
+        paddingBottom: 100,
+    },
+    // AI Badge
+    aiBadge: {
+        flexDirection: 'row-reverse',
+        alignItems: 'center',
+        alignSelf: 'center',
+        gap: 6,
+        backgroundColor: theme.colors.primary + '10',
+        paddingHorizontal: 14,
+        paddingVertical: 6,
+        borderRadius: 20,
+        marginBottom: 16,
+    },
+    aiBadgeText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: theme.colors.primary,
+        fontFamily: theme.typography.fontFamily,
+    },
+    // Usage Badge
+    usageBadge: {
+        flexDirection: 'row-reverse',
+        alignItems: 'center',
+        alignSelf: 'center',
+        gap: 6,
+        paddingHorizontal: 12,
+        paddingVertical: 5,
+        borderRadius: 16,
+        marginBottom: 12,
+    },
+    usageBadgeText: {
+        fontSize: 11,
+        fontWeight: '600',
+        fontFamily: theme.typography.fontFamily,
+    },
+    // Instruction
+    instruction: {
+        fontSize: 15,
+        color: theme.colors.textSecondary,
+        textAlign: 'center',
+        marginBottom: 20,
+        fontFamily: theme.typography.fontFamily,
+        lineHeight: 22,
+    },
+    // Steps
+    stepsCard: {
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 20,
+        ...theme.shadows.sm,
+    },
+    stepRow: {
+        flexDirection: 'row-reverse',
+        alignItems: 'center',
+        gap: 12,
+        paddingVertical: 6,
+    },
+    stepIcon: {
+        width: 34,
+        height: 34,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     stepText: {
         flex: 1,
         fontSize: 13,
-        color: '#1E3A8A',
+        fontFamily: theme.typography.fontFamily,
+        textAlign: 'right',
+    },
+    stepDivider: {
+        height: 1,
+        backgroundColor: theme.colors.border,
+        marginVertical: 4,
+        marginHorizontal: 46,
+    },
+    // Input
+    inputWrapper: {
+        flexDirection: 'row-reverse',
+        alignItems: 'center',
+        borderRadius: 20,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderWidth: 1.5,
+        marginBottom: 16,
+        minHeight: 68,
+    },
+    input: {
+        flex: 1,
+        fontSize: 16,
+        fontFamily: theme.typography.fontFamily,
+        textAlign: 'right',
+        maxHeight: 100,
+        paddingVertical: 6,
+    },
+    sendBtn: {
+        width: 48,
+        height: 48,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginLeft: 12,
+        ...theme.shadows.sm,
+    },
+    // Example
+    exampleCard: {
+        borderRadius: 14,
+        padding: 14,
+        borderWidth: 1,
+        borderStyle: 'dashed',
+        marginBottom: 16,
+    },
+    exampleHeader: {
+        flexDirection: 'row-reverse',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: 8,
+    },
+    exampleLabel: {
+        fontSize: 12,
+        fontWeight: '600',
+        fontFamily: theme.typography.fontFamily,
+    },
+    exampleText: {
+        fontSize: 13,
         fontFamily: theme.typography.fontFamily,
         textAlign: 'right',
         lineHeight: 20,
     },
-
-    // Examples section styles
-    examplesContainer: {
-        marginTop: 12,
-        padding: 16,
-        backgroundColor: '#F8FAFC',
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
+    // Processing
+    processingContainer: {
+        alignItems: 'center',
+        paddingVertical: 32,
+        gap: 12,
     },
-    examplesTitle: {
+    processingText: {
         fontSize: 14,
-        fontWeight: '600',
-        color: '#475569',
         fontFamily: theme.typography.fontFamily,
-        textAlign: 'right',
-        marginBottom: 12,
     },
-    examplesGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
-        justifyContent: 'flex-end',
-    },
-    exampleChip: {
+    // Results Header
+    resultsHeader: {
         flexDirection: 'row-reverse',
         alignItems: 'center',
-        gap: 6,
-        backgroundColor: '#FFFFFF',
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
+        justifyContent: 'space-between',
+        marginBottom: 16,
     },
-    exampleText: {
-        fontSize: 12,
-        color: '#334155',
-        fontFamily: theme.typography.fontFamily,
+    resultsHeaderLeft: {
+        flexDirection: 'row-reverse',
+        alignItems: 'center',
+        gap: 8,
     },
-
-    // Result Styles
-    resultContainer: {
-        width: '100%',
-    },
-    resultTitle: {
+    resultsTitle: {
         fontSize: 16,
         fontWeight: '700',
-        color: '#334155',
-        textAlign: 'center',
-        marginBottom: 16,
         fontFamily: theme.typography.fontFamily,
     },
+    // Result Card
     resultCard: {
-        backgroundColor: '#FFFFFF',
         borderRadius: 16,
         padding: 16,
+        marginBottom: 12,
         borderWidth: 1,
-        borderColor: '#E2E8F0',
-        marginBottom: 16,
+        ...theme.shadows.xs,
     },
-    titleInputContainer: {
-        marginBottom: 16,
-        paddingBottom: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: '#E2E8F0',
-    },
-    titleInput: {
-        backgroundColor: '#F1F5F9',
-        borderRadius: 12,
-        padding: 12,
-        marginTop: 8,
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#1E293B',
-        fontFamily: theme.typography.fontFamily,
-        textAlign: 'right',
-    },
-    resultRow: {
+    cardHeader: {
         flexDirection: 'row-reverse',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 12,
+        marginBottom: 14,
     },
-    resultLabel: {
-        fontSize: 14,
-        color: '#64748B',
-        fontFamily: theme.typography.fontFamily,
-    },
-    resultValue: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#1E293B',
-        fontFamily: theme.typography.fontFamily,
-    },
-    resultValueAmount: {
-        fontSize: 24,
-        fontWeight: '800',
-        color: theme.colors.primary,
-        fontFamily: theme.typography.fontFamily,
-    },
-    badge: {
+    typeBadge: {
+        flexDirection: 'row-reverse',
+        alignItems: 'center',
+        gap: 4,
         paddingHorizontal: 10,
         paddingVertical: 4,
         borderRadius: 8,
     },
-    badgeText: {
+    typeBadgeText: {
         fontSize: 12,
         fontWeight: '700',
         fontFamily: theme.typography.fontFamily,
     },
-    actions: {
+    deleteBtn: {
+        padding: 2,
+    },
+    // Fields
+    fieldRow: {
+        flexDirection: 'row-reverse',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 10,
+    },
+    fieldInput: {
+        flex: 1,
+        fontSize: 15,
+        fontFamily: theme.typography.fontFamily,
+        textAlign: 'right',
+        borderBottomWidth: 1,
+        paddingVertical: 6,
+        paddingHorizontal: 4,
+    },
+    amountInput: {
+        fontSize: 18,
+        fontWeight: '700',
+    },
+    currencyLabel: {
+        fontSize: 12,
+        fontFamily: theme.typography.fontFamily,
+    },
+    // Toggle
+    toggleRow: {
         flexDirection: 'row-reverse',
         gap: 8,
-        paddingHorizontal: 16,
-        paddingTop: 8,
-        backgroundColor: '#ffffff',
-        borderTopWidth: 1,
-        borderTopColor: '#f1f5f9',
+        marginBottom: 12,
+        marginTop: 4,
     },
-    actionButton: {
+    toggleBtn: {
         flex: 1,
-        height: 48,
-        borderRadius: 14,
+        flexDirection: 'row-reverse',
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    cancelAction: {
-        backgroundColor: '#F1F5F9',
-    },
-    cancelActionText: {
-        color: '#64748B',
-        fontWeight: '600',
-        fontFamily: theme.typography.fontFamily,
-    },
-    confirmAction: {
-        backgroundColor: theme.colors.primary,
-    },
-    confirmActionText: {
-        color: '#FFFFFF',
-        fontWeight: '700',
-        fontFamily: theme.typography.fontFamily,
-    },
-
-    // Type Toggle Styles
-    typeToggle: {
-        flexDirection: 'row-reverse',
-        backgroundColor: '#F1F5F9',
-        borderRadius: 12,
-        padding: 4,
-        gap: 4,
-    },
-    typeOption: {
-        paddingHorizontal: 12,
+        gap: 6,
         paddingVertical: 8,
         borderRadius: 10,
+        backgroundColor: theme.colors.surfaceLight,
     },
-    typeOptionActiveExpense: {
-        backgroundColor: '#FEE2E2',
+    toggleBtnActiveExpense: {
+        backgroundColor: '#FEF2F2',
     },
-    typeOptionActiveIncome: {
-        backgroundColor: '#D1FAE5',
+    toggleBtnActiveIncome: {
+        backgroundColor: '#ECFDF5',
     },
-    typeOptionText: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#64748B',
+    toggleText: {
+        fontSize: 13,
+        fontWeight: '500',
+        color: theme.colors.textMuted,
         fontFamily: theme.typography.fontFamily,
     },
-    typeOptionTextActive: {
-        color: '#1E293B',
-        fontWeight: '700',
-    },
-
-    // Category Selector Styles
-    categorySection: {
-        marginTop: 16,
-    },
+    // Category
     categoryScroll: {
         flexDirection: 'row-reverse',
-        gap: 8,
-        paddingTop: 12,
-        paddingBottom: 4,
+        gap: 6,
+        paddingVertical: 4,
     },
     categoryChip: {
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        borderRadius: 20,
-        backgroundColor: '#F1F5F9',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
         borderWidth: 1,
-        borderColor: '#E2E8F0',
     },
     categoryChipActiveExpense: {
         backgroundColor: '#FEE2E2',
-        borderColor: '#EF4444',
+        borderColor: '#FECACA',
     },
     categoryChipActiveIncome: {
         backgroundColor: '#D1FAE5',
-        borderColor: '#10B981',
+        borderColor: '#A7F3D0',
     },
     categoryChipText: {
-        fontSize: 13,
-        color: '#64748B',
+        fontSize: 12,
         fontFamily: theme.typography.fontFamily,
         fontWeight: '500',
     },
     categoryChipTextActive: {
         color: '#1E293B',
         fontWeight: '700',
+    },
+    // Add More
+    addMoreBtn: {
+        flexDirection: 'row-reverse',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        padding: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderStyle: 'dashed',
+        marginTop: 4,
+    },
+    addMoreText: {
+        fontSize: 13,
+        fontWeight: '600',
+        fontFamily: theme.typography.fontFamily,
+    },
+    // Bottom Actions
+    bottomActions: {
+        flexDirection: 'row-reverse',
+        gap: 10,
+        paddingHorizontal: 16,
+        paddingTop: 12,
+        borderTopWidth: 1,
+    },
+    actionBtn: {
+        flex: 1,
+        flexDirection: 'row-reverse',
+        height: 48,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+    },
+    cancelBtn: {
+        borderWidth: 1,
+        flex: 0.4,
+    },
+    cancelBtnText: {
+        fontWeight: '600',
+        fontFamily: theme.typography.fontFamily,
+    },
+    confirmBtn: {
+        backgroundColor: theme.colors.primary,
+        flex: 0.6,
+    },
+    confirmBtnText: {
+        color: '#FFFFFF',
+        fontWeight: '700',
+        fontFamily: theme.typography.fontFamily,
     },
 });

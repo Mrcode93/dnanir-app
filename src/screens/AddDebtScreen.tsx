@@ -28,7 +28,7 @@ import {
 import { createDebt, generateInstallments } from '../services/debtService';
 import { alertService } from '../services/alertService';
 import { isRTL } from '../utils/rtl';
-import { convertArabicToEnglish } from '../utils/numbers';
+import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 import { useCurrency } from '../hooks/useCurrency';
 
 const { width } = Dimensions.get('window');
@@ -44,8 +44,8 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
     navigation,
     route,
 }) => {
-  const { theme } = useAppTheme();
-  const styles = useThemedStyles(createStyles);
+    const { theme } = useAppTheme();
+    const styles = useThemedStyles(createStyles);
     const insets = useSafeAreaInsets();
     const { formatCurrency } = useCurrency();
     const editingDebt = route?.params?.debt as Debt | undefined;
@@ -70,7 +70,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
         loadBalance();
         if (editingDebt) {
             setDebtorName(editingDebt.debtorName);
-            setTotalAmount(editingDebt.totalAmount.toString());
+            setTotalAmount(formatNumberWithCommas(editingDebt.totalAmount));
             setDirection(editingDebt.direction || 'owed_by_me');
             setType(editingDebt.type);
             setStartDate(new Date(editingDebt.startDate));
@@ -124,7 +124,8 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
             return;
         }
 
-        if (!totalAmount.trim() || isNaN(Number(totalAmount)) || Number(totalAmount) <= 0) {
+        const cleanTotalAmount = totalAmount.replace(/,/g, '');
+        if (!cleanTotalAmount.trim() || isNaN(Number(cleanTotalAmount)) || Number(cleanTotalAmount) <= 0) {
             alertService.warning('تنبيه', 'يرجى إدخال مبلغ صحيح');
             return;
         }
@@ -132,7 +133,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
         setLoading(true);
 
         try {
-            const amount = Number(totalAmount);
+            const amount = Number(cleanTotalAmount);
             const debtData = {
                 debtorName: debtorName.trim(),
                 totalAmount: amount,
@@ -327,9 +328,12 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
                                 <View style={styles.amountInputRow}>
                                     <TextInput
                                         value={totalAmount}
-                                        onChangeText={(val) => setTotalAmount(convertArabicToEnglish(val))}
+                                        onChangeText={(val) => {
+                                            const cleaned = convertArabicToEnglish(val);
+                                            setTotalAmount(formatNumberWithCommas(cleaned));
+                                        }}
                                         placeholder="0"
-                                        keyboardType="numeric"
+                                        keyboardType="decimal-pad"
                                         mode="flat"
                                         style={styles.amountInput}
                                         underlineColor="transparent"
@@ -431,8 +435,11 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
                                                 <Text style={styles.instLabel}>عدد الأقساط</Text>
                                                 <TextInput
                                                     value={numberOfInstallments}
-                                                    onChangeText={(val) => setNumberOfInstallments(convertArabicToEnglish(val))}
-                                                    keyboardType="number-pad"
+                                                    onChangeText={(val) => {
+                                                        const cleaned = convertArabicToEnglish(val);
+                                                        setNumberOfInstallments(cleaned); // Assuming this is just a count, no commas needed, but cleaning is good
+                                                    }}
+                                                    keyboardType="decimal-pad"
                                                     mode="outlined"
                                                     style={styles.instInput}
                                                     outlineColor={theme.colors.border}

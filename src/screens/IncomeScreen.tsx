@@ -532,6 +532,7 @@ export const IncomeScreen = ({ navigation, route }: any) => {
           fetchIncome(true);
         }}
         mode="income"
+        navigation={navigation}
       />
     </SafeAreaView >
   );

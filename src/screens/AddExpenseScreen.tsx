@@ -24,7 +24,7 @@ import { alertService } from '../services/alertService';
 import { useCurrency } from '../hooks/useCurrency';
 import { isRTL } from '../utils/rtl';
 import { convertCurrency } from '../services/currencyService';
-import { convertArabicToEnglish } from '../utils/numbers';
+import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 import { formatDateLocal } from '../utils/date';
 import { getSmartExpenseShortcuts } from '../services/smartShortcutsService';
 
@@ -40,8 +40,10 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const styles = useThemedStyles(createStyles);
-  const { currencyCode, formatCurrency } = useCurrency();
+  const { currencyCode, formatCurrency, loading: currencyLoading } = useCurrency();
   const expense = route?.params?.expense as Expense | undefined;
+  const isInitialized = React.useRef(false);
+  const amountInputRef = React.useRef<any>(null);
 
   // State
   const [title, setTitle] = useState('');
@@ -71,9 +73,10 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
 
   useEffect(() => {
     const convertAmount = async () => {
-      if (amount && !isNaN(Number(amount)) && Number(amount) > 0) {
+      const cleanAmount = amount.replace(/,/g, '');
+      if (cleanAmount && !isNaN(Number(cleanAmount)) && Number(cleanAmount) > 0) {
         if (currency !== currencyCode) {
-          const converted = await convertCurrency(Number(amount), currency, currencyCode);
+          const converted = await convertCurrency(Number(cleanAmount), currency, currencyCode);
           setConvertedAmount(converted);
         } else {
           setConvertedAmount(null);
@@ -90,20 +93,32 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
   }, []);
 
   useEffect(() => {
+    if (currencyLoading) return;
+
     if (expense) {
-      setTitle(expense.title);
-      setAmount(expense.amount.toString());
-      setCategory(expense.category as ExpenseCategory);
-      setDate(new Date(expense.date));
-      setDescription(expense.description || '');
-      setCurrency(expense.currency || currencyCode);
-      setShowShortcuts(false);
+      if (!isInitialized.current) {
+        setTitle(expense.title);
+        setAmount(formatNumberWithCommas(expense.amount));
+        setCategory(expense.category as ExpenseCategory);
+        setDate(new Date(expense.date));
+        setDescription(expense.description || '');
+        setCurrency(expense.currency || currencyCode);
+        setShowShortcuts(false);
+        isInitialized.current = true;
+      }
     } else {
-      resetForm();
-      setShowShortcuts(true);
-      loadShortcuts();
+      if (!isInitialized.current) {
+        resetForm();
+        setShowShortcuts(true);
+        loadShortcuts();
+        isInitialized.current = true;
+        // Small delay for focus on Android is often more stable
+        setTimeout(() => {
+          amountInputRef.current?.focus();
+        }, 300);
+      }
     }
-  }, [expense, currencyCode]);
+  }, [expense, currencyCode, currencyLoading]);
 
   const loadShortcuts = async () => {
     try {
@@ -142,7 +157,8 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
       alertService.warning('تنبيه', 'يرجى إدخال العنوان أو الفئة');
       return;
     }
-    if (!amount.trim() || isNaN(Number(amount)) || Number(amount) <= 0) {
+    const cleanAmount = amount.replace(/,/g, '');
+    if (!cleanAmount.trim() || isNaN(Number(cleanAmount)) || Number(cleanAmount) <= 0) {
       alertService.warning('تنبيه', 'يرجى إدخال مبلغ صحيح');
       return;
     }
@@ -151,8 +167,8 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
     try {
       const expenseData = {
         title: finalTitle,
-        amount: Number(amount),
-        base_amount: convertedAmount !== null ? convertedAmount : Number(amount),
+        amount: Number(cleanAmount),
+        base_amount: convertedAmount !== null ? convertedAmount : Number(cleanAmount),
         category: category,
         date: formatDateLocal(date),
         description: description.trim(),
@@ -230,21 +246,26 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
           <View style={styles.amountSection}>
             <Text style={styles.currencySymbol}>{CURRENCIES.find(c => c.code === currency)?.symbol}</Text>
             <TextInput
+              ref={amountInputRef}
               value={amount}
-              onChangeText={(v) => setAmount(convertArabicToEnglish(v))}
+              onChangeText={(v) => {
+                const cleaned = convertArabicToEnglish(v);
+                setAmount(formatNumberWithCommas(cleaned));
+              }}
               placeholder="0"
               placeholderTextColor={theme.colors.textMuted + '80'}
               style={styles.amountInput}
-              keyboardType="numeric"
-              autoFocus={!expense}
+              keyboardType="decimal-pad"
               selectionColor={theme.colors.primary}
               underlineColor="transparent"
               activeUnderlineColor="transparent"
             />
           </View>
-          {convertedAmount !== null && (
-            <Text style={styles.convertedText}>≈ {formatCurrency(convertedAmount)}</Text>
-          )}
+          <View style={{ height: 24, justifyContent: 'center' }}>
+            {convertedAmount !== null && (
+              <Text style={styles.convertedText}>≈ {formatCurrency(convertedAmount)}</Text>
+            )}
+          </View>
 
           <TouchableOpacity onPress={() => setShowCurrencyPicker(true)} style={styles.currencyPill}>
             <Text style={styles.currencyPillText}>{currency}</Text>
@@ -425,7 +446,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingTop: Platform.OS === 'android' ? 16 : 12,
+    paddingBottom: Platform.OS === 'android' ? 12 : 12,
   },
   closeBtn: {
     padding: 8,

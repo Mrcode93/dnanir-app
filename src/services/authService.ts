@@ -104,6 +104,24 @@ export const authenticateWithBiometric = async (): Promise<boolean> => {
 };
 
 /**
+ * Authenticate using device security (Biometric or Passcode)
+ */
+export const authenticateWithDevice = async (reason: string = 'يرجى التحقق من الهوية للمتابعة'): Promise<boolean> => {
+  try {
+    const result = await LocalAuthentication.authenticateAsync({
+      promptMessage: reason,
+      cancelLabel: 'إلغاء',
+      disableDeviceFallback: false, // Allows PIN, Pattern, or Password fallback
+    });
+
+    return result.success;
+  } catch (error) {
+    console.error('Error authenticating with device:', error);
+    return false;
+  }
+};
+
+/**
  * Set up password authentication
  */
 export const setupPassword = async (password: string): Promise<boolean> => {
