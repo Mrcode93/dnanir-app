@@ -190,7 +190,7 @@ export const GoalsScreen = ({ navigation, route }: any) => {
             style={styles.summaryCard}
           >
             <View style={styles.summaryHeader}>
-              <Ionicons name="trophy-outline" size={32} color={theme.colors.textInverse} />
+              <Ionicons name="trophy-outline" size={32} color={theme.colors.surface} />
               <View style={styles.summaryText}>
                 <Text style={styles.summaryTitle}>الأهداف النشطة</Text>
                 <Text style={styles.summarySubtitle}>
@@ -348,7 +348,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   summarySubtitle: {
     fontSize: theme.typography.sizes.sm,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: theme.colors.surface + 'CC',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',
@@ -358,19 +358,19 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   progressBar: {
     height: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: theme.colors.surface + '4D',
     borderRadius: theme.borderRadius.round,
     overflow: 'hidden',
     marginBottom: theme.spacing.sm,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: theme.colors.textInverse,
+    backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.round,
   },
   progressText: {
     fontSize: theme.typography.sizes.sm,
-    color: theme.colors.textInverse,
+    color: theme.colors.surface,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',
@@ -384,14 +384,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   summaryAmountLabel: {
     fontSize: theme.typography.sizes.xs,
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: theme.colors.surface + 'B3',
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
   },
   summaryAmountValue: {
     fontSize: theme.typography.sizes.lg,
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textInverse,
+    color: theme.colors.surface,
     fontFamily: theme.typography.fontFamily,
   },
   currencyBreakdown: {
@@ -399,7 +399,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   currencyBreakdownText: {
     fontSize: theme.typography.sizes.xs,
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: theme.colors.surface + 'B3',
     fontFamily: theme.typography.fontFamily,
     marginTop: 2,
     fontStyle: 'italic',

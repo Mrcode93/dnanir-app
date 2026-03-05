@@ -107,7 +107,7 @@ export const MonthFilter: React.FC<MonthFilterProps> = ({
           <Text style={styles.filterButtonText} numberOfLines={1}>
             {getMonthLabel()}
           </Text>
-          <Ionicons name="chevron-down" size={14} color="#94A3B8" />
+          <Ionicons name="chevron-down" size={14} color={theme.colors.textMuted} />
         </View>
       </TouchableOpacity>
 
@@ -170,11 +170,11 @@ export const MonthFilter: React.FC<MonthFilterProps> = ({
                       </LinearGradient>
                     ) : (
                       <View style={styles.cardContent}>
-                        <View style={[styles.iconBox, isAllOption && { backgroundColor: '#F1F5F9' }]}>
+                        <View style={[styles.iconBox, isAllOption && { backgroundColor: theme.colors.surfaceLight }]}>
                           <Ionicons
                             name={isAllOption ? "layers-outline" : "calendar-outline"}
                             size={22}
-                            color={isAllOption ? '#64748B' : theme.colors.textSecondary}
+                            color={isAllOption ? theme.colors.textSecondary : theme.colors.textSecondary}
                           />
                         </View>
                         <Text style={[styles.textNormal, isAllOption && { fontWeight: '700' }]}>{item.label}</Text>
@@ -228,7 +228,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     gap: 8,
   },
   filterButtonText: {
-    color: '#0F172A',
+    color: theme.colors.textPrimary,
     fontSize: 13,
     fontWeight: getPlatformFontWeight('700'),
     fontFamily: theme.typography.fontFamily,
@@ -238,11 +238,11 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: theme.colors.overlay,
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF', // Clean white
+    backgroundColor: theme.colors.surfaceCard, // Clean surface
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     maxHeight: '80%',
@@ -255,7 +255,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     width: 48,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: theme.colors.border,
     alignSelf: 'center',
     marginTop: 12,
   },
@@ -270,14 +270,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0F172A', // Slate 900
+    color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right', // Explicitly aligned
     writingDirection: 'rtl',
   },
   closeButton: {
     padding: 8,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: theme.colors.surfaceLight,
     borderRadius: 50,
   },
   monthList: {
@@ -290,14 +290,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   monthCard: {
     marginBottom: 8,
     borderRadius: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surfaceCard,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: theme.colors.border,
     overflow: 'hidden',
   },
   allDataCard: {
-    backgroundColor: '#F8FAFC',
-    borderColor: '#CBD5E1',
+    backgroundColor: theme.colors.surfaceLight,
+    borderColor: theme.colors.border,
   },
   monthCardSelected: {
     borderWidth: 0,
@@ -315,7 +315,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.colors.surfaceLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: isRTL ? 12 : 0,
@@ -325,7 +325,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#FFFFFF', // White background for icon inside gradient
+    backgroundColor: theme.colors.surfaceCard, // White background for icon inside gradient
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: isRTL ? 12 : 0,
@@ -335,7 +335,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
-    color: '#334155',
+    color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',
@@ -344,7 +344,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',
@@ -353,27 +353,27 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surfaceCard,
     alignItems: 'center',
     justifyContent: 'center',
   },
   allBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: theme.colors.border,
     borderRadius: 8,
   },
   allBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#475569',
+    color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
   },
   modalFooter: {
     paddingHorizontal: 20,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: theme.colors.border,
   },
   confirmButton: {
     height: 50,
@@ -386,7 +386,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     justifyContent: 'center',
   },
   confirmButtonText: {
-    color: '#FFFFFF',
+    color: theme.colors.textInverse,
     fontSize: 16,
     fontWeight: '700',
     fontFamily: theme.typography.fontFamily,

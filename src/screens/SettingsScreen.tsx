@@ -48,7 +48,7 @@ import * as Clipboard from 'expo-clipboard';
 import { notifyCurrencyChanged } from '../services/currencyEvents';
 
 export const SettingsScreen = ({ navigation }: any) => {
-  const { theme } = useAppTheme();
+  const { theme, isDark, setIsDark } = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const [userName, setUserName] = useState<string>('');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -871,8 +871,8 @@ export const SettingsScreen = ({ navigation }: any) => {
 
   const handleShareApp = async () => {
     try {
-      // أيفون → رابط App Store، أندرويد → رابط تيليجرام
-      const shareUrl = Platform.OS === 'ios' ? APP_LINKS.apple : APP_LINKS.telegram;
+      // رابط موحد لكل المنصات
+      const shareUrl = 'https://urux.guru/apps';
       const message = `${SHARE_APP_MESSAGE}\n${shareUrl}`;
       await Share.share({
         message,
@@ -935,8 +935,40 @@ export const SettingsScreen = ({ navigation }: any) => {
               />
             </View>
 
+            <View style={styles.premiumRow}>
+              <View style={[styles.premiumIconBox, { backgroundColor: '#8B5CF615' }]}>
+                <Ionicons name={isDark ? 'moon' : 'moon-outline'} size={22} color="#8B5CF6" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.premiumItemTitle}>الوضع الداكن</Text>
+                <Text style={styles.premiumItemSubtitle}>تغيير المظهر إلى الوضع الليلي</Text>
+              </View>
+              <Switch
+                value={isDark}
+                onValueChange={async (value) => {
+                  setIsDark(value);
+                  try {
+                    const appSettings = await getAppSettings();
+                    const settingsToSave = appSettings || {
+                      notificationsEnabled: true,
+                      darkModeEnabled: false,
+                      autoBackupEnabled: false,
+                      autoSyncEnabled: false,
+                      currency: 'دينار عراقي',
+                      language: 'ar',
+                    };
+                    await upsertAppSettings({ ...settingsToSave, darkModeEnabled: value });
+                  } catch (e) {
+                    console.warn('Failed to save dark mode setting:', e);
+                  }
+                }}
+                trackColor={{ false: theme.colors.border, true: '#8B5CF6' }}
+              />
+            </View>
+
           </View>
         </View>
+
 
         {/* 3. النسخ الاحتياطي والاستعادة */}
         <View style={styles.sectionCard}>
@@ -1876,7 +1908,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     lineHeight: 22,
   },
   loginBtnHeader: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surfaceCard,
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 24,
@@ -2782,7 +2814,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     justifyContent: 'flex-end',
   },
   timePickerModalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surfaceCard,
     borderTopLeftRadius: theme.borderRadius.xl,
     borderTopRightRadius: theme.borderRadius.xl,
     paddingBottom: Platform.OS === 'ios' ? 40 : theme.spacing.lg,
@@ -2833,7 +2865,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: theme.spacing.lg,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surfaceCard,
     minHeight: 250,
     position: 'relative',
   },
@@ -2884,7 +2916,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     pointerEvents: 'none',
   },
   referralCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surfaceCard,
     borderRadius: 24,
     padding: 20,
     marginTop: 12,
@@ -2912,20 +2944,20 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   referralTitleText: {
     fontSize: 16,
     fontWeight: getPlatformFontWeight('800'),
-    color: '#1E293B',
+    color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: 4,
     textAlign: 'left',
   },
   referralSubtitleText: {
     fontSize: 13,
-    color: '#64748B',
+    color: theme.colors.textMuted,
     fontFamily: theme.typography.fontFamily,
     lineHeight: 18,
     textAlign: 'left',
   },
   referralCodeBox: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.colors.surfaceLight,
     borderRadius: 20,
     padding: 16,
     borderWidth: 1,
@@ -2974,13 +3006,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   referralStatLabel: {
     fontSize: 14,
-    color: '#64748B',
+    color: theme.colors.textMuted,
     fontFamily: theme.typography.fontFamily,
   },
   referralStatValue: {
     fontSize: 16,
     fontWeight: getPlatformFontWeight('800'),
-    color: '#1E293B',
+    color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
   shareCodeButton: {

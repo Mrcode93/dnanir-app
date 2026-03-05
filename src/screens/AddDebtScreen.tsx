@@ -10,10 +10,11 @@ import {
     Switch,
     Keyboard,
     Dimensions,
+    StatusBar,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextInput, IconButton, Surface } from 'react-native-paper';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { CustomDatePicker } from '../components/CustomDatePicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
@@ -64,6 +65,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
     const [hasInstallments, setHasInstallments] = useState(false);
     const [numberOfInstallments, setNumberOfInstallments] = useState('1');
     const [installmentFrequency, setInstallmentFrequency] = useState<'weekly' | 'monthly'>('monthly');
+    const [remainingAmount, setRemainingAmount] = useState('');
     const [currentBalance, setCurrentBalance] = useState(0);
 
     useEffect(() => {
@@ -76,6 +78,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
             setStartDate(new Date(editingDebt.startDate));
             setDueDate(editingDebt.dueDate ? new Date(editingDebt.dueDate) : null);
             setHasDueDate(!!editingDebt.dueDate);
+            setRemainingAmount(formatNumberWithCommas(editingDebt.remainingAmount));
             setDescription(editingDebt.description || '');
 
             getDebtInstallments(editingDebt.id).then(insts => {
@@ -110,6 +113,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
         setHasInstallments(false);
         setNumberOfInstallments('1');
         setInstallmentFrequency('monthly');
+        setRemainingAmount('');
     };
 
     const handleClose = useCallback(() => {
@@ -134,17 +138,21 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
 
         try {
             const amount = Number(cleanTotalAmount);
+            // When editing, we reset remainingAmount to match totalAmount 
+            // because editing is usually used to fix an entry error.
+            const finalRemainingAmount = amount;
+
             const debtData = {
                 debtorName: debtorName.trim(),
                 totalAmount: amount,
-                remainingAmount: editingDebt ? editingDebt.remainingAmount : amount,
+                remainingAmount: finalRemainingAmount,
                 startDate: startDate.toISOString().split('T')[0],
                 dueDate: hasDueDate && dueDate ? dueDate.toISOString().split('T')[0] : undefined,
                 description: description.trim(),
                 type: type,
                 direction,
                 currency: 'IQD',
-                isPaid: false,
+                isPaid: finalRemainingAmount <= 0,
             };
 
             if (editingDebt) {
@@ -197,9 +205,9 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
     };
 
     const typeData: Record<DebtType, { label: string; icon: string; colors: string[] }> = {
-        debt: { label: 'دين', icon: 'card', colors: ['#8B5CF6', '#6D28D9'] },
-        installment: { label: 'أقساط', icon: 'calendar', colors: ['#3B82F6', '#1D4ED8'] },
-        advance: { label: 'سلفة', icon: 'cash', colors: ['#10B981', '#059669'] },
+        debt: { label: 'دين', icon: 'card', colors: theme.gradients.info },
+        installment: { label: 'أقساط', icon: 'calendar', colors: theme.gradients.primary },
+        advance: { label: 'سلفة', icon: 'cash', colors: theme.gradients.success },
     };
 
     return (
@@ -262,7 +270,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
                                     activeOpacity={0.8}
                                     style={[styles.directionChip, direction === 'owed_by_me' && styles.directionChipActive]}
                                 >
-                                    <Ionicons name="arrow-redo" size={20} color={direction === 'owed_by_me' ? '#FFF' : theme.colors.textSecondary} />
+                                    <Ionicons name="arrow-redo" size={20} color={direction === 'owed_by_me' ? theme.colors.background : theme.colors.textSecondary} />
                                     <Text style={[styles.directionChipLabel, direction === 'owed_by_me' && styles.directionChipLabelActive]}>
                                         {DEBT_DIRECTIONS.owed_by_me}
                                     </Text>
@@ -273,7 +281,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
                                     activeOpacity={0.8}
                                     style={[styles.directionChip, direction === 'owed_to_me' && styles.directionChipActiveOwedToMe]}
                                 >
-                                    <Ionicons name="arrow-undo" size={20} color={direction === 'owed_to_me' ? '#FFF' : theme.colors.textSecondary} />
+                                    <Ionicons name="arrow-undo" size={20} color={direction === 'owed_to_me' ? theme.colors.background : theme.colors.textSecondary} />
                                     <Text style={[styles.directionChipLabel, direction === 'owed_to_me' && styles.directionChipLabelActive]}>
                                         {DEBT_DIRECTIONS.owed_to_me}
                                     </Text>
@@ -308,7 +316,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
                                                 <Ionicons
                                                     name={isSelected ? (data.icon as any) : (`${data.icon}-outline` as any)}
                                                     size={24}
-                                                    color={isSelected ? '#FFF' : theme.colors.textSecondary}
+                                                    color={isSelected ? theme.colors.background : theme.colors.textSecondary}
                                                 />
                                                 <Text style={[styles.typeCardLabel, isSelected && styles.typeCardLabelActive]}>
                                                     {data.label}
@@ -361,6 +369,15 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
                                     placeholderTextColor={theme.colors.textMuted}
                                 />
                             </View>
+
+                            {editingDebt && (
+                                <View style={styles.editInfoContent}>
+                                    <Ionicons name="information-circle-outline" size={16} color={theme.colors.info} />
+                                    <Text style={styles.editInfoText}>
+                                        عند تعديل مبلغ الدين، سيتم تحديث المبلغ المتبقي ليطابق المبلغ الجديد تلقائياً.
+                                    </Text>
+                                </View>
+                            )}
                         </Surface>
 
                         {/* Date Selection */}
@@ -386,7 +403,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
                                             value={hasDueDate}
                                             onValueChange={setHasDueDate}
                                             trackColor={{ false: theme.colors.border, true: theme.colors.primary + '40' }}
-                                            thumbColor={hasDueDate ? theme.colors.primary : '#FFF'}
+                                            thumbColor={hasDueDate ? theme.colors.primary : theme.colors.surfaceCard}
                                         />
                                     </View>
                                     <TouchableOpacity
@@ -424,7 +441,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
                                         value={hasInstallments}
                                         onValueChange={setHasInstallments}
                                         trackColor={{ false: theme.colors.border, true: theme.colors.primary + '40' }}
-                                        thumbColor={hasInstallments ? theme.colors.primary : '#FFF'}
+                                        thumbColor={hasInstallments ? theme.colors.primary : theme.colors.surfaceCard}
                                     />
                                 </View>
 
@@ -502,7 +519,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
                                         <Text style={styles.saveBtnText}>
                                             {editingDebt ? 'تحديث البيانات' : 'حفظ الالتزام'}
                                         </Text>
-                                        <Ionicons name="checkmark-circle" size={22} color="#FFF" />
+                                        <Ionicons name="checkmark-circle" size={22} color={theme.colors.background} />
                                     </>
                                 )}
                             </LinearGradient>
@@ -511,25 +528,23 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
 
                     {/* Date Pickers */}
                     {showStartDatePicker && (
-                        <DateTimePicker
+                        <CustomDatePicker
                             value={startDate}
-                            mode="date"
-                            display="default"
                             onChange={(event, date) => {
-                                setShowStartDatePicker(false);
                                 if (date) setStartDate(date);
+                                if (Platform.OS === 'android') setShowStartDatePicker(false);
                             }}
+                            onClose={() => setShowStartDatePicker(false)}
                         />
                     )}
                     {showDueDatePicker && (
-                        <DateTimePicker
+                        <CustomDatePicker
                             value={dueDate || new Date()}
-                            mode="date"
-                            display="default"
                             onChange={(event, date) => {
-                                setShowDueDatePicker(false);
                                 if (date) setDueDate(date);
+                                if (Platform.OS === 'android') setShowDueDatePicker(false);
                             }}
+                            onClose={() => setShowDueDatePicker(false)}
                         />
                     )}
                 </LinearGradient>
@@ -644,12 +659,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         alignItems: 'center',
     },
     directionChipActive: {
-        borderColor: '#8B5CF6',
-        backgroundColor: '#8B5CF618',
+        borderColor: theme.colors.info,
+        backgroundColor: theme.colors.info + '18',
     },
     directionChipActiveOwedToMe: {
-        borderColor: '#10B981',
-        backgroundColor: '#10B98118',
+        borderColor: theme.colors.success,
+        backgroundColor: theme.colors.success + '18',
     },
     directionChipLabel: {
         fontSize: 14,
@@ -695,7 +710,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         fontWeight: getPlatformFontWeight('600'),
     },
     typeCardLabelActive: {
-        color: '#FFF',
+        color: theme.colors.background,
     },
     mainCard: {
         marginTop: 24,
@@ -736,11 +751,46 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         marginRight: isRTL ? 8 : 0,
         marginTop: 12,
     },
+    labelWithAction: {
+        flexDirection: isRTL ? 'row-reverse' : 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        width: '100%',
+        marginBottom: 4,
+    },
+    resetBtn: {
+        backgroundColor: theme.colors.surfaceLight,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+    },
+    resetBtnText: {
+        fontSize: 10,
+        color: theme.colors.primary,
+        fontFamily: theme.typography.fontFamily,
+        fontWeight: getPlatformFontWeight('600'),
+    },
     divider: {
         height: 1,
         backgroundColor: theme.colors.border,
         marginVertical: 20,
         width: '100%',
+    },
+    editInfoContent: {
+        flexDirection: isRTL ? 'row-reverse' : 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.info + '10',
+        padding: 10,
+        borderRadius: 12,
+        marginTop: 15,
+        gap: 8,
+    },
+    editInfoText: {
+        flex: 1,
+        fontSize: 12,
+        color: theme.colors.info,
+        fontFamily: theme.typography.fontFamily,
+        textAlign: isRTL ? 'right' : 'left',
     },
     inputField: {
         flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -800,7 +850,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         color: theme.colors.textMuted,
     },
     optionsCard: {
-        backgroundColor: '#F3F4F6',
+        backgroundColor: theme.colors.surfaceLight,
         borderRadius: 18,
         padding: 18,
     },
@@ -903,7 +953,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     saveBtnText: {
         fontSize: 18,
         fontWeight: getPlatformFontWeight('700'),
-        color: '#FFF',
+        color: theme.colors.background,
         fontFamily: theme.typography.fontFamily,
     },
 });

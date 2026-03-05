@@ -149,7 +149,7 @@ const GoalCardComponent: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete, on
             colors={['rgba(255, 255, 255, 0.3)', 'rgba(255, 255, 255, 0.15)']}
             style={styles.iconContainer}
           >
-            <Ionicons name={categoryInfo.icon as any} size={24} color={theme.colors.textInverse} />
+            <Ionicons name={categoryInfo.icon as any} size={24} color={theme.colors.surface} />
           </LinearGradient>
           <View style={styles.titleContainer}>
             <Text style={styles.title} numberOfLines={1}>
@@ -171,7 +171,7 @@ const GoalCardComponent: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete, on
               }}
               activeOpacity={0.7}
             >
-              <Ionicons name="ellipsis-vertical" size={20} color={theme.colors.textInverse} />
+              <Ionicons name="ellipsis-vertical" size={20} color={theme.colors.surface} />
             </TouchableOpacity>
           </View>
         </View>
@@ -226,7 +226,7 @@ const GoalCardComponent: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete, on
 
         {!isCompleted && remaining > 0 && (
           <View style={styles.remainingContainer}>
-            <Ionicons name="time-outline" size={14} color={theme.colors.textInverse} />
+            <Ionicons name="time-outline" size={14} color={theme.colors.surface} />
             <View style={styles.remainingInfo}>
               <Text style={styles.remainingText}>
                 متبقي: {isPrivacyEnabled ? '****' : formatCurrencyAmount(remaining, goalCurrency)}
@@ -241,7 +241,7 @@ const GoalCardComponent: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete, on
               )}
               {estimatedTime && estimatedTime.formatted !== 'مكتمل' && (
                 <View style={styles.estimatedTimeContainer}>
-                  <Ionicons name="hourglass-outline" size={12} color={theme.colors.textInverse} />
+                  <Ionicons name="hourglass-outline" size={12} color={theme.colors.surface} />
                   <View style={styles.estimatedTimeContent}>
                     <Text style={styles.estimatedTimeText}>
                       الوقت المتوقع: {isPrivacyEnabled ? '****' : estimatedTime.formatted}
@@ -260,7 +260,7 @@ const GoalCardComponent: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete, on
 
         {isCompleted && (
           <View style={styles.completedContainer}>
-            <Ionicons name="trophy" size={16} color={theme.colors.textInverse} />
+            <Ionicons name="trophy" size={16} color={theme.colors.surface} />
             <Text style={styles.completedText}>تم إنجاز الهدف!</Text>
           </View>
         )}
@@ -369,7 +369,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   title: {
     fontSize: theme.typography.sizes.lg,
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textInverse,
+    color: theme.colors.surface,
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
@@ -377,7 +377,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   category: {
     fontSize: theme.typography.sizes.sm,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: theme.colors.surface + 'CC',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',
@@ -433,7 +433,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   progressBar: {
     height: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    backgroundColor: theme.colors.surface + '40',
     borderRadius: theme.borderRadius.round,
     overflow: 'hidden',
     marginBottom: theme.spacing.xs,
@@ -449,7 +449,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   progressPercent: {
     fontSize: theme.typography.sizes.sm,
     fontWeight: getPlatformFontWeight('600'),
-    color: theme.colors.textInverse,
+    color: theme.colors.surface,
     fontFamily: theme.typography.fontFamily,
   },
   amountContainer: {
@@ -462,20 +462,20 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   amountLabel: {
     fontSize: theme.typography.sizes.xs,
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: theme.colors.surface + 'B3',
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
   },
   amountValue: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textInverse,
+    color: theme.colors.surface,
     fontFamily: theme.typography.fontFamily,
   },
   convertedAmount: {
     fontSize: theme.typography.sizes.xs,
     fontWeight: getPlatformFontWeight('500'),
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: theme.colors.surface + 'B3',
     fontFamily: theme.typography.fontFamily,
     marginTop: 2,
     fontStyle: 'italic',
@@ -483,7 +483,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   convertedRemainingText: {
     fontSize: theme.typography.sizes.xs,
     fontWeight: getPlatformFontWeight('500'),
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: theme.colors.surface + 'B3',
     fontFamily: theme.typography.fontFamily,
     marginTop: 2,
     fontStyle: 'italic',
@@ -496,7 +496,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginTop: theme.spacing.sm,
     paddingTop: theme.spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.2)',
+    borderTopColor: theme.colors.surface + '33',
   },
   remainingInfo: {
     flex: 1,
@@ -504,7 +504,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   remainingText: {
     fontSize: theme.typography.sizes.sm,
-    color: theme.colors.textInverse,
+    color: theme.colors.surface,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',
@@ -517,7 +517,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingTop: theme.spacing.xs,
     paddingBottom: theme.spacing.xs,
     paddingHorizontal: theme.spacing.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: theme.colors.surface + '26',
     borderRadius: theme.borderRadius.sm,
     alignSelf: 'flex-start',
     width: '100%',
@@ -528,7 +528,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   estimatedTimeText: {
     fontSize: theme.typography.sizes.xs,
-    color: theme.colors.textInverse,
+    color: theme.colors.surface,
     fontFamily: theme.typography.fontFamily,
     fontWeight: getPlatformFontWeight('600'),
     textAlign: 'right',
@@ -537,7 +537,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   estimatedTimeExplanation: {
     fontSize: theme.typography.sizes.xs - 1,
-    color: 'rgba(255, 255, 255, 0.75)',
+    color: theme.colors.surface + 'BF',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',
@@ -549,11 +549,11 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginTop: theme.spacing.sm,
     paddingTop: theme.spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.2)',
+    borderTopColor: theme.colors.surface + '33',
   },
   completedText: {
     fontSize: theme.typography.sizes.sm,
-    color: theme.colors.textInverse,
+    color: theme.colors.surface,
     ...(isRTL ? { marginRight: theme.spacing.xs } : { marginLeft: theme.spacing.xs }),
     fontWeight: getPlatformFontWeight('600'),
     fontFamily: theme.typography.fontFamily,

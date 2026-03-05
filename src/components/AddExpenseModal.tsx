@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextInput, IconButton } from 'react-native-paper';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { CustomDatePicker } from './CustomDatePicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
@@ -541,16 +541,15 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                       <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
                     </TouchableOpacity>
                     {showDatePicker && (
-                      <DateTimePicker
+                      <CustomDatePicker
                         value={date}
-                        mode="date"
-                        display="default"
                         onChange={(event, selectedDate) => {
-                          setShowDatePicker(false);
                           if (selectedDate) {
                             setDate(selectedDate);
                           }
+                          if (Platform.OS === 'android') setShowDatePicker(false);
                         }}
+                        onClose={() => setShowDatePicker(false)}
                       />
                     )}
                   </View>

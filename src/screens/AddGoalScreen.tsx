@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconButton } from 'react-native-paper';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { CustomDatePicker } from '../components/CustomDatePicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
@@ -381,7 +381,7 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
                             : `${categoryIcons[catKey]}-outline` as any
                           }
                           size={26}
-                          color={isSelected ? '#FFF' : categoryColors[catKey][0]}
+                          color={isSelected ? theme.colors.background : categoryColors[catKey][0]}
                         />
                         <Text style={[
                           styles.categoryCardLabel,
@@ -412,7 +412,7 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
                   value={hasTargetDate}
                   onValueChange={setHasTargetDate}
                   trackColor={{ false: theme.colors.border, true: categoryColors[category][0] + '40' }}
-                  thumbColor={hasTargetDate ? categoryColors[category][0] : '#FFF'}
+                  thumbColor={hasTargetDate ? categoryColors[category][0] : theme.colors.background}
                 />
               </View>
 
@@ -435,16 +435,15 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
               )}
 
               {showDatePicker && (
-                <DateTimePicker
+                <CustomDatePicker
                   value={targetDate || new Date()}
-                  mode="date"
-                  display="default"
                   onChange={(event, selectedDate) => {
-                    setShowDatePicker(false);
                     if (selectedDate) {
                       setTargetDate(selectedDate);
                     }
+                    if (Platform.OS === 'android') setShowDatePicker(false);
                   }}
+                  onClose={() => setShowDatePicker(false)}
                   minimumDate={new Date()}
                 />
               )}
@@ -504,7 +503,7 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               >
-                <Ionicons name="checkmark-circle" size={22} color="#FFF" />
+                <Ionicons name="checkmark-circle" size={22} color={theme.colors.background} />
                 <Text style={styles.saveButtonText}>
                   {loading ? 'جاري الحفظ...' : editingGoal ? 'تحديث الهدف' : 'حفظ الهدف'}
                 </Text>
@@ -779,7 +778,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginTop: 5,
   },
   categoryCardLabelActive: {
-    color: '#FFFFFF',
+    color: theme.colors.background,
   },
   optionRow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -867,7 +866,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   saveButtonText: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
-    color: '#FFFFFF',
+    color: theme.colors.background,
     fontFamily: theme.typography.fontFamily,
   },
 });

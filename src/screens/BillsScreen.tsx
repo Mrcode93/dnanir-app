@@ -101,7 +101,7 @@ export const BillsScreen = ({ navigation, route }: any) => {
         await loadBills();
         setShowDeleteAlert(false);
         setBillToDelete(null);
-        alertService.success('نجح', 'تم حذف الفاتورة بنجاح');
+        alertService.toastSuccess('تم حذف الفاتورة بنجاح');
       } catch (error) {
         console.error('Error deleting bill:', error);
         alertService.error('خطأ', 'حدث خطأ أثناء حذف الفاتورة');
@@ -223,7 +223,7 @@ export const BillsScreen = ({ navigation, route }: any) => {
                   isOverdue && styles.daysBadgeOverdue,
                   isDueSoon && !isOverdue && styles.daysBadgeDueSoon,
                 ]}>
-                  <Ionicons name={isOverdue ? 'alert-circle' : 'time'} size={12} color={isOverdue ? '#DC2626' : '#B45309'} />
+                  <Ionicons name={isOverdue ? 'alert-circle' : 'time'} size={12} color={isOverdue ? theme.colors.error : theme.colors.warning} />
                   <Text style={[styles.daysText, isOverdue && styles.daysTextOverdue]}>
                     {isOverdue ? `متأخرة ${Math.abs(daysUntilDue)} يوم` : daysUntilDue === 0 ? 'اليوم' : `متبقي ${daysUntilDue} يوم`}
                   </Text>
@@ -293,7 +293,7 @@ export const BillsScreen = ({ navigation, route }: any) => {
               </View>
               <View style={styles.summaryCard}>
                 <View style={[styles.summaryCardIconWrap, styles.summaryCardIconAmber]}>
-                  <Ionicons name="time-outline" size={18} color="#D97706" />
+                  <Ionicons name="time-outline" size={18} color={theme.colors.warning} />
                 </View>
                 <Text style={styles.summaryLabel} numberOfLines={1}>مستحقة قريباً</Text>
                 <View style={styles.summaryValueWrap}>
@@ -303,7 +303,7 @@ export const BillsScreen = ({ navigation, route }: any) => {
               </View>
               <View style={styles.summaryCard}>
                 <View style={[styles.summaryCardIconWrap, styles.summaryCardIconGreen]}>
-                  <Ionicons name="checkmark-circle-outline" size={18} color="#059669" />
+                  <Ionicons name="checkmark-circle-outline" size={18} color={theme.colors.success} />
                 </View>
                 <Text style={styles.summaryLabel} numberOfLines={1}>مدفوعة</Text>
                 <View style={styles.summaryValueWrap}>
@@ -407,7 +407,7 @@ export const BillsScreen = ({ navigation, route }: any) => {
 const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: theme.colors.background,
     writingDirection: 'rtl',
     direction: 'rtl',
   },
@@ -426,7 +426,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   searchbar: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.colors.surfaceLight,
     elevation: 0,
     shadowOpacity: 0,
     borderRadius: 10,
@@ -443,7 +443,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 10,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.colors.surfaceLight,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -499,10 +499,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: 8,
   },
   summaryCardIconAmber: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: theme.colors.warning + '20',
   },
   summaryCardIconGreen: {
-    backgroundColor: '#D1FAE5',
+    backgroundColor: theme.colors.success + '20',
   },
   summaryLabel: {
     fontSize: 12, // Slightly larger label
@@ -536,7 +536,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: theme.colors.surfaceLight,
     marginRight: isRTL ? 0 : 8,
     marginLeft: isRTL ? 8 : 0,
   },
@@ -549,7 +549,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   filterChipTextActive: {
-    color: '#FFFFFF',
+    color: theme.colors.background,
     fontWeight: getPlatformFontWeight('600'),
   },
   listContent: {
@@ -590,13 +590,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: theme.colors.border,
   },
   billStatusPaid: {
-    backgroundColor: '#10B981',
+    backgroundColor: theme.colors.success,
   },
   billStatusOverdue: {
-    backgroundColor: '#EF4444',
+    backgroundColor: theme.colors.error,
   },
   billStatusDueSoon: {
-    backgroundColor: '#F59E0B',
+    backgroundColor: theme.colors.warning,
   },
   billCardMainContent: {
     flex: 1,
@@ -673,19 +673,19 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     gap: 5,
   },
   daysBadgeOverdue: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: theme.colors.error + '15',
   },
   daysBadgeDueSoon: {
-    backgroundColor: '#FFFBEB',
+    backgroundColor: theme.colors.warning + '15',
   },
   daysText: {
     fontSize: 11,
-    color: '#B45309',
+    color: theme.colors.warning,
     fontFamily: theme.typography.fontFamily,
     fontWeight: getPlatformFontWeight('700'),
   },
   daysTextOverdue: {
-    color: '#DC2626',
+    color: theme.colors.error,
   },
   billActions: {
     flexDirection: isRTL ? 'row' : 'row-reverse',

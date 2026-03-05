@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextInput, IconButton } from 'react-native-paper';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { CustomDatePicker } from '../components/CustomDatePicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
@@ -321,7 +321,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
                       }}
                     >
                       <View style={[styles.catIcon, { backgroundColor: isSelected ? cat.color : theme.colors.surfaceLight }]}>
-                        <Ionicons name={cat.icon as any} size={20} color={isSelected ? '#FFF' : theme.colors.textSecondary} />
+                        <Ionicons name={cat.icon as any} size={20} color={isSelected ? theme.colors.background : theme.colors.textSecondary} />
                       </View>
                       <Text style={[styles.catName, isSelected && { color: cat.color, fontWeight: '700' }]} numberOfLines={1}>{cat.name}</Text>
                     </TouchableOpacity>
@@ -385,21 +385,20 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
         {/* Floating Save Button */}
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
           <TouchableOpacity style={[styles.saveBtn, { backgroundColor: currentCategoryInfo.color || theme.colors.primary }]} onPress={handleSave} disabled={loading}>
-            {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveBtnText}>حفظ المصروف</Text>}
+            {loading ? <ActivityIndicator color={theme.colors.background} /> : <Text style={styles.saveBtnText}>حفظ المصروف</Text>}
           </TouchableOpacity>
         </View>
 
       </KeyboardAvoidingView>
 
-      {/* Modals reused logic but simpler render? keeping standard modals for picker is fine */}
       {showDatePicker && (
-        <DateTimePicker
+        <CustomDatePicker
           value={date}
-          mode="date"
           onChange={(_, d) => {
-            setShowDatePicker(false);
             if (d) setDate(d);
+            if (Platform.OS === 'android') setShowDatePicker(false);
           }}
+          onClose={() => setShowDatePicker(false)}
         />
       )}
 
@@ -669,7 +668,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   saveBtnText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#FFF',
+    color: theme.colors.background,
     fontFamily: theme.typography.fontFamily,
   },
 

@@ -13,10 +13,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextInput, IconButton } from 'react-native-paper';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { CustomDatePicker } from './CustomDatePicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, useAppTheme, useThemedStyles } from '../utils/theme';
+import { alertService } from '../services/alertService';
 import { ExpenseCategory, EXPENSE_CATEGORIES, RECURRENCE_TYPES } from '../types';
 import {
   addRecurringExpense,
@@ -110,24 +111,24 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
 
   const handleSave = async () => {
     if (!title.trim()) {
-      Alert.alert('تنبيه', 'يرجى إدخال عنوان المصروف');
+      alertService.warning('تنبيه', 'يرجى إدخال عنوان المصروف');
       return;
     }
 
     const cleanAmount = amount.replace(/,/g, '');
     if (!cleanAmount.trim() || isNaN(Number(cleanAmount)) || Number(cleanAmount) <= 0) {
-      Alert.alert('تنبيه', 'يرجى إدخال مبلغ صحيح');
+      alertService.warning('تنبيه', 'يرجى إدخال مبلغ صحيح');
       return;
     }
 
     const recValue = parseInt(recurrenceValue);
     if (isNaN(recValue) || recValue <= 0) {
-      Alert.alert('تنبيه', 'يرجى إدخال قيمة تكرار صحيحة');
+      alertService.warning('تنبيه', 'يرجى إدخال قيمة تكرار صحيحة');
       return;
     }
 
     if (hasEndDate && endDate && endDate <= startDate) {
-      Alert.alert('تنبيه', 'تاريخ الانتهاء يجب أن يكون بعد تاريخ البداية');
+      alertService.warning('تنبيه', 'تاريخ الانتهاء يجب أن يكون بعد تاريخ البداية');
       return;
     }
 
@@ -156,7 +157,7 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
       resetForm();
     } catch (error) {
       console.error('Error saving recurring expense:', error);
-      Alert.alert('خطأ', 'حدث خطأ أثناء حفظ المصروف المتكرر');
+      alertService.error('خطأ', 'حدث خطأ أثناء حفظ المصروف المتكرر');
     } finally {
       setLoading(false);
     }
@@ -361,16 +362,15 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
                   <Ionicons name="calendar" size={20} color={theme.colors.textSecondary} />
                 </TouchableOpacity>
                 {showStartDatePicker && (
-                  <DateTimePicker
+                  <CustomDatePicker
                     value={startDate}
-                    mode="date"
-                    display="default"
                     onChange={(event, selectedDate) => {
-                      setShowStartDatePicker(false);
                       if (selectedDate) {
                         setStartDate(selectedDate);
                       }
+                      if (Platform.OS === 'android') setShowStartDatePicker(false);
                     }}
+                    onClose={() => setShowStartDatePicker(false)}
                   />
                 )}
               </View>
@@ -402,16 +402,15 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
                       <Ionicons name="calendar" size={20} color={theme.colors.textSecondary} />
                     </TouchableOpacity>
                     {showEndDatePicker && (
-                      <DateTimePicker
+                      <CustomDatePicker
                         value={endDate || new Date()}
-                        mode="date"
-                        display="default"
                         onChange={(event, selectedDate) => {
-                          setShowEndDatePicker(false);
                           if (selectedDate) {
                             setEndDate(selectedDate);
                           }
+                          if (Platform.OS === 'android') setShowEndDatePicker(false);
                         }}
+                        onClose={() => setShowEndDatePicker(false)}
                       />
                     )}
                   </>
@@ -446,7 +445,7 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
                 disabled={loading}
               >
                 <LinearGradient
-                  colors={[theme.colors.primary, '#2563EB']}
+                  colors={[theme.colors.primary, theme.colors.info]}
                   style={styles.saveButtonGradient}
                 >
                   <Text style={styles.saveButtonText}>
@@ -469,7 +468,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: theme.colors.overlay,
   },
   modalContainer: {
     maxHeight: '90%',

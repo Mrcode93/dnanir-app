@@ -146,7 +146,7 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
                       {category ? 'تعديل الفئة' : 'إضافة فئة جديدة'}
                     </Text>
                     <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                      <Ionicons name="close" size={24} color={theme.colors.textInverse} />
+                      <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
                     </TouchableOpacity>
                   </View>
 
@@ -258,7 +258,7 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
                       disabled={!name.trim()}
                     >
                       <LinearGradient
-                        colors={name.trim() ? (selectedColor as any) : ['#9CA3AF', '#6B7280']}
+                        colors={name.trim() ? (selectedColor as any) : [theme.colors.textMuted, theme.colors.border]}
                         style={styles.saveButtonGradient}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
@@ -282,7 +282,7 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
 const createStyles = (theme: AppTheme) => StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: theme.colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
   },

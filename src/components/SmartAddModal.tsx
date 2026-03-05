@@ -25,6 +25,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { usePrivacy } from '../context/PrivacyContext';
 import { alertService } from '../services/alertService';
 import { CONTACT_INFO } from '../constants/contactConstants';
+import { apiClient } from '../services/apiClient';
 
 interface SmartAddModalProps {
     visible: boolean;
@@ -43,6 +44,8 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
     const [isProcessing, setIsProcessing] = useState(false);
     const [parsedResults, setParsedResults] = useState<ParsedTransaction[]>([]);
     const [usageInfo, setUsageInfo] = useState<SmartAddUsageInfo | null>(null);
+    const [isConnected, setIsConnected] = useState<boolean | null>(null);
+    const [isCheckingConnection, setIsCheckingConnection] = useState(false);
     const inputRef = useRef<TextInput>(null);
 
     // Animations
@@ -71,8 +74,21 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
         }
     }, [isProcessing]);
 
+    const checkConnection = async () => {
+        setIsCheckingConnection(true);
+        try {
+            const health = await apiClient.healthCheck();
+            setIsConnected(health);
+        } catch (e) {
+            setIsConnected(false);
+        } finally {
+            setIsCheckingConnection(false);
+        }
+    };
+
     useEffect(() => {
         if (visible) {
+            checkConnection();
             setTimeout(() => inputRef.current?.focus(), 300);
             setText('');
             setParsedResults([]);
@@ -86,11 +102,19 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
         } else {
             fadeAnim.setValue(0);
             slideAnim.setValue(30);
+            setIsConnected(null);
         }
     }, [visible]);
 
     const handleProcess = async () => {
         if (!text.trim()) return;
+
+        // Check connection one more time
+        const health = await apiClient.healthCheck();
+        if (!health) {
+            setIsConnected(false);
+            return;
+        }
 
         // Check usage limits
         const currentUsage = await getSmartAddUsageInfo();
@@ -279,7 +303,36 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
                     >
-                        {parsedResults.length === 0 ? (
+                        {isConnected === false ? (
+                            <View style={styles.noConnectionContainer}>
+                                <View style={[styles.noConnectionIcon, { backgroundColor: theme.colors.error + '1A' }]}>
+                                    <Ionicons name="wifi-outline" size={48} color={theme.colors.error} />
+                                </View>
+                                <Text style={[styles.noConnectionTitle, { color: theme.colors.text }]}>لا يوجد اتصال بالإنترنت</Text>
+                                <Text style={[styles.noConnectionSub, { color: theme.colors.textSecondary }]}>
+                                    تحتاج إلى الاتصال بالإنترنت لاستخدام ميزة الإضافة الذكية بالذكاء الاصطناعي.
+                                </Text>
+                                <TouchableOpacity
+                                    style={[styles.retryBtn, { backgroundColor: theme.colors.primary }]}
+                                    onPress={checkConnection}
+                                    disabled={isCheckingConnection}
+                                >
+                                    {isCheckingConnection ? (
+                                        <ActivityIndicator size="small" color="#fff" />
+                                    ) : (
+                                        <>
+                                            <Ionicons name="refresh" size={18} color="#fff" />
+                                            <Text style={styles.retryBtnText}>محاولة مرة أخرى</Text>
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+                            </View>
+                        ) : isConnected === null ? (
+                            <View style={styles.loadingContainer}>
+                                <ActivityIndicator size="large" color={theme.colors.primary} />
+                                <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>جاري التحقق من الاتصال...</Text>
+                            </View>
+                        ) : parsedResults.length === 0 ? (
                             <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
                                 {/* AI Badge */}
                                 <View style={styles.aiBadge}>
@@ -291,27 +344,27 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
                                 {usageInfo && (
                                     <View style={[styles.usageBadge, {
                                         backgroundColor: !usageInfo.isLoggedIn
-                                            ? '#FEF3C7'
+                                            ? theme.colors.warning + '20'
                                             : usageInfo.remaining > 0
-                                                ? (usageInfo.isPro ? '#FEF3C7' : theme.colors.primary + '12')
-                                                : '#FEE2E2'
+                                                ? (usageInfo.isPro ? theme.colors.warning + '20' : theme.colors.primary + '12')
+                                                : theme.colors.error + '20'
                                     }]}>
                                         <Ionicons
                                             name={!usageInfo.isLoggedIn ? 'lock-closed' : usageInfo.isPro ? 'diamond' : 'sparkles-outline'}
                                             size={14}
                                             color={!usageInfo.isLoggedIn
-                                                ? '#B45309'
+                                                ? theme.colors.warning
                                                 : usageInfo.remaining > 0
-                                                    ? (usageInfo.isPro ? '#B45309' : theme.colors.primary)
-                                                    : '#DC2626'
+                                                    ? (usageInfo.isPro ? theme.colors.warning : theme.colors.primary)
+                                                    : theme.colors.error
                                             }
                                         />
                                         <Text style={[styles.usageBadgeText, {
                                             color: !usageInfo.isLoggedIn
-                                                ? '#92400E'
+                                                ? theme.colors.warning
                                                 : usageInfo.remaining > 0
-                                                    ? (usageInfo.isPro ? '#92400E' : theme.colors.primary)
-                                                    : '#DC2626'
+                                                    ? (usageInfo.isPro ? theme.colors.warning : theme.colors.primary)
+                                                    : theme.colors.error
                                         }]}>
                                             {!usageInfo.isLoggedIn
                                                 ? 'سجل دخول لاستخدام الميزة'
@@ -440,16 +493,16 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
                                         <View style={styles.cardHeader}>
                                             <View style={[
                                                 styles.typeBadge,
-                                                { backgroundColor: item.type === 'expense' ? '#FEE2E2' : '#D1FAE5' }
+                                                { backgroundColor: item.type === 'expense' ? theme.colors.error + '1A' : theme.colors.success + '1A' }
                                             ]}>
                                                 <Ionicons
                                                     name={item.type === 'expense' ? 'arrow-down' : 'arrow-up'}
                                                     size={12}
-                                                    color={item.type === 'expense' ? '#EF4444' : '#10B981'}
+                                                    color={item.type === 'expense' ? theme.colors.error : theme.colors.success}
                                                 />
                                                 <Text style={[
                                                     styles.typeBadgeText,
-                                                    { color: item.type === 'expense' ? '#DC2626' : '#059669' }
+                                                    { color: item.type === 'expense' ? theme.colors.error : theme.colors.success }
                                                 ]}>
                                                     {item.type === 'expense' ? 'مصروف' : 'دخل'}
                                                 </Text>
@@ -485,7 +538,7 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
                                             <Ionicons name="cash-outline" size={16} color={theme.colors.textSecondary} />
                                             <TextInput
                                                 style={[styles.fieldInput, styles.amountInput, {
-                                                    color: item.type === 'expense' ? '#EF4444' : '#10B981',
+                                                    color: item.type === 'expense' ? theme.colors.error : theme.colors.success,
                                                     borderColor: theme.colors.border,
                                                 }]}
                                                 value={item.amount ? formatNumberWithCommas(item.amount) : ''}
@@ -511,8 +564,8 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
                                                 ]}
                                                 onPress={() => updateTransaction(index, 'type', 'expense')}
                                             >
-                                                <Ionicons name="arrow-down-circle-outline" size={16} color={item.type === 'expense' ? '#DC2626' : theme.colors.textMuted} />
-                                                <Text style={[styles.toggleText, item.type === 'expense' && { color: '#DC2626', fontWeight: '700' }]}>مصروف</Text>
+                                                <Ionicons name="arrow-down-circle-outline" size={16} color={item.type === 'expense' ? theme.colors.error : theme.colors.textMuted} />
+                                                <Text style={[styles.toggleText, item.type === 'expense' && { color: theme.colors.error, fontWeight: '700' }]}>مصروف</Text>
                                             </TouchableOpacity>
                                             <TouchableOpacity
                                                 style={[
@@ -521,8 +574,8 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
                                                 ]}
                                                 onPress={() => updateTransaction(index, 'type', 'income')}
                                             >
-                                                <Ionicons name="arrow-up-circle-outline" size={16} color={item.type === 'income' ? '#059669' : theme.colors.textMuted} />
-                                                <Text style={[styles.toggleText, item.type === 'income' && { color: '#059669', fontWeight: '700' }]}>دخل</Text>
+                                                <Ionicons name="arrow-up-circle-outline" size={16} color={item.type === 'income' ? theme.colors.success : theme.colors.textMuted} />
+                                                <Text style={[styles.toggleText, item.type === 'income' && { color: theme.colors.success, fontWeight: '700' }]}>دخل</Text>
                                             </TouchableOpacity>
                                         </View>
 
@@ -872,10 +925,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         backgroundColor: theme.colors.surfaceLight,
     },
     toggleBtnActiveExpense: {
-        backgroundColor: '#FEF2F2',
+        backgroundColor: theme.colors.error + '1A',
     },
     toggleBtnActiveIncome: {
-        backgroundColor: '#ECFDF5',
+        backgroundColor: theme.colors.success + '1A',
     },
     toggleText: {
         fontSize: 13,
@@ -896,12 +949,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         borderWidth: 1,
     },
     categoryChipActiveExpense: {
-        backgroundColor: '#FEE2E2',
-        borderColor: '#FECACA',
+        backgroundColor: theme.colors.error + '1A',
+        borderColor: theme.colors.error + '4D',
     },
     categoryChipActiveIncome: {
-        backgroundColor: '#D1FAE5',
-        borderColor: '#A7F3D0',
+        backgroundColor: theme.colors.success + '1A',
+        borderColor: theme.colors.success + '4D',
     },
     categoryChipText: {
         fontSize: 12,
@@ -909,7 +962,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         fontWeight: '500',
     },
     categoryChipTextActive: {
-        color: '#1E293B',
+        color: theme.colors.textPrimary,
         fontWeight: '700',
     },
     // Add More
@@ -961,6 +1014,62 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     confirmBtnText: {
         color: '#FFFFFF',
         fontWeight: '700',
+        fontFamily: theme.typography.fontFamily,
+    },
+    // No Connection
+    noConnectionContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 60,
+        paddingHorizontal: 20,
+    },
+    noConnectionIcon: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 20,
+    },
+    noConnectionTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        fontFamily: theme.typography.fontFamily,
+        marginBottom: 10,
+        textAlign: 'center',
+    },
+    noConnectionSub: {
+        fontSize: 15,
+        fontFamily: theme.typography.fontFamily,
+        textAlign: 'center',
+        lineHeight: 22,
+        marginBottom: 30,
+    },
+    retryBtn: {
+        flexDirection: 'row-reverse',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 14,
+        ...theme.shadows.sm,
+    },
+    retryBtnText: {
+        color: '#FFFFFF',
+        fontSize: 15,
+        fontWeight: '700',
+        fontFamily: theme.typography.fontFamily,
+    },
+    // Loading
+    loadingContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 100,
+        gap: 16,
+    },
+    loadingText: {
+        fontSize: 14,
         fontFamily: theme.typography.fontFamily,
     },
 });

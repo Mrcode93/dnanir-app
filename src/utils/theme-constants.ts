@@ -106,29 +106,89 @@ export const lightTheme = {
   },
 };
 
-export const darkTheme = {
-  ...lightTheme,
+export const darkTheme: AppTheme = {
   colors: {
-    ...lightTheme.colors,
-    background: '#0F172A',
-    backgroundSecondary: '#1E293B',
-    surface: '#1E293B',
-    surfaceLight: '#334155',
-    surfaceCard: '#1E293B',
-    text: '#F1F5F9',
-    textPrimary: '#FFFFFF',
+    primary: '#4DA8DA',        // Lighter version of brand #003459 for dark surfaces
+    primaryLight: '#7EC8E3',
+    primaryDark: '#003459',    // Original brand color preserved
+    background: '#0B1120',     // Deep navy black
+    backgroundSecondary: '#111827',
+    surface: '#151F2E',        // Elevated surface
+    surfaceLight: '#1A2640',   // Slightly lighter
+    surfaceCard: '#151F2E',
+    text: '#E2E8F0',
+    textPrimary: '#F1F5F9',
     textSecondary: '#94A3B8',
     textMuted: '#64748B',
-    textInverse: '#0F172A',
-    border: '#334155',
-    borderLight: '#475569',
-    divider: 'rgba(255, 255, 255, 0.1)',
+    textInverse: '#0B1120',
+    success: '#34D399',
+    warning: '#FBBF24',
+    error: '#F87171',
+    info: '#60A5FA',
+    border: '#1E3048',
+    borderLight: '#2A4060',
+    divider: 'rgba(255, 255, 255, 0.08)',
     shadow: '#000000',
-    overlay: 'rgba(0, 0, 0, 0.7)',
+    overlay: 'rgba(0, 0, 0, 0.75)',
   },
+  gradients: {
+    primary: ['#003459', '#0A4D6E', '#1A6B8A'],
+    success: ['#10B981', '#059669'],
+    error: ['#EF4444', '#DC2626'],
+    info: ['#003459', '#0A4D6E'],
+    goalPurple: ['#A78BFA', '#8B5CF6', '#7C3AED'],
+    goalBlue: ['#60A5FA', '#3B82F6', '#2563EB'],
+    goalPink: ['#F472B6', '#EC4899', '#DB2777'],
+    goalOrange: ['#FB923C', '#F97316', '#EA580C'],
+    goalTeal: ['#2DD4BF', '#14B8A6', '#0D9488'],
+    goalIndigo: ['#818CF8', '#6366F1', '#4F46E5'],
+    goalEmerald: ['#34D399', '#10B981', '#059669'],
+    goalRose: ['#FB7185', '#F43F5E', '#E11D48'],
+  },
+  spacing: lightTheme.spacing,
+  borderRadius: lightTheme.borderRadius,
+  shadows: {
+    xs: {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.3,
+      shadowRadius: 2,
+      elevation: 1,
+    },
+    sm: {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.4,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    md: {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.5,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    lg: {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.6,
+      shadowRadius: 16,
+      elevation: 8,
+    },
+    xl: {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 12 },
+      shadowOpacity: 0.7,
+      shadowRadius: 24,
+      elevation: 12,
+    },
+  },
+  typography: lightTheme.typography,
 };
 
 export type AppTheme = typeof lightTheme;
+
 
 let currentTheme: AppTheme = lightTheme;
 

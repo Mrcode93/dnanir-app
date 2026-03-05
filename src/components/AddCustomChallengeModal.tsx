@@ -192,7 +192,7 @@ export const AddCustomChallengeModal = ({
                     <Ionicons
                       name={info.icon}
                       size={20}
-                      color={category === key ? theme.colors.textInverse : info.color}
+                      color={category === key ? theme.colors.background : info.color}
                     />
                     <Text
                       style={[
@@ -225,7 +225,7 @@ export const AddCustomChallengeModal = ({
                       size={24}
                       color={
                         selectedIcon === icon
-                          ? theme.colors.textInverse
+                          ? theme.colors.background
                           : theme.colors.textPrimary
                       }
                     />
@@ -308,7 +308,7 @@ export const AddCustomChallengeModal = ({
 const createStyles = (theme: AppTheme) => StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: theme.colors.overlay,
     justifyContent: 'flex-end',
   },
   modalContent: {
@@ -390,7 +390,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   categoryChipTextActive: {
-    color: theme.colors.textInverse,
+    color: theme.colors.background,
   },
   iconContainer: {
     flexDirection: 'row',
@@ -448,7 +448,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   saveButtonText: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('600'),
-    color: theme.colors.textInverse,
+    color: theme.colors.background,
     fontFamily: theme.typography.fontFamily,
   },
 });

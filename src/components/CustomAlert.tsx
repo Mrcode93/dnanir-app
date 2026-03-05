@@ -186,7 +186,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   overlayAnimated: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: theme.colors.overlay,
   },
   alertContainer: {
     width: '100%',

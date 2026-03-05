@@ -134,6 +134,7 @@ export const DebtsScreen = ({ navigation, route }: any) => {
         await loadDebts();
         setShowDeleteAlert(false);
         setDebtToDelete(null);
+        alertService.toastSuccess('تم حذف الدين بنجاح');
       } catch (error) {
         console.error('Error deleting debt:', error);
         alertService.error('خطأ', 'حدث خطأ أثناء حذف الدين');

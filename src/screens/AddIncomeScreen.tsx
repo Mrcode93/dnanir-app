@@ -9,10 +9,11 @@ import {
   Platform,
   Pressable,
   Modal,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextInput } from 'react-native-paper';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { CustomDatePicker } from '../components/CustomDatePicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
@@ -42,7 +43,7 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
   navigation,
   route,
 }) => {
-  const { theme } = useAppTheme();
+  const { theme, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
   const styles = useThemedStyles(createStyles);
   const { currencyCode, formatCurrency, loading: currencyLoading } = useCurrency();
@@ -228,6 +229,7 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.flex1}
@@ -321,7 +323,7 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
                         }}
                       >
                         <View style={[styles.catIcon, { backgroundColor: isSelected ? cat.color : theme.colors.surfaceLight }]}>
-                          <Ionicons name={cat.icon as any} size={20} color={isSelected ? '#FFF' : theme.colors.textSecondary} />
+                          <Ionicons name={cat.icon as any} size={20} color={isSelected ? theme.colors.background : theme.colors.textSecondary} />
                         </View>
                         <Text style={[styles.catName, isSelected && { color: cat.color, fontWeight: '700' }]} numberOfLines={1}>{cat.name}</Text>
                       </TouchableOpacity>
@@ -396,13 +398,13 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
 
       {/* Modals */}
       {showDatePicker && (
-        <DateTimePicker
+        <CustomDatePicker
           value={date}
-          mode="date"
           onChange={(_, d) => {
-            setShowDatePicker(false);
             if (d) setDate(d);
+            if (Platform.OS === 'android') setShowDatePicker(false);
           }}
+          onClose={() => setShowDatePicker(false)}
         />
       )}
 
@@ -668,18 +670,18 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   saveBtnText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#FFF',
+    color: theme.colors.background,
     fontFamily: theme.typography.fontFamily,
   },
   // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: theme.colors.overlay,
     justifyContent: 'flex-end',
   },
   modalOverlayCentered: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: theme.colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
   },

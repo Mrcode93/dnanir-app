@@ -83,18 +83,18 @@ export const NotificationsScreen = ({ navigation }: any) => {
             case 'budget-alerts':
                 return { name: 'warning', color: theme.colors.error };
             case 'bill-alerts':
-                return { name: 'receipt', color: '#F59E0B' };
+                return { name: 'receipt', color: theme.colors.warning };
             case 'debt-reminders':
-                return { name: 'calendar', color: '#8B5CF6' };
+                return { name: 'calendar', color: '#8B5CF6' }; // Keep indigo or use a theme token if available
             case 'spending-alerts':
             case 'insights':
-                return { name: 'analytics', color: '#0EA5E9' };
+                return { name: 'analytics', color: theme.colors.info };
             case 'daily-reminder':
             case 'expense-reminder':
                 return { name: 'time', color: theme.colors.primary };
             case 'achievements':
             case 'achievement-unlocked':
-                return { name: 'trophy', color: '#F59E0B' };
+                return { name: 'trophy', color: theme.colors.warning };
             case 'test':
                 return { name: 'notifications', color: theme.colors.primary };
             default:
@@ -139,7 +139,7 @@ export const NotificationsScreen = ({ navigation }: any) => {
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
-                        <Ionicons name="notifications-off-outline" size={64} color="#CBD5E1" />
+                        <Ionicons name="notifications-off-outline" size={64} color={theme.colors.textMuted} />
                         <Text style={styles.emptyText}>لا توجد إشعارات حالياً</Text>
                     </View>
                 }
@@ -151,7 +151,7 @@ export const NotificationsScreen = ({ navigation }: any) => {
 const createStyles = (theme: AppTheme) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F8FAFC',
+        backgroundColor: theme.colors.background,
     },
     header: {
         flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -159,9 +159,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: 16,
         paddingVertical: 12,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: theme.colors.surfaceCard,
         borderBottomWidth: 1,
-        borderBottomColor: '#F1F5F9',
+        borderBottomColor: theme.colors.border,
     },
     headerLeft: {
         flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -174,7 +174,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     headerTitle: {
         fontSize: 18,
         fontWeight: getPlatformFontWeight('700'),
-        color: '#0F172A',
+        color: theme.colors.textPrimary,
         fontFamily: theme.typography.fontFamily,
     },
     clearText: {
@@ -188,13 +188,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     },
     notificationCard: {
         flexDirection: isRTL ? 'row-reverse' : 'row',
-        backgroundColor: '#FFFFFF',
+        backgroundColor: theme.colors.surfaceCard,
         padding: 16,
         borderRadius: 16,
         marginBottom: 12,
         ...getPlatformShadow('sm'),
         borderWidth: 1,
-        borderColor: 'transparent',
+        borderColor: theme.colors.border,
     },
     unreadCard: {
         borderColor: theme.colors.primary + '40',
@@ -223,21 +223,21 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     title: {
         fontSize: 15,
         fontWeight: getPlatformFontWeight('700'),
-        color: '#0F172A',
+        color: theme.colors.textPrimary,
         fontFamily: theme.typography.fontFamily,
         flex: 1,
         textAlign: isRTL ? 'right' : 'left',
     },
     time: {
         fontSize: 11,
-        color: '#94A3B8',
+        color: theme.colors.textMuted,
         fontFamily: theme.typography.fontFamily,
         marginLeft: isRTL ? 0 : 8,
         marginRight: isRTL ? 8 : 0,
     },
     body: {
         fontSize: 13,
-        color: '#64748B',
+        color: theme.colors.textSecondary,
         fontFamily: theme.typography.fontFamily,
         lineHeight: 20,
         textAlign: isRTL ? 'right' : 'left',
@@ -250,7 +250,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     emptyText: {
         marginTop: 16,
         fontSize: 16,
-        color: '#94A3B8',
+        color: theme.colors.textMuted,
         fontFamily: theme.typography.fontFamily,
     },
 });

@@ -84,4 +84,8 @@ export const API_ENDPOINTS = {
     INFO: '/api/dnanir/referral/info',
     APPLY: '/api/dnanir/referral/apply',
   },
+  // Promo (Marketing)
+  PROMO: {
+    APPLY: '/api/dnanir/promo/apply',
+  },
 };

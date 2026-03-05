@@ -179,12 +179,12 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
                 >
                   {paymentType === 'all' ? (
                     <LinearGradient
-                      colors={['#10B981', '#059669'] as any}
+                      colors={theme.gradients.success as any}
                       style={styles.paymentTypeGradient}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                     >
-                      <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                      <Ionicons name="checkmark-circle" size={20} color={theme.colors.textInverse} />
                       <Text style={styles.paymentTypeTextActive}>دفع الكامل</Text>
                     </LinearGradient>
                   ) : (
@@ -205,12 +205,12 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
                 >
                   {paymentType === 'partial' ? (
                     <LinearGradient
-                      colors={['#3B82F6', '#2563EB'] as any}
+                      colors={theme.gradients.info as any}
                       style={styles.paymentTypeGradient}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                     >
-                      <Ionicons name="cash" size={20} color="#FFFFFF" />
+                      <Ionicons name="cash" size={20} color={theme.colors.textInverse} />
                       <Text style={styles.paymentTypeTextActive}>دفع جزئي</Text>
                     </LinearGradient>
                   ) : (
@@ -274,19 +274,19 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
                   activeOpacity={0.8}
                 >
                   <LinearGradient
-                    colors={['#10B981', '#059669'] as any}
+                    colors={theme.gradients.success as any}
                     style={styles.payButtonGradient}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                   >
                     {loading ? (
                       <>
-                        <Ionicons name="hourglass-outline" size={18} color="#FFFFFF" />
+                        <Ionicons name="hourglass-outline" size={18} color={theme.colors.textInverse} />
                         <Text style={styles.payButtonText}>{confirmButtonLabel}</Text>
                       </>
                     ) : (
                       <>
-                        <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+                        <Ionicons name="checkmark-circle" size={18} color={theme.colors.textInverse} />
                         <Text style={styles.payButtonText}>{confirmButtonLabel}</Text>
                       </>
                     )}
@@ -307,7 +307,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: theme.colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: theme.spacing.sm,
@@ -377,7 +377,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   remainingAmount: {
     fontSize: theme.typography.sizes.lg,
     fontWeight: getPlatformFontWeight('700'),
-    color: '#DC2626',
+    color: theme.colors.error,
   },
   sectionLabel: {
     fontSize: theme.typography.sizes.sm,
@@ -429,7 +429,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   paymentTypeTextActive: {
     fontSize: theme.typography.sizes.sm,
     fontWeight: getPlatformFontWeight('700'),
-    color: '#FFFFFF',
+    color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
   },
   amountContainer: {
@@ -527,7 +527,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   payButtonText: {
     fontSize: theme.typography.sizes.sm,
     fontWeight: getPlatformFontWeight('700'),
-    color: '#FFFFFF',
+    color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
   },
 });

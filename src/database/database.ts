@@ -560,6 +560,9 @@ export const initDatabase = async () => {
     // Initialize default categories
     await initializeDefaultCategories(db);
 
+    // Initialize default exchange rates for new currencies (migration)
+    await initializeExchangeRates(db);
+
     // Clean up old AI cache (keep last 6 months) - run in background, don't block initialization
     cleanupOldAiCache().catch(err => {
       console.error('Error cleaning up old AI cache:', err);
@@ -678,6 +681,55 @@ const initializeDefaultCategories = async (database: SQLite.SQLiteDatabase) => {
   }
 };
 
+// Initialize default exchange rates for new currencies
+const initializeExchangeRates = async (database: SQLite.SQLiteDatabase) => {
+  const now = new Date().toISOString();
+
+  // Base rates relative to USD (approximate data for initialization)
+  // These will be updated by the user in the app, but providing starting points
+  const usdRates: Record<string, number> = {
+    'IQD': 1310, 'SAR': 3.75, 'AED': 3.67, 'KWD': 0.31,
+    'EGP': 48.0, 'QAR': 3.64, 'BHD': 0.38, 'OMR': 0.38,
+    'JOD': 0.71, 'LBP': 89500, 'SYP': 13000, 'TND': 3.12,
+    'MAD': 10.1, 'DZD': 134.5, 'LYD': 4.82, 'SDG': 600,
+    'YER': 250, 'TRY': 31.5, 'EUR': 0.92, 'GBP': 0.79,
+    'CAD': 1.35, 'AUD': 1.52, 'CHF': 0.88, 'CNY': 7.20,
+    'JPY': 150.0, 'INR': 83.0, 'RUB': 92.0, 'BRL': 4.95,
+  };
+
+  for (const [code, rate] of Object.entries(usdRates)) {
+    if (code === 'USD') continue;
+    try {
+      // Add or update USD to Currency
+      await database.runAsync(
+        'INSERT OR IGNORE INTO exchange_rates (fromCurrency, toCurrency, rate, updatedAt) VALUES (?, ?, ?, ?)',
+        ['USD', code, rate, now]
+      );
+
+      // Also add inverse for common use cases
+      await database.runAsync(
+        'INSERT OR IGNORE INTO exchange_rates (fromCurrency, toCurrency, rate, updatedAt) VALUES (?, ?, ?, ?)',
+        [code, 'USD', 1 / rate, now]
+      );
+
+      // If IQD is the base for the app, or for common Iraqi usage, add IQD relation
+      if (code !== 'IQD') {
+        const iqdRate = usdRates['IQD'] / rate;
+        await database.runAsync(
+          'INSERT OR IGNORE INTO exchange_rates (fromCurrency, toCurrency, rate, updatedAt) VALUES (?, ?, ?, ?)',
+          ['IQD', code, 1 / iqdRate, now]
+        );
+        await database.runAsync(
+          'INSERT OR IGNORE INTO exchange_rates (fromCurrency, toCurrency, rate, updatedAt) VALUES (?, ?, ?, ?)',
+          [code, 'IQD', iqdRate, now]
+        );
+      }
+    } catch (error) {
+      // Ignore if already exists or other constraints
+    }
+  }
+};
+
 export const getDb = () => {
   if (!db) {
     throw new Error('Database not initialized. Call initDatabase() first.');
@@ -688,10 +740,21 @@ export const getDb = () => {
 // Expense operations
 export const addExpense = async (expense: Omit<import('../types').Expense, 'id'>): Promise<number> => {
   const database = getDb();
-  const baseAmount = expense.base_amount !== undefined ? expense.base_amount : expense.amount;
+  let baseAmount = expense.base_amount !== undefined ? expense.base_amount : expense.amount;
+  if (isNaN(baseAmount)) baseAmount = expense.amount;
+
   const result = await database.runAsync(
     'INSERT INTO expenses (title, amount, base_amount, category, date, description, currency, receipt_image_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    [expense.title, expense.amount, baseAmount, expense.category, expense.date, expense.description || null, expense.currency || 'IQD', expense.receipt_image_path || null]
+    [
+      expense.title ? String(expense.title) : 'مصروف',
+      Number(expense.amount) || 0,
+      Number(baseAmount) || 0,
+      expense.category ? String(expense.category) : 'other',
+      expense.date ? String(expense.date) : new Date().toISOString().split('T')[0],
+      expense.description ? String(expense.description) : null,
+      expense.currency ? String(expense.currency) : 'IQD',
+      expense.receipt_image_path ? String(expense.receipt_image_path) : null
+    ]
   );
 
   // Check achievements after adding expense (async, don't wait)
@@ -854,10 +917,22 @@ export const getExpensesTotalAmount = async (options: {
 
 export const updateExpense = async (id: number, expense: Omit<import('../types').Expense, 'id'>): Promise<void> => {
   const database = getDb();
-  const baseAmount = expense.base_amount !== undefined ? expense.base_amount : expense.amount;
+  let baseAmount = expense.base_amount !== undefined ? expense.base_amount : expense.amount;
+  if (isNaN(baseAmount)) baseAmount = expense.amount;
+
   await database.runAsync(
     'UPDATE expenses SET title = ?, amount = ?, base_amount = ?, category = ?, date = ?, description = ?, currency = ?, receipt_image_path = ? WHERE id = ?',
-    [expense.title, expense.amount, baseAmount, expense.category, expense.date, expense.description || null, expense.currency || 'IQD', expense.receipt_image_path || null, id]
+    [
+      expense.title ? String(expense.title) : 'مصروف',
+      Number(expense.amount) || 0,
+      Number(baseAmount) || 0,
+      expense.category ? String(expense.category) : 'other',
+      expense.date ? String(expense.date) : new Date().toISOString().split('T')[0],
+      expense.description ? String(expense.description) : null,
+      expense.currency ? String(expense.currency) : 'IQD',
+      expense.receipt_image_path ? String(expense.receipt_image_path) : null,
+      id
+    ]
   );
 
   // Update widgets (async, don't wait)
@@ -885,10 +960,20 @@ export const deleteExpense = async (id: number): Promise<void> => {
 // Income operations
 export const addIncome = async (income: Omit<import('../types').Income, 'id'>): Promise<number> => {
   const database = getDb();
-  const baseAmount = income.base_amount !== undefined ? income.base_amount : income.amount;
+  let baseAmount = income.base_amount !== undefined ? income.base_amount : income.amount;
+  if (isNaN(baseAmount)) baseAmount = income.amount;
+
   const result = await database.runAsync(
     'INSERT INTO income (source, amount, base_amount, date, description, currency, category) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [income.source, income.amount, baseAmount, income.date, income.description || null, income.currency || 'IQD', income.category || 'other']
+    [
+      income.source ? String(income.source) : 'أخرى',
+      Number(income.amount) || 0,
+      Number(baseAmount) || 0,
+      income.date ? String(income.date) : new Date().toISOString().split('T')[0],
+      income.description ? String(income.description) : null,
+      income.currency ? String(income.currency) : 'IQD',
+      income.category ? String(income.category) : 'other'
+    ]
   );
 
   // Check achievements after adding income (async, don't wait)
@@ -1029,10 +1114,21 @@ export const getIncomeTotalAmount = async (options: {
 
 export const updateIncome = async (id: number, income: Omit<import('../types').Income, 'id'>): Promise<void> => {
   const database = getDb();
-  const baseAmount = income.base_amount !== undefined ? income.base_amount : income.amount;
+  let baseAmount = income.base_amount !== undefined ? income.base_amount : income.amount;
+  if (isNaN(baseAmount)) baseAmount = income.amount;
+
   await database.runAsync(
     'UPDATE income SET source = ?, amount = ?, base_amount = ?, date = ?, description = ?, currency = ?, category = ? WHERE id = ?',
-    [income.source, income.amount, baseAmount, income.date, income.description || null, income.currency || 'IQD', income.category || 'other', id]
+    [
+      income.source ? String(income.source) : 'أخرى',
+      Number(income.amount) || 0,
+      Number(baseAmount) || 0,
+      income.date ? String(income.date) : new Date().toISOString().split('T')[0],
+      income.description ? String(income.description) : null,
+      income.currency ? String(income.currency) : 'IQD',
+      income.category ? String(income.category) : 'other',
+      id
+    ]
   );
 
   // Update widgets (async, don't wait)

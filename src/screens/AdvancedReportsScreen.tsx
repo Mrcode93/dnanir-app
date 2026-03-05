@@ -7,12 +7,13 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Searchbar, Button } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { CustomDatePicker } from '../components/CustomDatePicker';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
 import { useAppTheme, useThemedStyles } from '../utils/theme-context';
 import { generateAdvancedReport, exportReportToCSV, AdvancedReportData } from '../services/advancedReportsService';
@@ -21,6 +22,7 @@ import { useCurrency } from '../hooks/useCurrency';
 import { ReportFilter } from '../types';
 import { EXPENSE_CATEGORIES, INCOME_SOURCES } from '../types';
 import { getCustomCategories } from '../database/database';
+import { alertService } from '../services/alertService';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 
@@ -62,7 +64,7 @@ export const AdvancedReportsScreen = ({ navigation }: any) => {
       setReportData(data);
     } catch (error) {
       console.error('Error generating report:', error);
-      Alert.alert('خطأ', 'حدث خطأ أثناء إنشاء التقرير');
+      alertService.error('خطأ', 'حدث خطأ أثناء إنشاء التقرير');
     } finally {
       setLoading(false);
     }
@@ -79,7 +81,7 @@ export const AdvancedReportsScreen = ({ navigation }: any) => {
       });
     } catch (error) {
       console.error('Error exporting CSV:', error);
-      Alert.alert('خطأ', 'حدث خطأ أثناء تصدير التقرير');
+      alertService.error('خطأ', 'حدث خطأ أثناء تصدير التقرير');
     }
   };
 
@@ -91,7 +93,7 @@ export const AdvancedReportsScreen = ({ navigation }: any) => {
       await sharePDF(uri);
     } catch (error) {
       console.error('Error exporting PDF:', error);
-      Alert.alert('خطأ', 'حدث خطأ أثناء تصدير PDF');
+      alertService.error('خطأ', 'حدث خطأ أثناء تصدير PDF');
     } finally {
       setExportingPDF(false);
     }
@@ -152,16 +154,15 @@ export const AdvancedReportsScreen = ({ navigation }: any) => {
               <Ionicons name="calendar" size={20} color={theme.colors.primary} />
             </TouchableOpacity>
             {showStartDatePicker && (
-              <DateTimePicker
+              <CustomDatePicker
                 value={filter.startDate ? new Date(filter.startDate) : new Date()}
-                mode="date"
-                display="default"
                 onChange={(event, date) => {
-                  setShowStartDatePicker(false);
                   if (date) {
                     setFilter({ ...filter, startDate: date.toISOString().split('T')[0] });
                   }
+                  if (Platform.OS === 'android') setShowStartDatePicker(false);
                 }}
+                onClose={() => setShowStartDatePicker(false)}
               />
             )}
           </View>
@@ -180,16 +181,15 @@ export const AdvancedReportsScreen = ({ navigation }: any) => {
               <Ionicons name="calendar" size={20} color={theme.colors.primary} />
             </TouchableOpacity>
             {showEndDatePicker && (
-              <DateTimePicker
+              <CustomDatePicker
                 value={filter.endDate ? new Date(filter.endDate) : new Date()}
-                mode="date"
-                display="default"
                 onChange={(event, date) => {
-                  setShowEndDatePicker(false);
                   if (date) {
                     setFilter({ ...filter, endDate: date.toISOString().split('T')[0] });
                   }
+                  if (Platform.OS === 'android') setShowEndDatePicker(false);
                 }}
+                onClose={() => setShowEndDatePicker(false)}
               />
             )}
           </View>
@@ -344,7 +344,7 @@ export const AdvancedReportsScreen = ({ navigation }: any) => {
                 disabled={exportingPDF}
               >
                 <LinearGradient
-                  colors={[theme.colors.primary, '#2563EB']}
+                  colors={[theme.colors.primary, theme.colors.info]}
                   style={styles.exportButtonGradient}
                 >
                   {exportingPDF ? (
@@ -491,10 +491,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   incomeValue: {
-    color: '#10B981',
+    color: theme.colors.success,
   },
   expenseValue: {
-    color: '#EF4444',
+    color: theme.colors.error,
   },
   balanceValue: {
     color: theme.colors.primary,

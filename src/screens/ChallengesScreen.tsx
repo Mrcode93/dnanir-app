@@ -336,7 +336,7 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                     >
-                      <Ionicons name="checkmark-circle" size={16} color={theme.colors.textInverse} />
+                      <Ionicons name="checkmark-circle" size={16} color={theme.colors.background} />
                       <Text style={styles.completeButtonText}>إكمال</Text>
                     </LinearGradient>
                   </TouchableOpacity>
@@ -971,7 +971,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   completeButtonText: {
     fontSize: theme.typography.sizes.xs,
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textInverse,
+    color: theme.colors.background,
     fontFamily: theme.typography.fontFamily,
   },
   customChallengeOption: {

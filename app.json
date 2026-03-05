@@ -13,7 +13,7 @@
     ],
     "name": "دنانير",
     "slug": "dnanir",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "light",
@@ -31,7 +31,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.mrcodeiq.dinar",
       "googleServicesFile": "./GoogleService-Info.plist",
-      "buildNumber": "18",
+      "buildNumber": "21",
       "infoPlist": {
         "CFBundleURLTypes": [
           {
@@ -83,7 +83,7 @@
       "locale": "ar",
       "package": "com.mrcodeiq.dinar",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 18,
+      "versionCode": 21,
       "fonts": [
         "./assets/fonts/Tajawal-Regular.ttf"
       ],

@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextInput, IconButton } from 'react-native-paper';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { CustomDatePicker } from './CustomDatePicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
@@ -256,11 +256,11 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
   };
 
   const sourceColors: Record<IncomeSource, string[]> = {
-    salary: ['#10B981', '#059669'],
-    business: ['#3B82F6', '#2563EB'],
-    investment: ['#8B5CF6', '#7C3AED'],
-    gift: ['#EC4899', '#DB2777'],
-    other: ['#6B7280', '#4B5563'],
+    salary: [theme.colors.success, theme.colors.success],
+    business: [theme.colors.info, theme.colors.info],
+    investment: [theme.colors.primary, theme.colors.primary],
+    gift: [theme.colors.error, theme.colors.error],
+    other: [theme.colors.textSecondary, theme.colors.textMuted],
   };
 
   // Helper function to get source info from database or fallback to defaults
@@ -280,14 +280,14 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
     if (defaultKey) {
       return {
         icon: sourceIcons[defaultKey] || 'ellipse',
-        color: sourceColors[defaultKey]?.[0] || '#6B7280',
-        colors: sourceColors[defaultKey] || ['#6B7280', '#4B5563'],
+        color: sourceColors[defaultKey]?.[0] || theme.colors.textSecondary,
+        colors: sourceColors[defaultKey] || [theme.colors.textSecondary, theme.colors.textMuted],
       };
     }
     return {
       icon: 'ellipse',
-      color: '#6B7280',
-      colors: ['#6B7280', '#4B5563'],
+      color: theme.colors.textSecondary,
+      colors: [theme.colors.textSecondary, theme.colors.textMuted],
     };
   };
 
@@ -406,7 +406,7 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
                       ) : (
                         <TouchableOpacity onPress={() => setShowManageShortcuts(true)} activeOpacity={0.8}>
                           <LinearGradient
-                            colors={['#10B981', '#059669'] as any}
+                            colors={theme.gradients.success as any}
                             style={styles.addFirstShortcutGradient}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 0 }}
@@ -516,16 +516,15 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
                       <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
                     </TouchableOpacity>
                     {showDatePicker && (
-                      <DateTimePicker
+                      <CustomDatePicker
                         value={date}
-                        mode="date"
-                        display="default"
                         onChange={(event, selectedDate) => {
-                          setShowDatePicker(false);
                           if (selectedDate) {
                             setDate(selectedDate);
                           }
+                          if (Platform.OS === 'android') setShowDatePicker(false);
                         }}
+                        onClose={() => setShowDatePicker(false)}
                       />
                     )}
                   </View>
@@ -745,7 +744,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: theme.colors.overlay,
     justifyContent: 'flex-end',
   },
   modalContainer: {

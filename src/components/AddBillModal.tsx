@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextInput, IconButton } from 'react-native-paper';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { CustomDatePicker } from './CustomDatePicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
@@ -309,16 +309,15 @@ export const AddBillModal: React.FC<AddBillModalProps> = ({
                       </Text>
                     </Pressable>
                     {showDatePicker && (
-                      <DateTimePicker
+                      <CustomDatePicker
                         value={dueDate}
-                        mode="date"
-                        display="default"
                         onChange={(event, selectedDate) => {
-                          setShowDatePicker(Platform.OS === 'ios');
                           if (selectedDate) {
                             setDueDate(selectedDate);
                           }
+                          if (Platform.OS === 'android') setShowDatePicker(false);
                         }}
+                        onClose={() => setShowDatePicker(false)}
                       />
                     )}
                   </View>

@@ -13,11 +13,11 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Searchbar } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { CustomDatePicker } from '../components/CustomDatePicker';
 import { TransactionItem } from '../components/TransactionItem';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
 import { useAppTheme, useThemedStyles } from '../utils/theme-context';
@@ -49,6 +49,7 @@ export const IncomeScreen = ({ navigation, route }: any) => {
   const styles = useThemedStyles(createStyles);
   const { formatCurrency } = useCurrency();
   const { isPrivacyEnabled } = usePrivacy();
+  const insets = useSafeAreaInsets();
 
   // Data State
   const [income, setIncome] = useState<Income[]>([]);
@@ -236,10 +237,10 @@ export const IncomeScreen = ({ navigation, route }: any) => {
         onDelete={async () => {
           try {
             await deleteIncome(item.id);
-            alertService.success('نجح', 'تم حذف الإيراد بنجاح');
+            alertService.toastSuccess('تم حذف الإيراد بنجاح');
             fetchIncome(true);
           } catch (error) {
-            alertService.error('خطأ', 'حدث خطأ أثناء حذف الإيراد');
+            alertService.toastError('حدث خطأ أثناء حذف الإيراد');
           }
         }}
       />
@@ -249,14 +250,14 @@ export const IncomeScreen = ({ navigation, route }: any) => {
   const renderListHeader = () => (
     <View style={styles.summaryContainer}>
       <LinearGradient
-        colors={['#10B981', '#059669']}
+        colors={theme.gradients.success as any}
         style={styles.summaryCard}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
         <View style={styles.summaryContent}>
           <View style={styles.summaryIconContainer}>
-            <Ionicons name="trending-up" size={24} color="#FFF" />
+            <Ionicons name="trending-up" size={24} color={theme.colors.textPrimary} />
           </View>
           <View style={styles.summaryTextContainer}>
             <Text style={styles.summaryLabel}>إجمالي الإيرادات</Text>
@@ -305,7 +306,20 @@ export const IncomeScreen = ({ navigation, route }: any) => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+    <View style={styles.container}>
+      <View style={[styles.fixedHeader, { paddingTop: insets.top }]}>
+        <View style={styles.screenHeader}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('ManageCategories', { type: 'income' })}
+            style={styles.settingsBtn}
+          >
+            <Ionicons name="settings-outline" size={22} color={theme.colors.primary} />
+          </TouchableOpacity>
+          <Text style={styles.screenTitle}>سجل الدخل</Text>
+          <View style={{ width: 40 }} />
+        </View>
+      </View>
+
       <FlatList
         data={income}
         ListHeaderComponent={
@@ -349,38 +363,16 @@ export const IncomeScreen = ({ navigation, route }: any) => {
               </View>
 
               {showDatePicker && (
-                Platform.OS === 'ios' ? (
-                  <Modal
-                    visible={showDatePicker}
-                    transparent={true}
-                    animationType="slide"
-                    onRequestClose={() => setShowDatePicker(false)}
-                  >
-                    <View style={styles.modalOverlay}>
-                      <View style={styles.pickerModalContent}>
-                        <View style={styles.pickerHeader}>
-                          <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                            <Text style={styles.pickerDoneText}>تم</Text>
-                          </TouchableOpacity>
-                        </View>
-                        <DateTimePicker
-                          value={selectedDate}
-                          mode="date"
-                          display="spinner"
-                          onChange={onDateChange}
-                          textColor="#000000"
-                        />
-                      </View>
-                    </View>
-                  </Modal>
-                ) : (
-                  <DateTimePicker
-                    value={selectedDate}
-                    mode="date"
-                    display="default"
-                    onChange={onDateChange}
-                  />
-                )
+                <CustomDatePicker
+                  value={selectedDate}
+                  onChange={(event, date) => {
+                    if (date) {
+                      setSelectedDate(date);
+                    }
+                    if (Platform.OS === 'android') setShowDatePicker(false);
+                  }}
+                  onClose={() => setShowDatePicker(false)}
+                />
               )}
 
               <View style={styles.categoriesRow}>
@@ -462,7 +454,7 @@ export const IncomeScreen = ({ navigation, route }: any) => {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
-            <Ionicons name="add" size={32} color="#FFF" />
+            <Ionicons name="add" size={32} color={theme.colors.textPrimary} />
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -534,7 +526,7 @@ export const IncomeScreen = ({ navigation, route }: any) => {
         mode="income"
         navigation={navigation}
       />
-    </SafeAreaView >
+    </View>
   );
 };
 
@@ -546,12 +538,39 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   header: {
     backgroundColor: theme.colors.surface,
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 0,
     paddingBottom: 20,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
     ...getPlatformShadow('xs'),
     zIndex: 10,
+  },
+  fixedHeader: {
+    backgroundColor: theme.colors.surface,
+    borderBottomWidth: 0,
+    zIndex: 11,
+  },
+  screenHeader: {
+    flexDirection: isRTL ? 'row' : 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    marginTop: 8,
+  },
+  screenTitle: {
+    fontSize: 18,
+    fontFamily: theme.typography.fontFamily,
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.textPrimary,
+  },
+  settingsBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: theme.colors.surfaceLight,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dateFilterRow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -639,7 +658,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontWeight: getPlatformFontWeight('600'),
   },
   categoryChipTextActive: {
-    color: '#FFF',
+    color: theme.colors.background,
   },
   listContent: {
     paddingBottom: 80,
@@ -677,7 +696,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   summaryLabel: {
     fontFamily: theme.typography.fontFamily,
     fontSize: 13,
-    color: 'rgba(255,255,255,0.9)',
+    color: 'rgba(255,255,255,0.85)',
     marginBottom: 2,
     textAlign: isRTL ? 'right' : 'left',
   },
@@ -685,7 +704,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     fontSize: 24,
     fontWeight: getPlatformFontWeight('800'),
-    color: '#FFF',
+    color: '#FFFFFF',
     textAlign: isRTL ? 'right' : 'left',
   },
   summaryFooter: {
@@ -796,7 +815,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     justifyContent: 'flex-end',
   },
   pickerModalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surfaceCard,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingBottom: 20,
@@ -806,7 +825,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     flexDirection: isRTL ? 'row' : 'row-reverse',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: theme.colors.border,
   },
   pickerDoneText: {
     fontSize: 17,

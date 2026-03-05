@@ -103,9 +103,21 @@ export default function App() {
         // Critical: Database must be ready first
         await initDatabase();
 
+        // Load dark mode preference from DB
+        try {
+          const { getAppSettings } = await import('./src/database/database');
+          const appSettings = await getAppSettings();
+          if (appSettings?.darkModeEnabled) {
+            setIsDark(true);
+          }
+        } catch (e) {
+          console.warn('Failed to load dark mode setting:', e);
+        }
+
         // Only await the auth check — it's needed to decide lock screen
         const authEnabled = await isAuthenticationEnabled();
         setIsLocked(authEnabled);
+
 
         // Non-critical: fire-and-forget in background
         initializeNotifications().catch(e => console.warn('Notifications init skipped:', e));
@@ -286,19 +298,19 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: activeTheme.colors.background }} onLayout={onLayoutRootView}>
       <SafeAreaProvider>
-        <AlertProvider>
-          <PrivacyProvider>
-            <ThemeProvider value={{ theme: activeTheme, isDark, setIsDark }}>
-              <PaperProvider theme={paperTheme}>
-                <Portal.Host>
+        <PrivacyProvider>
+          <ThemeProvider value={{ theme: activeTheme, isDark, setIsDark }}>
+            <PaperProvider theme={paperTheme}>
+              <Portal.Host>
+                <AlertProvider>
                   <PushNotificationManager />
                   <AppNavigator />
                   <StatusBar style={isDark ? "light" : "dark"} backgroundColor={activeTheme.colors.background} />
-                </Portal.Host>
-              </PaperProvider>
-            </ThemeProvider>
-          </PrivacyProvider>
-        </AlertProvider>
+                </AlertProvider>
+              </Portal.Host>
+            </PaperProvider>
+          </ThemeProvider>
+        </PrivacyProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

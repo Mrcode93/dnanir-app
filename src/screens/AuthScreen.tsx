@@ -22,6 +22,7 @@ import { isRTL } from '../utils/rtl';
 import { authApiService } from '../services/authApiService';
 import { alertService } from '../services/alertService';
 import { convertArabicToEnglish, convertArabicToEnglishSimple } from '../utils/numbers';
+import { COUNTRIES } from '../constants/countries';
 
 const { width } = Dimensions.get('window');
 
@@ -77,30 +78,13 @@ export const AuthScreen = ({ navigation, route }: any) => {
     }, [resendCountdown > 0]);
 
 
-    const countries = [
-        { name: 'العراق', code: 'IQ', dial: '+964' },
-        { name: 'السعودية', code: 'SA', dial: '+966' },
-        { name: 'الإمارات', code: 'AE', dial: '+971' },
-        { name: 'مصر', code: 'EG', dial: '+20' },
-        { name: 'الأردن', code: 'JO', dial: '+962' },
-        { name: 'الكويت', code: 'KW', dial: '+965' },
-        { name: 'قطر', code: 'QA', dial: '+974' },
-        { name: 'عمان', code: 'OM', dial: '+968' },
-        { name: 'البحرين', code: 'BH', dial: '+973' },
-        { name: 'لبنان', code: 'LB', dial: '+961' },
-        { name: 'سوريا', code: 'SY', dial: '+963' },
-        { name: 'فلسطين', code: 'PS', dial: '+970' },
-        { name: 'تونس', code: 'TN', dial: '+216' },
-        { name: 'المغرب', code: 'MA', dial: '+212' },
-        { name: 'الجزائر', code: 'DZ', dial: '+213' },
-        { name: 'ليبيا', code: 'LY', dial: '+218' },
-        { name: 'السودان', code: 'SD', dial: '+249' },
-        { name: 'اليمن', code: 'YE', dial: '+967' },
-        { name: 'موريتانيا', code: 'MR', dial: '+222' },
-        { name: 'جيبوتي', code: 'DJ', dial: '+253' },
-        { name: 'الصومال', code: 'SO', dial: '+252' },
-        { name: 'جزر القمر', code: 'KM', dial: '+269' },
-    ];
+    const countries = COUNTRIES;
+    const [searchQuery, setSearchQuery] = useState('');
+    const filteredCountries = countries.filter(c =>
+        c.name.includes(searchQuery) ||
+        c.dial.includes(searchQuery) ||
+        c.code.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
     const onSuccess = route?.params?.onSuccess;
 
@@ -279,7 +263,7 @@ export const AuthScreen = ({ navigation, route }: any) => {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="dark-content" />
+            <StatusBar barStyle={theme.colors.background === '#F8F9FA' ? 'dark-content' : 'light-content'} />
             <SafeAreaView style={styles.safeArea} edges={['top']}>
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -295,7 +279,7 @@ export const AuthScreen = ({ navigation, route }: any) => {
                             <Ionicons
                                 name={isRTL ? 'chevron-forward' : 'chevron-back'}
                                 size={24}
-                                color="#1F2937"
+                                color={theme.colors.text}
                             />
                         </TouchableOpacity>
                     </View>
@@ -344,12 +328,12 @@ export const AuthScreen = ({ navigation, route }: any) => {
                                         <TouchableOpacity
                                             activeOpacity={0.7}
                                             onPress={() => setCountryPickerVisible(true)}
-                                            style={[styles.dialCodeBox, isRTL ? { borderLeftWidth: 1 } : { borderRightWidth: 1 }]}
+                                            style={[styles.dialCodeBox, { borderRightWidth: 1 }]}
                                         >
                                             <Text style={styles.dialCodeText}>
                                                 {countries.find(c => c.code === country)?.dial}
                                             </Text>
-                                            <Ionicons name="chevron-down" size={12} color="#64748B" style={{ marginLeft: 4 }} />
+                                            <Ionicons name="chevron-down" size={12} color={theme.colors.textSecondary} style={{ marginLeft: 4 }} />
                                         </TouchableOpacity>
                                     )}
                                     <TextInput
@@ -359,7 +343,7 @@ export const AuthScreen = ({ navigation, route }: any) => {
                                         placeholderTextColor={theme.colors.textMuted}
                                         style={styles.flexInput}
                                         keyboardType="phone-pad"
-                                        textAlign={isRTL ? 'right' : 'left'}
+                                        textAlign="left"
                                     />
                                 </View>
                             </View>
@@ -415,7 +399,7 @@ export const AuthScreen = ({ navigation, route }: any) => {
                                 activeOpacity={0.8}
                             >
                                 {loading ? (
-                                    <ActivityIndicator color="#FFFFFF" />
+                                    <ActivityIndicator color={theme.colors.textInverse} />
                                 ) : (
                                     <Text style={styles.submitButtonText}>
                                         {isForgotMode ? 'تغيير كلمة المرور' : (isLogin ? 'تسجيل الدخول' : 'إنشاء الحساب')}
@@ -452,44 +436,27 @@ export const AuthScreen = ({ navigation, route }: any) => {
                         transparent={true}
                         animationType="fade"
                         onRequestClose={() => setOtpVisible(false)}
+                        onShow={() => setTimeout(() => otpInputRef.current?.focus(), 150)}
                     >
                         <View style={styles.otpModalOverlay}>
                             <View style={styles.otpModalContainer}>
                                 <Text style={styles.otpTitle}>رمز التحقق</Text>
                                 <Text style={styles.otpSubtitle}>أدخل الرمز المكون من 6 أرقام المرسل إلى {phone}</Text>
 
-                                <TouchableOpacity
-                                    activeOpacity={1}
-                                    onPress={() => otpInputRef.current?.focus()}
-                                    style={[styles.otpInputRow, { flexDirection: 'row' }]}
-                                >
-                                    {[0, 1, 2, 3, 4, 5].map((index) => (
-                                        <View
-                                            key={index}
-                                            style={[
-                                                styles.otpBox,
-                                                otpCode.length === index && styles.otpBoxActive,
-                                                otpCode.length > index && styles.otpBoxFilled,
-                                            ]}
-                                        >
-                                            <Text style={styles.otpBoxText}>
-                                                {otpCode[index] || ''}
-                                            </Text>
-                                            {otpCode.length === index && (
-                                                <View style={styles.otpCursor} />
-                                            )}
-                                        </View>
-                                    ))}
+                                <View style={styles.singleOtpInputContainer}>
                                     <TextInput
                                         ref={otpInputRef}
                                         value={otpCode}
                                         onChangeText={(v) => setOtpCode(convertArabicToEnglish(v))}
-                                        style={styles.hiddenInput}
+                                        placeholder="000000"
+                                        placeholderTextColor={theme.colors.textMuted + '50'}
+                                        style={styles.singleOtpInput}
                                         keyboardType="number-pad"
                                         maxLength={6}
                                         autoFocus={true}
+                                        selectionColor={theme.colors.primary}
                                     />
-                                </TouchableOpacity>
+                                </View>
 
                                 <TouchableOpacity
                                     onPress={handleVerifyAndAction}
@@ -497,7 +464,7 @@ export const AuthScreen = ({ navigation, route }: any) => {
                                     style={styles.verifyButton}
                                 >
                                     {verifyingOtp ? (
-                                        <ActivityIndicator color="#FFFFFF" />
+                                        <ActivityIndicator color={theme.colors.textInverse} />
                                     ) : (
                                         <Text style={styles.verifyButtonText}>
                                             {isForgotMode ? 'تغيير كلمة المرور' : 'تحقق وتسجيل'}
@@ -512,7 +479,7 @@ export const AuthScreen = ({ navigation, route }: any) => {
                                 >
                                     <Text style={[
                                         styles.resendOtpText,
-                                        resendCountdown > 0 && { color: '#94A3B8' }
+                                        resendCountdown > 0 && { color: theme.colors.textMuted }
                                     ]}>
                                         {resendCountdown > 0
                                             ? `إعادة الإرسال بعد ${resendCountdown} ثانية`
@@ -549,8 +516,19 @@ export const AuthScreen = ({ navigation, route }: any) => {
                                         <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
                                     </TouchableOpacity>
                                 </View>
+                                <View style={styles.searchContainer}>
+                                    <Ionicons name="search" size={20} color={theme.colors.textMuted} style={styles.searchIcon} />
+                                    <TextInput
+                                        style={styles.searchInput}
+                                        placeholder="بحث عن دولة أو رمز..."
+                                        placeholderTextColor={theme.colors.textMuted}
+                                        value={searchQuery}
+                                        onChangeText={setSearchQuery}
+                                        autoFocus={false}
+                                    />
+                                </View>
                                 <ScrollView style={styles.pickerScroll}>
-                                    {countries.map((c) => (
+                                    {filteredCountries.map((c) => (
                                         <TouchableOpacity
                                             key={c.code}
                                             style={[
@@ -584,11 +562,11 @@ export const AuthScreen = ({ navigation, route }: any) => {
 const createStyles = (theme: AppTheme) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F8FAFC',
+        backgroundColor: theme.colors.background,
     },
     safeArea: {
         flex: 1,
-        backgroundColor: '#F8FAFC',
+        backgroundColor: theme.colors.background,
     },
     keyboardView: {
         flex: 1,
@@ -604,11 +582,11 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: theme.colors.surfaceCard,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(0, 0, 0, 0.06)',
+        borderColor: theme.colors.border,
     },
     scrollContent: {
         paddingHorizontal: 28,
@@ -632,13 +610,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     screenTitle: {
         fontSize: 26,
         fontWeight: getPlatformFontWeight('700'),
-        color: '#0F172A',
+        color: theme.colors.textPrimary,
         fontFamily: theme.typography.fontFamily,
         textAlign: 'center',
     },
     screenSubtitle: {
         fontSize: 15,
-        color: '#64748B',
+        color: theme.colors.textSecondary,
         fontFamily: theme.typography.fontFamily,
         marginTop: 6,
     },
@@ -646,9 +624,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         width: '100%',
     },
     input: {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: theme.colors.surfaceCard,
         borderWidth: 1,
-        borderColor: 'rgba(0, 0, 0, 0.08)',
+        borderColor: theme.colors.border,
         borderRadius: 14,
         paddingHorizontal: 18,
         height: 54,
@@ -663,25 +641,25 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         marginBottom: 14,
     },
     phoneInputWrapper: {
-        flexDirection: isRTL ? 'row-reverse' : 'row',
+        flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#FFFFFF',
+        backgroundColor: theme.colors.surfaceCard,
         borderWidth: 1,
-        borderColor: 'rgba(0, 0, 0, 0.08)',
+        borderColor: theme.colors.border,
         borderRadius: 14,
         overflow: 'hidden',
     },
     dialCodeText: {
         fontSize: 16,
         fontWeight: '600',
-        color: '#475569',
+        color: theme.colors.textSecondary,
     },
     passwordWrapper: {
         flexDirection: isRTL ? 'row-reverse' : 'row',
         alignItems: 'center',
-        backgroundColor: '#FFFFFF',
+        backgroundColor: theme.colors.surfaceCard,
         borderWidth: 1,
-        borderColor: 'rgba(0, 0, 0, 0.08)',
+        borderColor: theme.colors.border,
         borderRadius: 14,
         paddingHorizontal: 18,
         marginBottom: 14,
@@ -710,7 +688,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     submitButtonText: {
         fontSize: 17,
         fontWeight: getPlatformFontWeight('700'),
-        color: '#FFFFFF',
+        color: theme.colors.textInverse,
         fontFamily: theme.typography.fontFamily,
     },
     switchContainer: {
@@ -721,7 +699,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         flexWrap: 'wrap',
     },
     switchText: {
-        color: '#64748B',
+        color: theme.colors.textSecondary,
         fontSize: 15,
         fontFamily: theme.typography.fontFamily,
     },
@@ -737,19 +715,19 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         marginTop: -4,
     },
     forgotText: {
-        color: '#64748B',
+        color: theme.colors.textSecondary,
         fontSize: 14,
         fontFamily: theme.typography.fontFamily,
     },
     otpModalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        backgroundColor: theme.colors.overlay,
         justifyContent: 'center',
         alignItems: 'center',
     },
     otpModalContainer: {
         width: width * 0.85,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: theme.colors.surfaceCard,
         borderRadius: 24,
         padding: 24,
         alignItems: 'center',
@@ -758,59 +736,38 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     otpTitle: {
         fontSize: 22,
         fontWeight: getPlatformFontWeight('700'),
-        color: '#0F172A',
+        color: theme.colors.textPrimary,
         fontFamily: theme.typography.fontFamily,
         marginBottom: 8,
     },
     otpSubtitle: {
         fontSize: 14,
-        color: '#64748B',
+        color: theme.colors.textSecondary,
         textAlign: 'center',
         fontFamily: theme.typography.fontFamily,
         marginBottom: 24,
     },
-    otpInputRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
+    singleOtpInputContainer: {
         width: '100%',
         marginBottom: 30,
-        position: 'relative',
-    },
-    otpBox: {
-        width: 44,
-        height: 56,
-        backgroundColor: '#F1F5F9',
-        borderRadius: 12,
-        justifyContent: 'center',
         alignItems: 'center',
+        justifyContent: 'center',
+    },
+    singleOtpInput: {
+        width: '80%',
+        height: 60,
+        backgroundColor: theme.colors.surfaceLight,
+        borderRadius: 16,
         borderWidth: 1.5,
-        borderColor: 'transparent',
-    },
-    otpBoxActive: {
         borderColor: theme.colors.primary,
-        backgroundColor: '#FFFFFF',
-        ...getPlatformShadow('sm'),
-    },
-    otpBoxFilled: {
-        borderColor: theme.colors.primary + '40',
-        backgroundColor: '#FFFFFF',
-    },
-    otpBoxText: {
-        fontSize: 22,
+        fontSize: 28,
         fontWeight: '700',
+        letterSpacing: 10,
+        textAlign: 'center',
+        padding: 0,
         color: theme.colors.primary,
         fontFamily: theme.typography.fontFamily,
-    },
-    otpCursor: {
-        position: 'absolute',
-        bottom: 12,
-        width: 14,
-        height: 2,
-        backgroundColor: theme.colors.primary,
-    },
-    hiddenInput: {
-        ...StyleSheet.absoluteFillObject,
-        opacity: 0,
+        ...getPlatformShadow('sm'),
     },
     verifyButton: {
         width: '100%',
@@ -822,7 +779,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         marginBottom: 12,
     },
     verifyButtonText: {
-        color: '#FFFFFF',
+        color: theme.colors.textInverse,
         fontSize: 16,
         fontWeight: '700',
         fontFamily: theme.typography.fontFamily,
@@ -842,17 +799,17 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         padding: 12,
     },
     cancelOtpText: {
-        color: '#64748B',
+        color: theme.colors.textSecondary,
         fontSize: 15,
         fontFamily: theme.typography.fontFamily,
     },
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
+        backgroundColor: theme.colors.overlay,
         justifyContent: 'flex-end',
     },
     pickerContainer: {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: theme.colors.surfaceCard,
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,
         maxHeight: '70%',
@@ -864,13 +821,33 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         justifyContent: 'space-between',
         padding: 20,
         borderBottomWidth: 1,
-        borderBottomColor: '#F1F5F9',
+        borderBottomColor: theme.colors.borderLight,
     },
     pickerTitle: {
         fontSize: 18,
         fontWeight: '700',
-        color: '#0F172A',
+        color: theme.colors.textPrimary,
         fontFamily: theme.typography.fontFamily,
+    },
+    searchContainer: {
+        flexDirection: isRTL ? 'row-reverse' : 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.surfaceLight,
+        margin: 16,
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        height: 48,
+    },
+    searchIcon: {
+        marginHorizontal: 4,
+    },
+    searchInput: {
+        flex: 1,
+        height: 48,
+        fontSize: 16,
+        color: theme.colors.textPrimary,
+        fontFamily: theme.typography.fontFamily,
+        textAlign: isRTL ? 'right' : 'left',
     },
     pickerScroll: {
         padding: 10,
@@ -890,12 +867,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     },
     countryNameText: {
         fontSize: 16,
-        color: '#1E293B',
+        color: theme.colors.textPrimary,
         fontFamily: theme.typography.fontFamily,
     },
     countryCodeText: {
         fontSize: 14,
-        color: '#64748B',
+        color: theme.colors.textSecondary,
         fontFamily: theme.typography.fontFamily,
     },
     dialCodeBox: {
@@ -904,8 +881,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         height: 54,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#F8FAFC',
-        borderColor: 'rgba(0, 0, 0, 0.08)',
+        backgroundColor: theme.colors.surfaceLight,
+        borderColor: theme.colors.border,
     },
     flexInput: {
         flex: 1,
@@ -915,6 +892,6 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         color: theme.colors.textPrimary,
         fontFamily: theme.typography.fontFamily,
         letterSpacing: 0,
-        writingDirection: isRTL ? 'rtl' : 'ltr',
+        writingDirection: 'ltr',
     },
 });

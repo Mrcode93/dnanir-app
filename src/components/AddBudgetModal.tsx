@@ -350,13 +350,13 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
                   colors={
                     amount && selectedCategory
                       ? (theme.gradients.primary as any)
-                      : ['#9CA3AF', '#6B7280']
+                      : [theme.colors.textMuted, theme.colors.border]
                   }
                   style={styles.saveButtonGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                 >
-                  <Ionicons name="checkmark" size={20} color="#FFF" />
+                  <Ionicons name="checkmark" size={20} color="#FFFFFF" />
                   <Text style={styles.saveButtonText}>
                     {budget ? 'تحديث' : 'حفظ الميزانية'}
                   </Text>
@@ -437,7 +437,7 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
 const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: theme.colors.overlay,
     justifyContent: 'flex-end',
   },
   keyboardView: {
@@ -638,7 +638,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   // Currency Modal Styles
   currencyModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: theme.colors.overlay,
     justifyContent: 'flex-end',
   },
   currencyModalContainer: {

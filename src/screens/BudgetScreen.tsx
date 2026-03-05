@@ -337,9 +337,9 @@ export const BudgetScreen = ({ navigation, route }: any) => {
                 {
                   width: `${percentage}%`,
                   backgroundColor: isExceeded
-                    ? '#EF4444'
+                    ? theme.colors.error
                     : isWarning
-                      ? '#F59E0B'
+                      ? theme.colors.warning
                       : theme.colors.primary,
                 },
               ]}
@@ -363,7 +363,7 @@ export const BudgetScreen = ({ navigation, route }: any) => {
           </View>
           <View style={styles.budgetDetailItem}>
             <Text style={styles.budgetDetailLabel}>المصروف</Text>
-            <Text style={[styles.budgetDetailValue, { color: '#EF4444' }]}>
+            <Text style={[styles.budgetDetailValue, { color: theme.colors.error }]}>
               {formatCurrency(item.spent)}
             </Text>
           </View>
@@ -372,7 +372,7 @@ export const BudgetScreen = ({ navigation, route }: any) => {
             <Text
               style={[
                 styles.budgetDetailValue,
-                { color: item.remaining >= 0 ? '#10B981' : '#EF4444' },
+                { color: item.remaining >= 0 ? theme.colors.success : theme.colors.error },
               ]}
             >
               {formatCurrency(item.remaining)}
@@ -493,7 +493,7 @@ export const BudgetScreen = ({ navigation, route }: any) => {
               </View>
               <View style={styles.summaryCard}>
                 <Text style={styles.summaryLabel}>المصروف</Text>
-                <Text style={[styles.summaryAmount, { color: '#EF4444' }]}>
+                <Text style={[styles.summaryAmount, { color: theme.colors.error }]}>
                   {formatCurrency(totalSpent)}
                 </Text>
               </View>
@@ -501,7 +501,7 @@ export const BudgetScreen = ({ navigation, route }: any) => {
                 <Text style={styles.summaryLabel}>المتبقي</Text>
                 <Text style={[
                   styles.summaryAmount,
-                  { color: totalRemaining >= 0 ? '#10B981' : '#EF4444' }
+                  { color: totalRemaining >= 0 ? theme.colors.success : theme.colors.error }
                 ]}>
                   {formatCurrency(totalRemaining)}
                 </Text>
@@ -718,11 +718,11 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   budgetCardExceeded: {
     borderWidth: 2,
-    borderColor: '#FEE2E2',
+    borderColor: theme.colors.error + '30',
   },
   budgetCardWarning: {
     borderWidth: 2,
-    borderColor: '#FEF3C7',
+    borderColor: theme.colors.warning + '30',
   },
   budgetHeader: {
     flexDirection: isRTL ? 'row' : 'row-reverse',

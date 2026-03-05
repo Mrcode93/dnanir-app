@@ -368,7 +368,7 @@ export const DashboardScreen = ({ navigation }: any) => {
             />
           ) : (
             <LinearGradient
-              colors={['#001D33', '#003459', '#00527A', '#006A9E'] as any}
+              colors={theme.gradients.primary as any}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.balanceSkeleton}
@@ -382,30 +382,30 @@ export const DashboardScreen = ({ navigation }: any) => {
           {/* Today's Quick Look (Horizontal Tiles) */}
           {todayData && (
             <View style={styles.todayQuickLook}>
-              <View style={[styles.quickLookItem, { backgroundColor: '#FFF', borderColor: '#D1FAE5' }]}>
-                <View style={[styles.quickLookIconBg, { backgroundColor: '#ECFDF5' }]}>
-                  <Ionicons name="trending-up" size={16} color="#059669" />
+              <View style={[styles.quickLookItem, { backgroundColor: theme.colors.surfaceCard, borderColor: theme.colors.success + '40' }]}>
+                <View style={[styles.quickLookIconBg, { backgroundColor: theme.colors.success + '18' }]}>
+                  <Ionicons name="trending-up" size={16} color={theme.colors.success} />
                 </View>
                 <Text style={styles.quickLookLabel}>دخل اليوم</Text>
-                <Text style={[styles.quickLookValue, { color: '#059669' }]}>
+                <Text style={[styles.quickLookValue, { color: theme.colors.success }]}>
                   {isPrivacyEnabled ? '****' : formatCurrency(todayData.income)}
                 </Text>
               </View>
-              <View style={[styles.quickLookItem, { backgroundColor: '#FFF', borderColor: '#FECDD3' }]}>
-                <View style={[styles.quickLookIconBg, { backgroundColor: '#FFF1F2' }]}>
-                  <Ionicons name="trending-down" size={16} color="#DC2626" />
+              <View style={[styles.quickLookItem, { backgroundColor: theme.colors.surfaceCard, borderColor: theme.colors.error + '40' }]}>
+                <View style={[styles.quickLookIconBg, { backgroundColor: theme.colors.error + '18' }]}>
+                  <Ionicons name="trending-down" size={16} color={theme.colors.error} />
                 </View>
                 <Text style={styles.quickLookLabel}>صرف اليوم</Text>
-                <Text style={[styles.quickLookValue, { color: '#DC2626' }]}>
+                <Text style={[styles.quickLookValue, { color: theme.colors.error }]}>
                   {isPrivacyEnabled ? '****' : formatCurrency(todayData.expenses)}
                 </Text>
               </View>
-              <View style={[styles.quickLookItem, { backgroundColor: '#FFF', borderColor: '#C7D2FE' }]}>
-                <View style={[styles.quickLookIconBg, { backgroundColor: '#EEF2FF' }]}>
-                  <Ionicons name="wallet-outline" size={16} color="#4338CA" />
+              <View style={[styles.quickLookItem, { backgroundColor: theme.colors.surfaceCard, borderColor: theme.colors.info + '40' }]}>
+                <View style={[styles.quickLookIconBg, { backgroundColor: theme.colors.info + '18' }]}>
+                  <Ionicons name="wallet-outline" size={16} color={theme.colors.info} />
                 </View>
                 <Text style={styles.quickLookLabel}>الصافي</Text>
-                <Text style={[styles.quickLookValue, { color: '#4338CA' }]}>
+                <Text style={[styles.quickLookValue, { color: theme.colors.info }]}>
                   {isPrivacyEnabled ? '****' : formatCurrency(todayData.balance)}
                 </Text>
               </View>
@@ -419,8 +419,8 @@ export const DashboardScreen = ({ navigation }: any) => {
             style={styles.actionItem}
             onPress={() => navigation.navigate('AddExpense')}
           >
-            <View style={[styles.actionIconBg, { backgroundColor: '#EF444420' }]}>
-              <Ionicons name="remove-circle" size={28} color="#EF4444" />
+            <View style={[styles.actionIconBg, { backgroundColor: theme.colors.error + '18' }]}>
+              <Ionicons name="remove-circle" size={28} color={theme.colors.error} />
             </View>
             <Text style={styles.actionLabel}>إضافة مصروف</Text>
           </TouchableOpacity>
@@ -429,8 +429,8 @@ export const DashboardScreen = ({ navigation }: any) => {
             style={styles.actionItem}
             onPress={() => navigation.navigate('AddIncome')}
           >
-            <View style={[styles.actionIconBg, { backgroundColor: '#10B98120' }]}>
-              <Ionicons name="add-circle" size={28} color="#10B981" />
+            <View style={[styles.actionIconBg, { backgroundColor: theme.colors.success + '18' }]}>
+              <Ionicons name="add-circle" size={28} color={theme.colors.success} />
             </View>
             <Text style={styles.actionLabel}>إضافة دخل</Text>
           </TouchableOpacity>
@@ -439,8 +439,8 @@ export const DashboardScreen = ({ navigation }: any) => {
             style={styles.actionItem}
             onPress={() => navigation.navigate('Goals')}
           >
-            <View style={[styles.actionIconBg, { backgroundColor: '#F59E0B20' }]}>
-              <Ionicons name="flag" size={28} color="#F59E0B" />
+            <View style={[styles.actionIconBg, { backgroundColor: theme.colors.warning + '18' }]}>
+              <Ionicons name="flag" size={28} color={theme.colors.warning} />
             </View>
             <Text style={styles.actionLabel}>الأهداف</Text>
           </TouchableOpacity>
@@ -449,8 +449,8 @@ export const DashboardScreen = ({ navigation }: any) => {
             style={styles.actionItem}
             onPress={() => setShowSmartAdd(true)}
           >
-            <View style={[styles.actionIconBg, { backgroundColor: '#8B5CF620', borderColor: '#8B5CF6', borderWidth: 1 }]}>
-              <Ionicons name="mic" size={26} color="#8B5CF6" />
+            <View style={[styles.actionIconBg, { backgroundColor: theme.colors.info + '18', borderColor: theme.colors.info + '40', borderWidth: 1 }]}>
+              <Ionicons name="mic" size={26} color={theme.colors.info} />
             </View>
             <Text style={styles.actionLabel}>إضافة ذكية</Text>
           </TouchableOpacity>
@@ -509,7 +509,7 @@ export const DashboardScreen = ({ navigation }: any) => {
                   }}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="remove-circle-outline" size={18} color="#B91C1C" />
+                  <Ionicons name="remove-circle-outline" size={18} color={theme.colors.error} />
                   <Text style={styles.shortcutChipLabel} numberOfLines={1}>{s.title}</Text>
                   <Text style={styles.shortcutChipAmount}>{formatCurrency(s.amount)}</Text>
                 </TouchableOpacity>
@@ -543,7 +543,7 @@ export const DashboardScreen = ({ navigation }: any) => {
                   }}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="add-circle-outline" size={18} color="#047857" />
+                  <Ionicons name="add-circle-outline" size={18} color={theme.colors.success} />
                   <Text style={styles.shortcutChipLabel} numberOfLines={1}>{s.source}</Text>
                   <Text style={styles.shortcutChipAmount}>{formatCurrency(s.amount)}</Text>
                 </TouchableOpacity>
@@ -601,10 +601,10 @@ export const DashboardScreen = ({ navigation }: any) => {
           activeOpacity={0.8}
         >
           <View style={styles.smartInsightsIconBg}>
-            <Ionicons name="sparkles" size={28} color="#06B6D4" />
+            <Ionicons name="sparkles" size={28} color={theme.colors.info} />
           </View>
           <Text style={styles.smartInsightsLabel}>التحليل الذكي</Text>
-          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={22} color="#06B6D4" />
+          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={22} color={theme.colors.info} />
         </TouchableOpacity>
 
         <ManageShortcutsModal
@@ -762,7 +762,7 @@ export const DashboardScreen = ({ navigation }: any) => {
                     activeOpacity={0.85}
                   >
                     <View style={styles.goalCardHeader}>
-                      <Ionicons name="flag" size={20} color="#1E3A5F" />
+                      <Ionicons name="flag" size={20} color={theme.colors.primary} />
                       <Text style={styles.goalCardTitle} numberOfLines={1}>{goal.title}</Text>
                     </View>
                     <Text style={styles.goalCardAmount}>{formatCurrency(goalAmounts.current)}</Text>
@@ -786,14 +786,14 @@ export const DashboardScreen = ({ navigation }: any) => {
             onPress={() => navigation.navigate('Achievements')}
           >
             <LinearGradient
-              colors={['#4F46E5', '#7C3AED']}
+              colors={theme.gradients.primary as any}
               style={styles.statusCardGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
               <View style={styles.statusCardHeader}>
                 <View style={styles.statusCardIconContainer}>
-                  <Ionicons name="trophy" size={24} color="#FFF" />
+                  <Ionicons name="trophy" size={24} color="#FFFFFF" />
                 </View>
                 <View style={styles.statusCardTitleContainer}>
                   <Text style={styles.statusCardTitle}>مستوى الإنجاز</Text>
@@ -801,7 +801,7 @@ export const DashboardScreen = ({ navigation }: any) => {
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text style={{
-                    color: '#FFF',
+                    color: '#FFFFFF',
                     fontWeight: getPlatformFontWeight('800'),
                     fontSize: 18,
                     fontFamily: theme.typography.fontFamily
@@ -834,11 +834,11 @@ export const DashboardScreen = ({ navigation }: any) => {
                 onPress={() => navigation.navigate('Challenges')}
               >
                 <LinearGradient
-                  colors={['#FFF', '#F8FAFC']}
+                  colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
                   style={styles.challengePreviewCard}
                 >
                   <View style={styles.challengePreviewHeader}>
-                    <View style={[styles.challengePreviewIconContainer, { backgroundColor: '#F1F5F9' }]}>
+                    <View style={[styles.challengePreviewIconContainer, { backgroundColor: theme.colors.surfaceLight }]}>
                       <Ionicons name={challenge.icon as any || 'star'} size={24} color={theme.colors.primary} />
                     </View>
                     <View style={styles.challengePreviewContent}>
@@ -875,8 +875,8 @@ export const DashboardScreen = ({ navigation }: any) => {
               style={styles.summaryGridItem}
               onPress={() => navigation.navigate('Debts')}
             >
-              <View style={[styles.summaryIconBg, { backgroundColor: '#8B5CF6' }]}>
-                <Ionicons name="card" size={20} color="#FFF" />
+              <View style={[styles.summaryIconBg, { backgroundColor: theme.colors.info }]}>
+                <Ionicons name="card" size={20} color={theme.colors.background} />
               </View>
               <Text style={styles.summaryLabel}>الديون</Text>
               <Text style={styles.summaryValue}>{formatCurrency(debtsSummary.remaining)}</Text>
@@ -888,8 +888,8 @@ export const DashboardScreen = ({ navigation }: any) => {
               style={styles.summaryGridItem}
               onPress={() => navigation.navigate('Budget')}
             >
-              <View style={[styles.summaryIconBg, { backgroundColor: '#EF4444' }]}>
-                <Ionicons name="bar-chart" size={20} color="#FFF" />
+              <View style={[styles.summaryIconBg, { backgroundColor: theme.colors.error }]}>
+                <Ionicons name="bar-chart" size={20} color={theme.colors.background} />
               </View>
               <Text style={styles.summaryLabel}>الميزانية</Text>
               <Text style={styles.summaryValue}>{budgetsSummary.exceeded} متجاوز</Text>
@@ -901,7 +901,7 @@ export const DashboardScreen = ({ navigation }: any) => {
             onPress={() => navigation.navigate('Bills')}
           >
             <View style={[styles.summaryIconBg, { backgroundColor: theme.colors.primary }]}>
-              <Ionicons name="receipt" size={20} color="#FFF" />
+              <Ionicons name="receipt" size={20} color={theme.colors.background} />
             </View>
             <Text style={styles.summaryLabel}>الفواتير</Text>
             <Text style={styles.summaryValue}>عرض الكل</Text>
@@ -948,14 +948,14 @@ export const DashboardScreen = ({ navigation }: any) => {
 const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.colors.background,
   },
 
   headerContainer: {
     paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.sm,
     paddingBottom: theme.spacing.md,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surfaceCard,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
     ...getPlatformShadow('sm'),
@@ -977,7 +977,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: theme.colors.surfaceLight,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -1008,14 +1008,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   greetingText: {
     fontSize: 22,
     fontWeight: getPlatformFontWeight('800'),
-    color: '#0F172A',
+    color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'right' : 'left',
     letterSpacing: -0.3,
   },
   dateText: {
     fontSize: 13,
-    color: '#94A3B8',
+    color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     marginTop: 4,
     textAlign: isRTL ? 'right' : 'left',
@@ -1030,7 +1030,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#EF4444',
     borderWidth: 1.5,
-    borderColor: '#F1F5F9',
+    borderColor: theme.colors.surfaceLight,
   },
   scrollView: {
     flex: 1,
@@ -1071,7 +1071,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontWeight: getPlatformFontWeight('600'),
     marginTop: 2,
     fontFamily: theme.typography.fontFamily,
-    color: '#64748B',
+    color: theme.colors.textMuted,
   },
   quickLookValue: {
     fontSize: 13,
@@ -1100,7 +1100,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   actionLabel: {
     fontSize: 11,
     fontWeight: getPlatformFontWeight('600'),
-    color: '#334155',
+    color: theme.colors.textPrimary,
     textAlign: 'center',
     fontFamily: theme.typography.fontFamily,
   },
@@ -1145,12 +1145,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     justifyContent: 'center',
   },
   shortcutChipExpense: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FECACA',
+    backgroundColor: theme.colors.error + '12',
+    borderColor: theme.colors.error + '40',
   },
   shortcutChipIncome: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
+    backgroundColor: theme.colors.success + '12',
+    borderColor: theme.colors.success + '40',
   },
   shortcutChipLabel: {
     fontSize: 12,
@@ -1181,6 +1181,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontSize: 13,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'left' : 'right',
   },
   smartInsightsRow: {
     width: '100%',
@@ -1190,16 +1191,17 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingVertical: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
     marginBottom: theme.spacing.xl,
-    backgroundColor: '#06B6D412',
+    backgroundColor: theme.colors.info + '12',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#06B6D440',
+    borderColor: theme.colors.info + '40',
+    direction: 'ltr' as const,
   },
   smartInsightsIconBg: {
     width: 48,
     height: 48,
     borderRadius: 14,
-    backgroundColor: '#06B6D420',
+    backgroundColor: theme.colors.info + '20',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1209,6 +1211,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'right' : 'left',
     ...(isRTL ? { marginRight: theme.spacing.md } : { marginLeft: theme.spacing.md }),
   },
   pulseSection: {
@@ -1228,12 +1231,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   pulseTitle: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
-    color: '#FFF',
+    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
   pulseLink: {
     fontSize: theme.typography.sizes.sm,
-    color: '#BDF4FF',
+    color: 'rgba(255, 255, 255, 0.7)',
     fontWeight: getPlatformFontWeight('600'),
     fontFamily: theme.typography.fontFamily,
   },
@@ -1249,19 +1252,19 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   pulseStatNum: {
     fontSize: theme.typography.sizes.lg,
     fontWeight: getPlatformFontWeight('800'),
-    color: '#FFF',
+    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
   pulseStatLabel: {
     fontSize: 11,
-    color: '#A5F3FC',
+    color: 'rgba(255, 255, 255, 0.7)',
     marginTop: 2,
     fontFamily: theme.typography.fontFamily,
   },
   pulseDivider: {
     width: 1,
     height: '100%',
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     marginHorizontal: theme.spacing.md,
   },
   progressContainer: {
@@ -1269,19 +1272,19 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   progressBar: {
     height: 8,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 4,
     overflow: 'hidden',
     marginBottom: 8,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#38BDF8',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
     borderRadius: 4,
   },
   progressText: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.8)',
+    color: 'rgba(255, 255, 255, 0.7)',
     textAlign: isRTL ? 'right' : 'left',
     fontFamily: theme.typography.fontFamily,
   },
@@ -1297,7 +1300,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   sectionTitle: {
     fontSize: theme.typography.sizes.lg,
     fontWeight: getPlatformFontWeight('800'),
-    color: '#1E293B',
+    color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
   sectionLink: {
@@ -1307,7 +1310,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   transactionList: {
-    backgroundColor: '#FFF',
+    backgroundColor: theme.colors.surfaceCard,
     borderRadius: 20,
     padding: theme.spacing.sm,
     ...getPlatformShadow('sm'),
@@ -1315,7 +1318,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   emptyText: {
     textAlign: 'center',
     padding: 20,
-    color: '#94A3B8',
+    color: theme.colors.textMuted,
     fontStyle: 'italic',
     fontFamily: theme.typography.fontFamily,
   },
@@ -1332,12 +1335,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   goalsSectionTitle: {
     fontSize: 20,
     fontWeight: getPlatformFontWeight('800'),
-    color: '#1E293B',
+    color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
   goalsSectionFilter: {
     fontSize: 15,
-    color: '#64748B',
+    color: theme.colors.textMuted,
     fontWeight: getPlatformFontWeight('600'),
     fontFamily: theme.typography.fontFamily,
   },
@@ -1348,10 +1351,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   goalCard: {
     width: width * 0.48,
-    backgroundColor: '#FFF',
+    backgroundColor: theme.colors.surfaceCard,
     borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: theme.colors.border,
     padding: theme.spacing.md,
     minWidth: '100%',
     direction: 'rtl' as const,
@@ -1365,7 +1368,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   goalCardTitle: {
     fontSize: 15,
     fontWeight: getPlatformFontWeight('700'),
-    color: '#334155',
+    color: theme.colors.textPrimary,
     flex: 1,
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'left' : 'right',
@@ -1373,7 +1376,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   goalCardAmount: {
     fontSize: 18,
     fontWeight: getPlatformFontWeight('800'),
-    color: '#1E293B',
+    color: theme.colors.textPrimary,
     marginBottom: theme.spacing.sm,
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'right' : 'left',
@@ -1386,18 +1389,18 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   goalProgressBar: {
     flex: 1,
     height: 6,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: theme.colors.border,
     borderRadius: 3,
     overflow: 'hidden',
   },
   goalProgressFill: {
     height: '100%',
-    backgroundColor: '#1E3A5F',
+    backgroundColor: theme.colors.primary,
     borderRadius: 3,
   },
   goalPercentText: {
     fontSize: 12,
-    color: '#64748B',
+    color: theme.colors.textMuted,
     fontWeight: getPlatformFontWeight('600'),
     fontFamily: theme.typography.fontFamily,
     minWidth: 28,
@@ -1412,7 +1415,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   summaryGridItem: {
     flex: 1,
     minWidth: '45%',
-    backgroundColor: '#FFF',
+    backgroundColor: theme.colors.surfaceCard,
     borderRadius: 20,
     padding: theme.spacing.md,
     alignItems: 'center',
@@ -1429,14 +1432,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   summaryLabel: {
     fontSize: 12,
     fontWeight: getPlatformFontWeight('600'),
-    color: '#64748B',
+    color: theme.colors.textMuted,
     marginBottom: 4,
     fontFamily: theme.typography.fontFamily,
   },
   summaryValue: {
     fontSize: 14,
     fontWeight: getPlatformFontWeight('800'),
-    color: '#1E293B',
+    color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
   budgetQuickCard: {
@@ -1456,7 +1459,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   budgetQuickTitle: {
     fontSize: theme.typography.sizes.lg,
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textInverse,
+    color: '#FFFFFF',
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
@@ -1484,7 +1487,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   currencyConverterTitle: {
     fontSize: theme.typography.sizes.lg,
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textInverse,
+    color: '#FFFFFF',
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
@@ -1524,7 +1527,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   statusCardTitle: {
     fontSize: theme.typography.sizes.lg,
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textInverse,
+    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
     textAlign: 'right',
@@ -1550,7 +1553,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   statusCardStatLabel: {
     fontSize: theme.typography.sizes.xs,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: 'rgba(255, 255, 255, 0.7)',
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
     textAlign: 'center',
@@ -1558,7 +1561,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   statusCardStatValue: {
     fontSize: theme.typography.sizes.lg,
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textInverse,
+    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
   },
@@ -1576,9 +1579,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   challengePreviewCard: {
     borderRadius: 24,
     padding: theme.spacing.lg,
-    backgroundColor: '#FFF',
+    backgroundColor: theme.colors.surfaceCard,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: theme.colors.border,
     ...(Platform.OS === 'ios' ? { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10 } : { elevation: 2 }),
   },
   challengePreviewHeader: {
@@ -1590,7 +1593,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 20,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.colors.surfaceLight,
     alignItems: 'center',
     justifyContent: 'center',
     ...(isRTL ? { marginLeft: theme.spacing.md } : { marginRight: theme.spacing.md }),
@@ -1601,24 +1604,24 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   challengePreviewTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: theme.colors.textPrimary,
     marginBottom: 4,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',
   },
   challengePreviewPercentBadge: {
-    backgroundColor: '#F0F9FF',
+    backgroundColor: theme.colors.surfaceLight,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: theme.colors.border,
   },
   challengePreviewPercentText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#0284C7',
+    color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily,
   },
   challengePreviewDescription: {
@@ -1631,14 +1634,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   challengePreviewPercent: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textInverse,
+    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     ...(isRTL ? { marginLeft: theme.spacing.sm } : { marginRight: theme.spacing.sm }),
     textAlign: 'right',
   },
   challengePreviewProgressBar: {
     height: 8,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: theme.colors.border,
     borderRadius: 4,
     overflow: 'hidden',
     marginBottom: 0,
@@ -1702,7 +1705,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   achievementProgressFill: {
     height: '100%',
-    backgroundColor: theme.colors.textInverse,
+    backgroundColor: '#FFFFFF',
     borderRadius: 8,
   },
   emptyChallengeButtonText: {

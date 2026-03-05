@@ -38,6 +38,8 @@ import { authStorage } from '../services/authStorage';
 import { syncNewToServer, hasUnsyncedData, getFullFromServer } from '../services/syncService';
 import { createLocalBackup, restoreFromLastLocalBackup, pickBackupFileAndRestore } from '../services/backupService';
 import { referralService, ReferralInfo } from '../services/referralService';
+import { ReferralModal } from '../components/ReferralModal';
+import { PromoCodeModal } from '../components/PromoCodeModal';
 
 import { CONTACT_INFO, APP_LINKS, SHARE_APP_MESSAGE } from '../constants/contactConstants';
 import { convertArabicToEnglish } from '../utils/numbers';
@@ -92,6 +94,8 @@ export const ProfileScreen = ({ navigation }: any) => {
   const [referralInfo, setReferralInfo] = useState<ReferralInfo | null>(null);
   const [loadingReferral, setLoadingReferral] = useState(false);
   const [isProfileLoading, setIsProfileLoading] = useState(true);
+  const [showReferralModal, setShowReferralModal] = useState(false);
+  const [showPromoModal, setShowPromoModal] = useState(false);
 
   useEffect(() => {
     loadProfileScreenData({ showLoader: true });
@@ -107,6 +111,15 @@ export const ProfileScreen = ({ navigation }: any) => {
   useEffect(() => {
     if (isAuthenticated) refreshUnsyncedStatus();
   }, [isAuthenticated]);
+
+  const getDaysRemaining = (expiryDate: string | Date | undefined) => {
+    if (!expiryDate) return 0;
+    const now = new Date();
+    const expiry = new Date(expiryDate);
+    const diffTime = expiry.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? diffDays : 0;
+  };
 
   const refreshUnsyncedStatus = async () => {
     const v = await hasUnsyncedData();
@@ -871,8 +884,8 @@ export const ProfileScreen = ({ navigation }: any) => {
 
   const handleShareApp = async () => {
     try {
-      // أيفون → رابط App Store، أندرويد → رابط تيليجرام
-      const shareUrl = Platform.OS === 'ios' ? APP_LINKS.apple : APP_LINKS.telegram;
+      // رابط موحد لكل المنصات
+      const shareUrl = 'https://urux.guru/apps';
       const message = `${SHARE_APP_MESSAGE}\n${shareUrl}`;
       await Share.share({
         message,
@@ -971,6 +984,15 @@ export const ProfileScreen = ({ navigation }: any) => {
                         <Ionicons name={userData?.isPro ? 'diamond' : 'shield-checkmark'} size={12} color="#FFFFFF" />
                         <Text style={styles.verifiedText}>{userData?.isPro ? 'حساب مميز' : 'حساب موثق'}</Text>
                       </View>
+
+                      {userData?.isPro && userData?.proExpiresAt && (
+                        <View style={styles.proExpiryBadge}>
+                          <Ionicons name="time-outline" size={12} color="#F5E6A3" />
+                          <Text style={styles.proExpiryText}>
+                            متبقي {getDaysRemaining(userData.proExpiresAt)} يوم
+                          </Text>
+                        </View>
+                      )}
                     </View>
                     <TouchableOpacity
                       onPress={() => {
@@ -1174,6 +1196,33 @@ export const ProfileScreen = ({ navigation }: any) => {
               </View>
             </View>
 
+            {/* Promo Code Section */}
+            {isAuthenticated && (
+              <View style={styles.sectionCard}>
+                <View style={styles.sectionContent}>
+                  <View style={styles.sectionHeader}>
+                    <Ionicons name="ticket-outline" size={22} color="#D4AF37" />
+                    <Text style={styles.sectionTitle}>كود الخصم (Promo Code)</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setShowPromoModal(true)}
+                    style={styles.promoCodeButton}
+                    activeOpacity={0.8}
+                  >
+                    <LinearGradient
+                      colors={[theme.colors.warning || '#D4AF37', theme.colors.warning ? theme.colors.warning + 'B3' : '#B8860B']}
+                      style={styles.promoCodeButtonGradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                    >
+                      <Ionicons name="ticket" size={22} color={theme.colors.textInverse || '#FFFFFF'} />
+                      <Text style={styles.promoCodeButtonText}>استخدام كود برومو (Promo Code)</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
             {/* Referral Program Section */}
             {isAuthenticated && (
               <View style={styles.sectionCard}>
@@ -1185,23 +1234,23 @@ export const ProfileScreen = ({ navigation }: any) => {
 
                   <View style={styles.referralCard}>
                     <View style={styles.referralHero}>
-                      <View style={styles.referralIconBox}>
-                        <Ionicons name="gift" size={32} color="#F59E0B" />
+                      <View style={[styles.referralIconBox, { backgroundColor: theme.colors.warning + '15' }]}>
+                        <Ionicons name="gift" size={32} color={theme.colors.warning || '#F59E0B'} />
                       </View>
                       <View style={styles.referralTextContent}>
-                        <Text style={styles.referralTitleText}>ادعُ أصدقاءك واكسب "برو"</Text>
-                        <Text style={styles.referralSubtitleText}>كل صديق يستخدم الكود المخصص لك، ستحصل أنت وهو على 7 أيام اشتراك برو مجاناً!</Text>
+                        <Text style={[styles.referralTitleText, { color: theme.colors.textPrimary }]}>ادعُ أصدقاءك واكسب "برو"</Text>
+                        <Text style={[styles.referralSubtitleText, { color: theme.colors.textSecondary }]}>كل صديق يستخدم الكود المخصص لك، ستحصل أنت وهو على 7 أيام اشتراك برو مجاناً!</Text>
                       </View>
                     </View>
 
                     {loadingReferral ? (
                       <ActivityIndicator color={theme.colors.primary} style={{ marginVertical: 20 }} />
                     ) : referralInfo ? (
-                      <View style={styles.referralCodeBox}>
+                      <View style={[styles.referralCodeBox, { backgroundColor: theme.colors.surfaceLight, borderColor: theme.colors.border }]}>
                         <View style={styles.codeContainer}>
-                          <Text style={styles.codeLabel}>الكود المخصص لك:</Text>
+                          <Text style={[styles.codeLabel, { color: theme.colors.textSecondary }]}>الكود المخصص لك:</Text>
                           <View style={styles.codeRow}>
-                            <Text style={styles.codeValue}>{referralInfo.referralCode}</Text>
+                            <Text style={[styles.codeValue, { color: theme.colors.primary }]}>{referralInfo.referralCode}</Text>
                             <TouchableOpacity
                               onPress={async () => {
                                 await Clipboard.setStringAsync(referralInfo.referralCode);
@@ -1227,6 +1276,17 @@ export const ProfileScreen = ({ navigation }: any) => {
                           <Ionicons name="share-social-outline" size={20} color="#FFFFFF" />
                           <Text style={styles.shareCodeButtonText}>مشاركة الكود مع الأصدقاء</Text>
                         </TouchableOpacity>
+
+                        {!userData?.referredBy && (
+                          <TouchableOpacity
+                            onPress={() => setShowReferralModal(true)}
+                            style={styles.referralEntryButton}
+                            activeOpacity={0.8}
+                          >
+                            <Ionicons name="gift-outline" size={20} color={theme.colors.primary} />
+                            <Text style={styles.referralEntryButtonText}>هل لديك كود إحالة؟ أدخله هنا</Text>
+                          </TouchableOpacity>
+                        )}
                       </View>
                     ) : (
                       <Text style={styles.referralErrorText}>فشل تحميل بيانات الإحالة. يرجى سحب الصفحة للتحديث.</Text>
@@ -1247,6 +1307,28 @@ export const ProfileScreen = ({ navigation }: any) => {
           // Reload settings if needed
         }}
       />
+
+      <ReferralModal
+        visible={showReferralModal}
+        onClose={() => setShowReferralModal(false)}
+        onSuccess={async (rewardDays) => {
+          alertService.success('تم التفعيل', `مبروك! حصلت على ${rewardDays} أيام إضافية في اشتراك برو.`);
+          // Refresh user data to hide the apply button
+          await checkAuthStatus(null, true);
+          loadReferralInfo();
+        }}
+      />
+
+      <PromoCodeModal
+        visible={showPromoModal}
+        onClose={() => setShowPromoModal(false)}
+        onSuccess={async () => {
+          // Success alert is handled inside the modal
+          await checkAuthStatus(null, true);
+          loadReferralInfo();
+        }}
+      />
+
 
 
       {/* Exchange Rate Modal */}
@@ -1639,6 +1721,25 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   verifiedBadgePro: {
     backgroundColor: 'rgba(212, 175, 55, 0.35)',
+  },
+  proExpiryBadge: {
+    flexDirection: isRTL ? 'row' : 'row-reverse',
+    alignItems: 'center',
+    backgroundColor: 'rgba(212, 175, 55, 0.15)',
+    alignSelf: isRTL ? 'flex-start' : 'flex-end',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 230, 163, 0.3)',
+  },
+  proExpiryText: {
+    fontSize: 10,
+    fontWeight: getPlatformFontWeight('700'),
+    color: '#F5E6A3',
+    fontFamily: theme.typography.fontFamily,
   },
   editProfileBtn: {
     width: 36,
@@ -2682,12 +2783,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     pointerEvents: 'none',
   },
   referralCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surfaceCard,
     borderRadius: 24,
     padding: 20,
     marginTop: 12,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: theme.colors.borderLight,
     ...getPlatformShadow('sm'),
   },
   referralHero: {
@@ -2723,18 +2824,18 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     textAlign: 'left',
   },
   referralCodeBox: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.colors.surfaceLight,
     borderRadius: 20,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: theme.colors.borderLight,
   },
   codeContainer: {
     marginBottom: 16,
   },
   codeLabel: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: 8,
     textAlign: 'center',
@@ -2768,17 +2869,17 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: 20,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: theme.colors.borderLight,
   },
   referralStatLabel: {
     fontSize: 14,
-    color: '#64748B',
+    color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
   },
   referralStatValue: {
     fontSize: 16,
     fontWeight: getPlatformFontWeight('800'),
-    color: '#1E293B',
+    color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
   shareCodeButton: {
@@ -2793,6 +2894,45 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   shareCodeButtonText: {
     color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: getPlatformFontWeight('700'),
+    fontFamily: theme.typography.fontFamily,
+  },
+  promoCodeButton: {
+    marginTop: 12,
+    height: 54,
+    borderRadius: 16,
+    overflow: 'hidden',
+    ...getPlatformShadow('md'),
+  },
+  promoCodeButtonGradient: {
+    flex: 1,
+    flexDirection: isRTL ? 'row' : 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingHorizontal: 20,
+  },
+  promoCodeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: getPlatformFontWeight('900'),
+    fontFamily: theme.typography.fontFamily,
+  },
+  referralEntryButton: {
+    marginTop: 12,
+    flexDirection: isRTL ? 'row' : 'row-reverse',
+    height: 52,
+    backgroundColor: theme.colors.surfaceLight,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1.5,
+    borderColor: theme.colors.primary + '30',
+  },
+  referralEntryButtonText: {
+    color: theme.colors.primary,
     fontSize: 15,
     fontWeight: getPlatformFontWeight('700'),
     fontFamily: theme.typography.fontFamily,

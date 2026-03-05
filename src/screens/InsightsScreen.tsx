@@ -277,7 +277,7 @@ export const InsightsScreen = ({ navigation }: any) => {
       }),
       datasets: [{
         data: sortedDates.map(d => dailyMap.get(d) || 0),
-        color: (opacity = 1) => `rgba(239, 68, 68, ${opacity})`,
+        color: (opacity = 1) => theme.colors.error,
         strokeWidth: 3
       }]
     };
@@ -379,13 +379,13 @@ export const InsightsScreen = ({ navigation }: any) => {
               <View style={styles.obligationsRow}>
                 {summary.billsDueTotal > 0 && (
                   <View style={styles.obligationChip}>
-                    <Ionicons name="receipt-outline" size={14} color={theme.colors.text} />
+                    <Ionicons name="receipt-outline" size={14} color="#FFFFFF" />
                     <Text style={styles.obligationText}>فواتير مستحقة: {formatCurrency(summary.billsDueTotal)}</Text>
                   </View>
                 )}
                 {summary.recurringEstimatedTotal > 0 && (
                   <View style={styles.obligationChip}>
-                    <Ionicons name="repeat-outline" size={14} color={theme.colors.text} />
+                    <Ionicons name="repeat-outline" size={14} color="#FFFFFF" />
                     <Text style={styles.obligationText}>دورية: {formatCurrency(summary.recurringEstimatedTotal)}</Text>
                   </View>
                 )}
@@ -434,36 +434,53 @@ export const InsightsScreen = ({ navigation }: any) => {
         )}
 
         {/* 4. Category Breakdown */}
-        {getCategoryPieData() && getCategoryPieData()!.length > 0 ? (
-          <View style={styles.chartCard}>
-            <View style={styles.chartHeader}>
-              <Text style={styles.chartTitle}>توزيع الإنفاق</Text>
-              <Ionicons name="pie-chart-outline" size={20} color={theme.colors.primary} />
+        {(() => {
+          const pieData = getCategoryPieData();
+          if (!pieData || pieData.length === 0) return (
+            <View style={styles.chartCard}>
+              <View style={styles.chartHeader}>
+                <Text style={styles.chartTitle}>توزيع الإنفاق</Text>
+                <Ionicons name="pie-chart-outline" size={20} color={theme.colors.primary} />
+              </View>
+              <View style={styles.noDataContainer}>
+                <Ionicons name="stats-chart-outline" size={48} color={theme.colors.textMuted} />
+                <Text style={styles.noDataText}>لا توجد بيانات مصاريف لهذا الشهر</Text>
+              </View>
             </View>
-            <PieChart
-              data={getCategoryPieData()!}
-              width={width - 48}
-              height={200}
-              chartConfig={chartConfig}
-              accessor="amount"
-              backgroundColor="transparent"
-              paddingLeft="15"
-              absolute
-              hasLegend={true}
-            />
-          </View>
-        ) : (
-          <View style={styles.chartCard}>
-            <View style={styles.chartHeader}>
-              <Text style={styles.chartTitle}>توزيع الإنفاق</Text>
-              <Ionicons name="pie-chart-outline" size={20} color={theme.colors.primary} />
+          );
+
+          return (
+            <View style={styles.chartCard}>
+              <View style={styles.chartHeader}>
+                <Text style={styles.chartTitle}>توزيع الإنفاق</Text>
+                <Ionicons name="pie-chart-outline" size={20} color={theme.colors.primary} />
+              </View>
+              <View style={styles.pieChartContainer}>
+                <PieChart
+                  data={pieData}
+                  width={width * 0.45}
+                  height={180}
+                  chartConfig={chartConfig}
+                  accessor="amount"
+                  backgroundColor="transparent"
+                  paddingLeft="15"
+                  absolute
+                  hasLegend={false}
+                />
+                <View style={styles.customLegendContainer}>
+                  {pieData.map((item: any, index: number) => (
+                    <View key={index} style={styles.legendItem}>
+                      <View style={[styles.legendDot, { backgroundColor: item.color }]} />
+                      <Text style={styles.legendText} numberOfLines={1}>
+                        {item.name}: {formatCurrency(item.amount)}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
             </View>
-            <View style={styles.noDataContainer}>
-              <Ionicons name="stats-chart-outline" size={48} color={theme.colors.textMuted} />
-              <Text style={styles.noDataText}>لا توجد بيانات مصاريف لهذا الشهر</Text>
-            </View>
-          </View>
-        )}
+          );
+        })()}
 
         {/* 4b. Detailed Category Breakdown */}
         {summary?.topExpenseCategories && summary.topExpenseCategories.filter((item: any) => item.amount > 0).length > 0 ? (
@@ -565,10 +582,10 @@ export const InsightsScreen = ({ navigation }: any) => {
               <View style={styles.predictionValueParams}>
                 <Text style={styles.predictionValue}>{formatCurrency(predictionData.predictedTotal)}</Text>
                 <View style={[styles.confidenceBadge, {
-                  backgroundColor: predictionData.confidence === 'high' ? '#D1FAE5' : '#FEF3C7'
+                  backgroundColor: predictionData.confidence === 'high' ? theme.colors.success + '20' : theme.colors.warning + '20'
                 }]}>
                   <Text style={[styles.confidenceText, {
-                    color: predictionData.confidence === 'high' ? '#065F46' : '#92400E'
+                    color: predictionData.confidence === 'high' ? theme.colors.success : theme.colors.warning
                   }]}>
                     {predictionData.confidence === 'high' ? 'دقة عالية' : 'دقة متوسطة'}
                   </Text>
@@ -590,7 +607,7 @@ export const InsightsScreen = ({ navigation }: any) => {
           <Text style={styles.comparisonButtonText}>
             {showComparison ? 'إخفاء المقارنة' : 'مقارنة مع الشهر السابق'}
           </Text>
-          <Ionicons name={showComparison ? "chevron-up" : "chevron-down"} size={20} color="#FFF" />
+          <Ionicons name={showComparison ? "chevron-up" : "chevron-down"} size={20} color={theme.colors.background} />
         </TouchableOpacity>
 
         {showComparison && comparisonData && (
@@ -691,13 +708,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   healthLabelText: {
     fontFamily: theme.typography.fontFamily,
-    color: 'rgba(255,255,255,0.8)',
+    color: 'rgba(255, 255, 255, 0.8)',
     fontSize: 14,
     textAlign: isRTL ? 'right' : 'left',
   },
   healthValueText: {
     fontFamily: theme.typography.fontFamily,
-    color: '#FFF',
+    color: '#FFFFFF',
     fontSize: 24,
     fontWeight: getPlatformFontWeight('700'),
     textAlign: isRTL ? 'right' : 'left',
@@ -706,20 +723,20 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.4)',
+    borderColor: 'rgba(255, 255, 255, 0.4)',
   },
   scoreText: {
-    color: '#FFF',
+    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: getPlatformFontWeight('700'),
     fontFamily: theme.typography.fontFamily,
   },
   scoreSubText: {
-    color: 'rgba(255,255,255,0.8)',
+    color: 'rgba(255, 255, 255, 0.8)',
     fontSize: 10,
     fontFamily: theme.typography.fontFamily,
   },
@@ -735,13 +752,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     flex: 1,
   },
   healthStatLabel: {
-    color: 'rgba(255,255,255,0.7)',
+    color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 12,
     marginBottom: 4,
     fontFamily: theme.typography.fontFamily,
   },
   healthStatValue: {
-    color: '#FFF',
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: getPlatformFontWeight('600'),
     fontFamily: theme.typography.fontFamily,
@@ -749,7 +766,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   healthDivider: {
     width: 1,
     height: '80%',
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignSelf: 'center',
   },
   obligationsRow: {
@@ -763,13 +780,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
   },
   obligationText: {
-    color: 'rgba(255,255,255,0.95)',
+    color: 'rgba(255, 255, 255, 0.95)',
     fontSize: 12,
     fontFamily: theme.typography.fontFamily,
   },
@@ -889,6 +906,34 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   chartStyle: {
     marginVertical: 8,
     borderRadius: 16,
+  },
+  pieChartContainer: {
+    flexDirection: isRTL ? 'row' : 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  customLegendContainer: {
+    flex: 1,
+    paddingLeft: isRTL ? 0 : 10,
+    paddingRight: isRTL ? 10 : 0,
+  },
+  legendItem: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: isRTL ? 0 : 8,
+    marginLeft: isRTL ? 8 : 0,
+  },
+  legendText: {
+    fontSize: 12,
+    fontFamily: theme.typography.fontFamily,
+    color: theme.colors.textPrimary,
+    textAlign: isRTL ? 'right' : 'left',
   },
   // Prediction
   predictionContainer: {

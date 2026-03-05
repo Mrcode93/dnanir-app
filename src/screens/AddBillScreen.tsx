@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TextInput, IconButton } from 'react-native-paper';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { CustomDatePicker } from '../components/CustomDatePicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -120,23 +120,16 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
   };
 
   const handleRemoveImage = () => {
-    Alert.alert(
+    alertService.confirm(
       'حذف الصورة',
       'هل تريد حذف هذه الصورة؟',
-      [
-        { text: 'إلغاء', style: 'cancel' },
-        {
-          text: 'حذف',
-          style: 'destructive',
-          onPress: () => {
-            if (imageUri) {
-              // Delete file if it exists
-              FileSystem.deleteAsync(imageUri, { idempotent: true }).catch(() => { });
-            }
-            setImageUri(null);
-          },
-        },
-      ]
+      () => {
+        if (imageUri) {
+          // Delete file if it exists
+          FileSystem.deleteAsync(imageUri, { idempotent: true }).catch(() => { });
+        }
+        setImageUri(null);
+      }
     );
   };
 
@@ -325,7 +318,7 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
                       <Ionicons
                         name={categoryIcons[billCat] as any}
                         size={20}
-                        color={isSelected ? '#FFFFFF' : categoryColors[billCat][0]}
+                        color={isSelected ? theme.colors.background : categoryColors[billCat][0]}
                       />
                       <Text
                         style={[
@@ -358,16 +351,15 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
                 </Text>
               </Pressable>
               {showDatePicker && (
-                <DateTimePicker
+                <CustomDatePicker
                   value={dueDate}
-                  mode="date"
-                  display="default"
                   onChange={(event, selectedDate) => {
-                    setShowDatePicker(Platform.OS === 'ios');
                     if (selectedDate) {
                       setDueDate(selectedDate);
                     }
+                    if (Platform.OS === 'android') setShowDatePicker(false);
                   }}
+                  onClose={() => setShowDatePicker(false)}
                 />
               )}
             </View>
@@ -507,7 +499,7 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
                   <Text style={styles.saveButtonText}>جاري الحفظ...</Text>
                 ) : (
                   <>
-                    <Ionicons name="checkmark" size={20} color="#FFFFFF" />
+                    <Ionicons name="checkmark" size={20} color={theme.colors.background} />
                     <Text style={styles.saveButtonText}>
                       {bill ? 'تحديث' : 'حفظ'}
                     </Text>
@@ -630,7 +622,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginRight: isRTL ? 8 : 0,
   },
   categoryChipTextSelected: {
-    color: '#FFFFFF',
+    color: theme.colors.background,
     fontWeight: getPlatformFontWeight('600'),
   },
   dateButton: {
@@ -689,7 +681,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   saveButtonText: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
-    color: '#FFFFFF',
+    color: theme.colors.background,
     fontFamily: theme.typography.fontFamily,
   },
   imageContainer: {
@@ -706,7 +698,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: theme.colors.background + 'E6',
     borderRadius: 12,
     padding: 4,
   },
@@ -735,7 +727,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: theme.colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,

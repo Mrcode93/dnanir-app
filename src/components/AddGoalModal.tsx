@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextInput, IconButton } from 'react-native-paper';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { CustomDatePicker } from './CustomDatePicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
@@ -460,16 +460,15 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
                       )}
                     </TouchableOpacity>
                     {showDatePicker && (
-                      <DateTimePicker
+                      <CustomDatePicker
                         value={targetDate || new Date()}
-                        mode="date"
-                        display="default"
                         onChange={(event, selectedDate) => {
-                          setShowDatePicker(false);
                           if (selectedDate) {
                             setTargetDate(selectedDate);
                           }
+                          if (Platform.OS === 'android') setShowDatePicker(false);
                         }}
+                        onClose={() => setShowDatePicker(false)}
                         minimumDate={new Date()}
                       />
                     )}

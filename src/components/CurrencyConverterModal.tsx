@@ -203,7 +203,7 @@ export const CurrencyConverterModal: React.FC<CurrencyConverterModalProps> = ({
                   activeOpacity={0.7}
                 >
                   <LinearGradient
-                    colors={['#8B5CF6', '#7C3AED']}
+                    colors={theme.gradients.goalPurple as any}
                     style={styles.swapButtonGradient}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
@@ -221,7 +221,7 @@ export const CurrencyConverterModal: React.FC<CurrencyConverterModalProps> = ({
                     activeOpacity={0.7}
                   >
                     <LinearGradient
-                      colors={['#10B981', '#059669']}
+                      colors={theme.gradients.success as any}
                       style={styles.currencySelectorGradient}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
@@ -354,7 +354,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: theme.colors.overlay,
   },
   modalContainer: {
     width: '100%',
@@ -510,7 +510,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   pickerBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: theme.colors.overlay,
     justifyContent: 'flex-end',
   },
   pickerContainer: {

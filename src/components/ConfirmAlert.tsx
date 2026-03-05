@@ -18,7 +18,7 @@ interface ConfirmAlertProps {
   message: string;
   confirmText?: string;
   cancelText?: string;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   onCancel: () => void;
   type?: 'danger' | 'warning' | 'info';
 }
@@ -182,7 +182,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   overlayAnimated: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)', // Slightly lighter overlay for modern feel
+    backgroundColor: theme.colors.overlay, // Slightly lighter overlay for modern feel
   },
   alertContainer: {
     width: '100%',

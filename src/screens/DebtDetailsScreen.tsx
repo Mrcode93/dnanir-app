@@ -148,15 +148,15 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
   };
 
   const typeColors: Record<'debt' | 'installment' | 'advance', string[]> = {
-    debt: ['#8B5CF6', '#7C3AED'],
-    installment: ['#3B82F6', '#2563EB'],
-    advance: ['#F59E0B', '#D97706'],
+    debt: theme.gradients.info,
+    installment: theme.gradients.info,
+    advance: [theme.colors.warning, theme.colors.warning],
   };
 
   // Use green colors for paid debts, original colors for unpaid
   const baseColors = typeColors[debt.type];
   const colors = debt.isPaid
-    ? ['#10B981', '#059669'] // Green gradient for paid debts
+    ? theme.gradients.success // Green gradient for paid debts
     : baseColors;
   const paidInstallments = installments.filter(inst => inst.isPaid);
   const unpaidInstallments = installments.filter(inst => !inst.isPaid);
@@ -202,7 +202,7 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
         >
           <View style={styles.headerContent}>
             <View style={styles.headerIcon}>
-              <Ionicons name={typeIcons[debt.type] as any} size={48} color="#FFFFFF" />
+              <Ionicons name={typeIcons[debt.type] as any} size={48} color={theme.colors.background} />
             </View>
             <Text style={styles.debtorName}>{debt.direction === 'owed_to_me' ? 'مدين لي:' : 'مدين لـ:'} {debt.debtorName}</Text>
             <Text style={styles.debtType}>{DEBT_TYPES[debt.type]}</Text>
@@ -210,7 +210,7 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
               <Text style={styles.totalAmount}>{formatCurrency(debt.totalAmount)}</Text>
               {debt.isPaid ? (
                 <View style={styles.paidStatusContainer}>
-                  <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                  <Ionicons name="checkmark-circle" size={20} color={theme.colors.background} />
                   <Text style={styles.paidStatusText}>مدفوع بالكامل</Text>
                 </View>
               ) : (
@@ -221,8 +221,8 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
             </View>
             {debt.isPaid && (
               <View style={styles.paidBadge}>
-                <Ionicons name="trophy" size={20} color="#FFFFFF" />
-                <Text style={styles.paidText}>تم إتمام الدفع بنجاح</Text>
+                <Ionicons name="trophy" size={20} color={theme.colors.background} />
+                <Text style={styles.paidTextHeader}>تم إتمام الدفع بنجاح</Text>
               </View>
             )}
           </View>
@@ -254,7 +254,7 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
               </View>
               <View style={styles.progressStat}>
                 <Text style={styles.progressStatLabel}>متبقي</Text>
-                <Text style={[styles.progressStatValue, { color: '#EF4444' }]}>
+                <Text style={[styles.progressStatValue, { color: theme.colors.error }]}>
                   {formatCurrency(debt.remainingAmount)}
                 </Text>
               </View>
@@ -266,7 +266,7 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
         {debt.isPaid && (
           <View style={styles.paymentSummaryCard}>
             <View style={styles.paymentSummaryHeader}>
-              <Ionicons name="checkmark-circle" size={24} color="#10B981" />
+              <Ionicons name="checkmark-circle" size={24} color={theme.colors.success} />
               <Text style={styles.paymentSummaryTitle}>تم الدفع بالكامل</Text>
             </View>
             <View style={styles.paymentSummaryContent}>
@@ -318,9 +318,9 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
                   size={20}
                   color={
                     debt.isPaid
-                      ? '#10B981'
+                      ? theme.colors.success
                       : getDaysUntilDue(debt.dueDate)! < 0
-                        ? '#DC2626'
+                        ? theme.colors.error
                         : theme.colors.textSecondary
                   }
                 />
@@ -356,11 +356,11 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
               <Text style={styles.sectionTitle}>الأقساط</Text>
               <View style={[
                 styles.installmentsSummary,
-                debt.isPaid && { backgroundColor: '#D1FAE5' }
+                debt.isPaid && { backgroundColor: theme.colors.success + '20' }
               ]}>
                 <Text style={[
                   styles.installmentsSummaryText,
-                  debt.isPaid && { color: '#059669', fontWeight: getPlatformFontWeight('700') }
+                  debt.isPaid && { color: theme.colors.success, fontWeight: getPlatformFontWeight('700') }
                 ]}>
                   {debt.isPaid
                     ? `✓ ${paidInstallments.length}/${installments.length} مدفوعة بالكامل`
@@ -391,11 +391,11 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
                       <View style={styles.installmentLeft}>
                         <View style={[
                           styles.installmentNumberBadge,
-                          { backgroundColor: isOverdue ? '#FEE2E2' : isDueSoon ? '#FEF3C7' : colors[0] + '20' }
+                          { backgroundColor: isOverdue ? theme.colors.error + '20' : isDueSoon ? theme.colors.warning + '20' : colors[0] + '20' }
                         ]}>
                           <Text style={[
                             styles.installmentNumber,
-                            { color: isOverdue ? '#DC2626' : isDueSoon ? '#F59E0B' : colors[0] }
+                            { color: isOverdue ? theme.colors.error : isDueSoon ? theme.colors.warning : colors[0] }
                           ]}>
                             {inst.installmentNumber}
                           </Text>
@@ -420,7 +420,7 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
                         activeOpacity={0.7}
                       >
                         <LinearGradient
-                          colors={['#10B981', '#059669'] as any}
+                          colors={theme.gradients.success as any}
                           style={styles.payInstallmentButtonGradient}
                         >
                           <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
@@ -442,8 +442,8 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
                 {paidInstallments.map((inst) => (
                   <View key={inst.id} style={[styles.installmentItem, styles.paidInstallmentItem]}>
                     <View style={styles.installmentLeft}>
-                      <View style={[styles.installmentNumberBadge, { backgroundColor: '#D1FAE5' }]}>
-                        <Ionicons name="checkmark-circle" size={16} color="#059669" />
+                      <View style={[styles.installmentNumberBadge, { backgroundColor: theme.colors.success + '20' }]}>
+                        <Ionicons name="checkmark-circle" size={16} color={theme.colors.success} />
                       </View>
                       <View style={styles.installmentInfo}>
                         <Text style={styles.installmentAmount}>{formatCurrency(inst.amount)}</Text>
@@ -480,8 +480,8 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
                 return (
                   <View key={payment.id} style={styles.paymentHistoryItem}>
                     <View style={styles.paymentHistoryLeft}>
-                      <View style={[styles.paymentHistoryIcon, { backgroundColor: '#10B98120' }]}>
-                        <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                      <View style={[styles.paymentHistoryIcon, { backgroundColor: theme.colors.success + '20' }]}>
+                        <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
                       </View>
                       <View style={styles.paymentHistoryInfo}>
                         <Text style={styles.paymentHistoryAmount}>
@@ -609,7 +609,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: theme.colors.overlay, // Use overlay or a custom semi-transparent background
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: theme.spacing.xs,
@@ -623,7 +623,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   debtType: {
     fontSize: theme.typography.sizes.md,
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: 'rgba(255, 255, 255, 0.9)', // Always white on dark gradient
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.sm,
   },
@@ -661,7 +661,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     gap: theme.spacing.xs,
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing.xs,
-    backgroundColor: 'rgba(35, 9, 9, 0.2)',
+    backgroundColor: theme.colors.overlay,
     borderRadius: theme.borderRadius.md,
   },
   paidTextHeader: {
@@ -683,7 +683,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     padding: theme.spacing.sm,
     marginBottom: theme.spacing.sm,
     borderWidth: 2,
-    borderColor: '#10B981',
+    borderColor: theme.colors.success,
     ...getPlatformShadow('md'),
   },
   paymentSummaryHeader: {
@@ -695,7 +695,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   paymentSummaryTitle: {
     fontSize: theme.typography.sizes.xl,
     fontWeight: getPlatformFontWeight('700'),
-    color: '#10B981',
+    color: theme.colors.success,
     fontFamily: theme.typography.fontFamily,
   },
   paymentSummaryContent: {
@@ -809,15 +809,15 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   overdueText: {
-    color: '#DC2626',
+    color: theme.colors.error,
     fontWeight: getPlatformFontWeight('600'),
   },
   dueSoonText: {
-    color: '#F59E0B',
+    color: theme.colors.warning,
     fontWeight: getPlatformFontWeight('600'),
   },
   paidText: {
-    color: '#10B981',
+    color: theme.colors.success,
     fontWeight: getPlatformFontWeight('600'),
   },
   installmentsCard: {
@@ -879,6 +879,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: theme.colors.overlay, // Ensure badge background is visible
   },
   installmentNumber: {
     fontSize: theme.typography.sizes.sm,
@@ -919,7 +920,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   paidBadgeSmall: {
-    backgroundColor: '#D1FAE5',
+    backgroundColor: theme.colors.success + '20',
     paddingHorizontal: theme.spacing.xs,
     paddingVertical: 2,
     borderRadius: theme.borderRadius.sm,
@@ -927,7 +928,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   paidBadgeText: {
     fontSize: theme.typography.sizes.xs,
     fontWeight: getPlatformFontWeight('600'),
-    color: '#059669',
+    color: theme.colors.success,
     fontFamily: theme.typography.fontFamily,
   },
   actionsCard: {
@@ -980,22 +981,24 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: theme.spacing.sm,
+    backgroundColor: theme.colors.surfaceLight,
     borderRadius: theme.borderRadius.md,
     gap: theme.spacing.xs,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   deleteButtonPaid: {
-    backgroundColor: theme.colors.surfaceCard,
-    borderWidth: 2,
-    borderColor: theme.colors.error,
     borderStyle: 'dashed',
+    borderColor: theme.colors.error,
   },
   deleteButtonText: {
-    fontSize: theme.typography.sizes.md,
+    fontSize: theme.typography.sizes.sm,
     fontWeight: getPlatformFontWeight('600'),
+    color: theme.colors.error,
     fontFamily: theme.typography.fontFamily,
   },
   deleteButtonTextPaid: {
-    color: theme.colors.error,
+    fontWeight: getPlatformFontWeight('700'),
   },
   deleteWarningText: {
     fontSize: theme.typography.sizes.sm,
@@ -1058,7 +1061,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   paymentHistoryAmount: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
-    color: '#10B981',
+    color: theme.colors.success,
     fontFamily: theme.typography.fontFamily,
     marginBottom: 2,
   },

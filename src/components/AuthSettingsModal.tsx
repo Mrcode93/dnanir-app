@@ -115,12 +115,12 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
               <LinearGradient
                 colors={
                   !passwordEnabled && !biometricEnabled
-                    ? ['#6B7280', '#4B5563']
+                    ? [theme.colors.textSecondary, theme.colors.textMuted]
                     : passwordEnabled && biometricEnabled
-                      ? ['#8B5CF6', '#7C3AED']
+                      ? theme.gradients.primary as any
                       : passwordEnabled
-                        ? ['#3B82F6', '#2563EB']
-                        : ['#10B981', '#059669']
+                        ? [theme.colors.info, theme.colors.info]
+                        : [theme.colors.success, theme.colors.success]
                 }
                 style={styles.statusCard}
                 start={{ x: 0, y: 0 }}
@@ -172,8 +172,8 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
               {!passwordEnabled && (
                 <View style={styles.authMethodCard}>
                   <View style={styles.methodHeader}>
-                    <View style={[styles.methodIconContainer, { backgroundColor: '#3B82F620' }]}>
-                      <Ionicons name="key" size={24} color="#3B82F6" />
+                    <View style={[styles.methodIconContainer, { backgroundColor: theme.colors.info + '20' }]}>
+                      <Ionicons name="key" size={24} color={theme.colors.info} />
                     </View>
                     <View style={styles.methodHeaderText}>
                       <Text style={styles.methodTitle}>قفل كلمة المرور</Text>
@@ -211,7 +211,7 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
                       activeOpacity={0.8}
                     >
                       <LinearGradient
-                        colors={['#3B82F6', '#2563EB']}
+                        colors={[theme.colors.info, theme.colors.info]}
                         style={styles.setupButtonGradient}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
@@ -228,11 +228,11 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
               {biometricAvailable && !biometricEnabled && (
                 <View style={styles.authMethodCard}>
                   <View style={styles.methodHeader}>
-                    <View style={[styles.methodIconContainer, { backgroundColor: '#10B98120' }]}>
+                    <View style={[styles.methodIconContainer, { backgroundColor: theme.colors.success + '20' }]}>
                       <Ionicons
                         name={biometricType.includes('Face') ? 'person' : 'finger-print'}
                         size={24}
-                        color="#10B981"
+                        color={theme.colors.success}
                       />
                     </View>
                     <View style={styles.methodHeaderText}>
@@ -248,7 +248,7 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
                     activeOpacity={0.8}
                   >
                     <LinearGradient
-                      colors={['#10B981', '#059669']}
+                      colors={[theme.colors.success, theme.colors.success]}
                       style={styles.biometricButtonGradient}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
@@ -289,7 +289,7 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
                 >
                   <View style={styles.disableButtonContent}>
                     <View style={styles.disableIconContainer}>
-                      <Ionicons name="key" size={24} color="#EF4444" />
+                      <Ionicons name="key" size={24} color={theme.colors.error} />
                     </View>
                     <View style={styles.disableButtonTextContainer}>
                       <Text style={styles.disableButtonTitle}>تعطيل كلمة المرور</Text>
@@ -297,7 +297,7 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
                         إزالة قفل كلمة المرور
                       </Text>
                     </View>
-                    <Ionicons name="chevron-back" size={20} color="#EF4444" />
+                    <Ionicons name="chevron-back" size={20} color={theme.colors.error} />
                   </View>
                 </TouchableOpacity>
               )}
@@ -314,7 +314,7 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
                       <Ionicons
                         name={biometricType.includes('Face') ? 'person' : 'finger-print'}
                         size={24}
-                        color="#EF4444"
+                        color={theme.colors.error}
                       />
                     </View>
                     <View style={styles.disableButtonTextContainer}>
@@ -323,7 +323,7 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
                         إزالة {biometricType}
                       </Text>
                     </View>
-                    <Ionicons name="chevron-back" size={20} color="#EF4444" />
+                    <Ionicons name="chevron-back" size={20} color={theme.colors.error} />
                   </View>
                 </TouchableOpacity>
               )}
@@ -337,7 +337,7 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
                 >
                   <View style={styles.disableButtonContent}>
                     <View style={styles.disableIconContainer}>
-                      <Ionicons name="lock-open" size={24} color="#EF4444" />
+                      <Ionicons name="lock-open" size={24} color={theme.colors.error} />
                     </View>
                     <View style={styles.disableButtonTextContainer}>
                       <Text style={styles.disableButtonTitle}>تعطيل جميع طرق القفل</Text>
@@ -345,7 +345,7 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
                         إزالة جميع الحماية من التطبيق
                       </Text>
                     </View>
-                    <Ionicons name="chevron-back" size={20} color="#EF4444" />
+                    <Ionicons name="chevron-back" size={20} color={theme.colors.error} />
                   </View>
                 </TouchableOpacity>
               )}
@@ -392,7 +392,7 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
                 style={styles.passwordPromptConfirmButton}
               >
                 <LinearGradient
-                  colors={['#3B82F6', '#2563EB']}
+                  colors={[theme.colors.info, theme.colors.info]}
                   style={styles.passwordPromptConfirmGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
@@ -471,7 +471,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: theme.colors.surfaceCard + '33',
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: theme.spacing.md,
@@ -486,7 +486,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   statusTitle: {
     fontSize: theme.typography.sizes.sm,
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: theme.colors.textInverse + 'E6',
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
@@ -616,10 +616,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     textAlign: 'center',
   },
   disableButton: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: theme.colors.error + '1A',
     borderRadius: theme.borderRadius.xl,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: theme.colors.error + '33',
     marginTop: theme.spacing.md,
     ...getPlatformShadow('sm'),
   },
@@ -632,7 +632,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#FECACA',
+    backgroundColor: theme.colors.error + '33',
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: theme.spacing.md,
@@ -643,7 +643,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   disableButtonTitle: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
-    color: '#EF4444',
+    color: theme.colors.error,
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
@@ -651,7 +651,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   disableButtonDescription: {
     fontSize: theme.typography.sizes.sm,
-    color: '#DC2626',
+    color: theme.colors.error,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',
@@ -683,7 +683,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   passwordPromptOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: theme.colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: theme.spacing.lg,

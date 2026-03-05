@@ -251,7 +251,7 @@ const ExpensesStack = () => {
         name="ExpensesList"
         component={ExpensesScreen}
         options={({ navigation }) => ({
-          headerShown: true,
+          headerShown: false,
           headerTitle: 'سجل المصاريف',
           headerLeft: () => (
             <TouchableOpacity
@@ -300,7 +300,7 @@ const IncomeStack = () => {
         name="IncomeList"
         component={IncomeScreen}
         options={({ navigation }) => ({
-          headerShown: true,
+          headerShown: false,
           headerTitle: 'سجل الدخل',
           headerLeft: () => (
             <TouchableOpacity
