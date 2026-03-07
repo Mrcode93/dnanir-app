@@ -54,6 +54,7 @@
     "expo-status-bar": "~3.0.8",
     "expo-text-recognition": "^0.1.1",
     "expo-updates": "^29.0.12",
+    "expo-video": "~3.0.16",
     "expo-web-browser": "~15.0.10",
     "lucide-react-native": "^0.544.0",
     "openai": "^6.17.0",

@@ -48,7 +48,7 @@ import * as Clipboard from 'expo-clipboard';
 import { notifyCurrencyChanged } from '../services/currencyEvents';
 
 export const SettingsScreen = ({ navigation }: any) => {
-  const { theme, isDark, setIsDark } = useAppTheme();
+  const { theme, themeMode, setThemeMode } = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const [userName, setUserName] = useState<string>('');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -250,12 +250,13 @@ export const SettingsScreen = ({ navigation }: any) => {
     const settingsToSave = appSettings || {
       notificationsEnabled: true,
       darkModeEnabled: false,
+      themeMode: 'light',
       autoBackupEnabled: false,
       autoSyncEnabled: false,
       currency: 'دينار عراقي',
       language: 'ar',
     };
-    await upsertAppSettings({ ...settingsToSave, notificationsEnabled: value });
+    await upsertAppSettings({ ...settingsToSave, notificationsEnabled: value, themeMode: settingsToSave.themeMode });
     if (value) {
       const hasPermission = await requestPermissions();
       if (hasPermission) {
@@ -288,12 +289,13 @@ export const SettingsScreen = ({ navigation }: any) => {
     const settingsToSave = appSettings || {
       notificationsEnabled: true,
       darkModeEnabled: false,
+      themeMode: 'light',
       autoBackupEnabled: false,
       autoSyncEnabled: false,
       currency: 'دينار عراقي',
       language: 'ar',
     };
-    await upsertAppSettings({ ...settingsToSave, autoSyncEnabled: value });
+    await upsertAppSettings({ ...settingsToSave, autoSyncEnabled: value, themeMode: settingsToSave.themeMode });
   };
 
   const handleDailyReminderToggle = async (value: boolean) => {
@@ -698,12 +700,13 @@ export const SettingsScreen = ({ navigation }: any) => {
       const settingsToSave = appSettings || {
         notificationsEnabled: true,
         darkModeEnabled: false,
+        themeMode: 'light',
         autoBackupEnabled: false,
         autoSyncEnabled: false,
         currency: 'دينار عراقي',
         language: 'ar',
       };
-      await upsertAppSettings({ ...settingsToSave, currency: currency.name });
+      await upsertAppSettings({ ...settingsToSave, currency: currency.name, themeMode: settingsToSave.themeMode });
       notifyCurrencyChanged();
       setShowCurrencyPicker(false);
       alertService.success('نجح', `تم تغيير العملة إلى ${currency.name}`);
@@ -931,39 +934,97 @@ export const SettingsScreen = ({ navigation }: any) => {
               <Switch
                 value={notificationsEnabled}
                 onValueChange={handleNotificationsToggle}
-                trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+                trackColor={{ false: '#767577', true: theme.colors.primary }}
+                thumbColor={notificationsEnabled ? '#FFFFFF' : '#f4f3f4'}
               />
             </View>
 
-            <View style={styles.premiumRow}>
-              <View style={[styles.premiumIconBox, { backgroundColor: '#8B5CF615' }]}>
-                <Ionicons name={isDark ? 'moon' : 'moon-outline'} size={22} color="#8B5CF6" />
+            <View style={{ marginTop: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                <View style={[styles.premiumIconBox, { backgroundColor: '#8B5CF615', width: 36, height: 36, borderRadius: 10 }]}>
+                  <Ionicons name="color-palette" size={18} color="#8B5CF6" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.premiumItemTitle, { fontSize: 15 }]}>المظهر (Theme)</Text>
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.premiumItemTitle}>الوضع الداكن</Text>
-                <Text style={styles.premiumItemSubtitle}>تغيير المظهر إلى الوضع الليلي</Text>
+
+              <View style={styles.themeOptionsContainer}>
+                <TouchableOpacity
+                  style={[styles.themeOption, themeMode === 'light' && styles.themeOptionActive]}
+                  onPress={async () => {
+                    setThemeMode('light');
+                    try {
+                      const appSettings = await getAppSettings();
+                      const settingsToSave = appSettings || {
+                        notificationsEnabled: true,
+                        darkModeEnabled: false,
+                        themeMode: 'light',
+                        autoBackupEnabled: false,
+                        autoSyncEnabled: false,
+                        currency: 'دينار عراقي',
+                        language: 'ar',
+                      };
+                      await upsertAppSettings({ ...settingsToSave, themeMode: 'light', darkModeEnabled: false });
+                    } catch (e) {
+                      console.warn('Failed to save theme setting:', e);
+                    }
+                  }}
+                >
+                  <Ionicons name="sunny" size={20} color={themeMode === 'light' ? theme.colors.primary : theme.colors.textSecondary} />
+                  <Text style={[styles.themeOptionText, themeMode === 'light' && styles.themeOptionTextActive]}>فاتح</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.themeOption, themeMode === 'dark' && styles.themeOptionActive]}
+                  onPress={async () => {
+                    setThemeMode('dark');
+                    try {
+                      const appSettings = await getAppSettings();
+                      const settingsToSave = appSettings || {
+                        notificationsEnabled: true,
+                        darkModeEnabled: true,
+                        themeMode: 'dark',
+                        autoBackupEnabled: false,
+                        autoSyncEnabled: false,
+                        currency: 'دينار عراقي',
+                        language: 'ar',
+                      };
+                      await upsertAppSettings({ ...settingsToSave, themeMode: 'dark', darkModeEnabled: true });
+                    } catch (e) {
+                      console.warn('Failed to save theme setting:', e);
+                    }
+                  }}
+                >
+                  <Ionicons name="moon" size={20} color={themeMode === 'dark' ? theme.colors.primary : theme.colors.textSecondary} />
+                  <Text style={[styles.themeOptionText, themeMode === 'dark' && styles.themeOptionTextActive]}>داكن</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.themeOption, themeMode === 'system' && styles.themeOptionActive]}
+                  onPress={async () => {
+                    setThemeMode('system');
+                    try {
+                      const appSettings = await getAppSettings();
+                      const settingsToSave = appSettings || {
+                        notificationsEnabled: true,
+                        darkModeEnabled: false,
+                        themeMode: 'system',
+                        autoBackupEnabled: false,
+                        autoSyncEnabled: false,
+                        currency: 'دينار عراقي',
+                        language: 'ar',
+                      };
+                      await upsertAppSettings({ ...settingsToSave, themeMode: 'system' });
+                    } catch (e) {
+                      console.warn('Failed to save theme setting:', e);
+                    }
+                  }}
+                >
+                  <Ionicons name="phone-portrait" size={20} color={themeMode === 'system' ? theme.colors.primary : theme.colors.textSecondary} />
+                  <Text style={[styles.themeOptionText, themeMode === 'system' && styles.themeOptionTextActive]}>النظام</Text>
+                </TouchableOpacity>
               </View>
-              <Switch
-                value={isDark}
-                onValueChange={async (value) => {
-                  setIsDark(value);
-                  try {
-                    const appSettings = await getAppSettings();
-                    const settingsToSave = appSettings || {
-                      notificationsEnabled: true,
-                      darkModeEnabled: false,
-                      autoBackupEnabled: false,
-                      autoSyncEnabled: false,
-                      currency: 'دينار عراقي',
-                      language: 'ar',
-                    };
-                    await upsertAppSettings({ ...settingsToSave, darkModeEnabled: value });
-                  } catch (e) {
-                    console.warn('Failed to save dark mode setting:', e);
-                  }
-                }}
-                trackColor={{ false: theme.colors.border, true: '#8B5CF6' }}
-              />
             </View>
 
           </View>
@@ -1007,36 +1068,6 @@ export const SettingsScreen = ({ navigation }: any) => {
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={async () => {
-                if (backupLoading) return;
-                setBackupLoading(true);
-                const result = await restoreFromLastLocalBackup();
-                setBackupLoading(false);
-                if (result.success) {
-                  alertService.success('تم', 'تم استعادة النسخة الاحتياطية المحلية.');
-                  loadSettings();
-                } else {
-                  alertService.error('خطأ', result.error);
-                }
-              }}
-              style={[styles.actionItem, { backgroundColor: '#8B5CF6', overflow: 'hidden' }]}
-              activeOpacity={0.7}
-              disabled={backupLoading}
-            >
-              <View style={styles.actionItemGradient}>
-                <View style={styles.actionItemLeft}>
-                  <View style={styles.actionIconContainer}>
-                    <Ionicons name="document-attach" size={24} color="#FFFFFF" />
-                  </View>
-                  <View style={styles.actionItemInfo}>
-                    <Text style={styles.actionItemTitleWhite}>استعادة من النسخة المحلية</Text>
-                    <Text style={styles.actionItemDescriptionWhite}>استعادة من آخر نسخة احتياطية محلية</Text>
-                  </View>
-                </View>
-                <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={20} color="#FFFFFF" />
-              </View>
-            </TouchableOpacity>
 
             <TouchableOpacity
               onPress={async () => {
@@ -1297,7 +1328,8 @@ export const SettingsScreen = ({ navigation }: any) => {
                     <Switch
                       value={dailyReminder}
                       onValueChange={handleDailyReminderToggle}
-                      trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+                      trackColor={{ false: '#767577', true: theme.colors.primary }}
+                      thumbColor={dailyReminder ? '#FFFFFF' : '#f4f3f4'}
                     />
                   </View>
                   <TouchableOpacity
@@ -2077,6 +2109,34 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     marginTop: 2,
     textAlign: 'left',
+  },
+  themeOptionsContainer: {
+    flexDirection: isRTL ? 'row' : 'row-reverse',
+    gap: 8,
+  },
+  themeOption: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: theme.colors.surfaceLight,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border + '30',
+    alignItems: 'center',
+    gap: 6,
+  },
+  themeOptionActive: {
+    backgroundColor: theme.colors.primary + '10',
+    borderColor: theme.colors.primary,
+  },
+  themeOptionText: {
+    fontSize: 13,
+    fontFamily: theme.typography.fontFamily,
+    color: theme.colors.textSecondary,
+    fontWeight: getPlatformFontWeight('600'),
+  },
+  themeOptionTextActive: {
+    color: theme.colors.primary,
+    fontWeight: getPlatformFontWeight('700'),
   },
 
   modalOverlay: {

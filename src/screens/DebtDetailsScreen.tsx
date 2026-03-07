@@ -166,7 +166,7 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
 
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return 'غير محدد';
-    return new Date(dateStr).toLocaleDateString('ar-IQ', {
+    return new Date(dateStr).toLocaleDateString('ar-IQ-u-nu-latn', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -202,7 +202,7 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
         >
           <View style={styles.headerContent}>
             <View style={styles.headerIcon}>
-              <Ionicons name={typeIcons[debt.type] as any} size={48} color={theme.colors.background} />
+              <Ionicons name={typeIcons[debt.type] as any} size={48} color="#FFFFFF" />
             </View>
             <Text style={styles.debtorName}>{debt.direction === 'owed_to_me' ? 'مدين لي:' : 'مدين لـ:'} {debt.debtorName}</Text>
             <Text style={styles.debtType}>{DEBT_TYPES[debt.type]}</Text>
@@ -210,7 +210,7 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
               <Text style={styles.totalAmount}>{formatCurrency(debt.totalAmount)}</Text>
               {debt.isPaid ? (
                 <View style={styles.paidStatusContainer}>
-                  <Ionicons name="checkmark-circle" size={20} color={theme.colors.background} />
+                  <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
                   <Text style={styles.paidStatusText}>مدفوع بالكامل</Text>
                 </View>
               ) : (
@@ -221,7 +221,7 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
             </View>
             {debt.isPaid && (
               <View style={styles.paidBadge}>
-                <Ionicons name="trophy" size={20} color={theme.colors.background} />
+                <Ionicons name="trophy" size={20} color="#FFFFFF" />
                 <Text style={styles.paidTextHeader}>تم إتمام الدفع بنجاح</Text>
               </View>
             )}
@@ -609,7 +609,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: theme.colors.overlay, // Use overlay or a custom semi-transparent background
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: theme.spacing.xs,
@@ -661,7 +661,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     gap: theme.spacing.xs,
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing.xs,
-    backgroundColor: theme.colors.overlay,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: theme.borderRadius.md,
   },
   paidTextHeader: {

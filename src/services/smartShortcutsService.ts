@@ -3,8 +3,8 @@ import {
   IncomeShortcut,
   getExpenseShortcuts,
   getIncomeShortcuts,
-  getExpenses,
-  getIncome,
+  getRecentExpensesForShortcutRanking,
+  getRecentIncomeForShortcutRanking,
 } from '../database/database';
 
 type ExpenseLike = {
@@ -145,13 +145,19 @@ export const rankSmartIncomeShortcuts = (
 };
 
 export const getSmartExpenseShortcuts = async (limit?: number): Promise<ExpenseShortcut[]> => {
-  const [shortcuts, expenses] = await Promise.all([getExpenseShortcuts(), getExpenses()]);
+  const [shortcuts, expenses] = await Promise.all([
+    getExpenseShortcuts(),
+    getRecentExpensesForShortcutRanking(400),
+  ]);
   const ranked = rankSmartExpenseShortcuts(shortcuts, expenses);
   return typeof limit === 'number' ? ranked.slice(0, limit) : ranked;
 };
 
 export const getSmartIncomeShortcuts = async (limit?: number): Promise<IncomeShortcut[]> => {
-  const [shortcuts, incomeRows] = await Promise.all([getIncomeShortcuts(), getIncome()]);
+  const [shortcuts, incomeRows] = await Promise.all([
+    getIncomeShortcuts(),
+    getRecentIncomeForShortcutRanking(400),
+  ]);
   const ranked = rankSmartIncomeShortcuts(shortcuts, incomeRows);
   return typeof limit === 'number' ? ranked.slice(0, limit) : ranked;
 };

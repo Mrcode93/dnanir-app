@@ -350,7 +350,7 @@ export const AddBudgetScreen: React.FC<AddBudgetScreenProps> = ({
                               : `${getCategoryIcon(category)}-outline` as any
                             }
                             size={24}
-                            color={isSelected ? theme.colors.background : categoryColor}
+                            color={isSelected ? '#FFFFFF' : categoryColor}
                           />
                         </View>
                         <Text style={[
@@ -379,13 +379,13 @@ export const AddBudgetScreen: React.FC<AddBudgetScreenProps> = ({
                 colors={
                   amount && selectedCategory && !loading
                     ? (theme.gradients.primary as any)
-                    : ['#9CA3AF', '#6B7280']
+                    : [theme.colors.surfaceLight, theme.colors.border]
                 }
                 style={styles.saveButtonGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               >
-                <Ionicons name="checkmark-circle" size={22} color={theme.colors.background} />
+                <Ionicons name="checkmark-circle" size={22} color="#FFFFFF" />
                 <Text style={styles.saveButtonText}>
                   {loading ? 'جاري الحفظ...' : editingBudget ? 'تحديث الميزانية' : 'حفظ الميزانية'}
                 </Text>
@@ -593,7 +593,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     textAlign: 'center',
   },
   categoryCardLabelActive: {
-    color: theme.colors.background,
+    color: '#FFFFFF',
   },
   footer: {
     padding: theme.spacing.md,
@@ -617,7 +617,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   saveButtonText: {
     fontSize: theme.typography.sizes.lg,
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.background,
+    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
 });

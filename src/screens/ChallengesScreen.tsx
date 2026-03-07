@@ -561,7 +561,7 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               >
-                <Ionicons name="apps" size={16} color={theme.colors.textInverse} />
+                <Ionicons name="apps" size={16} color="#FFFFFF" />
                 <Text style={styles.filterButtonTextActive}>الكل</Text>
               </LinearGradient>
             ) : (
@@ -590,7 +590,7 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
                     <Ionicons
                       name={info.icon}
                       size={16}
-                      color={theme.colors.textInverse}
+                      color="#FFFFFF"
                     />
                     <Text style={styles.filterButtonTextActive} numberOfLines={1}>
                       {info.label}
@@ -782,7 +782,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   filterButtonTextActive: {
     fontSize: theme.typography.sizes.xs,
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textInverse,
+    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
   scrollView: {

@@ -119,7 +119,7 @@ export const BillDetailsScreen = ({ navigation, route }: any) => {
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('ar-IQ', {
+    return new Date(dateStr).toLocaleDateString('ar-IQ-u-nu-latn', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -171,9 +171,9 @@ export const BillDetailsScreen = ({ navigation, route }: any) => {
             colors={bill.isPaid
               ? [theme.colors.surfaceCard, theme.colors.surfaceLight]
               : isOverdue
-                ? ['#FFF1F2', theme.colors.surfaceCard]
+                ? [theme.colors.error + '10', theme.colors.surfaceCard]
                 : isDueSoon
-                  ? ['#FFFBEB', theme.colors.surfaceCard]
+                  ? [theme.colors.warning + '10', theme.colors.surfaceCard]
                   : [theme.colors.surfaceCard, theme.colors.surfaceLight]
             }
             start={{ x: 0, y: 0 }}
@@ -201,7 +201,7 @@ export const BillDetailsScreen = ({ navigation, route }: any) => {
               </Text>
               {bill.isPaid && (
                 <View style={styles.paidBadge}>
-                  <Ionicons name="checkmark-circle" size={18} color="#059669" />
+                  <Ionicons name="checkmark-circle" size={18} color={theme.colors.success} />
                   <Text style={styles.paidText}>تم دفع الفاتورة</Text>
                 </View>
               )}
@@ -242,7 +242,7 @@ export const BillDetailsScreen = ({ navigation, route }: any) => {
                 ]}>
                   <Text style={[
                     styles.statusText,
-                    { color: isOverdue ? '#DC2626' : isDueSoon ? '#B45309' : theme.colors.textPrimary }
+                    { color: isOverdue ? theme.colors.error : isDueSoon ? theme.colors.warning : theme.colors.textPrimary }
                   ]}>
                     {isOverdue ? `متأخرة ${Math.abs(daysUntilDue)} يوم` :
                       daysUntilDue === 0 ? 'مستحقة اليوم' :
@@ -396,7 +396,7 @@ export const BillDetailsScreen = ({ navigation, route }: any) => {
 const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC', // Slightly cooler background
+    backgroundColor: theme.colors.background,
   },
   loadingContainer: {
     flex: 1,
@@ -462,7 +462,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginTop: 8,
     paddingVertical: 16,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    backgroundColor: theme.colors.surfaceLight,
   },
   amountLabel: {
     fontSize: 12,
@@ -491,11 +491,11 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
-    backgroundColor: '#D1FAE5',
+    backgroundColor: theme.colors.success + '20',
   },
   paidText: {
     fontSize: 13,
-    color: '#065F46',
+    color: theme.colors.success,
     fontFamily: theme.typography.fontFamily,
     fontWeight: getPlatformFontWeight('700'),
   },
@@ -608,10 +608,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginTop: 6,
   },
   statusBadgeOverdue: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: theme.colors.error + '10',
   },
   statusBadgeDueSoon: {
-    backgroundColor: '#FFFBEB',
+    backgroundColor: theme.colors.warning + '10',
   },
   statusText: {
     fontSize: 11,
@@ -654,7 +654,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   paymentAmount: {
     fontSize: 15,
     fontWeight: getPlatformFontWeight('800'),
-    color: '#10B981',
+    color: theme.colors.success,
     fontFamily: theme.typography.fontFamily,
   },
   totalPaidRow: {
@@ -703,7 +703,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderColor: theme.colors.border,
   },
   actionButtonDanger: {
-    backgroundColor: '#EF4444',
+    backgroundColor: theme.colors.error,
   },
   actionButtonText: {
     fontSize: 16,

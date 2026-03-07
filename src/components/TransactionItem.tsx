@@ -181,7 +181,7 @@ const TransactionItemComponent: React.FC<TransactionItemProps> = ({
   const amount = item.amount;
   const itemCurrency = (item as Expense | Income).currency || currencyCode;
   const date = new Date(item.date);
-  const formattedDate = date.toLocaleDateString('ar-IQ', {
+  const formattedDate = date.toLocaleDateString('ar-IQ-u-nu-latn', {
     month: 'short',
     day: 'numeric',
   });
@@ -298,80 +298,84 @@ const TransactionItemComponent: React.FC<TransactionItemProps> = ({
         </TouchableOpacity>
       </Animated.View>
 
-      <ConfirmAlert
-        visible={showConfirmAlert}
-        title="تأكيد الحذف"
-        message={`هل أنت متأكد من حذف ${isExpense ? 'هذا المصروف' : 'هذا الدخل'}؟`}
-        confirmText="حذف"
-        cancelText="إلغاء"
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setShowConfirmAlert(false)}
-        type="danger"
-      />
+      {showConfirmAlert && (
+        <ConfirmAlert
+          visible={showConfirmAlert}
+          title="تأكيد الحذف"
+          message={`هل أنت متأكد من حذف ${isExpense ? 'هذا المصروف' : 'هذا الدخل'}؟`}
+          confirmText="حذف"
+          cancelText="إلغاء"
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setShowConfirmAlert(false)}
+          type="danger"
+        />
+      )}
 
       {/* Pro Bottom Sheet Menu */}
-      <Modal
-        visible={showMenu}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowMenu(false)}
-      >
-        <Pressable style={styles.modalOverlay} onPress={() => setShowMenu(false)}>
-          <View style={styles.bottomSheetContainer}>
-            <View style={styles.dragHandle} />
-            <Text style={styles.menuHeaderTitle}>خيارات المعاملة</Text>
+      {showMenu && (
+        <Modal
+          visible={showMenu}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowMenu(false)}
+        >
+          <Pressable style={styles.modalOverlay} onPress={() => setShowMenu(false)}>
+            <View style={styles.bottomSheetContainer}>
+              <View style={styles.dragHandle} />
+              <Text style={styles.menuHeaderTitle}>خيارات المعاملة</Text>
 
-            <View style={styles.menuOptionsList}>
-              {onEdit && (
-                <TouchableOpacity
-                  style={styles.menuOption}
-                  onPress={() => {
-                    setShowMenu(false);
-                    onEdit();
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.menuIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
-                    <Ionicons name="create-outline" size={22} color={theme.colors.primary} />
-                  </View>
-                  <View style={styles.menuOptionTextContainer}>
-                    <Text style={styles.menuOptionTitle}>تعديل</Text>
-                    <Text style={styles.menuOptionSubtitle}>تغيير التفاصيل أو المبلغ</Text>
-                  </View>
-                  <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color={theme.colors.textMuted} />
-                </TouchableOpacity>
-              )}
+              <View style={styles.menuOptionsList}>
+                {onEdit && (
+                  <TouchableOpacity
+                    style={styles.menuOption}
+                    onPress={() => {
+                      setShowMenu(false);
+                      onEdit();
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.menuIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                      <Ionicons name="create-outline" size={22} color={theme.colors.primary} />
+                    </View>
+                    <View style={styles.menuOptionTextContainer}>
+                      <Text style={styles.menuOptionTitle}>تعديل</Text>
+                      <Text style={styles.menuOptionSubtitle}>تغيير التفاصيل أو المبلغ</Text>
+                    </View>
+                    <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color={theme.colors.textMuted} />
+                  </TouchableOpacity>
+                )}
 
-              {onDelete && (
-                <TouchableOpacity
-                  style={[styles.menuOption, { marginTop: 8 }]}
-                  onPress={() => {
-                    setShowMenu(false);
-                    setShowConfirmAlert(true);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.menuIconBox, { backgroundColor: theme.colors.error + '15' }]}>
-                    <Ionicons name="trash-outline" size={22} color={theme.colors.error} />
-                  </View>
-                  <View style={styles.menuOptionTextContainer}>
-                    <Text style={[styles.menuOptionTitle, { color: theme.colors.error }]}>حذف</Text>
-                    <Text style={styles.menuOptionSubtitle}>حذف هذه المعاملة نهائياً</Text>
-                  </View>
-                  <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color={theme.colors.textMuted} />
-                </TouchableOpacity>
-              )}
+                {onDelete && (
+                  <TouchableOpacity
+                    style={[styles.menuOption, { marginTop: 8 }]}
+                    onPress={() => {
+                      setShowMenu(false);
+                      setShowConfirmAlert(true);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.menuIconBox, { backgroundColor: theme.colors.error + '15' }]}>
+                      <Ionicons name="trash-outline" size={22} color={theme.colors.error} />
+                    </View>
+                    <View style={styles.menuOptionTextContainer}>
+                      <Text style={[styles.menuOptionTitle, { color: theme.colors.error }]}>حذف</Text>
+                      <Text style={styles.menuOptionSubtitle}>حذف هذه المعاملة نهائياً</Text>
+                    </View>
+                    <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color={theme.colors.textMuted} />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowMenu(false)}
+              >
+                <Text style={styles.closeButtonText}>إلغاء</Text>
+              </TouchableOpacity>
             </View>
-
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setShowMenu(false)}
-            >
-              <Text style={styles.closeButtonText}>إلغاء</Text>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      </Modal>
+          </Pressable>
+        </Modal>
+      )}
     </View>
   );
 };

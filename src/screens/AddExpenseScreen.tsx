@@ -215,7 +215,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
     if (cat) return { icon: cat.icon, color: cat.color };
 
     // Fallback defaults
-    const defaultInfo = { icon: 'ellipse', color: '#6B7280' };
+    const defaultInfo = { icon: 'ellipse', color: theme.colors.textSecondary };
     // ... mapping logic can be simplified or copied if strictly needed, 
     // but since we rely on customCategories which includes defaults now, this is safer.
     return defaultInfo;
@@ -226,7 +226,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
         style={styles.flex1}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
       >
@@ -279,13 +279,13 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
               <View style={styles.shortcutsSectionHeader}>
                 <Text style={styles.shortcutsSectionTitle}>اختصارات سريعة</Text>
                 <TouchableOpacity style={styles.addShortcutButton} onPress={() => setShowManageShortcuts(true)}>
-                  <Ionicons name="settings-outline" size={16} color={theme.colors.primary} />
+                  <Ionicons name="hourglass-outline" size={18} color={theme.colors.background} />
                   <Text style={styles.addShortcutButtonText}>إدارة</Text>
                 </TouchableOpacity>
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shortcutsContent}>
                 <TouchableOpacity style={styles.addShortcutMini} onPress={() => setShowManageShortcuts(true)}>
-                  <Ionicons name="add" size={20} color={theme.colors.primary} />
+                  <Ionicons name="flash" size={24} color={theme.colors.background} />
                 </TouchableOpacity>
                 {shortcuts.map(s => (
                   <TouchableOpacity
@@ -321,7 +321,11 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
                       }}
                     >
                       <View style={[styles.catIcon, { backgroundColor: isSelected ? cat.color : theme.colors.surfaceLight }]}>
-                        <Ionicons name={cat.icon as any} size={20} color={isSelected ? theme.colors.background : theme.colors.textSecondary} />
+                        <Ionicons
+                          name={cat.icon as any}
+                          size={20}
+                          color={isSelected ? theme.colors.background : theme.colors.textSecondary}
+                        />
                       </View>
                       <Text style={[styles.catName, isSelected && { color: cat.color, fontWeight: '700' }]} numberOfLines={1}>{cat.name}</Text>
                     </TouchableOpacity>
@@ -354,7 +358,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
                 <Ionicons name="calendar-outline" size={20} color={theme.colors.textSecondary} />
               </View>
               <Text style={styles.fieldText}>
-                {date.toLocaleDateString('ar-IQ', {
+                {date.toLocaleDateString('ar-IQ-u-nu-latn', {
                   weekday: 'short', year: 'numeric', month: 'long', day: 'numeric'
                 })}
               </Text>

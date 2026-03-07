@@ -411,8 +411,8 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
                 <Switch
                   value={hasTargetDate}
                   onValueChange={setHasTargetDate}
-                  trackColor={{ false: theme.colors.border, true: categoryColors[category][0] + '40' }}
-                  thumbColor={hasTargetDate ? categoryColors[category][0] : theme.colors.background}
+                  trackColor={{ false: '#767577', true: categoryColors[category][0] }}
+                  thumbColor={hasTargetDate ? '#FFFFFF' : '#f4f3f4'}
                 />
               </View>
 
@@ -424,7 +424,7 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
                   <Ionicons name="calendar-outline" size={20} color={categoryColors[category][0]} />
                   <Text style={styles.dateValue}>
                     {targetDate
-                      ? targetDate.toLocaleDateString('ar-IQ', {
+                      ? targetDate.toLocaleDateString('ar-IQ-u-nu-latn', {
                         year: 'numeric',
                         month: 'long',
                         day: 'numeric',

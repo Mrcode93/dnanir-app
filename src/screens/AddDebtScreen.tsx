@@ -270,7 +270,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
                                     activeOpacity={0.8}
                                     style={[styles.directionChip, direction === 'owed_by_me' && styles.directionChipActive]}
                                 >
-                                    <Ionicons name="arrow-redo" size={20} color={direction === 'owed_by_me' ? theme.colors.background : theme.colors.textSecondary} />
+                                    <Ionicons name="arrow-redo" size={20} color={direction === 'owed_by_me' ? '#FFFFFF' : theme.colors.textSecondary} />
                                     <Text style={[styles.directionChipLabel, direction === 'owed_by_me' && styles.directionChipLabelActive]}>
                                         {DEBT_DIRECTIONS.owed_by_me}
                                     </Text>
@@ -281,7 +281,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
                                     activeOpacity={0.8}
                                     style={[styles.directionChip, direction === 'owed_to_me' && styles.directionChipActiveOwedToMe]}
                                 >
-                                    <Ionicons name="arrow-undo" size={20} color={direction === 'owed_to_me' ? theme.colors.background : theme.colors.textSecondary} />
+                                    <Ionicons name="arrow-undo" size={20} color={direction === 'owed_to_me' ? '#FFFFFF' : theme.colors.textSecondary} />
                                     <Text style={[styles.directionChipLabel, direction === 'owed_to_me' && styles.directionChipLabelActive]}>
                                         {DEBT_DIRECTIONS.owed_to_me}
                                     </Text>
@@ -316,7 +316,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
                                                 <Ionicons
                                                     name={isSelected ? (data.icon as any) : (`${data.icon}-outline` as any)}
                                                     size={24}
-                                                    color={isSelected ? theme.colors.background : theme.colors.textSecondary}
+                                                    color={isSelected ? '#FFFFFF' : theme.colors.textSecondary}
                                                 />
                                                 <Text style={[styles.typeCardLabel, isSelected && styles.typeCardLabelActive]}>
                                                     {data.label}
@@ -391,7 +391,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
                                     >
                                         <Ionicons name="calendar-outline" size={18} color={theme.colors.primary} />
                                         <Text style={styles.dateValue}>
-                                            {startDate.toLocaleDateString('ar-IQ')}
+                                            {startDate.toLocaleDateString('ar-IQ-u-nu-latn')}
                                         </Text>
                                     </TouchableOpacity>
                                 </View>
@@ -402,8 +402,8 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
                                         <Switch
                                             value={hasDueDate}
                                             onValueChange={setHasDueDate}
-                                            trackColor={{ false: theme.colors.border, true: theme.colors.primary + '40' }}
-                                            thumbColor={hasDueDate ? theme.colors.primary : theme.colors.surfaceCard}
+                                            trackColor={{ false: '#767577', true: theme.colors.primary }}
+                                            thumbColor={hasDueDate ? '#FFFFFF' : '#f4f3f4'}
                                         />
                                     </View>
                                     <TouchableOpacity
@@ -417,7 +417,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
                                             color={hasDueDate ? theme.colors.error : theme.colors.textMuted}
                                         />
                                         <Text style={[styles.dateValue, !hasDueDate && styles.dateValueDisabled]}>
-                                            {hasDueDate && dueDate ? dueDate.toLocaleDateString('ar-IQ') : 'غير محدد'}
+                                            {hasDueDate && dueDate ? dueDate.toLocaleDateString('ar-IQ-u-nu-latn') : 'غير محدد'}
                                         </Text>
                                     </TouchableOpacity>
                                 </View>
@@ -440,8 +440,8 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
                                     <Switch
                                         value={hasInstallments}
                                         onValueChange={setHasInstallments}
-                                        trackColor={{ false: theme.colors.border, true: theme.colors.primary + '40' }}
-                                        thumbColor={hasInstallments ? theme.colors.primary : theme.colors.surfaceCard}
+                                        trackColor={{ false: '#767577', true: theme.colors.primary }}
+                                        thumbColor={hasInstallments ? '#FFFFFF' : '#f4f3f4'}
                                     />
                                 </View>
 
@@ -519,7 +519,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
                                         <Text style={styles.saveBtnText}>
                                             {editingDebt ? 'تحديث البيانات' : 'حفظ الالتزام'}
                                         </Text>
-                                        <Ionicons name="checkmark-circle" size={22} color={theme.colors.background} />
+                                        <Ionicons name="checkmark-circle" size={22} color="#FFFFFF" />
                                     </>
                                 )}
                             </LinearGradient>
@@ -674,7 +674,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         marginTop: 4,
     },
     directionChipLabelActive: {
-        color: theme.colors.textPrimary,
+        color: '#FFFFFF',
     },
     directionChipHint: {
         fontSize: 10,
@@ -710,7 +710,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         fontWeight: getPlatformFontWeight('600'),
     },
     typeCardLabelActive: {
-        color: theme.colors.background,
+        color: '#FFFFFF',
     },
     mainCard: {
         marginTop: 24,
@@ -890,7 +890,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         marginTop: 18,
         paddingTop: 18,
         borderTopWidth: 1,
-        borderTopColor: 'rgba(0,0,0,0.06)',
+        borderTopColor: theme.colors.border,
     },
     installmentInputs: {
         flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -953,7 +953,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     saveBtnText: {
         fontSize: 18,
         fontWeight: getPlatformFontWeight('700'),
-        color: theme.colors.background,
+        color: '#FFFFFF',
         fontFamily: theme.typography.fontFamily,
     },
 });

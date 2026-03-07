@@ -32,10 +32,9 @@ import {
   getAvailableMonths,
   addExpense,
   addIncome,
-  type ExpenseShortcut,
-  type IncomeShortcut,
 } from '../database/database';
-import { Expense, Income, FinancialGoal, Debt, EXPENSE_CATEGORIES, Challenge } from '../types';
+import { getSubscriptions, checkAndProcessSubscriptions } from '../services/subscriptionService';
+import { Expense, Income, FinancialGoal, Debt, EXPENSE_CATEGORIES, Challenge, Subscription, ExpenseShortcut, IncomeShortcut } from '../types';
 import { updateAllChallenges } from '../services/challengeService';
 import { getUnlockedAchievementsCount, getTotalAchievementsCount } from '../services/achievementService';
 import { calculateBudgetStatus, BudgetStatus } from '../services/budgetService';
@@ -53,12 +52,14 @@ import { authApiService } from '../services/authApiService';
 import { alertService } from '../services/alertService';
 import { ReferralModal } from '../components/ReferralModal';
 import { referralService } from '../services/referralService';
+import { TransactionDetailsModal } from '../components/TransactionDetailsModal';
 import { getSmartExpenseShortcuts, getSmartIncomeShortcuts } from '../services/smartShortcutsService';
 
 const { width } = Dimensions.get('window');
 const MONTH_NAMES = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
   'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
 const WEEKDAY_NAMES = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+const CHALLENGE_REFRESH_MS = 3 * 60 * 60 * 1000;
 
 export const DashboardScreen = ({ navigation }: any) => {
   const { theme } = useAppTheme();
@@ -77,6 +78,7 @@ export const DashboardScreen = ({ navigation }: any) => {
   const [manageShortcutsType, setManageShortcutsType] = useState<'expense' | 'income'>('expense');
   const [showReferralModal, setShowReferralModal] = useState(false);
   const [recentTransactions, setRecentTransactions] = useState<(Expense | Income)[]>([]);
+  const [subscriptionsSummary, setSubscriptionsSummary] = useState<{ active: number } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [userName, setUserName] = useState<string>('');
   const [activeGoals, setActiveGoals] = useState<FinancialGoal[]>([]);
@@ -98,10 +100,14 @@ export const DashboardScreen = ({ navigation }: any) => {
   });
   const [filteredBalance, setFilteredBalance] = useState<number | null>(null);
   const [availableMonths, setAvailableMonths] = useState<Array<{ year: number; month: number }>>([]);
+  const [selectedTransaction, setSelectedTransaction] = useState<(Expense | Income) | null>(null);
+  const [selectedTransactionType, setSelectedTransactionType] = useState<'expense' | 'income'>('expense');
+  const [showTransactionDetails, setShowTransactionDetails] = useState(false);
 
   // useLayoutEffect removed to allow AppNavigator to control tab bar styles globally with safe area insets
 
   const deferredLoadRef = useRef<ReturnType<typeof InteractionManager.runAfterInteractions> | null>(null);
+  const lastChallengeRefreshRef = useRef(0);
 
   const loadMonthData = useCallback(async () => {
     const targetYear = selectedBalanceMonth?.year || new Date().getFullYear();
@@ -161,6 +167,9 @@ export const DashboardScreen = ({ navigation }: any) => {
 
   const loadSecondaryData = useCallback(async () => {
     try {
+      const now = Date.now();
+      const shouldRefreshChallenges = now - lastChallengeRefreshRef.current >= CHALLENGE_REFRESH_MS;
+
       const [
         userSettings,
         allGoals,
@@ -171,6 +180,7 @@ export const DashboardScreen = ({ navigation }: any) => {
         challenges,
         shortcutsExp,
         shortcutsInc,
+        subs,
       ] = await Promise.all([
         getUserSettings(),
         getFinancialGoals(),
@@ -179,12 +189,18 @@ export const DashboardScreen = ({ navigation }: any) => {
         getCustomCategories('expense'),
         Promise.all([getUnlockedAchievementsCount(), getTotalAchievementsCount()]),
         (async () => {
-          await updateAllChallenges();
+          if (shouldRefreshChallenges) {
+            await updateAllChallenges();
+            lastChallengeRefreshRef.current = now;
+          }
           return getChallenges();
         })(),
         getSmartExpenseShortcuts(),
         getSmartIncomeShortcuts(),
+        getSubscriptions(true),
       ]);
+
+      setSubscriptionsSummary({ active: subs.length });
 
       if (userSettings?.name) {
         setUserName(userSettings.name);
@@ -244,14 +260,6 @@ export const DashboardScreen = ({ navigation }: any) => {
       setIncomeShortcuts(shortcutsInc);
 
       setCustomCategories(customCats);
-
-      // Check achievements periodically (async, don't wait)
-      try {
-        const { checkAllAchievements } = await import('../services/achievementService');
-        checkAllAchievements().catch(err => console.error('Error checking achievements in Dashboard:', err));
-      } catch (error) {
-        // Ignore if achievementService is not available
-      }
     } catch (error) {
       console.error('Error loading dashboard secondary data:', error);
     }
@@ -359,12 +367,18 @@ export const DashboardScreen = ({ navigation }: any) => {
           {summary ? (
             <BalanceCard
               balance={filteredBalance !== null ? filteredBalance : summary.balance}
+              monthlyChange={currentMonthData?.balance || 0}
               selectedMonth={selectedBalanceMonth || undefined}
               onMonthChange={(year, month) => {
                 setSelectedBalanceMonth({ year, month });
               }}
               showFilter={true}
               availableMonths={availableMonths}
+              secondaryAccount={debtsSummary ? {
+                name: 'إجمالي الديون',
+                balance: debtsSummary.remaining,
+                change: 0
+              } : undefined}
             />
           ) : (
             <LinearGradient
@@ -679,63 +693,67 @@ export const DashboardScreen = ({ navigation }: any) => {
           }}
         />
 
-        {/* Monthly Financial Pulse */}
-        {currentMonthData && (
-          <View style={styles.pulseSection}>
-            <LinearGradient
-              colors={theme.gradients.primary as any}
-              style={styles.pulseCard}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <View style={styles.pulseHeader}>
-                <Text style={styles.pulseTitle}>
-                  {selectedBalanceMonth?.year === 0 && selectedBalanceMonth?.month === 0
-                    ? 'ملخص كلي للميزانية'
-                    : `الميزانية لشهر ${MONTH_NAMES[(selectedBalanceMonth?.month || new Date().getMonth() + 1) - 1]}`}
-                </Text>
-                <TouchableOpacity onPress={() => navigation.navigate('Budget')}>
-                  <Text style={styles.pulseLink}>التفاصيل</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.pulseStats}>
-                <View style={styles.pulseStatItem}>
-                  <Text style={styles.pulseStatNum}>
-                    {isPrivacyEnabled ? '****' : formatCurrency(currentMonthData.totalIncome)}
-                  </Text>
-                  <Text style={styles.pulseStatLabel}>إجمالي الوارد</Text>
-                </View>
-                <View style={styles.pulseDivider} />
-                <View style={styles.pulseStatItem}>
-                  <Text style={styles.pulseStatNum}>
-                    {isPrivacyEnabled ? '****' : formatCurrency(currentMonthData.totalExpenses)}
-                  </Text>
-                  <Text style={styles.pulseStatLabel}>إجمالي الصرف</Text>
-                </View>
-              </View>
-
-              {/* Progress visual */}
-              <View style={styles.progressContainer}>
-                <View style={styles.progressBar}>
-                  <View
-                    style={[
-                      styles.progressFill,
-                      { width: `${Math.min((currentMonthData.totalExpenses / (currentMonthData.totalIncome || 1)) * 100, 100)}%` }
-                    ]}
-                  />
-                </View>
-                <Text style={styles.progressText}>
-                  {isPrivacyEnabled
-                    ? '****'
-                    : Math.round((currentMonthData.totalExpenses / (currentMonthData.totalIncome || 1)) * 100) > 100
-                      ? '⚠️ تجاوزت حد دخلك لهذا الشهر!'
-                      : `استهلكت ${Math.round((currentMonthData.totalExpenses / (currentMonthData.totalIncome || 1)) * 100)}% من دخلك`}
-                </Text>
-              </View>
-            </LinearGradient>
+        {/* Financial Management Section Title */}
+        <View style={[styles.section, { marginTop: theme.spacing.lg, marginBottom: 0 }]}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>أدوات الإدارة</Text>
           </View>
-        )}
+        </View>
+
+        {/* Other Summaries (Debts, Bills) - Compact Grid */}
+        <View style={[styles.summaryGrid, { marginHorizontal: 16 }]}>
+          {debtsSummary && (
+            <TouchableOpacity
+              style={styles.summaryGridItem}
+              onPress={() => navigation.navigate('Debts')}
+            >
+              <View style={[styles.summaryIconBg, { backgroundColor: theme.colors.info }]}>
+                <Ionicons name="card" size={20} color="#FFFFFF" />
+              </View>
+              <Text style={styles.summaryLabel}>الديون</Text>
+              <Text style={styles.summaryValue}>{formatCurrency(debtsSummary.remaining)}</Text>
+            </TouchableOpacity>
+          )}
+
+          {budgetsSummary && (
+            <TouchableOpacity
+              style={styles.summaryGridItem}
+              onPress={() => navigation.navigate('Budget')}
+            >
+              <View style={[styles.summaryIconBg, { backgroundColor: theme.colors.error }]}>
+                <Ionicons name="bar-chart" size={20} color="#FFFFFF" />
+              </View>
+              <Text style={styles.summaryLabel}>الميزانية</Text>
+              <Text style={styles.summaryValue}>{budgetsSummary.exceeded} متجاوز</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={styles.summaryGridItem}
+            onPress={() => navigation.navigate('Subscriptions')}
+          >
+            <View style={[styles.summaryIconBg, { backgroundColor: theme.colors.warning }]}>
+              <Ionicons name="repeat" size={20} color="#FFFFFF" />
+            </View>
+            <Text style={styles.summaryLabel}>الاشتراكات</Text>
+            <Text style={styles.summaryValue}>{subscriptionsSummary?.active || 0} نشط</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.summaryGridItem}
+            onPress={() => navigation.navigate('Bills')}
+          >
+            <View style={[styles.summaryIconBg, { backgroundColor: theme.colors.primary }]}>
+              <Ionicons name="receipt" size={20} color="#FFFFFF" />
+            </View>
+            <Text style={styles.summaryLabel}>الفواتير</Text>
+            <Text style={styles.summaryValue}>عرض الكل</Text>
+          </TouchableOpacity>
+        </View>
+
+
+
+
 
 
 
@@ -868,53 +886,14 @@ export const DashboardScreen = ({ navigation }: any) => {
           </View>
         )}
 
-        {/* Other Summaries (Debts, Bills) - Compact Grid */}
-        <View style={styles.summaryGrid}>
-          {debtsSummary && (
-            <TouchableOpacity
-              style={styles.summaryGridItem}
-              onPress={() => navigation.navigate('Debts')}
-            >
-              <View style={[styles.summaryIconBg, { backgroundColor: theme.colors.info }]}>
-                <Ionicons name="card" size={20} color={theme.colors.background} />
-              </View>
-              <Text style={styles.summaryLabel}>الديون</Text>
-              <Text style={styles.summaryValue}>{formatCurrency(debtsSummary.remaining)}</Text>
-            </TouchableOpacity>
-          )}
 
-          {budgetsSummary && (
-            <TouchableOpacity
-              style={styles.summaryGridItem}
-              onPress={() => navigation.navigate('Budget')}
-            >
-              <View style={[styles.summaryIconBg, { backgroundColor: theme.colors.error }]}>
-                <Ionicons name="bar-chart" size={20} color={theme.colors.background} />
-              </View>
-              <Text style={styles.summaryLabel}>الميزانية</Text>
-              <Text style={styles.summaryValue}>{budgetsSummary.exceeded} متجاوز</Text>
-            </TouchableOpacity>
-          )}
 
-          <TouchableOpacity
-            style={styles.summaryGridItem}
-            onPress={() => navigation.navigate('Bills')}
-          >
-            <View style={[styles.summaryIconBg, { backgroundColor: theme.colors.primary }]}>
-              <Ionicons name="receipt" size={20} color={theme.colors.background} />
-            </View>
-            <Text style={styles.summaryLabel}>الفواتير</Text>
-            <Text style={styles.summaryValue}>عرض الكل</Text>
-          </TouchableOpacity>
-        </View>
 
         {/* Recent Transactions Section */}
-        <View style={styles.section}>
+        <View style={[styles.section, { marginTop: theme.spacing.lg }]}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>أحدث العمليات</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Income')}>
-              <Text style={styles.sectionLink}>الكل</Text>
-            </TouchableOpacity>
+
           </View>
 
           <View style={styles.transactionList}>
@@ -925,11 +904,9 @@ export const DashboardScreen = ({ navigation }: any) => {
                 type={(item as any).type}
                 showOptions={false}
                 onPress={() => {
-                  if ((item as any).type === 'expense') {
-                    navigation.navigate('AddExpense', { expense: item });
-                  } else {
-                    navigation.navigate('AddIncome', { income: item });
-                  }
+                  setSelectedTransaction(item);
+                  setSelectedTransactionType((item as any).type);
+                  setShowTransactionDetails(true);
                 }}
               />
             ))}
@@ -941,6 +918,24 @@ export const DashboardScreen = ({ navigation }: any) => {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Transaction Details Modal */}
+      <TransactionDetailsModal
+        visible={showTransactionDetails}
+        item={selectedTransaction}
+        type={selectedTransactionType}
+        customCategories={customCategories}
+        onClose={() => { setShowTransactionDetails(false); setSelectedTransaction(null); }}
+        onEdit={() => {
+          if (selectedTransaction) {
+            if (selectedTransactionType === 'expense') {
+              navigation.navigate('AddExpense', { expense: selectedTransaction });
+            } else {
+              navigation.navigate('AddIncome', { income: selectedTransaction });
+            }
+          }
+        }}
+      />
     </SafeAreaView>
   );
 };
@@ -1290,6 +1285,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   section: {
     marginBottom: theme.spacing.xl,
+    marginHorizontal: theme.spacing.xs,
   },
   sectionHeader: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -1413,13 +1409,17 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginTop: theme.spacing.sm,
   },
   summaryGridItem: {
-    flex: 1,
-    minWidth: '45%',
+    width: '47%',
+    minHeight: 95,
     backgroundColor: theme.colors.surfaceCard,
-    borderRadius: 20,
-    padding: theme.spacing.md,
+    borderRadius: 24,
+    padding: theme.spacing.sm,
     alignItems: 'center',
-    ...(Platform.OS === 'ios' ? { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 } : { elevation: 2 }),
+    justifyContent: 'center',
+    marginBottom: theme.spacing.xs,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    ...(Platform.OS === 'ios' ? { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10 } : { elevation: 2 }),
   },
   summaryIconBg: {
     width: 40,
@@ -1437,10 +1437,11 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   summaryValue: {
-    fontSize: 14,
-    fontWeight: getPlatformFontWeight('800'),
+    fontSize: 15,
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
+    textAlign: 'center',
   },
   budgetQuickCard: {
     marginBottom: theme.spacing.sm,

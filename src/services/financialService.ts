@@ -1,4 +1,4 @@
-import { FinancialSummary, ExpenseCategory } from '../types';
+import { FinancialSummary, ExpenseCategory, FinancialInsight, EXPENSE_CATEGORIES } from '../types';
 import { formatCurrencyAmount } from './currencyService';
 import { CURRENCIES } from '../types';
 import { getAppSettings } from '../database/database';
@@ -92,49 +92,94 @@ export const calculateFinancialSummary = async (): Promise<FinancialSummary> => 
   };
 };
 
-export const generateFinancialInsights = (summary: FinancialSummary): string[] => {
-  const insights: string[] = [];
+export const generateFinancialInsights = (summary: FinancialSummary): FinancialInsight[] => {
+  const insights: FinancialInsight[] = [];
   const savingsRate = summary.totalIncome > 0 ? (summary.balance / summary.totalIncome) * 100 : 0;
   const expenseRate = summary.totalIncome > 0 ? (summary.totalExpenses / summary.totalIncome) * 100 : 0;
 
   // Balance & Savings Insights
   if (summary.balance < 0) {
-    insights.push('⚠️ تنبيه: إجمالي المصاريف يتجاوز الدخل هذا الشهر. راجع نفقاتك لتجنب العجز المالي.');
+    insights.push({
+      type: 'warning',
+      title: 'تنبيه العجز المالي',
+      content: 'إجمالي المصاريف يتجاوز الدخل هذا الشهر. راجع نفقاتك فوراً لتجنب الديون المتراكمة.'
+    });
   } else if (savingsRate >= 30) {
-    insights.push('🌟 أداء مالي ممتاز! تدخر أكثر من 30% من دخلك. فكر في استثمار الفائض لتنمية ثروتك.');
+    insights.push({
+      type: 'success',
+      title: 'أداء مالي استثنائي',
+      content: 'أنت تدخر أكثر من 30% من دخلك. هذا معدل ممتاز جداً يساعدك في بناء ثروتك بسرعة.'
+    });
   } else if (savingsRate >= 20) {
-    insights.push('✅ وضعك المالي جيد. استمر في الحفاظ على معدل ادخار 20% لضمان الاستقرار المالي.');
+    insights.push({
+      type: 'success',
+      title: 'استقرار مالي جيد',
+      content: 'اتزانك بين الصرف والادخار ممتاز. استمر على معدل ادخار 20% لضمان أمانك المالي.'
+    });
   } else if (savingsRate > 0 && savingsRate < 10) {
-    insights.push('💡 لديك فائض بسيط. حاول تقليل النفقات غير الضرورية لزيادة معدل مدخراتك.');
+    insights.push({
+      type: 'info',
+      title: 'فرصة لزيادة الادخار',
+      content: 'لديك فائض بسيط. حاول تقليص المصاريف غير الضرورية لرفع معدل ادخارك إلى 15%.'
+    });
   }
 
   // Expense Analysis
   if (expenseRate > 90) {
-    insights.push('📉 المصاريف تلتهم معظم دخلك. حاول اتباع قاعدة 50/30/20 لتحسين التوازن المالي.');
+    insights.push({
+      type: 'warning',
+      title: 'معدل إنفاق مرتفع',
+      content: 'المصاريف تستهلك معظم دخلك. طبق قاعدة 50/30/20 (احتياجات، رغبات، ادخار) لتحسين وضعك.'
+    });
   }
 
   // Category Insights
   if (summary.topExpenseCategories && summary.topExpenseCategories.length > 0) {
     const topCategory = summary.topExpenseCategories[0];
+    const categoryName = EXPENSE_CATEGORIES[topCategory.category as keyof typeof EXPENSE_CATEGORIES] || topCategory.category;
+
     if (topCategory.percentage > 40) {
-      insights.push(`📊 إنفاقك على "${topCategory.category}" مرتفع جداً (${topCategory.percentage.toFixed(1)}%). هل يمكن تقليله؟`);
+      insights.push({
+        type: 'info',
+        title: 'تركيز الإنفاق',
+        content: `إنفاقك على "${categoryName}" يمثل ${topCategory.percentage.toFixed(0)}% من ميزانيتك. فكر في بدائل لتقليل هذا البند.`
+      });
     } else if (topCategory.percentage > 25) {
-      insights.push(`ℹ️ تعتبر "${topCategory.category}" أعلى فئة إنفاق لديك. راقب هذه المصاريف عن كثب.`);
+      insights.push({
+        type: 'tip',
+        title: 'تحليل الفئات',
+        content: `تعتبر "${categoryName}" هي الأعلى إنفاقاً حالياً. مراقبة هذه الفئة ستمنحك تحكماً أكبر بالسيولة.`
+      });
     }
   }
 
-  // General Advice (Randomized to keep it fresh)
-  const tips = [
-    '💡 نصيحة: تسجيل المصاريف يومياً يساعدك على اكتشاف عادات الإنفاق الخفية.',
-    '💡 نصيحة: خصص مبلغاً للطوارئ يعادل مصاريف 3-6 أشهر.',
-    '💡 نصيحة: راجع اشتراكاتك الشهرية، قد تدفع مقابل خدمات لا تستخدمها.',
-    '💡 نصيحة: قارن الأسعار قبل الشراء، العروض قد توفر لك الكثير.',
+  // General Pro Advice
+  const proTips: FinancialInsight[] = [
+    {
+      type: 'tip',
+      title: 'نصيحة احترافية',
+      content: 'تسجيل المصاريف لحظة وقوعها يمنع تسرب الأموال في بنود غير محسوبة ويمنحك رؤية واقعية.'
+    },
+    {
+      type: 'goal',
+      title: 'بناء الأمان المالي',
+      content: 'احرص على بناء صندوق طوارئ يغطي مصاريف 3 أشهر قبل التوسع في الاستثمارات عالية المخاطر.'
+    },
+    {
+      type: 'tip',
+      title: 'تحسين الاشتراكات',
+      content: 'راجع الاشتراكات الشهرية التلقائية؛ الغاء خدمة واحدة لا تستخدمها يوفر لك مبلغاً تراكمياً جيداً.'
+    },
+    {
+      type: 'info',
+      title: 'قوة الادخار التراكمي',
+      content: 'ادخار مبلغ بسيط شهرياً بشكل مستمر أفضل من ادخار مبالغ كبيرة بشكل متقطع.'
+    },
   ];
 
-  // Add a random tip if we don't have too many insights
-  if (insights.length < 3) {
-    insights.push(tips[Math.floor(Math.random() * tips.length)]);
-  }
+  // Add 1-2 random pro tips to keep the insights varied
+  const shuffled = proTips.sort(() => 0.5 - Math.random());
+  insights.push(...shuffled.slice(0, 1));
 
   return insights;
 };

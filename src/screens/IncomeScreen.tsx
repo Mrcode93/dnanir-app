@@ -41,6 +41,7 @@ import { MonthFilter } from '../components/MonthFilter';
 import { getMonthRange, formatDateLocal } from '../utils/date';
 import { SmartAddModal } from '../components/SmartAddModal';
 import { usePrivacy } from '../context/PrivacyContext';
+import { TransactionDetailsModal } from '../components/TransactionDetailsModal';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -80,9 +81,12 @@ export const IncomeScreen = ({ navigation, route }: any) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showSmartAdd, setShowSmartAdd] = useState(false);
   const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
+  const [selectedIncome, setSelectedIncome] = useState<Income | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
 
   // Animations
   const addModalAnim = useRef(new Animated.Value(0)).current;
+  const initialFocusPassedRef = useRef(false);
 
   // Animate Modal
   useEffect(() => {
@@ -172,22 +176,30 @@ export const IncomeScreen = ({ navigation, route }: any) => {
     fetchIncome(true);
   }, [selectedMonth, selectedCategory, filterType, selectedDate]);
 
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      fetchIncome(true);
-      loadCustomCategories();
-    });
-    return unsubscribe;
-  }, [navigation, fetchIncome]);
-
-  const loadCustomCategories = async () => {
+  const loadCustomCategories = useCallback(async () => {
     try {
       const categories = await getCustomCategories('income');
       setCustomCategories(categories);
     } catch (error) {
       // Ignore
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadCustomCategories();
+  }, [loadCustomCategories]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (!initialFocusPassedRef.current) {
+        initialFocusPassedRef.current = true;
+        return;
+      }
+      fetchIncome(true);
+      loadCustomCategories();
+    });
+    return unsubscribe;
+  }, [navigation, fetchIncome, loadCustomCategories]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -233,6 +245,10 @@ export const IncomeScreen = ({ navigation, route }: any) => {
         type="income"
         formatCurrency={formatCurrency}
         customCategories={customCategories}
+        onPress={() => {
+          setSelectedIncome(item);
+          setShowDetails(true);
+        }}
         onEdit={() => navigation.navigate('AddIncome', { income: item })}
         onDelete={async () => {
           try {
@@ -526,6 +542,31 @@ export const IncomeScreen = ({ navigation, route }: any) => {
         mode="income"
         navigation={navigation}
       />
+
+      {/* Transaction Details Modal */}
+      <TransactionDetailsModal
+        visible={showDetails}
+        item={selectedIncome}
+        type="income"
+        customCategories={customCategories}
+        onClose={() => { setShowDetails(false); setSelectedIncome(null); }}
+        onEdit={() => {
+          if (selectedIncome) {
+            navigation.navigate('AddIncome', { income: selectedIncome });
+          }
+        }}
+        onDelete={async () => {
+          if (selectedIncome) {
+            try {
+              await deleteIncome(selectedIncome.id);
+              alertService.toastSuccess('تم حذف الإيراد بنجاح');
+              fetchIncome(true);
+            } catch (error) {
+              alertService.toastError('حدث خطأ أثناء حذف الإيراد');
+            }
+          }
+        }}
+      />
     </View>
   );
 };
@@ -591,7 +632,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 8,
   },
   toggleBtnActive: {
-    backgroundColor: theme.colors.surfaceCard,
+    backgroundColor: theme.colors.primary,
     ...getPlatformShadow('xs'),
   },
   toggleText: {
@@ -601,7 +642,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontWeight: getPlatformFontWeight('600'),
   },
   toggleTextActive: {
-    color: theme.colors.primary,
+    color: '#FFFFFF',
   },
   monthFilterWrapper: {
     flex: 1,

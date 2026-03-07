@@ -148,7 +148,7 @@ export const AdvancedReportsScreen = ({ navigation }: any) => {
             >
               <Text style={styles.dateText}>
                 {filter.startDate
-                  ? new Date(filter.startDate).toLocaleDateString('ar-IQ')
+                  ? new Date(filter.startDate).toLocaleDateString('ar-IQ-u-nu-latn')
                   : 'اختر التاريخ'}
               </Text>
               <Ionicons name="calendar" size={20} color={theme.colors.primary} />
@@ -175,7 +175,7 @@ export const AdvancedReportsScreen = ({ navigation }: any) => {
             >
               <Text style={styles.dateText}>
                 {filter.endDate
-                  ? new Date(filter.endDate).toLocaleDateString('ar-IQ')
+                  ? new Date(filter.endDate).toLocaleDateString('ar-IQ-u-nu-latn')
                   : 'اختر التاريخ'}
               </Text>
               <Ionicons name="calendar" size={20} color={theme.colors.primary} />
@@ -315,7 +315,7 @@ export const AdvancedReportsScreen = ({ navigation }: any) => {
                   <View style={styles.transactionInfo}>
                     <Text style={styles.transactionTitle}>{expense.title}</Text>
                     <Text style={styles.transactionDate}>
-                      {new Date(expense.date).toLocaleDateString('ar-IQ')}
+                      {new Date(expense.date).toLocaleDateString('ar-IQ-u-nu-latn')}
                     </Text>
                   </View>
                   <Text style={styles.transactionAmount}>{formatCurrency(expense.amount)}</Text>

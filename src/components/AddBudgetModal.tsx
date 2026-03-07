@@ -311,7 +311,7 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
                             <Ionicons
                               name={getCategoryIcon(category) as any}
                               size={22}
-                              color={isSelected ? '#FFF' : categoryColor}
+                              color={isSelected ? theme.colors.background : categoryColor}
                             />
                           </View>
                           <Text style={[
@@ -321,7 +321,7 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
                             {getCategoryName(category)}
                           </Text>
                           {isSelected && (
-                            <Ionicons name="checkmark-circle" size={18} color="#FFF" style={styles.checkIcon} />
+                            <Ionicons name="checkmark-circle" size={18} color={theme.colors.background} style={styles.checkIcon} />
                           )}
                         </LinearGradient>
                       </TouchableOpacity>
@@ -584,7 +584,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     textAlign: 'center',
   },
   categoryCardLabelActive: {
-    color: '#FFFFFF',
+    color: theme.colors.background,
   },
   checkIcon: {
     position: 'absolute',
@@ -631,7 +631,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   saveButtonText: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
-    color: '#FFFFFF',
+    color: theme.colors.background,
     fontFamily: theme.typography.fontFamily,
   },
 

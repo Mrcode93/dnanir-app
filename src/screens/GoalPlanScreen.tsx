@@ -29,6 +29,13 @@ export const GoalPlanScreen = ({ route, navigation }: any) => {
   const [plan, setPlan] = useState<GoalPlanData | null>(null);
   const [cachedAt, setCachedAt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const primaryGradient = React.useMemo<readonly [string, string, ...string[]]>(() => {
+    const gradient = theme.gradients?.primary;
+    if (Array.isArray(gradient) && gradient.length >= 2) {
+      return [gradient[0], gradient[1], ...gradient.slice(2)];
+    }
+    return [theme.colors.primary, theme.colors.primary];
+  }, [theme.colors.primary, theme.gradients?.primary]);
 
   const loadCached = useCallback(async () => {
     if (!goal?.id) return;
@@ -75,8 +82,8 @@ export const GoalPlanScreen = ({ route, navigation }: any) => {
           totalIncome: currentMonthData.totalIncome,
           totalExpenses: currentMonthData.totalExpenses,
           balance: currentMonthData.balance,
-          expenses: currentMonthData.expenses || [],
-          income: currentMonthData.income || [],
+          expenses: (currentMonthData.expenses || []) as unknown as Array<Record<string, unknown>>,
+          income: (currentMonthData.income || []) as unknown as Array<Record<string, unknown>>,
           byCategory: (currentMonthData.topExpenseCategories || []).map((c: any) => ({
             category: c.category,
             amount: c.amount,
@@ -161,7 +168,7 @@ export const GoalPlanScreen = ({ route, navigation }: any) => {
             <Text style={[styles.headerSubtitle, { color: theme.colors.textSecondary }]}>
               {isPrivacyEnabled
                 ? `**** / **** ${goalCurrency}`
-                : `${goal.currentAmount.toLocaleString('ar-IQ')} / ${goal.targetAmount.toLocaleString('ar-IQ')} ${goalCurrency}`}
+                : `${goal.currentAmount.toLocaleString('ar-IQ-u-nu-latn')} / ${goal.targetAmount.toLocaleString('ar-IQ-u-nu-latn')} ${goalCurrency}`}
             </Text>
           </View>
           <TouchableOpacity
@@ -170,7 +177,7 @@ export const GoalPlanScreen = ({ route, navigation }: any) => {
             disabled={loading}
           >
             <LinearGradient
-              colors={theme.gradients.primary as string[]}
+              colors={primaryGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.refreshBadgeGradient}
@@ -202,7 +209,7 @@ export const GoalPlanScreen = ({ route, navigation }: any) => {
             </Text>
             <TouchableOpacity onPress={fetchPlan} style={styles.largeAnalyzeBtn}>
               <LinearGradient
-                colors={theme.gradients.primary as string[]}
+                colors={primaryGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.largeAnalyzeBtnGradient}
@@ -218,7 +225,7 @@ export const GoalPlanScreen = ({ route, navigation }: any) => {
           <>
             {cachedAt != null && (
               <Text style={[styles.cachedLabel, { color: theme.colors.textMuted }]}>
-                آخر تحديث: {new Date(cachedAt).toLocaleDateString('ar-IQ')}
+                آخر تحديث: {new Date(cachedAt).toLocaleDateString('ar-IQ-u-nu-latn')}
               </Text>
             )}
 
@@ -264,7 +271,7 @@ export const GoalPlanScreen = ({ route, navigation }: any) => {
                 {plan.planSteps.map((step, i) => (
                   <View key={i} style={[styles.actionItemCard, { backgroundColor: theme.colors.surfaceCard }]}>
                     <LinearGradient
-                      colors={theme.gradients.primary as string[]}
+                      colors={primaryGradient}
                       style={styles.priorityBadge}
                     >
                       <Text style={styles.priorityText}>{i + 1}</Text>
@@ -296,7 +303,7 @@ export const GoalPlanScreen = ({ route, navigation }: any) => {
 
             <TouchableOpacity style={styles.bottomAnalyzeBtn} onPress={fetchPlan} disabled={loading}>
               <LinearGradient
-                colors={theme.gradients.primary as string[]}
+                colors={primaryGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.bottomAnalyzeBtnGradient}

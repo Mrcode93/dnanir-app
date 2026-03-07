@@ -142,7 +142,7 @@ export const AchievementsScreen = ({ navigation }: any) => {
             </Text>
             {achievement.unlockedAt && (
               <Text style={styles.achievementDate}>
-                تم الفتح: {new Date(achievement.unlockedAt).toLocaleDateString('ar-IQ')}
+                تم الفتح: {new Date(achievement.unlockedAt).toLocaleDateString('ar-IQ-u-nu-latn')}
               </Text>
             )}
           </View>
@@ -416,7 +416,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   filterButtonTextActive: {
     fontSize: theme.typography.sizes.sm,
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textInverse,
+    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
   scrollView: {

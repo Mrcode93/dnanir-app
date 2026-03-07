@@ -104,13 +104,11 @@ export const apiRequest = async <T = any>(
     const token = await getAccessToken();
     const url = getApiUrl(endpoint);
 
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      ...(options.headers as HeadersInit),
-    };
+    const headers = new Headers(options.headers || {});
+    headers.set('Content-Type', 'application/json');
 
     if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+      headers.set('Authorization', `Bearer ${token}`);
     }
 
     const response = await fetch(url, {
@@ -163,12 +161,11 @@ export const apiRequestWithFile = async <T = any>(
       ...additionalData,
     });
 
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
+    const headers = new Headers();
+    headers.set('Content-Type', 'application/json');
 
     if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+      headers.set('Authorization', `Bearer ${token}`);
     }
 
     const response = await fetch(url, {

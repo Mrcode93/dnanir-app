@@ -224,7 +224,7 @@ export const DebtsScreen = ({ navigation, route }: any) => {
 
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return 'غير محدد';
-    return new Date(dateStr).toLocaleDateString('ar-IQ');
+    return new Date(dateStr).toLocaleDateString('ar-IQ-u-nu-latn');
   };
 
   const getDaysUntilDue = (dueDate?: string) => {
@@ -265,16 +265,6 @@ export const DebtsScreen = ({ navigation, route }: any) => {
         data={filteredDebts}
         ListHeaderComponent={
           <View style={styles.header}>
-            <View style={styles.searchContainer}>
-              <Searchbar
-                placeholder="البحث في الديون المستحقة عليك..."
-                onChangeText={setSearchQuery}
-                value={searchQuery}
-                style={styles.searchBar}
-                inputStyle={styles.searchInput}
-                placeholderTextColor={theme.colors.textMuted}
-              />
-            </View>
 
             {/* Filter Buttons Row */}
             <ScrollView
@@ -306,7 +296,7 @@ export const DebtsScreen = ({ navigation, route }: any) => {
                             ? 'apps'
                             : (typeIcons[type] as any)}
                           size={16}
-                          color={theme.colors.textInverse}
+                          color="#FFFFFF"
                         />
                         <Text style={styles.filterButtonTextActive}>
                           {type === 'all' ? 'الكل' : getDebtTypeName(type)}
@@ -339,11 +329,11 @@ export const DebtsScreen = ({ navigation, route }: any) => {
               </View>
               <View style={styles.summaryCard}>
                 <Text style={styles.summaryLabel}>ديون نشطة</Text>
-                <Text style={[styles.summaryAmount, { color: '#F59E0B' }]}>{activeDebts}</Text>
+                <Text style={[styles.summaryAmount, { color: theme.colors.warning }]}>{activeDebts}</Text>
               </View>
               <View style={styles.summaryCard}>
                 <Text style={styles.summaryLabel}>ديون مدفوعة</Text>
-                <Text style={[styles.summaryAmount, { color: '#10B981' }]}>{paidDebts}</Text>
+                <Text style={[styles.summaryAmount, { color: theme.colors.success }]}>{paidDebts}</Text>
               </View>
             </View>
           </View>
@@ -364,11 +354,11 @@ export const DebtsScreen = ({ navigation, route }: any) => {
           <View style={styles.emptyContainer}>
             <Ionicons name="card-outline" size={80} color={theme.colors.textSecondary} />
             <Text style={styles.emptyText}>
-              {searchQuery || selectedType !== 'all' ? 'لا توجد نتائج' : 'لا توجد ديون مستحقة عليك'}
+              {selectedType !== 'all' ? 'لا توجد نتائج' : 'لا توجد ديون مستحقة عليك'}
             </Text>
             <Text style={styles.emptySubtext}>
-              {searchQuery || selectedType !== 'all'
-                ? 'جرب البحث بكلمات مختلفة أو تغيير الفلتر'
+              {selectedType !== 'all'
+                ? 'جرب تغيير الفلتر'
                 : 'أضف دين مستحق عليك أو قسط لتتبعه'}
             </Text>
           </View>
@@ -491,7 +481,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   filterButtonTextActive: {
     fontSize: theme.typography.sizes.xs,
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textInverse,
+    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
   summaryRow: {
@@ -609,7 +599,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     flex: 1,
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('600'),
-    color: theme.colors.textInverse,
+    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
 });

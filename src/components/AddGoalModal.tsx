@@ -438,7 +438,7 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
                       <Ionicons name="calendar-outline" size={20} color={theme.colors.primary} />
                       <Text style={styles.dateButtonText}>
                         {targetDate
-                          ? targetDate.toLocaleDateString('ar-IQ', {
+                          ? targetDate.toLocaleDateString('ar-IQ-u-nu-latn', {
                             year: 'numeric',
                             month: 'long',
                             day: 'numeric',

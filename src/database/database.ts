@@ -1,6 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 
 let db: SQLite.SQLiteDatabase | null = null;
+let hasBaseAmountColumnsCache: boolean | null = null;
 
 export const initDatabase = async () => {
   try {
@@ -22,6 +23,8 @@ export const initDatabase = async () => {
       );
       CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);
     `);
+    await db.execAsync('CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category);');
+    await db.execAsync('CREATE INDEX IF NOT EXISTS idx_expenses_date_category ON expenses(date, category);');
 
     // Add base_amount column if it doesn't exist
     try {
@@ -72,11 +75,15 @@ export const initDatabase = async () => {
     } catch (e) {
       // Column already exists, ignore
     }
+    await db.execAsync('CREATE INDEX IF NOT EXISTS idx_income_category ON income(category);');
+    await db.execAsync('CREATE INDEX IF NOT EXISTS idx_income_date_category ON income(date, category);');
     try {
       await db.execAsync('ALTER TABLE income ADD COLUMN synced_at INTEGER;');
     } catch (e) {
       // Column already exists, ignore
     }
+
+    hasBaseAmountColumnsCache = true;
 
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS user_settings (
@@ -108,11 +115,15 @@ export const initDatabase = async () => {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         notificationsEnabled INTEGER DEFAULT 1,
         darkModeEnabled INTEGER DEFAULT 0,
+        themeMode TEXT DEFAULT 'light',
         autoBackupEnabled INTEGER DEFAULT 0,
         currency TEXT DEFAULT 'دينار عراقي',
         language TEXT DEFAULT 'ar'
       );
     `);
+    try {
+      await db.execAsync("ALTER TABLE app_settings ADD COLUMN themeMode TEXT DEFAULT 'light';");
+    } catch (e) { }
     try {
       await db.execAsync('ALTER TABLE app_settings ADD COLUMN synced_at INTEGER;');
     } catch (e) { }
@@ -404,6 +415,7 @@ export const initDatabase = async () => {
         createdAt TEXT NOT NULL
       );
     `);
+    await db.execAsync('CREATE INDEX IF NOT EXISTS idx_bills_due_date_paid ON bills(dueDate, isPaid);');
 
     // Add image_path column if it doesn't exist (for existing databases)
     try {
@@ -469,6 +481,26 @@ export const initDatabase = async () => {
         created_at INTEGER NOT NULL
       );
     `);
+
+    // Subscriptions table (Monthly/Yearly fixed costs like Netflix, Gym, etc.)
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS subscriptions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        amount REAL NOT NULL,
+        currency TEXT DEFAULT 'IQD',
+        category TEXT,
+        nextBillingDate TEXT NOT NULL,
+        billingCycle TEXT NOT NULL,
+        description TEXT,
+        isActive INTEGER DEFAULT 1,
+        reminderEnabled INTEGER DEFAULT 1,
+        reminderDaysBefore INTEGER DEFAULT 1,
+        createdAt TEXT NOT NULL,
+        synced_at INTEGER
+      );
+    `);
+    await db.execAsync('CREATE INDEX IF NOT EXISTS idx_subscriptions_next_billing ON subscriptions(nextBillingDate);');
     // Migration: Check if table needs migration (old structure with CHECK constraint)
     try {
       const tableInfo = await db.getAllAsync<{ name: string }>("PRAGMA table_info(ai_insights_cache)");
@@ -587,7 +619,7 @@ export const deleteAllData = async () => {
     'expense_shortcuts', 'income_shortcuts', 'bill_payments',
     'bills', 'notifications', 'ai_insights_cache', 'goal_plan_cache',
     'custom_categories', 'user_settings', 'app_settings',
-    'notification_settings'
+    'notification_settings', 'subscriptions'
   ];
 
   try {
@@ -784,6 +816,16 @@ export const getExpenses = async (): Promise<import('../types').Expense[]> => {
   return result;
 };
 
+export const getRecentExpensesForShortcutRanking = async (
+  limit: number = 300
+): Promise<Array<{ title?: string; category?: string; amount: number; base_amount?: number; date: string }>> => {
+  const database = getDb();
+  return database.getAllAsync<{ title?: string; category?: string; amount: number; base_amount?: number; date: string }>(
+    'SELECT title, category, amount, base_amount, date FROM expenses ORDER BY date DESC, id DESC LIMIT ?',
+    [limit]
+  );
+};
+
 export const getExpensesCount = async (options: {
   startDate?: string;
   endDate?: string;
@@ -828,23 +870,70 @@ export const getExpensesByRange = async (startDate: string, endDate: string): Pr
 export const getRecentTransactions = async (limit: number = 5): Promise<(import('../types').Expense | import('../types').Income | any)[]> => {
   const database = getDb();
 
-  // Get expenses and income separately with limits to keep it fast
-  const expenses = await database.getAllAsync<any>(
-    'SELECT "expense" as type, * FROM expenses ORDER BY date DESC, id DESC LIMIT ?',
-    [limit]
-  );
-  const income = await database.getAllAsync<any>(
-    'SELECT "income" as type, * FROM income ORDER BY date DESC, id DESC LIMIT ?',
-    [limit]
-  );
+  const query = `
+    SELECT * FROM (
+      SELECT id, 'expense' as type, title, amount, base_amount, category, date, description, currency, receipt_image_path
+      FROM expenses
+      UNION ALL
+      SELECT id, 'income' as type, source as title, amount, base_amount, category, date, description, currency, null as receipt_image_path
+      FROM income
+    ) 
+    ORDER BY date DESC, id DESC
+    LIMIT ?
+  `;
 
-  // Combine and sort in memory (since we only have 2*limit items, this is very fast)
-  const combined = [...expenses, ...income].sort((a, b) => {
-    if (b.date !== a.date) return b.date > a.date ? 1 : -1;
-    return (b.id || 0) - (a.id || 0);
-  });
+  const result = await database.getAllAsync<any>(query, [limit]);
+  return result;
+};
 
-  return combined.slice(0, limit);
+export const getTransactionsPaginated = async (options: {
+  limit?: number;
+  offset?: number;
+  startDate?: string;
+  endDate?: string;
+  searchQuery?: string;
+  category?: string;
+  type?: 'all' | 'income' | 'expense';
+}): Promise<any[]> => {
+  const { limit = 20, offset = 0, startDate, endDate, searchQuery, category, type = 'all' } = options;
+  const database = getDb();
+
+  let baseQuery = `
+    SELECT * FROM (
+      SELECT id, 'expense' as type, title, amount, base_amount, category, date, description, currency, receipt_image_path
+      FROM expenses
+      UNION ALL
+      SELECT id, 'income' as type, source as title, amount, base_amount, category, date, description, currency, null as receipt_image_path
+      FROM income
+    ) WHERE 1=1
+  `;
+  const params: any[] = [];
+
+  if (type !== 'all') {
+    baseQuery += ' AND type = ?';
+    params.push(type);
+  }
+  if (startDate) {
+    baseQuery += ' AND date >= ?';
+    params.push(startDate);
+  }
+  if (endDate) {
+    baseQuery += ' AND date <= ?';
+    params.push(endDate);
+  }
+  if (searchQuery) {
+    baseQuery += ' AND (title LIKE ? OR description LIKE ?)';
+    params.push(`%${searchQuery}%`, `%${searchQuery}%`);
+  }
+  if (category && category !== 'all') {
+    baseQuery += ' AND category = ?';
+    params.push(category);
+  }
+
+  baseQuery += ' ORDER BY date DESC, id DESC LIMIT ? OFFSET ?';
+  params.push(limit, offset);
+
+  return await database.getAllAsync<any>(baseQuery, params);
 };
 
 export const getExpensesPaginated = async (options: {
@@ -1001,6 +1090,16 @@ export const getIncome = async (): Promise<import('../types').Income[]> => {
     'SELECT * FROM income ORDER BY date DESC, id DESC'
   );
   return result;
+};
+
+export const getRecentIncomeForShortcutRanking = async (
+  limit: number = 300
+): Promise<Array<{ source?: string; category?: string; amount: number; base_amount?: number; date: string }>> => {
+  const database = getDb();
+  return database.getAllAsync<{ source?: string; category?: string; amount: number; base_amount?: number; date: string }>(
+    'SELECT source, category, amount, base_amount, date FROM income ORDER BY date DESC, id DESC LIMIT ?',
+    [limit]
+  );
 };
 
 export const getIncomeCount = async (options: {
@@ -1334,21 +1433,37 @@ export const getAvailableIncomeMonths = async (): Promise<{ year: number; month:
   });
 };
 
+const hasBaseAmountColumns = async (database: SQLite.SQLiteDatabase): Promise<boolean> => {
+  if (hasBaseAmountColumnsCache !== null) {
+    return hasBaseAmountColumnsCache;
+  }
+
+  try {
+    const [expenseInfo, incomeInfo] = await Promise.all([
+      database.getAllAsync<any>("PRAGMA table_info(expenses)"),
+      database.getAllAsync<any>("PRAGMA table_info(income)"),
+    ]);
+    const hasExpenseBaseAmount = expenseInfo.some(col => col.name === 'base_amount');
+    const hasIncomeBaseAmount = incomeInfo.some(col => col.name === 'base_amount');
+    hasBaseAmountColumnsCache = hasExpenseBaseAmount && hasIncomeBaseAmount;
+  } catch (e) {
+    hasBaseAmountColumnsCache = true;
+  }
+
+  return hasBaseAmountColumnsCache;
+};
+
 export const getFinancialStatsAggregated = async (startDate?: string, endDate?: string) => {
   const database = getDb();
   let expenseQuery = 'SELECT SUM(base_amount) as total FROM expenses';
   let incomeQuery = 'SELECT SUM(base_amount) as total FROM income';
   const params: string[] = [];
 
-  // Also check column names to be safe during migration period
-  try {
-    const tableInfo = await database.getAllAsync<any>("PRAGMA table_info(expenses)");
-    const hasBaseAmount = tableInfo.some(col => col.name === 'base_amount');
-    if (!hasBaseAmount) {
-      expenseQuery = 'SELECT SUM(amount) as total FROM expenses';
-      incomeQuery = 'SELECT SUM(amount) as total FROM income';
-    }
-  } catch (e) { }
+  const hasBaseAmount = await hasBaseAmountColumns(database);
+  if (!hasBaseAmount) {
+    expenseQuery = 'SELECT SUM(amount) as total FROM expenses';
+    incomeQuery = 'SELECT SUM(amount) as total FROM income';
+  }
 
   if (startDate && endDate) {
     expenseQuery += ' WHERE date >= ? AND date <= ?';
@@ -1369,13 +1484,8 @@ export const getFinancialStatsAggregated = async (startDate?: string, endDate?: 
 
 export const getExpensesByCategoryAggregated = async (startDate?: string, endDate?: string) => {
   const database = getDb();
-  let amountCol = 'base_amount';
-
-  try {
-    const tableInfo = await database.getAllAsync<any>("PRAGMA table_info(expenses)");
-    const hasBaseAmount = tableInfo.some(col => col.name === 'base_amount');
-    if (!hasBaseAmount) amountCol = 'amount';
-  } catch (e) { }
+  const hasBaseAmount = await hasBaseAmountColumns(database);
+  const amountCol = hasBaseAmount ? 'base_amount' : 'amount';
 
   let query = `SELECT category, SUM(${amountCol}) as amount FROM expenses`;
   const params: string[] = [];
@@ -1519,6 +1629,7 @@ export const getAppSettings = async (): Promise<import('../types').AppSettings |
       ...result,
       notificationsEnabled: result.notificationsEnabled === 1,
       darkModeEnabled: result.darkModeEnabled === 1,
+      themeMode: result.themeMode || (result.darkModeEnabled === 1 ? 'dark' : 'light'),
       autoBackupEnabled: result.autoBackupEnabled === 1,
       autoSyncEnabled: result.autoSyncEnabled === 1,
       lastAutoSyncTime: result.lastAutoSyncTime,
@@ -1535,10 +1646,11 @@ export const upsertAppSettings = async (settings: import('../types').AppSettings
   const lastSyncTime = settings.lastAutoSyncTime ?? null;
   if (existing) {
     await database.runAsync(
-      'UPDATE app_settings SET notificationsEnabled = ?, darkModeEnabled = ?, autoBackupEnabled = ?, autoSyncEnabled = ?, lastAutoSyncTime = ?, currency = ?, language = ? WHERE id = ?',
+      'UPDATE app_settings SET notificationsEnabled = ?, darkModeEnabled = ?, themeMode = ?, autoBackupEnabled = ?, autoSyncEnabled = ?, lastAutoSyncTime = ?, currency = ?, language = ? WHERE id = ?',
       [
         settings.notificationsEnabled ? 1 : 0,
         settings.darkModeEnabled ? 1 : 0,
+        settings.themeMode || (settings.darkModeEnabled ? 'dark' : 'light'),
         settings.autoBackupEnabled ? 1 : 0,
         autoSync,
         lastSyncTime,
@@ -1549,10 +1661,11 @@ export const upsertAppSettings = async (settings: import('../types').AppSettings
     );
   } else {
     await database.runAsync(
-      'INSERT INTO app_settings (notificationsEnabled, darkModeEnabled, autoBackupEnabled, autoSyncEnabled, lastAutoSyncTime, currency, language) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO app_settings (notificationsEnabled, darkModeEnabled, themeMode, autoBackupEnabled, autoSyncEnabled, lastAutoSyncTime, currency, language) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
       [
         settings.notificationsEnabled ? 1 : 0,
         settings.darkModeEnabled ? 1 : 0,
+        settings.themeMode || (settings.darkModeEnabled ? 'dark' : 'light'),
         settings.autoBackupEnabled ? 1 : 0,
         autoSync,
         lastSyncTime,
@@ -3548,4 +3661,61 @@ export const importFullData = async (data: Record<string, unknown>): Promise<voi
       );
     }
   });
+};
+
+// Subscription operations
+export const addSubscription = async (sub: Omit<import('../types').Subscription, 'id'>): Promise<number> => {
+  const database = getDb();
+  const result = await database.runAsync(
+    'INSERT INTO subscriptions (name, amount, currency, category, nextBillingDate, billingCycle, description, isActive, reminderEnabled, reminderDaysBefore, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [
+      sub.name,
+      sub.amount,
+      sub.currency || 'IQD',
+      sub.category,
+      sub.nextBillingDate,
+      sub.billingCycle,
+      sub.description || null,
+      sub.isActive ? 1 : 0,
+      sub.reminderEnabled ? 1 : 0,
+      sub.reminderDaysBefore || 1,
+      sub.createdAt || new Date().toISOString()
+    ]
+  );
+  return result.lastInsertRowId;
+};
+
+export const getSubscriptions = async (activeOnly: boolean = false): Promise<import('../types').Subscription[]> => {
+  const database = getDb();
+  let query = 'SELECT * FROM subscriptions';
+  if (activeOnly) {
+    query += ' WHERE isActive = 1';
+  }
+  query += ' ORDER BY nextBillingDate ASC';
+  return await database.getAllAsync<import('../types').Subscription>(query);
+};
+
+export const updateSubscription = async (id: number, sub: Partial<import('../types').Subscription>): Promise<void> => {
+  const database = getDb();
+  const fields: string[] = [];
+  const vals: any[] = [];
+
+  Object.entries(sub).forEach(([key, val]) => {
+    if (key === 'id') return;
+    fields.push(`${key} = ?`);
+    vals.push(typeof val === 'boolean' ? (val ? 1 : 0) : val);
+  });
+
+  if (fields.length === 0) return;
+
+  vals.push(id);
+  await database.runAsync(
+    `UPDATE subscriptions SET ${fields.join(', ')} WHERE id = ?`,
+    vals
+  );
+};
+
+export const deleteSubscription = async (id: number): Promise<void> => {
+  const database = getDb();
+  await database.runAsync('DELETE FROM subscriptions WHERE id = ?', [id]);
 };

@@ -26,9 +26,6 @@ export const formatNumberWithCommas = (value: string | number): string => {
     if (value === null || value === undefined || value === '') return '';
     let valStr = typeof value === 'number' ? value.toString() : value;
 
-    // If it's a number, it might have many decimals, let's keep it simple
-    // If it's a string, it might have Arabic numbers or existing commas
-
     // 1. Remove commas
     valStr = valStr.replace(/,/g, '');
 
@@ -40,4 +37,29 @@ export const formatNumberWithCommas = (value: string | number): string => {
 
     // 4. Join back
     return parts.join('.');
+};
+
+/**
+ * Consistently format numbers for display using English numerals (0-9)
+ */
+export const formatDisplayNumber = (amount: number, options: Intl.NumberFormatOptions = {}): string => {
+    return amount.toLocaleString('en-US', options);
+};
+
+/**
+ * Consistently format dates for display using Arabic text but English numerals (0-9)
+ */
+export const formatDisplayDate = (date: Date | string, options: Intl.DateTimeFormatOptions = {}): string => {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+
+    // We try to use ar-IQ with latin numbering system if possible
+    // If it fails or doesn't produce the expected result in some environments, 
+    // we fallback to en-US or similar but usually ar-IQ with u-nu-latn 
+    // is well supported in modern JSC/Hermes.
+    try {
+        return dateObj.toLocaleDateString('ar-IQ-u-nu-latn', options);
+    } catch (e) {
+        // Fallback to simple en-US if locale string subsetting isn't supported
+        return dateObj.toLocaleDateString('en-GB', options);
+    }
 };

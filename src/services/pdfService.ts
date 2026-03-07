@@ -173,7 +173,7 @@ export const generateMonthlyReport = async (month?: number, year?: number): Prom
         <div class="header">
           <h1>تقرير مالي شهري</h1>
           <p>${monthName} ${targetYear}</p>
-          <p>تم الإنشاء: ${new Date().toLocaleDateString('ar-IQ')}</p>
+          <p>تم الإنشاء: ${new Date().toLocaleDateString('ar-IQ-u-nu-latn')}</p>
         </div>
         
         <div class="section">
@@ -261,7 +261,7 @@ export const generateMonthlyReport = async (month?: number, year?: number): Prom
             <tbody>
               ${monthlyData.expenses.slice(0, 50).map((expense: any) => `
                 <tr>
-                  <td>${new Date(expense.date).toLocaleDateString('ar-IQ')}</td>
+                  <td>${new Date(expense.date).toLocaleDateString('ar-IQ-u-nu-latn')}</td>
                   <td>${expense.title}</td>
                   <td><span class="category-badge">${getCategoryName(expense.category, customCategories)}</span></td>
                   <td>${formatCurrency(expense.amount)}</td>
@@ -284,7 +284,7 @@ export const generateMonthlyReport = async (month?: number, year?: number): Prom
             <tbody>
               ${monthlyData.income.map((inc: any) => `
                 <tr>
-                  <td>${new Date(inc.date).toLocaleDateString('ar-IQ')}</td>
+                  <td>${new Date(inc.date).toLocaleDateString('ar-IQ-u-nu-latn')}</td>
                   <td>${inc.source}</td>
                   <td>${formatCurrency(inc.amount)}</td>
                 </tr>
@@ -439,7 +439,7 @@ export const generateAdvancedPDFReport = async (reportData: AdvancedReportData):
       <body>
         <div class="header">
           <h1>تقرير مالي مفصل</h1>
-          <p>تم الإنشاء: ${new Date().toLocaleDateString('ar-IQ')}</p>
+          <p>تم الإنشاء: ${new Date().toLocaleDateString('ar-IQ-u-nu-latn')}</p>
         </div>
         
         <div class="section">
@@ -502,7 +502,7 @@ export const generateAdvancedPDFReport = async (reportData: AdvancedReportData):
             <tbody>
               ${reportData.topExpenses.map((expense: any) => `
                 <tr>
-                  <td>${new Date(expense.date).toLocaleDateString('ar-IQ')}</td>
+                  <td>${new Date(expense.date).toLocaleDateString('ar-IQ-u-nu-latn')}</td>
                   <td>${expense.title}</td>
                   <td><span class="category-badge">${getCategoryName(expense.category, customCategories)}</span></td>
                   <td>${formatCurrency(expense.amount)}</td>
@@ -563,7 +563,7 @@ export const generateFullReport = async (): Promise<string> => {
       <body>
         <div class="header">
           <h1>تقرير مالي كامل (جميع البيانات)</h1>
-          <p>تم الإنشاء: ${new Date().toLocaleDateString('ar-IQ')}</p>
+          <p>تم الإنشاء: ${new Date().toLocaleDateString('ar-IQ-u-nu-latn')}</p>
         </div>
         <div class="section">
           <div class="section-title">ملخص مالي شامل</div>
@@ -580,7 +580,7 @@ export const generateFullReport = async (): Promise<string> => {
             <tbody>
               ${expenses.slice(0, 100).map(e => `
                 <tr>
-                  <td>${new Date(e.date).toLocaleDateString('ar-IQ')}</td>
+                  <td>${new Date(e.date).toLocaleDateString('ar-IQ-u-nu-latn')}</td>
                   <td>${e.title}</td>
                   <td>${getCategoryName(e.category, customCategories)}</td>
                   <td>${formatCurrency(e.amount)}</td>

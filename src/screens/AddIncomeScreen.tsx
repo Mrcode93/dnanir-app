@@ -231,7 +231,7 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
         style={styles.flex1}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
       >
@@ -356,7 +356,7 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
                   <Ionicons name="calendar-outline" size={20} color={theme.colors.textSecondary} />
                 </View>
                 <Text style={styles.fieldText}>
-                  {date.toLocaleDateString('ar-IQ', {
+                  {date.toLocaleDateString('ar-IQ-u-nu-latn', {
                     weekday: 'short', year: 'numeric', month: 'long', day: 'numeric'
                   })}
                 </Text>

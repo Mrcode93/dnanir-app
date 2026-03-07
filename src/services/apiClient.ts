@@ -322,7 +322,7 @@ class ApiClient {
       const duration = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : 'خطأ في الاتصال بالشبكة';
       const errorName = error instanceof Error ? error.name : '';
-      console.error('❌ GET request error:', {
+      console.log('⚠️ GET request error:', {
         endpoint,
         error: errorMessage,
         duration: `${duration}ms`,
@@ -385,7 +385,7 @@ class ApiClient {
       const duration = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : 'خطأ في الاتصال بالشبكة';
       const errorName = error instanceof Error ? error.name : '';
-      console.error('❌ POST request error:', {
+      console.log('⚠️ POST request error:', {
         endpoint,
         error: errorMessage,
         duration: `${duration}ms`,
@@ -429,7 +429,7 @@ class ApiClient {
       cleanup();
       const errorMessage = error instanceof Error ? error.message : 'Network error';
       const errorName = error instanceof Error ? error.name : '';
-      console.error('PUT request error:', error);
+      console.log('⚠️ PUT request error:', endpoint, errorMessage);
       if (errorName === 'AbortError') {
         return {
           success: false,
@@ -464,7 +464,7 @@ class ApiClient {
       cleanup();
       const errorMessage = error instanceof Error ? error.message : 'Network error';
       const errorName = error instanceof Error ? error.name : '';
-      console.error('DELETE request error:', error);
+      console.log('⚠️ DELETE request error:', endpoint, errorMessage);
       if (errorName === 'AbortError') {
         return {
           success: false,

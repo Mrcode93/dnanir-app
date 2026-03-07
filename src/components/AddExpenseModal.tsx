@@ -308,7 +308,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
       statusBarTranslucent
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
         style={styles.keyboardView}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
@@ -532,7 +532,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                     >
                       <Ionicons name="calendar-outline" size={20} color={theme.colors.primary} />
                       <Text style={styles.dateButtonText}>
-                        {date.toLocaleDateString('ar-IQ', {
+                        {date.toLocaleDateString('ar-IQ-u-nu-latn', {
                           year: 'numeric',
                           month: 'long',
                           day: 'numeric',

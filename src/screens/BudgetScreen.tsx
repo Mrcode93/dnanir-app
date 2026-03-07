@@ -18,8 +18,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
 import { useAppTheme, useThemedStyles } from '../utils/theme-context';
-import { getBudgets, deleteBudget, Budget } from '../database/database';
-import { calculateBudgetStatus, BudgetStatus } from '../services/budgetService';
+import { getBudgets, deleteBudget, Budget, getAvailableExpenseMonths } from '../database/database';
+import { BudgetStatus } from '../services/budgetService';
 import { useCurrency } from '../hooks/useCurrency';
 import { EXPENSE_CATEGORIES } from '../types';
 import { getCustomCategories } from '../database/database';
@@ -58,27 +58,25 @@ export const BudgetScreen = ({ navigation, route }: any) => {
 
   const loadData = async () => {
     try {
-      // Get available months (months that have expenses or budgets)
-      const { getExpenses, getBudgets } = await import('../database/database');
-      const allExpenses = await getExpenses();
-      const allBudgets = await getBudgets();
+      // Build available months from compact SQL result + budgets list (no full expenses scan).
+      const [expenseMonths, allBudgets] = await Promise.all([
+        getAvailableExpenseMonths(),
+        getBudgets(),
+      ]);
 
-      const monthsSet = new Set<string>();
-      // Add months from expenses
-      allExpenses.forEach(expense => {
-        const date = new Date(expense.date);
-        const year = date.getFullYear();
-        const month = date.getMonth() + 1;
-        monthsSet.add(`${year}-${month}`);
+      const monthsMap = new Map<string, { year: number; month: number }>();
+      expenseMonths.forEach(({ year, month }) => {
+        monthsMap.set(`${year}-${month}`, { year, month });
       });
-      // Add months from budgets
       allBudgets.forEach(budget => {
-        monthsSet.add(`${budget.year}-${parseInt(budget.month)}`);
+        const month = parseInt(budget.month, 10);
+        if (!Number.isFinite(month)) return;
+        monthsMap.set(`${budget.year}-${month}`, { year: budget.year, month });
       });
 
-      const months = Array.from(monthsSet).map(key => {
-        const [year, month] = key.split('-').map(Number);
-        return { year, month };
+      const months = Array.from(monthsMap.values()).sort((a, b) => {
+        if (a.year !== b.year) return b.year - a.year;
+        return b.month - a.month;
       });
       setAvailableMonths(months);
 
@@ -92,8 +90,6 @@ export const BudgetScreen = ({ navigation, route }: any) => {
         const targetMonth = selectedMonth.month.toString().padStart(2, '0');
         const targetYear = selectedMonth.year;
 
-        // Get budgets for the selected month
-        const { getBudgets } = await import('../database/database');
         monthBudgets = await getBudgets(targetMonth, targetYear);
       } else {
         // "All" selected - get all budgets and all expenses
@@ -106,9 +102,7 @@ export const BudgetScreen = ({ navigation, route }: any) => {
           income: allIncome,
         };
 
-        // Get all budgets
-        const { getBudgets } = await import('../database/database');
-        monthBudgets = await getBudgets(); // No parameters = all budgets
+        monthBudgets = allBudgets; // Already loaded above
       }
 
       const customCats = await getCustomCategories('expense');
@@ -303,12 +297,12 @@ export const BudgetScreen = ({ navigation, route }: any) => {
           <View style={styles.budgetCategory}>
             <View style={[
               styles.categoryIcon,
-              { backgroundColor: isExceeded ? '#FEE2E2' : isWarning ? '#FEF3C7' : '#E0E7FF' }
+              { backgroundColor: isExceeded ? theme.colors.error + '15' : isWarning ? theme.colors.warning + '15' : theme.colors.primary + '15' }
             ]}>
               <Ionicons
                 name={getCategoryIcon(item.budget.category) as any}
                 size={24}
-                color={isExceeded ? '#EF4444' : isWarning ? '#F59E0B' : theme.colors.primary}
+                color={isExceeded ? theme.colors.error : isWarning ? theme.colors.warning : theme.colors.primary}
               />
             </View>
             <View style={styles.budgetInfo}>
@@ -384,21 +378,12 @@ export const BudgetScreen = ({ navigation, route }: any) => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+    <View style={styles.container}>
+
       <FlatList
         data={filteredBudgets}
         ListHeaderComponent={
           <View style={styles.header}>
-            <View style={styles.searchContainer}>
-              <Searchbar
-                placeholder="البحث في الميزانيات..."
-                onChangeText={setSearchQuery}
-                value={searchQuery}
-                style={styles.searchBar}
-                inputStyle={styles.searchInput}
-                placeholderTextColor={theme.colors.textMuted}
-              />
-            </View>
 
             {/* Month Filter */}
             <View style={styles.monthFilterContainer}>
@@ -431,7 +416,7 @@ export const BudgetScreen = ({ navigation, route }: any) => {
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                   >
-                    <Ionicons name="apps" size={16} color={theme.colors.textInverse} />
+                    <Ionicons name="apps" size={16} color="#FFFFFF" />
                     <Text style={styles.filterButtonTextActive}>الكل</Text>
                   </LinearGradient>
                 ) : (
@@ -462,7 +447,7 @@ export const BudgetScreen = ({ navigation, route }: any) => {
                         <Ionicons
                           name={getCategoryIcon(category) as any}
                           size={16}
-                          color={theme.colors.textInverse}
+                          color="#FFFFFF"
                         />
                         <Text style={styles.filterButtonTextActive} numberOfLines={1}>
                           {getCategoryName(category)}
@@ -525,49 +510,74 @@ export const BudgetScreen = ({ navigation, route }: any) => {
           <View style={styles.emptyContainer}>
             <Ionicons name="wallet-outline" size={80} color={theme.colors.textSecondary} />
             <Text style={styles.emptyText}>
-              {searchQuery || selectedCategory !== 'all' ? 'لا توجد نتائج' : 'لا توجد ميزانيات محددة'}
+              {selectedCategory !== 'all' ? 'لا توجد نتائج' : 'لا توجد ميزانيات محددة'}
             </Text>
             <Text style={styles.emptySubtext}>
-              {searchQuery || selectedCategory !== 'all'
-                ? 'جرب البحث بكلمات مختلفة أو تغيير الفلتر'
+              {selectedCategory !== 'all'
+                ? 'جرب تغيير الفلتر'
                 : 'أضف ميزانية جديدة لتتبع إنفاقك'}
             </Text>
           </View>
         }
       />
 
-      {/* Options Menu */}
+      {/* Pro Bottom Sheet Menu */}
       <Modal
         visible={showMenu}
         transparent={true}
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setShowMenu(false)}
       >
         <Pressable
           style={styles.menuOverlay}
           onPress={() => setShowMenu(false)}
         >
-          <View style={styles.menuContainer}>
-            {selectedBudget && (
-              <>
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => handleEditBudget(selectedBudget)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="create-outline" size={20} color={theme.colors.primary} />
-                  <Text style={styles.menuItemText}>تعديل</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.menuItem, styles.menuItemDanger]}
-                  onPress={() => handleDeleteBudget(selectedBudget.budget.id)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="trash-outline" size={20} color={theme.colors.error} />
-                  <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>حذف</Text>
-                </TouchableOpacity>
-              </>
-            )}
+          <View style={styles.bottomSheetContainer}>
+            <View style={styles.dragHandle} />
+            <Text style={styles.menuHeaderTitle}>خيارات الميزانية</Text>
+
+            <View style={styles.menuOptionsList}>
+              {selectedBudget && (
+                <>
+                  <TouchableOpacity
+                    style={styles.menuOption}
+                    onPress={() => handleEditBudget(selectedBudget)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.menuIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                      <Ionicons name="create-outline" size={22} color={theme.colors.primary} />
+                    </View>
+                    <View style={styles.menuOptionTextContainer}>
+                      <Text style={styles.menuOptionTitle}>تعديل</Text>
+                      <Text style={styles.menuOptionSubtitle}>تغيير تفاصيل الميزانية أو المبلغ</Text>
+                    </View>
+                    <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color={theme.colors.textMuted} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.menuOption, { marginTop: 8 }]}
+                    onPress={() => handleDeleteBudget(selectedBudget.budget.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.menuIconBox, { backgroundColor: theme.colors.error + '15' }]}>
+                      <Ionicons name="trash-outline" size={22} color={theme.colors.error} />
+                    </View>
+                    <View style={styles.menuOptionTextContainer}>
+                      <Text style={[styles.menuOptionTitle, { color: theme.colors.error }]}>حذف</Text>
+                      <Text style={styles.menuOptionSubtitle}>حذف هذه الميزانية نهائياً</Text>
+                    </View>
+                    <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color={theme.colors.textMuted} />
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowMenu(false)}
+            >
+              <Text style={styles.closeButtonText}>إلغاء</Text>
+            </TouchableOpacity>
           </View>
         </Pressable>
       </Modal>
@@ -586,7 +596,7 @@ export const BudgetScreen = ({ navigation, route }: any) => {
         }}
         type="danger"
       />
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -630,15 +640,6 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: theme.spacing.md,
     alignItems: 'flex-start',
   },
-  searchBar: {
-    backgroundColor: theme.colors.surfaceLight,
-    elevation: 0,
-    borderRadius: theme.borderRadius.md,
-  },
-  searchInput: {
-    fontFamily: theme.typography.fontFamily,
-    textAlign: isRTL ? 'left' : 'right',
-  },
   filterRow: {
     marginBottom: theme.spacing.md,
     direction: 'rtl' as const,
@@ -677,7 +678,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   filterButtonTextActive: {
     fontSize: theme.typography.sizes.xs,
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textInverse,
+    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
   summaryRow: {
@@ -715,6 +716,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: theme.spacing.md,
     backgroundColor: theme.colors.surfaceCard,
     ...getPlatformShadow('md'),
+    direction: 'rtl',
   },
   budgetCardExceeded: {
     borderWidth: 2,
@@ -725,13 +727,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderColor: theme.colors.warning + '30',
   },
   budgetHeader: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: theme.spacing.md,
   },
   budgetCategory: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     flex: 1,
     gap: theme.spacing.md,
@@ -752,11 +754,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
+    textAlign: 'left',
   },
   budgetPercentage: {
     fontSize: theme.typography.sizes.sm,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
+    textAlign: 'left',
   },
   menuButton: {
     padding: theme.spacing.xs,
@@ -888,39 +892,90 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     flex: 1,
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('600'),
-    color: theme.colors.textInverse,
+    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
   menuOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
-  menuContainer: {
+  bottomSheetContainer: {
     backgroundColor: theme.colors.surfaceCard,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.xs,
-    minWidth: 150,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 40,
+    paddingTop: 12,
     ...getPlatformShadow('lg'),
   },
-  menuItem: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
-    alignItems: 'center',
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.sm,
+  dragHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: theme.colors.border,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+    opacity: 0.5,
   },
-  menuItemDanger: {
-    marginTop: theme.spacing.xs,
-  },
-  menuItemText: {
-    fontSize: theme.typography.sizes.md,
-    fontFamily: theme.typography.fontFamily,
-    ...(isRTL ? { marginRight: theme.spacing.sm } : { marginLeft: theme.spacing.sm }),
-    textAlign: 'right',
+  menuHeaderTitle: {
+    fontSize: theme.typography.sizes.lg,
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
+    textAlign: 'center',
+    marginBottom: theme.spacing.md,
   },
-  menuItemTextDanger: {
-    color: theme.colors.error,
+  menuOptionsList: {
+    paddingHorizontal: theme.spacing.lg,
+    direction: 'ltr',
+  },
+  menuOption: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surface,
+    borderRadius: 16,
+    padding: theme.spacing.md,
+    ...getPlatformShadow('xs'),
+  },
+  menuIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: isRTL ? theme.spacing.md : 0,
+    marginRight: isRTL ? 0 : theme.spacing.md,
+  },
+  menuOptionTextContainer: {
+    flex: 1,
+  },
+  menuOptionTitle: {
+    fontSize: theme.typography.sizes.md,
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'right' : 'left',
+    marginBottom: 2,
+  },
+  menuOptionSubtitle: {
+    fontSize: theme.typography.sizes.xs,
+    color: theme.colors.textMuted,
+    fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'right' : 'left',
+  },
+  closeButton: {
+    marginTop: theme.spacing.md,
+    marginHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    borderRadius: 16,
+    backgroundColor: theme.colors.surface,
+    alignItems: 'center',
+    ...getPlatformShadow('xs'),
+  },
+  closeButtonText: {
+    fontSize: theme.typography.sizes.md,
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
   },
 });

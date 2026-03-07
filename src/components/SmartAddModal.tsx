@@ -278,7 +278,7 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
         >
             <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
                 <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                    behavior="padding"
                     style={{ flex: 1 }}
                     keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
                 >

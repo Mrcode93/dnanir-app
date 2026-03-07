@@ -41,6 +41,7 @@ import { MonthFilter } from '../components/MonthFilter';
 import { getMonthRange, formatDateLocal } from '../utils/date';
 import { SmartAddModal } from '../components/SmartAddModal';
 import { usePrivacy } from '../context/PrivacyContext';
+import { TransactionDetailsModal } from '../components/TransactionDetailsModal';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -80,9 +81,12 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showSmartAdd, setShowSmartAdd] = useState(false);
   const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
 
   // Animations
   const addModalAnim = useRef(new Animated.Value(0)).current;
+  const initialFocusPassedRef = useRef(false);
 
   // Animate Modal
   useEffect(() => {
@@ -175,22 +179,30 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
     fetchExpenses(true);
   }, [selectedMonth, selectedCategory, filterType, selectedDate]);
 
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      fetchExpenses(true);
-      loadCustomCategories();
-    });
-    return unsubscribe;
-  }, [navigation, fetchExpenses]);
-
-  const loadCustomCategories = async () => {
+  const loadCustomCategories = useCallback(async () => {
     try {
       const categories = await getCustomCategories('expense');
       setCustomCategories(categories);
     } catch (error) {
       // Ignore
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadCustomCategories();
+  }, [loadCustomCategories]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (!initialFocusPassedRef.current) {
+        initialFocusPassedRef.current = true;
+        return;
+      }
+      fetchExpenses(true);
+      loadCustomCategories();
+    });
+    return unsubscribe;
+  }, [navigation, fetchExpenses, loadCustomCategories]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -236,6 +248,10 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
         type="expense"
         formatCurrency={formatCurrency}
         customCategories={customCategories}
+        onPress={() => {
+          setSelectedExpense(item);
+          setShowDetails(true);
+        }}
         onEdit={() => navigation.navigate('AddExpense', { expense: item })}
         onDelete={async () => {
           try {
@@ -527,6 +543,31 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
         }}
         navigation={navigation}
       />
+
+      {/* Transaction Details Modal */}
+      <TransactionDetailsModal
+        visible={showDetails}
+        item={selectedExpense}
+        type="expense"
+        customCategories={customCategories}
+        onClose={() => { setShowDetails(false); setSelectedExpense(null); }}
+        onEdit={() => {
+          if (selectedExpense) {
+            navigation.navigate('AddExpense', { expense: selectedExpense });
+          }
+        }}
+        onDelete={async () => {
+          if (selectedExpense) {
+            try {
+              await deleteExpense(selectedExpense.id);
+              alertService.toastSuccess('تم حذف المصروف بنجاح');
+              fetchExpenses(true);
+            } catch (error) {
+              alertService.toastError('حدث خطأ أثناء حذف المصروف');
+            }
+          }
+        }}
+      />
     </View>
   );
 };
@@ -592,7 +633,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 8,
   },
   toggleBtnActive: {
-    backgroundColor: theme.colors.surfaceCard,
+    backgroundColor: theme.colors.primary,
     ...getPlatformShadow('xs'),
   },
   toggleText: {
@@ -602,7 +643,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontWeight: getPlatformFontWeight('600'),
   },
   toggleTextActive: {
-    color: theme.colors.primary,
+    color: '#FFFFFF',
   },
   monthFilterWrapper: {
     flex: 1,

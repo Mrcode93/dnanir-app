@@ -18,7 +18,7 @@ import { ProfileScreen } from '../screens/ProfileScreen';
 import { GoalsScreen } from '../screens/GoalsScreen';
 import { BudgetScreen } from '../screens/BudgetScreen';
 import { RecurringExpensesScreen } from '../screens/RecurringExpensesScreen';
-// import { AdvancedReportsScreen } from '../screens/AdvancedReportsScreen'; // Removed
+import { AdvancedReportsScreen } from '../screens/AdvancedReportsScreen';
 import { CurrencyConverterScreen } from '../screens/CurrencyConverterScreen';
 import { DebtsScreen } from '../screens/DebtsScreen';
 import { DebtDetailsScreen } from '../screens/DebtDetailsScreen';
@@ -43,6 +43,8 @@ import { onboardingStorage } from '../services/onboardingStorage';
 import { syncNewToServer } from '../services/syncService';
 import { alertService } from '../services/alertService';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
+import { SubscriptionsScreen } from '../screens/SubscriptionsScreen';
+import { AddSubscriptionScreen } from '../screens/AddSubscriptionScreen';
 
 const DashboardHeaderRight = ({ navigation }: { navigation: any }) => {
   const { theme } = useAppTheme();
@@ -387,6 +389,14 @@ const InsightsStack = () => {
           ),
         })}
       />
+      <Stack.Screen
+        name="AdvancedReports"
+        component={AdvancedReportsScreen}
+        options={{
+          headerTitle: 'التقارير المتطورة',
+          headerShown: true,
+        }}
+      />
     </Stack.Navigator>
   );
 };
@@ -606,9 +616,9 @@ const DashboardStack = () => {
 const MainTabs = () => {
   const { theme } = useAppTheme(); // Need theme here too
   const insets = useSafeAreaInsets();
-  const minBottomInset = Platform.OS === 'android' ? 24 : 20;
+  const minBottomInset = Platform.OS === 'android' ? 28 : 10;
   const tabBottomPadding = Math.max(insets.bottom, minBottomInset);
-  const tabBaseHeight = Platform.OS === 'android' ? 68 : 70;
+  const tabBaseHeight = Platform.OS === 'android' ? 56 : 58;
 
   return (
     <Tab.Navigator
@@ -928,6 +938,19 @@ export const AppNavigator = () => {
             headerTitle: 'التحليلات الذكية',
             ...getCommonStackOptions(theme),
           })}
+        />
+        <Stack.Screen
+          name="Subscriptions"
+          component={SubscriptionsScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="AddSubscription"
+          component={AddSubscriptionScreen}
+          options={{
+            headerShown: false,
+            presentation: 'modal',
+          }}
         />
       </Stack.Navigator>
     </NavigationContainer>

@@ -347,7 +347,7 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
                         <View style={styles.dataItemContent}>
                           <Text style={styles.dataItemLabel}>التاريخ</Text>
                           <Text style={styles.dataItemValue}>
-                            {scannedData.date.toLocaleDateString('ar-IQ', {
+                            {scannedData.date.toLocaleDateString('ar-IQ-u-nu-latn', {
                               year: 'numeric',
                               month: 'long',
                               day: 'numeric',

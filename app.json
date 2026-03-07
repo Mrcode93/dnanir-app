@@ -9,14 +9,15 @@
           "color": "#003459",
           "defaultChannel": "default"
         }
-      ]
+      ],
+      "expo-video"
     ],
     "name": "دنانير",
     "slug": "dnanir",
-    "version": "1.2.1",
+    "version": "1.2.2",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "locale": "ar",
     "primaryLanguage": "ar",
@@ -31,7 +32,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.mrcodeiq.dinar",
       "googleServicesFile": "./GoogleService-Info.plist",
-      "buildNumber": "21",
+      "buildNumber": "22",
       "infoPlist": {
         "CFBundleURLTypes": [
           {
@@ -49,7 +50,7 @@
         ],
         "NSUserNotificationsUsageDescription": "نحتاج إلى الإشعارات لتذكيرك بتسجيل المصاريف والدخل",
         "NSFaceIDUsageDescription": "نستخدم Face ID لتأمين بياناتك المالية",
-        "UIUserInterfaceStyle": "Light",
+        "UIUserInterfaceStyle": "Automatic",
         "UIRequiresFullScreen": false,
         "UISupportedInterfaceOrientations": [
           "UIInterfaceOrientationPortrait"
@@ -82,8 +83,9 @@
       "predictiveBackGestureEnabled": false,
       "locale": "ar",
       "package": "com.mrcodeiq.dinar",
+      "windowSoftInputMode": "adjustResize",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 21,
+      "versionCode": 22,
       "fonts": [
         "./assets/fonts/Tajawal-Regular.ttf"
       ],

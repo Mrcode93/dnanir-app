@@ -27,6 +27,9 @@ import { convertCurrency, formatCurrencyAmount } from '../services/currencyServi
 import { CURRENCIES } from '../types';
 import { authStorage } from '../services/authStorage';
 import { usePrivacy } from '../context/PrivacyContext';
+import { calculateAverageMonthlySavings, calculateTimeToReachGoal } from '../services/financialService';
+import { GoalDetailsModal } from '../components/GoalDetailsModal';
+import { AddGoalAmountModal } from '../components/AddGoalAmountModal';
 
 export const GoalsScreen = ({ navigation, route }: any) => {
   const { theme } = useAppTheme();
@@ -37,11 +40,16 @@ export const GoalsScreen = ({ navigation, route }: any) => {
   const [refreshing, setRefreshing] = useState(false);
   const [convertedTotals, setConvertedTotals] = useState<{ current: number; target: number } | null>(null);
   const [currencyBreakdown, setCurrencyBreakdown] = useState<Record<string, { current: number; target: number }>>({});
+  const [averageMonthlySavings, setAverageMonthlySavings] = useState<number | null>(null);
+  const [selectedGoal, setSelectedGoal] = useState<FinancialGoal | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
+  const [showAddAmount, setShowAddAmount] = useState(false);
 
   const loadGoals = async () => {
     try {
       const allGoals = await getFinancialGoals();
       setGoals(allGoals);
+      setAverageMonthlySavings(allGoals.length > 0 ? await calculateAverageMonthlySavings(6) : null);
 
       // Calculate converted totals and currency breakdown
       const active = allGoals.filter(g => !g.completed);
@@ -121,10 +129,27 @@ export const GoalsScreen = ({ navigation, route }: any) => {
     try {
       await deleteFinancialGoal(goalId);
       await loadGoals();
-      alertService.success('نجح', 'تم حذف الهدف بنجاح');
+      alertService.toastSuccess('تم حذف الهدف بنجاح');
     } catch (error) {
       console.error('Error deleting goal:', error);
-      alertService.error('خطأ', 'حدث خطأ أثناء حذف الهدف');
+      alertService.toastError('حدث خطأ أثناء حذف الهدف');
+    }
+  };
+
+  const handleAddAmount = async (amount: number) => {
+    if (!selectedGoal) return;
+    try {
+      const updatedGoal = {
+        ...selectedGoal,
+        currentAmount: selectedGoal.currentAmount + amount,
+        completed: selectedGoal.currentAmount + amount >= selectedGoal.targetAmount
+      };
+      await updateFinancialGoal(selectedGoal.id, updatedGoal);
+      await loadGoals();
+      alertService.toastSuccess('تمت إضافة المبلغ بنجاح');
+    } catch (error) {
+      console.error('Error adding amount to goal:', error);
+      alertService.toastError('حدث خطأ أثناء إضافة المبلغ');
     }
   };
 
@@ -190,7 +215,7 @@ export const GoalsScreen = ({ navigation, route }: any) => {
             style={styles.summaryCard}
           >
             <View style={styles.summaryHeader}>
-              <Ionicons name="trophy-outline" size={32} color={theme.colors.surface} />
+              <Ionicons name="trophy-outline" size={32} color="#FFFFFF" />
               <View style={styles.summaryText}>
                 <Text style={styles.summaryTitle}>الأهداف النشطة</Text>
                 <Text style={styles.summarySubtitle}>
@@ -268,9 +293,14 @@ export const GoalsScreen = ({ navigation, route }: any) => {
               <GoalCard
                 key={goal.id}
                 goal={goal}
+                onPress={(g) => {
+                  setSelectedGoal(g);
+                  setShowDetails(true);
+                }}
                 onEdit={() => handleEditGoal(goal)}
                 onDelete={() => handleDeleteGoal(goal.id)}
                 onPlan={() => handlePlanPress(goal)}
+                averageMonthlySavingsHint={averageMonthlySavings}
               />
             ))}
           </View>
@@ -284,9 +314,14 @@ export const GoalsScreen = ({ navigation, route }: any) => {
               <GoalCard
                 key={goal.id}
                 goal={goal}
+                onPress={(g) => {
+                  setSelectedGoal(g);
+                  setShowDetails(true);
+                }}
                 onEdit={() => handleEditGoal(goal)}
                 onDelete={() => handleDeleteGoal(goal.id)}
                 onPlan={() => handlePlanPress(goal)}
+                averageMonthlySavingsHint={averageMonthlySavings}
               />
             ))}
           </View>
@@ -303,7 +338,46 @@ export const GoalsScreen = ({ navigation, route }: any) => {
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+
+      {/* Goal Details Modal */}
+      <GoalDetailsModal
+        visible={showDetails}
+        goal={selectedGoal}
+        onClose={() => {
+          setShowDetails(false);
+        }}
+        onEdit={() => {
+          if (selectedGoal) handleEditGoal(selectedGoal);
+        }}
+        onDelete={() => {
+          if (selectedGoal) handleDeleteGoal(selectedGoal.id);
+        }}
+        onPlan={() => {
+          if (selectedGoal) handlePlanPress(selectedGoal);
+        }}
+        onAddAmount={() => {
+          setShowAddAmount(true);
+        }}
+        estimatedTime={
+          selectedGoal && !selectedGoal.completed
+            ? calculateTimeToReachGoal(
+              selectedGoal.targetAmount - selectedGoal.currentAmount,
+              averageMonthlySavings || 0
+            ).formatted
+            : null
+        }
+      />
+
+      {/* Add Amount Modal */}
+      <AddGoalAmountModal
+        visible={showAddAmount}
+        goal={selectedGoal}
+        onClose={() => {
+          setShowAddAmount(false);
+        }}
+        onAdd={handleAddAmount}
+      />
+    </SafeAreaView >
   );
 };
 
@@ -340,7 +414,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   summaryTitle: {
     fontSize: theme.typography.sizes.xl,
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textInverse,
+    color: '#FFFFFF',
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
@@ -348,31 +422,32 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   summarySubtitle: {
     fontSize: theme.typography.sizes.sm,
-    color: theme.colors.surface + 'CC',
+    color: 'rgba(255, 255, 255, 0.8)',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',
   },
   progressContainer: {
     marginBottom: theme.spacing.md,
+    direction: 'rtl',
   },
   progressBar: {
     height: 12,
-    backgroundColor: theme.colors.surface + '4D',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
     borderRadius: theme.borderRadius.round,
     overflow: 'hidden',
     marginBottom: theme.spacing.sm,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: theme.colors.surface,
+    backgroundColor: '#FFFFFF',
     borderRadius: theme.borderRadius.round,
   },
   progressText: {
     fontSize: theme.typography.sizes.sm,
-    color: theme.colors.surface,
+    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
   },
   summaryAmounts: {
@@ -384,14 +459,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   summaryAmountLabel: {
     fontSize: theme.typography.sizes.xs,
-    color: theme.colors.surface + 'B3',
+    color: 'rgba(255, 255, 255, 0.7)',
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
   },
   summaryAmountValue: {
     fontSize: theme.typography.sizes.lg,
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.surface,
+    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
   currencyBreakdown: {
@@ -399,7 +474,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   currencyBreakdownText: {
     fontSize: theme.typography.sizes.xs,
-    color: theme.colors.surface + 'B3',
+    color: 'rgba(255, 255, 255, 0.7)',
     fontFamily: theme.typography.fontFamily,
     marginTop: 2,
     fontStyle: 'italic',

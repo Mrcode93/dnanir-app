@@ -303,7 +303,7 @@ export const ManageShortcutsModal: React.FC<ManageShortcutsModalProps> = ({
 
     const renderForm = () => (
         <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            behavior="padding"
             style={{ flex: 1 }}
         >
             {/* Header */}

@@ -55,7 +55,7 @@ const DebtItemComponent: React.FC<DebtItemProps> = ({
   const title = isOwedToMe ? `مدين لي: ${item.debtorName}` : `مدين لـ: ${item.debtorName}`;
   const typeLabel = DEBT_TYPES[item.type];
   const date = new Date(item.startDate);
-  const formattedDate = date.toLocaleDateString('ar-IQ', {
+  const formattedDate = date.toLocaleDateString('ar-IQ-u-nu-latn', {
     month: 'short',
     day: 'numeric',
   });
@@ -150,9 +150,9 @@ const DebtItemComponent: React.FC<DebtItemProps> = ({
                       </Text>
                     </View>
                     {item.isPaid && (
-                      <View style={[styles.categoryTag, { backgroundColor: '#D1FAE5' }]}>
-                        <Ionicons name="checkmark-circle" size={12} color="#059669" />
-                        <Text style={[styles.categoryText, { color: '#059669' }]}>
+                      <View style={[styles.categoryTag, { backgroundColor: theme.colors.success + '20' }]}>
+                        <Ionicons name="checkmark-circle" size={12} color={theme.colors.success} />
+                        <Text style={[styles.categoryText, { color: theme.colors.success }]}>
                           مدفوع
                         </Text>
                       </View>
@@ -170,24 +170,24 @@ const DebtItemComponent: React.FC<DebtItemProps> = ({
                         styles.categoryTag,
                         {
                           backgroundColor: isOverdue
-                            ? '#FEE2E2'
+                            ? theme.colors.error + '15'
                             : isDueSoon
-                              ? '#FEF3C7'
+                              ? theme.colors.warning + '15'
                               : theme.colors.surfaceLight
                         }
                       ]}>
                         <Ionicons
                           name={isOverdue ? 'warning' : 'time-outline'}
                           size={12}
-                          color={isOverdue ? '#DC2626' : isDueSoon ? '#F59E0B' : theme.colors.textSecondary}
+                          color={isOverdue ? theme.colors.error : isDueSoon ? theme.colors.warning : theme.colors.textSecondary}
                         />
                         <Text style={[
                           styles.categoryText,
                           {
                             color: isOverdue
-                              ? '#DC2626'
+                              ? theme.colors.error
                               : isDueSoon
-                                ? '#F59E0B'
+                                ? theme.colors.warning
                                 : theme.colors.textSecondary
                           }
                         ]}>
@@ -285,71 +285,107 @@ const DebtItemComponent: React.FC<DebtItemProps> = ({
         type="danger"
       />
 
-      {/* Options Menu */}
+      {/* Pro Bottom Sheet Menu */}
       <Modal
         visible={showMenu}
         transparent={true}
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setShowMenu(false)}
         statusBarTranslucent={true}
       >
-        <Pressable
-          style={styles.menuOverlay}
-          onPress={() => setShowMenu(false)}
-        >
-          <View style={styles.menuContainer}>
-            {onPress && (
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  setShowMenu(false);
-                  onPress();
-                }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="eye-outline" size={20} color={theme.colors.primary} />
-                <Text style={styles.menuItemText}>عرض التفاصيل</Text>
-              </TouchableOpacity>
-            )}
-            {onEdit && (
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  setShowMenu(false);
-                  onEdit();
-                }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="create-outline" size={20} color={theme.colors.primary} />
-                <Text style={styles.menuItemText}>تعديل</Text>
-              </TouchableOpacity>
-            )}
-            {onPay && !item.isPaid && (
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  setShowMenu(false);
-                  onPay();
-                }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="checkmark-circle-outline" size={20} color="#10B981" />
-                <Text style={[styles.menuItemText, { color: '#10B981' }]}>{isOwedToMe ? 'تسديد' : 'دفع'}</Text>
-              </TouchableOpacity>
-            )}
-            {onDelete && (
-              <TouchableOpacity
-                style={[styles.menuItem, styles.menuItemDanger]}
-                onPress={() => {
-                  setShowMenu(false);
-                  setShowConfirmAlert(true);
-                }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="trash-outline" size={20} color={theme.colors.error} />
-                <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>حذف</Text>
-              </TouchableOpacity>
-            )}
+        <Pressable style={styles.menuOverlay} onPress={() => setShowMenu(false)}>
+          <View style={styles.bottomSheetContainer}>
+            <View style={styles.dragHandle} />
+            <Text style={styles.menuHeaderTitle}>خيارات الدين</Text>
+
+            <View style={styles.menuOptionsList}>
+              {onPress && (
+                <TouchableOpacity
+                  style={styles.menuOption}
+                  onPress={() => {
+                    setShowMenu(false);
+                    onPress();
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.menuIconBox, { backgroundColor: theme.colors.info + '15' }]}>
+                    <Ionicons name="eye-outline" size={22} color={theme.colors.info} />
+                  </View>
+                  <View style={styles.menuOptionTextContainer}>
+                    <Text style={styles.menuOptionTitle}>عرض التفاصيل</Text>
+                    <Text style={styles.menuOptionSubtitle}>عرض كل تفاصيل الدين والأقساط</Text>
+                  </View>
+                  <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color={theme.colors.textMuted} />
+                </TouchableOpacity>
+              )}
+
+              {onEdit && (
+                <TouchableOpacity
+                  style={[styles.menuOption, { marginTop: 8 }]}
+                  onPress={() => {
+                    setShowMenu(false);
+                    onEdit();
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.menuIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                    <Ionicons name="create-outline" size={22} color={theme.colors.primary} />
+                  </View>
+                  <View style={styles.menuOptionTextContainer}>
+                    <Text style={styles.menuOptionTitle}>تعديل</Text>
+                    <Text style={styles.menuOptionSubtitle}>تغيير التفاصيل أو المبلغ</Text>
+                  </View>
+                  <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color={theme.colors.textMuted} />
+                </TouchableOpacity>
+              )}
+
+              {onPay && !item.isPaid && (
+                <TouchableOpacity
+                  style={[styles.menuOption, { marginTop: 8 }]}
+                  onPress={() => {
+                    setShowMenu(false);
+                    onPay();
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.menuIconBox, { backgroundColor: '#10B981' + '15' }]}>
+                    <Ionicons name="checkmark-circle-outline" size={22} color="#10B981" />
+                  </View>
+                  <View style={styles.menuOptionTextContainer}>
+                    <Text style={[styles.menuOptionTitle, { color: '#10B981' }]}>{isOwedToMe ? 'تسديد' : 'دفع'}</Text>
+                    <Text style={styles.menuOptionSubtitle}>{isOwedToMe ? 'تسجيل تسديد مبلغ من الدين' : 'دفع مبلغ من الدين'}</Text>
+                  </View>
+                  <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color={theme.colors.textMuted} />
+                </TouchableOpacity>
+              )}
+
+              {onDelete && (
+                <TouchableOpacity
+                  style={[styles.menuOption, { marginTop: 8 }]}
+                  onPress={() => {
+                    setShowMenu(false);
+                    setShowConfirmAlert(true);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.menuIconBox, { backgroundColor: theme.colors.error + '15' }]}>
+                    <Ionicons name="trash-outline" size={22} color={theme.colors.error} />
+                  </View>
+                  <View style={styles.menuOptionTextContainer}>
+                    <Text style={[styles.menuOptionTitle, { color: theme.colors.error }]}>حذف</Text>
+                    <Text style={styles.menuOptionSubtitle}>حذف هذا الدين نهائياً</Text>
+                  </View>
+                  <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color={theme.colors.textMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowMenu(false)}
+            >
+              <Text style={styles.closeButtonText}>إلغاء</Text>
+            </TouchableOpacity>
           </View>
         </Pressable>
       </Modal>
@@ -488,34 +524,84 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   menuOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
-  menuContainer: {
+  bottomSheetContainer: {
     backgroundColor: theme.colors.surfaceCard,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.xs,
-    minWidth: 150,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 40,
+    paddingTop: 12,
     ...getPlatformShadow('lg'),
   },
-  menuItem: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.sm,
+  dragHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: theme.colors.border,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+    opacity: 0.5,
   },
-  menuItemDanger: {
-    marginTop: theme.spacing.xs,
-  },
-  menuItemText: {
-    fontSize: theme.typography.sizes.md,
+  menuHeaderTitle: {
+    fontSize: theme.typography.sizes.lg,
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    ...(isRTL ? { marginRight: theme.spacing.sm } : { marginLeft: theme.spacing.sm }),
+    textAlign: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  menuOptionsList: {
+    paddingHorizontal: theme.spacing.lg,
+  },
+  menuOption: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surface,
+    borderRadius: 16,
+    padding: theme.spacing.md,
+    ...getPlatformShadow('xs'),
+  },
+  menuIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: isRTL ? theme.spacing.md : 0,
+    marginRight: isRTL ? 0 : theme.spacing.md,
+  },
+  menuOptionTextContainer: {
+    flex: 1,
+  },
+  menuOptionTitle: {
+    fontSize: theme.typography.sizes.md,
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'right' : 'left',
+    marginBottom: 2,
+  },
+  menuOptionSubtitle: {
+    fontSize: theme.typography.sizes.xs,
+    color: theme.colors.textMuted,
+    fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'right' : 'left',
   },
-  menuItemTextDanger: {
-    color: theme.colors.error,
+  closeButton: {
+    marginTop: theme.spacing.md,
+    marginHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    borderRadius: 16,
+    backgroundColor: theme.colors.surface,
+    alignItems: 'center',
+    ...getPlatformShadow('xs'),
+  },
+  closeButtonText: {
+    fontSize: theme.typography.sizes.md,
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
   },
   deleteContainer: {
     position: 'absolute',

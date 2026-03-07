@@ -150,7 +150,7 @@ export const BillsScreen = ({ navigation, route }: any) => {
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('ar-IQ', {
+    return new Date(dateStr).toLocaleDateString('ar-IQ-u-nu-latn', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -252,25 +252,6 @@ export const BillsScreen = ({ navigation, route }: any) => {
         ListHeaderComponent={
           <>
             {/* Search + Filter */}
-            <View style={styles.searchSection}>
-              <View style={styles.searchRow}>
-                <Searchbar
-                  placeholder="ابحث عن فاتورة..."
-                  onChangeText={setSearchQuery}
-                  value={searchQuery}
-                  style={styles.searchbar}
-                  inputStyle={styles.searchbarInput}
-                  iconColor={theme.colors.textMuted}
-                  placeholderTextColor={theme.colors.textMuted}
-                />
-                <TouchableOpacity
-                  onPress={() => setShowFilterMenu(!showFilterMenu)}
-                  style={[styles.filterButton, showFilterMenu && styles.filterButtonActive]}
-                >
-                  <Ionicons name="options-outline" size={22} color={showFilterMenu ? theme.colors.primary : theme.colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
-            </View>
 
             {/* Summary Cards - modern compact */}
             <ScrollView
@@ -379,8 +360,8 @@ export const BillsScreen = ({ navigation, route }: any) => {
             <Ionicons name="receipt-outline" size={64} color={theme.colors.textSecondary} />
             <Text style={styles.emptyText}>لا توجد فواتير</Text>
             <Text style={styles.emptySubtext}>
-              {searchQuery || selectedCategory !== 'all'
-                ? 'جرب البحث أو تغيير الفلتر'
+              {selectedCategory !== 'all'
+                ? 'لا توجد نتائج'
                 : 'أضف فاتورة جديدة للبدء'}
             </Text>
           </View>
@@ -454,12 +435,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderColor: theme.colors.primary + '40',
   },
   summaryScroll: {
-    // Increased height to prevent content cropping
-    maxHeight: 140,
+    flexGrow: 0,
   },
   summaryContent: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 12,
+    paddingBottom: 20,
     paddingEnd: 24,
     gap: 12,
   },
@@ -484,10 +465,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingRight: isRTL ? 20 : 16,
   },
   summaryValueWrap: {
-    minHeight: 28, // More height for value
+    minHeight: 36,
     width: '100%',
     justifyContent: 'center',
-    marginVertical: 2,
+    marginVertical: 4,
   },
   summaryCardIconWrap: {
     width: 32, // Slightly larger icon container

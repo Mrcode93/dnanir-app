@@ -13,6 +13,7 @@ export const NOTIFICATION_CATEGORIES = {
     INSIGHTS: 'insights',
     SPENDING_ALERTS: 'spending-alerts',
     ACHIEVEMENTS: 'achievements',
+    SUBSCRIPTION_ALERTS: 'subscription-alerts',
 };
 
 export const NOTIFICATION_CHANNELS = {
@@ -35,7 +36,7 @@ export const NOTIFICATION_MESSAGES = {
     ],
     DAILY_EVENING: [
         {
-            title: 'نسيت شي اليوم؟ 🤔',
+            title: 'نسيت شي اليوم? 🤔',
             body: 'تذكر تسجل كل شي صرفته اليوم حتى حساباتك تبقى مضبوطة.',
         },
         {
@@ -68,6 +69,11 @@ export const NOTIFICATION_MESSAGES = {
             daysLeft === 0
                 ? `فاتورة "${billTitle}" مستحقة اليوم بقيمة ${amount} ${currency}.`
                 : `فاتورة "${billTitle}" مستحقة خلال ${daysLeft} أيام بقيمة ${amount} ${currency}.`,
+    },
+    SUBSCRIPTION_DUE_SOON: {
+        title: '🔄 تجديد اشتراك قادم',
+        body: (name: string, amount: number, currency: string) =>
+            `سيتم خصم مبلغ "${amount} ${currency}" مقابل اشتراك "${name}" خلال 24 ساعة.`,
     },
     SPENDING_ANOMALY: {
         title: '📊 نمط صرف غير طبيعي',

@@ -1,7 +1,17 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { StyleSheet, View, Text, Image, I18nManager, Platform, AppState } from 'react-native';
+import { StyleSheet, View, Text, TextInput, Image, I18nManager, Platform, AppState, useColorScheme, Appearance, LogBox } from 'react-native';
+
+// Ignore specific logs that shouldn't interrupt the developer flow
+LogBox.ignoreLogs([
+  'GET request error',
+  'POST request error',
+  'PUT request error',
+  'DELETE request error',
+  'Network request failed',
+  'Aborted',
+]);
 import { Provider as PaperProvider, Portal, DefaultTheme, configureFonts } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
@@ -10,8 +20,8 @@ import { AppNavigator } from './src/navigation/AppNavigator';
 // import { LockScreen } from './src/screens/LockScreen'; // Disabled: app lock feature is off
 import { initDatabase } from './src/database/database';
 import { lightTheme, darkTheme } from './src/utils/theme-constants';
-import { ThemeProvider } from './src/utils/theme-context';
-import { initializeNotifications } from './src/services/notificationService';
+import { ThemeProvider, ThemeMode } from './src/utils/theme-context';
+import { initializeNotifications, runSmartFinancialAlerts } from './src/services/notificationService';
 import { isAuthenticationEnabled } from './src/services/authService';
 import { authEventService } from './src/services/authEventService';
 import { syncNewToServer } from './src/services/syncService';
@@ -47,7 +57,15 @@ const fontConfig = {
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLocked, setIsLocked] = useState(false);
-  const [isDark, setIsDark] = useState(false);
+  const systemColorScheme = useColorScheme();
+  const [themeMode, setThemeMode] = useState<ThemeMode>('system');
+
+  const isDark = useMemo(() => {
+    if (themeMode === 'system') {
+      return (systemColorScheme || Appearance.getColorScheme()) === 'dark';
+    }
+    return themeMode === 'dark';
+  }, [themeMode, systemColorScheme]);
 
   const activeTheme = isDark ? darkTheme : lightTheme;
 
@@ -66,6 +84,7 @@ export default function App() {
     roundness: 16,
   }), [activeTheme]);
   const isUnlockedRef = useRef(false);
+  const lastNotificationRefreshRef = useRef(0);
   const [fontsLoaded] = useFonts({
     'Tajawal-Regular': require('./assets/fonts/Tajawal-Regular.ttf'),
   });
@@ -78,19 +97,33 @@ export default function App() {
         I18nManager.swapLeftAndRightInRTL(false);
       }
 
+      const isAndroid = Platform.OS === 'android';
+      const defaultTypographyStyle = {
+        fontFamily: 'Tajawal-Regular',
+        ...(isAndroid
+          ? {
+            textAlign: 'right' as const,
+            writingDirection: 'rtl' as const,
+            includeFontPadding: false as const,
+          }
+          : {}),
+      };
+
       (Text as any).defaultProps = {
         ...(Text as any).defaultProps,
+        ...(isAndroid ? { allowFontScaling: false, maxFontSizeMultiplier: 1 } : {}),
         style: [
-          {
-            fontFamily: 'Tajawal-Regular',
-            ...(Platform.OS === 'android'
-              ? {
-                textAlign: 'right',
-                writingDirection: 'rtl',
-              }
-              : {}),
-          },
+          defaultTypographyStyle,
           (Text as any).defaultProps?.style,
+        ],
+      };
+
+      (TextInput as any).defaultProps = {
+        ...(TextInput as any).defaultProps,
+        ...(isAndroid ? { allowFontScaling: false, maxFontSizeMultiplier: 1 } : {}),
+        style: [
+          defaultTypographyStyle,
+          (TextInput as any).defaultProps?.style,
         ],
       };
     } catch (error) {
@@ -107,11 +140,13 @@ export default function App() {
         try {
           const { getAppSettings } = await import('./src/database/database');
           const appSettings = await getAppSettings();
-          if (appSettings?.darkModeEnabled) {
-            setIsDark(true);
+          if (appSettings?.themeMode) {
+            setThemeMode(appSettings.themeMode);
+          } else if (appSettings?.darkModeEnabled) {
+            setThemeMode('dark');
           }
         } catch (e) {
-          console.warn('Failed to load dark mode setting:', e);
+          console.warn('Failed to load theme setting:', e);
         }
 
         // Only await the auth check — it's needed to decide lock screen
@@ -120,7 +155,11 @@ export default function App() {
 
 
         // Non-critical: fire-and-forget in background
-        initializeNotifications().catch(e => console.warn('Notifications init skipped:', e));
+        initializeNotifications()
+          .then(() => {
+            lastNotificationRefreshRef.current = Date.now();
+          })
+          .catch(e => console.warn('Notifications init skipped:', e));
 
         import('./src/services/achievementService').then(async ({ initializeAchievements, checkAllAchievements }) => {
           await initializeAchievements();
@@ -181,6 +220,7 @@ export default function App() {
   }, []);
 
   const SYNC_THROTTLE_MS = 8 * 60 * 60 * 1000; // 8 hours (3 times a day)
+  const NOTIFICATION_REFRESH_MS = 6 * 60 * 60 * 1000; // 6 hours
 
   useEffect(() => {
     let subscription: any;
@@ -201,11 +241,18 @@ export default function App() {
         setIsLocked(true);
       }
 
-      // Re-initialize notifications when app comes to foreground
+      // Keep notification scheduling fresh without doing heavy full reschedule every focus.
       try {
-        await initializeNotifications();
+        const now = Date.now();
+        const shouldRefreshSchedules = now - lastNotificationRefreshRef.current >= NOTIFICATION_REFRESH_MS;
+        if (shouldRefreshSchedules) {
+          await initializeNotifications();
+          lastNotificationRefreshRef.current = now;
+        } else {
+          await runSmartFinancialAlerts();
+        }
       } catch (error) {
-        console.error('Error re-initializing notifications on focus:', error);
+        console.error('Error refreshing notifications on focus:', error);
       }
 
       // Auto-sync when app comes to foreground (Pro only, throttled) – only if user enabled auto-sync
@@ -299,7 +346,7 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: activeTheme.colors.background }} onLayout={onLayoutRootView}>
       <SafeAreaProvider>
         <PrivacyProvider>
-          <ThemeProvider value={{ theme: activeTheme, isDark, setIsDark }}>
+          <ThemeProvider value={{ theme: activeTheme, themeMode, setThemeMode, isDark }}>
             <PaperProvider theme={paperTheme}>
               <Portal.Host>
                 <AlertProvider>

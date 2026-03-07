@@ -305,7 +305,7 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
       statusBarTranslucent
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
         style={styles.keyboardView}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
@@ -387,7 +387,7 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
                                 end={{ x: 1, y: 1 }}
                               >
                                 <View style={styles.shortcutIconContainer}>
-                                  <Ionicons name={getSourceInfo(shortcut.incomeSource).icon as any} size={28} color="#FFFFFF" />
+                                  <Ionicons name={getSourceInfo(shortcut.incomeSource).icon as any} size={28} color={theme.colors.background} />
                                 </View>
                                 <Text style={styles.shortcutTitle} numberOfLines={1}>{shortcut.source}</Text>
                                 <Text style={styles.shortcutAmount}>{formatCurrency(shortcut.amount)}</Text>
@@ -412,13 +412,13 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
                             end={{ x: 1, y: 0 }}
                           >
                             <View style={styles.addFirstShortcutIconContainer}>
-                              <Ionicons name="flash" size={24} color="#FFFFFF" />
+                              <Ionicons name="flash" size={24} color={theme.colors.background} />
                             </View>
                             <View style={styles.addFirstShortcutTextContainer}>
                               <Text style={styles.addFirstShortcutTitle}>أنشئ اختصاراً سريعاً</Text>
                               <Text style={styles.addFirstShortcutSubtitle}>احفظ هذا الدخل كاختصار لإضافته بضغطة واحدة</Text>
                             </View>
-                            <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+                            <Ionicons name="chevron-back" size={20} color={theme.colors.background} />
                           </LinearGradient>
                         </TouchableOpacity>
                       )}
@@ -489,11 +489,11 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                       >
-                        <Ionicons name="cash" size={20} color="#FFFFFF" />
+                        <Ionicons name="cash" size={20} color={theme.colors.background} />
                         <Text style={styles.currencyButtonText}>
                           {CURRENCIES.find(c => c.code === currency)?.symbol} {CURRENCIES.find(c => c.code === currency)?.name}
                         </Text>
-                        <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color="#FFFFFF" />
+                        <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color={theme.colors.background} />
                       </LinearGradient>
                     </TouchableOpacity>
                   </View>
@@ -507,7 +507,7 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
                     >
                       <Ionicons name="calendar-outline" size={20} color={theme.colors.primary} />
                       <Text style={styles.dateButtonText}>
-                        {date.toLocaleDateString('ar-IQ', {
+                        {date.toLocaleDateString('ar-IQ-u-nu-latn', {
                           year: 'numeric',
                           month: 'long',
                           day: 'numeric',
@@ -561,7 +561,7 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
                                 <Ionicons
                                   name={cat.icon as any}
                                   size={20}
-                                  color="#FFFFFF"
+                                  color={theme.colors.background}
                                 />
                                 <Text style={styles.categoryTextActive}>{cat.name}</Text>
                               </LinearGradient>
@@ -643,12 +643,12 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
                     >
                       {loading ? (
                         <>
-                          <Ionicons name="hourglass-outline" size={18} color="#FFFFFF" />
+                          <Ionicons name="hourglass-outline" size={18} color={theme.colors.background} />
                           <Text style={styles.saveButtonText}>جاري الحفظ...</Text>
                         </>
                       ) : (
                         <>
-                          <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+                          <Ionicons name="checkmark-circle" size={18} color={theme.colors.background} />
                           <Text style={styles.saveButtonText}>
                             {income ? 'تحديث' : 'حفظ'}
                           </Text>

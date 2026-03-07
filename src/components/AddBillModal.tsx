@@ -301,7 +301,7 @@ export const AddBillModal: React.FC<AddBillModalProps> = ({
                     >
                       <Ionicons name="calendar" size={20} color={theme.colors.primary} />
                       <Text style={styles.dateButtonText}>
-                        {dueDate.toLocaleDateString('ar-IQ', {
+                        {dueDate.toLocaleDateString('ar-IQ-u-nu-latn', {
                           year: 'numeric',
                           month: 'long',
                           day: 'numeric',
@@ -329,8 +329,8 @@ export const AddBillModal: React.FC<AddBillModalProps> = ({
                       <Switch
                         value={hasRecurrence}
                         onValueChange={setHasRecurrence}
-                        trackColor={{ false: theme.colors.border, true: theme.colors.primary + '80' }}
-                        thumbColor={hasRecurrence ? theme.colors.primary : theme.colors.textSecondary}
+                        trackColor={{ false: '#767577', true: theme.colors.primary }}
+                        thumbColor={hasRecurrence ? '#FFFFFF' : '#f4f3f4'}
                       />
                     </View>
                     {hasRecurrence && (
@@ -400,7 +400,7 @@ export const AddBillModal: React.FC<AddBillModalProps> = ({
                         <Text style={styles.saveButtonText}>جاري الحفظ...</Text>
                       ) : (
                         <>
-                          <Ionicons name="checkmark" size={20} color="#FFFFFF" />
+                          <Ionicons name="checkmark" size={20} color={theme.colors.background} />
                           <Text style={styles.saveButtonText}>
                             {editingBill ? 'تحديث' : 'حفظ'}
                           </Text>
@@ -575,7 +575,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   saveButtonText: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
-    color: '#FFFFFF',
+    color: theme.colors.background,
     fontFamily: theme.typography.fontFamily,
   },
 });

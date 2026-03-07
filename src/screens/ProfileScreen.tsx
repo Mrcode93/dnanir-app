@@ -294,12 +294,13 @@ export const ProfileScreen = ({ navigation }: any) => {
     const settingsToSave = appSettings || {
       notificationsEnabled: true,
       darkModeEnabled: false,
+      themeMode: 'light',
       autoBackupEnabled: false,
       autoSyncEnabled: false,
       currency: 'دينار عراقي',
       language: 'ar',
     };
-    await upsertAppSettings({ ...settingsToSave, notificationsEnabled: value });
+    await upsertAppSettings({ ...settingsToSave, notificationsEnabled: value, themeMode: settingsToSave.themeMode });
     if (value) {
       const hasPermission = await requestPermissions();
       if (hasPermission) {
@@ -332,12 +333,13 @@ export const ProfileScreen = ({ navigation }: any) => {
     const settingsToSave = appSettings || {
       notificationsEnabled: true,
       darkModeEnabled: false,
+      themeMode: 'light',
       autoBackupEnabled: false,
       autoSyncEnabled: false,
       currency: 'دينار عراقي',
       language: 'ar',
     };
-    await upsertAppSettings({ ...settingsToSave, autoSyncEnabled: value });
+    await upsertAppSettings({ ...settingsToSave, autoSyncEnabled: value, themeMode: settingsToSave.themeMode });
   };
 
   const handleDailyReminderToggle = async (value: boolean) => {
@@ -742,12 +744,13 @@ export const ProfileScreen = ({ navigation }: any) => {
       const settingsToSave = appSettings || {
         notificationsEnabled: true,
         darkModeEnabled: false,
+        themeMode: 'light',
         autoBackupEnabled: false,
         autoSyncEnabled: false,
         currency: 'دينار عراقي',
         language: 'ar',
       };
-      await upsertAppSettings({ ...settingsToSave, currency: currency.name });
+      await upsertAppSettings({ ...settingsToSave, currency: currency.name, themeMode: settingsToSave.themeMode });
       notifyCurrencyChanged();
       setShowCurrencyPicker(false);
       alertService.success('نجح', `تم تغيير العملة إلى ${currency.name}`);
@@ -1145,7 +1148,8 @@ export const ProfileScreen = ({ navigation }: any) => {
                     <Switch
                       value={autoSyncEnabled}
                       onValueChange={handleAutoSyncToggle}
-                      trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+                      trackColor={{ false: '#767577', true: theme.colors.primary }}
+                      thumbColor={autoSyncEnabled ? '#FFFFFF' : '#f4f3f4'}
                     />
                   </View>
                 )}

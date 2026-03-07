@@ -11,6 +11,9 @@ interface MonthFilterProps {
   showAllOption?: boolean;
   style?: any;
   availableMonths?: Array<{ year: number; month: number }>;
+  textColor?: string;
+  iconColor?: string;
+  arrowColor?: string;
 }
 
 export const MonthFilter: React.FC<MonthFilterProps> = ({
@@ -19,10 +22,18 @@ export const MonthFilter: React.FC<MonthFilterProps> = ({
   showAllOption = true,
   style,
   availableMonths,
+  textColor: propTextColor,
+  iconColor: propIconColor,
+  arrowColor: propArrowColor,
 }) => {
   const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
+
+  // Default themed colors
+  const textColor = propTextColor || theme.colors.primary;
+  const iconColor = propIconColor || theme.colors.primary;
+  const arrowColor = propArrowColor || theme.colors.textMuted;
 
   // Month names in Arabic
   const monthNames = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
@@ -103,11 +114,11 @@ export const MonthFilter: React.FC<MonthFilterProps> = ({
         activeOpacity={0.7}
       >
         <View style={styles.filterButtonContent}>
-          <Ionicons name="calendar-outline" size={18} color={theme.colors.primary} />
-          <Text style={styles.filterButtonText} numberOfLines={1}>
+          <Ionicons name="calendar-outline" size={18} color={iconColor} />
+          <Text style={[styles.filterButtonText, { color: textColor }]} numberOfLines={1}>
             {getMonthLabel()}
           </Text>
-          <Ionicons name="chevron-down" size={14} color={theme.colors.textMuted} />
+          <Ionicons name="chevron-down" size={14} color={arrowColor} />
         </View>
       </TouchableOpacity>
 
@@ -228,7 +239,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     gap: 8,
   },
   filterButtonText: {
-    color: theme.colors.textPrimary,
+    color: theme.colors.primary,
     fontSize: 13,
     fontWeight: getPlatformFontWeight('700'),
     fontFamily: theme.typography.fontFamily,
@@ -270,9 +281,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: theme.colors.textPrimary,
+    color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'right', // Explicitly aligned
+    textAlign: 'right',
     writingDirection: 'rtl',
   },
   closeButton: {
@@ -335,7 +346,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
-    color: theme.colors.textPrimary,
+    color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',
@@ -344,7 +355,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: '700',
-    color: theme.colors.textInverse,
+    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',
@@ -360,13 +371,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   allBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    backgroundColor: theme.colors.border,
+    backgroundColor: theme.colors.primary + '15',
     borderRadius: 8,
   },
   allBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: theme.colors.textSecondary,
+    color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily,
   },
   modalFooter: {
@@ -386,7 +397,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     justifyContent: 'center',
   },
   confirmButtonText: {
-    color: theme.colors.textInverse,
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
     fontFamily: theme.typography.fontFamily,

@@ -60,6 +60,12 @@ export const INCOME_SOURCES: Record<IncomeSource, string> = {
   other: 'أخرى',
 };
 
+export interface FinancialInsight {
+  type: 'warning' | 'success' | 'info' | 'tip' | 'goal';
+  title: string;
+  content: string;
+}
+
 export interface FinancialSummary {
   totalIncome: number;
   totalExpenses: number;
@@ -82,6 +88,7 @@ export interface UserSettings {
 export interface AppSettings {
   notificationsEnabled: boolean;
   darkModeEnabled: boolean;
+  themeMode: 'light' | 'dark' | 'system';
   autoBackupEnabled: boolean;
   autoSyncEnabled?: boolean;
   lastAutoSyncTime?: number;
@@ -399,6 +406,16 @@ export interface ExpenseShortcut {
   createdAt: string;
 }
 
+export interface IncomeShortcut {
+  id: number;
+  source: string;
+  amount: number;
+  incomeSource: IncomeSource;
+  currency?: string;
+  description?: string;
+  createdAt: string;
+}
+
 // Bills
 export interface Bill {
   id: number;
@@ -446,4 +463,39 @@ export interface BillPayment {
   description?: string;
   createdAt: string;
 }
+
+// Subscriptions
+export type SubscriptionCategory =
+  | 'streaming'   // نيتفلكس، يوتيوب، شاهد
+  | 'internet'    // إنترنت
+  | 'gym'         // جيم
+  | 'education'   // دورات، تطبيقات تعليمية
+  | 'software'    // تطبيقات، برامج
+  | 'service'     // مولدة، حرس، ماء صحي
+  | 'other';
+
+export interface Subscription {
+  id: number;
+  name: string;
+  amount: number;
+  currency?: string;
+  category: SubscriptionCategory;
+  nextBillingDate: string; // ISO date string YYYY-MM-DD
+  billingCycle: 'weekly' | 'monthly' | 'yearly';
+  description?: string;
+  isActive: boolean;
+  reminderEnabled: boolean;
+  reminderDaysBefore: number;
+  createdAt: string;
+}
+
+export const SUBSCRIPTION_CATEGORIES: Record<SubscriptionCategory, { label: string; icon: string; color: string }> = {
+  streaming: { label: 'بث ترفيهي', icon: 'play-circle', color: '#EF4444' },
+  internet: { label: 'إنترنت', icon: 'wifi', color: '#3B82F6' },
+  gym: { label: 'رياضة وجيم', icon: 'fitness', color: '#10B981' },
+  education: { label: 'تعليم', icon: 'school', color: '#8B5CF6' },
+  software: { label: 'تطبيقات وبرامج', icon: 'apps', color: '#06B6D4' },
+  service: { label: 'خدمات (مولدة/أخرى)', icon: 'construct', color: '#F59E0B' },
+  other: { label: 'أخرى', icon: 'star', color: '#6B7280' },
+};
 

@@ -209,14 +209,14 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
   };
 
   const categoryColors: Record<BillCategory, string[]> = {
-    utilities: ['#EF4444', '#DC2626'],
-    rent: ['#3B82F6', '#2563EB'],
-    insurance: ['#10B981', '#059669'],
-    internet: ['#8B5CF6', '#7C3AED'],
-    phone: ['#F59E0B', '#D97706'],
-    subscription: ['#EC4899', '#DB2777'],
-    loan: ['#06B6D4', '#0891B2'],
-    other: ['#6B7280', '#4B5563'],
+    utilities: theme.gradients.error,
+    rent: theme.gradients.goalBlue,
+    insurance: theme.gradients.success,
+    internet: theme.gradients.goalPurple,
+    phone: theme.gradients.goalOrange,
+    subscription: theme.gradients.goalPink,
+    loan: theme.gradients.goalTeal,
+    other: [theme.colors.textSecondary, theme.colors.textMuted],
   };
 
   return (
@@ -343,7 +343,7 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
               >
                 <Ionicons name="calendar" size={20} color={theme.colors.primary} />
                 <Text style={styles.dateButtonText}>
-                  {dueDate.toLocaleDateString('ar-IQ', {
+                  {dueDate.toLocaleDateString('ar-IQ-u-nu-latn', {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric',
@@ -371,8 +371,8 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
                 <Switch
                   value={hasRecurrence}
                   onValueChange={setHasRecurrence}
-                  trackColor={{ false: theme.colors.border, true: theme.colors.primary + '80' }}
-                  thumbColor={hasRecurrence ? theme.colors.primary : theme.colors.textSecondary}
+                  trackColor={{ false: '#767577', true: theme.colors.primary }}
+                  thumbColor={hasRecurrence ? '#FFFFFF' : '#f4f3f4'}
                 />
               </View>
               {hasRecurrence && (
@@ -438,7 +438,7 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
                     onPress={handleRemoveImage}
                     style={styles.removeImageButton}
                   >
-                    <Ionicons name="close-circle" size={24} color="#EF4444" />
+                    <Ionicons name="close-circle" size={24} color={theme.colors.error} />
                   </TouchableOpacity>
                 </View>
               ) : (

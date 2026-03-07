@@ -24,9 +24,15 @@ const SummaryCardComponent: React.FC<SummaryCardProps> = ({
   const styles = useThemedStyles(createStyles);
   const { formatCurrency: hookFormatCurrency } = useCurrency();
   const formatCurrency = propFormatCurrency || hookFormatCurrency;
+  const gradientColors = React.useMemo<readonly [string, string, ...string[]]>(() => {
+    if (gradient.length >= 2) {
+      return [gradient[0], gradient[1], ...gradient.slice(2)];
+    }
+    return [theme.colors.primary, theme.colors.primary];
+  }, [gradient, theme.colors.primary]);
   return (
     <LinearGradient
-      colors={gradient}
+      colors={gradientColors}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.card}

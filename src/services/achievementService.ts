@@ -244,10 +244,9 @@ export const checkAllAchievements = async (): Promise<void> => {
         } else {
           // Fallback to original achievement data
           await sendAchievementUnlockedNotification({
-            ...achievement,
-            isUnlocked: true,
-            unlockedAt: new Date().toISOString(),
-            progress: currentProgress,
+            title: achievement.title,
+            description: achievement.description,
+            type: achievement.type,
           });
         }
       }

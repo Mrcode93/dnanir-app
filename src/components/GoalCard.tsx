@@ -16,6 +16,8 @@ interface GoalCardProps {
   onEdit?: () => void;
   onDelete?: () => void;
   onPlan?: () => void;
+  onPress?: (goal: FinancialGoal) => void;
+  averageMonthlySavingsHint?: number | null;
 }
 
 // Get gradient colors based on category
@@ -38,7 +40,14 @@ const getCategoryGradient = (category: string, isCompleted: boolean, theme: AppT
   return gradientMap[category] || theme.gradients.goalPurple;
 };
 
-const GoalCardComponent: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete, onPlan }) => {
+const GoalCardComponent: React.FC<GoalCardProps> = ({
+  goal,
+  onEdit,
+  onDelete,
+  onPlan,
+  onPress,
+  averageMonthlySavingsHint = null,
+}) => {
   const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const [showConfirmAlert, setShowConfirmAlert] = useState(false);
@@ -94,8 +103,8 @@ const GoalCardComponent: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete, on
       }
 
       try {
-        // Get average monthly savings
-        const avgSavings = await calculateAverageMonthlySavings(6);
+        // Reuse precomputed savings when provided by parent screen.
+        const avgSavings = averageMonthlySavingsHint ?? await calculateAverageMonthlySavings(6);
         setAverageMonthlySavings(avgSavings);
 
         // Convert remaining amount to primary currency if needed
@@ -118,7 +127,7 @@ const GoalCardComponent: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete, on
     };
 
     calculateTime();
-  }, [goal.id, remaining, isCompleted, goalCurrency, currencyCode]);
+  }, [goal.id, remaining, isCompleted, goalCurrency, currencyCode, averageMonthlySavingsHint]);
 
   // Calculate days remaining if target date exists
   let daysRemaining: number | null = null;
@@ -135,8 +144,10 @@ const GoalCardComponent: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete, on
   };
 
   return (
-    <View
+    <TouchableOpacity
       style={styles.cardWrapper}
+      onPress={() => onPress?.(goal)}
+      activeOpacity={0.9}
     >
       <LinearGradient
         colors={gradientColors as any}
@@ -149,7 +160,7 @@ const GoalCardComponent: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete, on
             colors={['rgba(255, 255, 255, 0.3)', 'rgba(255, 255, 255, 0.15)']}
             style={styles.iconContainer}
           >
-            <Ionicons name={categoryInfo.icon as any} size={24} color={theme.colors.surface} />
+            <Ionicons name={categoryInfo.icon as any} size={24} color="#FFFFFF" />
           </LinearGradient>
           <View style={styles.titleContainer}>
             <Text style={styles.title} numberOfLines={1}>
@@ -163,16 +174,9 @@ const GoalCardComponent: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete, on
                 <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
               </View>
             )}
-            <TouchableOpacity
-              style={styles.menuButton}
-              onPress={(e) => {
-                e.stopPropagation();
-                setShowMenu(true);
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="ellipsis-vertical" size={20} color={theme.colors.surface} />
-            </TouchableOpacity>
+            <View style={styles.menuButton}>
+              <Ionicons name="ellipsis-vertical" size={20} color="#FFFFFF" />
+            </View>
           </View>
         </View>
 
@@ -226,7 +230,7 @@ const GoalCardComponent: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete, on
 
         {!isCompleted && remaining > 0 && (
           <View style={styles.remainingContainer}>
-            <Ionicons name="time-outline" size={14} color={theme.colors.surface} />
+            <Ionicons name="time-outline" size={14} color="#FFFFFF" />
             <View style={styles.remainingInfo}>
               <Text style={styles.remainingText}>
                 متبقي: {isPrivacyEnabled ? '****' : formatCurrencyAmount(remaining, goalCurrency)}
@@ -241,7 +245,7 @@ const GoalCardComponent: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete, on
               )}
               {estimatedTime && estimatedTime.formatted !== 'مكتمل' && (
                 <View style={styles.estimatedTimeContainer}>
-                  <Ionicons name="hourglass-outline" size={12} color={theme.colors.surface} />
+                  <Ionicons name="hourglass-outline" size={12} color="#FFFFFF" />
                   <View style={styles.estimatedTimeContent}>
                     <Text style={styles.estimatedTimeText}>
                       الوقت المتوقع: {isPrivacyEnabled ? '****' : estimatedTime.formatted}
@@ -260,78 +264,12 @@ const GoalCardComponent: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete, on
 
         {isCompleted && (
           <View style={styles.completedContainer}>
-            <Ionicons name="trophy" size={16} color={theme.colors.surface} />
+            <Ionicons name="trophy" size={16} color="#FFFFFF" />
             <Text style={styles.completedText}>تم إنجاز الهدف!</Text>
           </View>
         )}
       </LinearGradient>
-
-      <ConfirmAlert
-        visible={showConfirmAlert}
-        title="تأكيد الحذف"
-        message="هل أنت متأكد من حذف هذا الهدف؟ لا يمكن التراجع عن هذا الإجراء."
-        confirmText="حذف"
-        cancelText="إلغاء"
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setShowConfirmAlert(false)}
-        type="danger"
-      />
-
-      {/* Options Menu */}
-      <Modal
-        visible={showMenu}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowMenu(false)}
-      >
-        <Pressable
-          style={styles.menuOverlay}
-          onPress={() => setShowMenu(false)}
-        >
-          <View style={styles.menuContainer}>
-            {onPlan && (
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  setShowMenu(false);
-                  onPlan();
-                }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="sparkles" size={20} color={theme.colors.primary} />
-                <Text style={styles.menuItemText}>خطة بالذكاء الاصطناعي</Text>
-              </TouchableOpacity>
-            )}
-            {onEdit && (
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  setShowMenu(false);
-                  onEdit();
-                }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="create-outline" size={20} color={theme.colors.primary} />
-                <Text style={styles.menuItemText}>تعديل</Text>
-              </TouchableOpacity>
-            )}
-            {onDelete && (
-              <TouchableOpacity
-                style={[styles.menuItem, styles.menuItemDanger]}
-                onPress={() => {
-                  setShowMenu(false);
-                  setShowConfirmAlert(true);
-                }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="trash-outline" size={20} color={theme.colors.error} />
-                <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>حذف</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </Pressable>
-      </Modal>
-    </View>
+    </TouchableOpacity>
   );
 };
 
@@ -369,7 +307,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   title: {
     fontSize: theme.typography.sizes.lg,
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.surface,
+    color: '#FFFFFF',
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
@@ -377,7 +315,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   category: {
     fontSize: theme.typography.sizes.sm,
-    color: theme.colors.surface + 'CC',
+    color: 'rgba(255, 255, 255, 0.8)',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',
@@ -395,45 +333,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   menuButton: {
     padding: theme.spacing.xs,
   },
-  menuOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  menuContainer: {
-    backgroundColor: theme.colors.surfaceCard,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.xs,
-    minWidth: 150,
-    ...getPlatformShadow('lg'),
-  },
-  menuItem: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.sm,
-  },
-  menuItemDanger: {
-    marginTop: theme.spacing.xs,
-  },
-  menuItemText: {
-    fontSize: theme.typography.sizes.md,
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-    ...(isRTL ? { marginRight: theme.spacing.sm } : { marginLeft: theme.spacing.sm }),
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  menuItemTextDanger: {
-    color: theme.colors.error,
-  },
   progressContainer: {
     marginBottom: theme.spacing.md,
+    direction: 'rtl',
   },
   progressBar: {
     height: 10,
-    backgroundColor: theme.colors.surface + '40',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     borderRadius: theme.borderRadius.round,
     overflow: 'hidden',
     marginBottom: theme.spacing.xs,
@@ -444,12 +350,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: theme.borderRadius.round,
   },
   progressText: {
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
   },
   progressPercent: {
     fontSize: theme.typography.sizes.sm,
     fontWeight: getPlatformFontWeight('600'),
-    color: theme.colors.surface,
+    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
   amountContainer: {
@@ -462,20 +368,20 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   amountLabel: {
     fontSize: theme.typography.sizes.xs,
-    color: theme.colors.surface + 'B3',
+    color: 'rgba(255, 255, 255, 0.7)',
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
   },
   amountValue: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.surface,
+    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
   convertedAmount: {
     fontSize: theme.typography.sizes.xs,
     fontWeight: getPlatformFontWeight('500'),
-    color: theme.colors.surface + 'B3',
+    color: 'rgba(255, 255, 255, 0.7)',
     fontFamily: theme.typography.fontFamily,
     marginTop: 2,
     fontStyle: 'italic',
@@ -483,7 +389,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   convertedRemainingText: {
     fontSize: theme.typography.sizes.xs,
     fontWeight: getPlatformFontWeight('500'),
-    color: theme.colors.surface + 'B3',
+    color: 'rgba(255, 255, 255, 0.7)',
     fontFamily: theme.typography.fontFamily,
     marginTop: 2,
     fontStyle: 'italic',
@@ -496,7 +402,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginTop: theme.spacing.sm,
     paddingTop: theme.spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: theme.colors.surface + '33',
+    borderTopColor: 'rgba(255, 255, 255, 0.2)',
   },
   remainingInfo: {
     flex: 1,
@@ -504,7 +410,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   remainingText: {
     fontSize: theme.typography.sizes.sm,
-    color: theme.colors.surface,
+    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',
@@ -517,7 +423,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingTop: theme.spacing.xs,
     paddingBottom: theme.spacing.xs,
     paddingHorizontal: theme.spacing.sm,
-    backgroundColor: theme.colors.surface + '26',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderRadius: theme.borderRadius.sm,
     alignSelf: 'flex-start',
     width: '100%',
@@ -528,7 +434,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   estimatedTimeText: {
     fontSize: theme.typography.sizes.xs,
-    color: theme.colors.surface,
+    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     fontWeight: getPlatformFontWeight('600'),
     textAlign: 'right',
@@ -537,7 +443,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   estimatedTimeExplanation: {
     fontSize: theme.typography.sizes.xs - 1,
-    color: theme.colors.surface + 'BF',
+    color: 'rgba(255, 255, 255, 0.75)',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',
@@ -549,11 +455,11 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginTop: theme.spacing.sm,
     paddingTop: theme.spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: theme.colors.surface + '33',
+    borderTopColor: 'rgba(255, 255, 255, 0.2)',
   },
   completedText: {
     fontSize: theme.typography.sizes.sm,
-    color: theme.colors.surface,
+    color: '#FFFFFF',
     ...(isRTL ? { marginRight: theme.spacing.xs } : { marginLeft: theme.spacing.xs }),
     fontWeight: getPlatformFontWeight('600'),
     fontFamily: theme.typography.fontFamily,

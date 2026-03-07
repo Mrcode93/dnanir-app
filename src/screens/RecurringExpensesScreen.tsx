@@ -127,7 +127,7 @@ export const RecurringExpensesScreen = ({ navigation }: any) => {
 
   const renderRecurringExpense = ({ item }: { item: RecurringExpense }) => {
     const nextOccurrence = getNextOccurrenceDate(item);
-    const nextDate = nextOccurrence ? new Date(nextOccurrence).toLocaleDateString('ar-IQ') : 'انتهى';
+    const nextDate = nextOccurrence ? new Date(nextOccurrence).toLocaleDateString('ar-IQ-u-nu-latn') : 'انتهى';
 
     return (
       <LinearGradient
@@ -222,7 +222,7 @@ export const RecurringExpensesScreen = ({ navigation }: any) => {
       
       <ConfirmAlert
         visible={showDeleteAlert}
-        onClose={() => {
+        onCancel={() => {
           setShowDeleteAlert(false);
           setExpenseToDelete(null);
         }}
@@ -231,7 +231,6 @@ export const RecurringExpensesScreen = ({ navigation }: any) => {
         message="هل أنت متأكد من حذف هذا المصروف المتكرر؟"
         confirmText="حذف"
         cancelText="إلغاء"
-        icon="trash"
         type="danger"
       />
     </SafeAreaView>

@@ -357,7 +357,7 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
                   onPress={() => setShowStartDatePicker(true)}
                 >
                   <Text style={styles.pickerText}>
-                    {startDate.toLocaleDateString('ar-IQ')}
+                    {startDate.toLocaleDateString('ar-IQ-u-nu-latn')}
                   </Text>
                   <Ionicons name="calendar" size={20} color={theme.colors.textSecondary} />
                 </TouchableOpacity>
@@ -397,7 +397,7 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
                       onPress={() => setShowEndDatePicker(true)}
                     >
                       <Text style={styles.pickerText}>
-                        {endDate ? endDate.toLocaleDateString('ar-IQ') : 'اختر التاريخ'}
+                        {endDate ? endDate.toLocaleDateString('ar-IQ-u-nu-latn') : 'اختر التاريخ'}
                       </Text>
                       <Ionicons name="calendar" size={20} color={theme.colors.textSecondary} />
                     </TouchableOpacity>

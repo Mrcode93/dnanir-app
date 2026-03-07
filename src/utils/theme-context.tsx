@@ -1,16 +1,20 @@
 import React, { createContext, useContext, useMemo } from 'react';
 import { lightTheme, AppTheme } from './theme-constants';
 
+export type ThemeMode = 'light' | 'dark' | 'system';
+
 export type ThemeContextValue = {
     theme: AppTheme;
+    themeMode: ThemeMode;
+    setThemeMode: (mode: ThemeMode) => void;
     isDark: boolean;
-    setIsDark: (dark: boolean) => void;
 };
 
 export const ThemeContext = createContext<ThemeContextValue>({
     theme: lightTheme,
+    themeMode: 'light',
+    setThemeMode: () => { },
     isDark: false,
-    setIsDark: () => { },
 });
 
 export const ThemeProvider: React.FC<{ value: ThemeContextValue; children: React.ReactNode }> = ({

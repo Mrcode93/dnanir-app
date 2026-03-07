@@ -1,5 +1,79 @@
-import { getExchangeRate, upsertExchangeRate, getAllExchangeRates, ExchangeRate } from '../database/database';
+import { getExchangeRate, upsertExchangeRate } from '../database/database';
 import { CURRENCIES, Currency } from '../types';
+
+const RATE_CACHE_TTL_MS = 5 * 60 * 1000;
+const rateCache = new Map<string, { rate: number; cachedAt: number }>();
+const pendingRateLookups = new Map<string, Promise<number | null>>();
+const missingRateWarnings = new Set<string>();
+
+const getRateKey = (fromCurrency: string, toCurrency: string): string =>
+  `${fromCurrency}->${toCurrency}`;
+
+const isValidRate = (rate: number): boolean =>
+  Number.isFinite(rate) && rate > 0;
+
+const setRateCache = (fromCurrency: string, toCurrency: string, rate: number): void => {
+  const now = Date.now();
+  rateCache.set(getRateKey(fromCurrency, toCurrency), { rate, cachedAt: now });
+  if (isValidRate(rate)) {
+    rateCache.set(getRateKey(toCurrency, fromCurrency), { rate: 1 / rate, cachedAt: now });
+  }
+};
+
+const readRateFromCache = (fromCurrency: string, toCurrency: string): number | null => {
+  const key = getRateKey(fromCurrency, toCurrency);
+  const cached = rateCache.get(key);
+  if (!cached) return null;
+  if (Date.now() - cached.cachedAt > RATE_CACHE_TTL_MS) {
+    rateCache.delete(key);
+    return null;
+  }
+  return cached.rate;
+};
+
+const loadRateFromDatabase = async (
+  fromCurrency: string,
+  toCurrency: string
+): Promise<number | null> => {
+  const directRate = await getExchangeRate(fromCurrency, toCurrency);
+  if (directRate && isValidRate(directRate.rate)) {
+    setRateCache(fromCurrency, toCurrency, directRate.rate);
+    return directRate.rate;
+  }
+
+  const reverseRate = await getExchangeRate(toCurrency, fromCurrency);
+  if (reverseRate && isValidRate(reverseRate.rate)) {
+    const normalizedRate = 1 / reverseRate.rate;
+    setRateCache(fromCurrency, toCurrency, normalizedRate);
+    return normalizedRate;
+  }
+
+  return null;
+};
+
+const getConversionRate = async (
+  fromCurrency: string,
+  toCurrency: string
+): Promise<number | null> => {
+  const cachedRate = readRateFromCache(fromCurrency, toCurrency);
+  if (cachedRate !== null) {
+    return cachedRate;
+  }
+
+  const key = getRateKey(fromCurrency, toCurrency);
+  const pendingLookup = pendingRateLookups.get(key);
+  if (pendingLookup) {
+    return pendingLookup;
+  }
+
+  const lookupPromise = loadRateFromDatabase(fromCurrency, toCurrency)
+    .finally(() => {
+      pendingRateLookups.delete(key);
+    });
+
+  pendingRateLookups.set(key, lookupPromise);
+  return lookupPromise;
+};
 
 /**
  * Convert amount from one currency to another
@@ -13,23 +87,17 @@ export const convertCurrency = async (
     return amount;
   }
 
-  // Try to get exchange rate from database
-  let rate = await getExchangeRate(fromCurrency, toCurrency);
-
+  const rate = await getConversionRate(fromCurrency, toCurrency);
   if (!rate) {
-    // If no rate found, try reverse rate
-    const reverseRate = await getExchangeRate(toCurrency, fromCurrency);
-    if (reverseRate) {
-      return amount / reverseRate.rate;
+    const missingKey = getRateKey(fromCurrency, toCurrency);
+    if (!missingRateWarnings.has(missingKey)) {
+      missingRateWarnings.add(missingKey);
+      console.warn(`No exchange rate found for ${fromCurrency} to ${toCurrency}`);
     }
-
-    // If still no rate, use default rates (you can fetch from API here)
-    // For now, return the amount (no conversion)
-    console.warn(`No exchange rate found for ${fromCurrency} to ${toCurrency}`);
     return amount;
   }
 
-  return amount * rate.rate;
+  return amount * rate;
 };
 
 /**
@@ -52,6 +120,7 @@ export const getOrFetchExchangeRate = async (
     const hoursDiff = (now.getTime() - updatedAt.getTime()) / (1000 * 60 * 60);
 
     if (hoursDiff < 24) {
+      setRateCache(fromCurrency, toCurrency, rate.rate);
       return rate.rate;
     }
   }
@@ -77,6 +146,7 @@ export const getOrFetchExchangeRate = async (
       toCurrency,
       rate: fetchedRate,
     });
+    setRateCache(fromCurrency, toCurrency, fetchedRate);
     return fetchedRate;
   }
 
@@ -104,7 +174,7 @@ export const formatCurrencyAmount = (
 
   // Format based on currency
   if (currencyCode === 'IQD') {
-    return `${amount.toLocaleString('ar-IQ')} ${currency.symbol}`;
+    return `${amount.toLocaleString('en-US')} ${currency.symbol}`;
   }
 
   return `${currency.symbol}${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
