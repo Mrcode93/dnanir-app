@@ -276,7 +276,7 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
       >
         <View style={styles.summaryContent}>
           <View style={styles.summaryIconContainer}>
-            <Ionicons name="trending-down" size={24} color={theme.colors.textPrimary} />
+            <Ionicons name="trending-down" size={24} color={"#FFFFFF"} />
           </View>
           <View style={styles.summaryTextContainer}>
             <Text style={styles.summaryLabel}>إجمالي المصاريف</Text>
@@ -326,18 +326,6 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.fixedHeader, { paddingTop: insets.top }]}>
-        <View style={styles.screenHeader}>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('ManageCategories', { type: 'expense' })}
-            style={styles.settingsBtn}
-          >
-            <Ionicons name="settings-outline" size={22} color={theme.colors.primary} />
-          </TouchableOpacity>
-          <Text style={styles.screenTitle}>سجل المصاريف</Text>
-          <View style={{ width: 40 }} />
-        </View>
-      </View>
 
       <FlatList
         data={expenses}

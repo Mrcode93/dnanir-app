@@ -41,18 +41,18 @@ export const lightTheme = {
     goalRose: ['#FB7185', '#F43F5E', '#E11D48'],
   },
   spacing: {
-    xs: 4,
-    sm: 8,
-    md: 16,
-    lg: 24,
-    xl: 32,
-    xxl: 48,
+    xs: Platform.OS === 'android' ? 3 : 4,
+    sm: Platform.OS === 'android' ? 6 : 8,
+    md: Platform.OS === 'android' ? 12 : 16,
+    lg: Platform.OS === 'android' ? 20 : 24,
+    xl: Platform.OS === 'android' ? 28 : 32,
+    xxl: Platform.OS === 'android' ? 40 : 48,
   },
   borderRadius: {
-    sm: 4,
-    md: 8,
-    lg: 12,
-    xl: 16,
+    sm: Platform.OS === 'android' ? 3 : 4,
+    md: Platform.OS === 'android' ? 6 : 8,
+    lg: Platform.OS === 'android' ? 10 : 12,
+    xl: Platform.OS === 'android' ? 14 : 16,
     round: 9999,
   },
   shadows: {
@@ -221,7 +221,11 @@ export const getPlatformShadow = (size: 'xs' | 'sm' | 'md' | 'lg' | 'xl') => {
 
 export const getPlatformFontWeight = (weight: any = '400') => {
   if (Platform.OS === 'android') {
-    if (weight === '700' || weight === '800' || weight === 'bold') {
+    // Android falls back to system font (Roboto) if custom font + numeric weight is used
+    // and that weight isn't explicitly defined in a font family configuration.
+    // For Tajawal-Regular, we use 'normal' to ensure the font family is applied.
+    const boldWeights = ['500', '600', '700', '800', '900', 'bold'];
+    if (boldWeights.includes(weight.toString())) {
       return 'normal';
     }
     return weight;

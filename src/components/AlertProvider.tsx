@@ -18,28 +18,22 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const handleConfirm = useCallback(() => {
     const callback = alertOptions?.onConfirm;
-    
+    // Close the alert immediately
+    setAlertOptions(null);
+
     if (callback) {
       try {
         const result = callback();
+        // If it's a promise, we still let it run in background
+        // but the modal is already closed
         if (result instanceof Promise) {
-          result
-            .then(() => {
-              setAlertOptions(null);
-            })
-            .catch(error => {
-              // Ignore error
-              setAlertOptions(null);
-            });
-        } else {
-          setAlertOptions(null);
+          result.catch(error => {
+            console.error('Alert callback error:', error);
+          });
         }
       } catch (error) {
-        // Ignore error
-        setAlertOptions(null);
-    }
-    } else {
-    setAlertOptions(null);
+        console.error('Alert callback error:', error);
+      }
     }
   }, [alertOptions]);
 

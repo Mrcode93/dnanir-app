@@ -592,8 +592,10 @@ export const initDatabase = async () => {
     // Initialize default categories
     await initializeDefaultCategories(db);
 
-    // Initialize default exchange rates for new currencies (migration)
-    await initializeExchangeRates(db);
+    // Exchange rates are non-critical for first frame; run in background.
+    initializeExchangeRates(db).catch(err => {
+      console.warn('Exchange rates initialization warning:', err);
+    });
 
     // Clean up old AI cache (keep last 6 months) - run in background, don't block initialization
     cleanupOldAiCache().catch(err => {

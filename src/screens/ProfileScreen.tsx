@@ -936,7 +936,7 @@ export const ProfileScreen = ({ navigation }: any) => {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -1590,7 +1590,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderBottomColor: theme.colors.border + '20',
   },
   sectionContent: {
-    padding: theme.spacing.lg,
+    padding: Platform.OS === 'android' ? 12 : theme.spacing.lg,
     direction: 'rtl' as const,
   },
   profileCard: {
@@ -2789,8 +2789,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   referralCard: {
     backgroundColor: theme.colors.surfaceCard,
     borderRadius: 24,
-    padding: 20,
-    marginTop: 12,
+    padding: Platform.OS === 'android' ? 12 : 20,
+    marginTop: Platform.OS === 'android' ? 6 : 12,
     borderWidth: 1,
     borderColor: theme.colors.borderLight,
     ...getPlatformShadow('sm'),
@@ -2798,13 +2798,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   referralHero: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
-    gap: 16,
-    marginBottom: 20,
+    gap: Platform.OS === 'android' ? 10 : 16,
+    marginBottom: Platform.OS === 'android' ? 12 : 20,
   },
   referralIconBox: {
-    width: 60,
-    height: 60,
-    borderRadius: 20,
+    width: Platform.OS === 'android' ? 48 : 60,
+    height: Platform.OS === 'android' ? 48 : 60,
+    borderRadius: Platform.OS === 'android' ? 16 : 20,
     backgroundColor: '#F59E0B15',
     justifyContent: 'center',
     alignItems: 'center',
@@ -2813,49 +2813,49 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     flex: 1,
   },
   referralTitleText: {
-    fontSize: 16,
+    fontSize: Platform.OS === 'android' ? 15 : 16,
     fontWeight: getPlatformFontWeight('800'),
     color: '#1E293B',
     fontFamily: theme.typography.fontFamily,
-    marginBottom: 4,
+    marginBottom: Platform.OS === 'android' ? 2 : 4,
     textAlign: 'left',
   },
   referralSubtitleText: {
-    fontSize: 13,
+    fontSize: Platform.OS === 'android' ? 12 : 13,
     color: '#64748B',
     fontFamily: theme.typography.fontFamily,
-    lineHeight: 18,
+    lineHeight: Platform.OS === 'android' ? 16 : 18,
     textAlign: 'left',
   },
   referralCodeBox: {
     backgroundColor: theme.colors.surfaceLight,
     borderRadius: 20,
-    padding: 16,
+    padding: Platform.OS === 'android' ? 10 : 16,
     borderWidth: 1,
     borderColor: theme.colors.borderLight,
   },
   codeContainer: {
-    marginBottom: 16,
+    marginBottom: Platform.OS === 'android' ? 12 : 16,
   },
   codeLabel: {
     fontSize: 12,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    marginBottom: 8,
+    marginBottom: Platform.OS === 'android' ? 6 : 8,
     textAlign: 'center',
   },
   codeRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 12,
+    gap: Platform.OS === 'android' ? 8 : 12,
   },
   codeValue: {
-    fontSize: 24,
+    fontSize: Platform.OS === 'android' ? 20 : 24,
     fontWeight: getPlatformFontWeight('900'),
     color: theme.colors.primary,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    letterSpacing: 4,
+    fontFamily: Platform.OS === 'android' ? 'monospace' : (Platform.OS === 'ios' ? 'Courier' : 'monospace'),
+    letterSpacing: Platform.OS === 'android' ? 2 : 4,
   },
   copyButton: {
     width: 40,
@@ -2870,8 +2870,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 20,
-    paddingTop: 12,
+    marginBottom: Platform.OS === 'android' ? 8 : 20,
+    paddingTop: Platform.OS === 'android' ? 8 : 12,
     borderTopWidth: 1,
     borderTopColor: theme.colors.borderLight,
   },
@@ -2888,9 +2888,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   shareCodeButton: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
-    height: 52,
+    height: Platform.OS === 'android' ? 44 : 52,
     backgroundColor: theme.colors.primary,
-    borderRadius: 14,
+    borderRadius: Platform.OS === 'android' ? 12 : 14,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 10,
@@ -2903,9 +2903,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   promoCodeButton: {
-    marginTop: 12,
-    height: 54,
-    borderRadius: 16,
+    marginTop: Platform.OS === 'android' ? 6 : 12,
+    height: Platform.OS === 'android' ? 44 : 54,
+    borderRadius: Platform.OS === 'android' ? 12 : 16,
     overflow: 'hidden',
     ...getPlatformShadow('md'),
   },
@@ -2924,11 +2924,11 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   referralEntryButton: {
-    marginTop: 12,
+    marginTop: Platform.OS === 'android' ? 6 : 12,
     flexDirection: isRTL ? 'row' : 'row-reverse',
-    height: 52,
+    height: Platform.OS === 'android' ? 44 : 52,
     backgroundColor: theme.colors.surfaceLight,
-    borderRadius: 14,
+    borderRadius: Platform.OS === 'android' ? 12 : 14,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 10,

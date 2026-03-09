@@ -31,10 +31,12 @@ export const PromoCodeModal: React.FC<PromoCodeModalProps> = ({ visible, onClose
     const styles = useThemedStyles(createStyles);
     const [code, setCode] = useState('');
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const handleApply = async () => {
+        setError(null);
         if (!code.trim()) {
-            alertService.warning('تنبيه', 'يرجى إدخال كود البرومو');
+            setError('يرجى إدخال كود البرومو');
             return;
         }
 
@@ -44,13 +46,15 @@ export const PromoCodeModal: React.FC<PromoCodeModalProps> = ({ visible, onClose
             if (result.success) {
                 alertService.success('تم التفعيل', result.message || 'تم تفعيل كود البرومو بنجاح!');
                 setCode('');
+                setError(null);
                 onClose();
                 if (onSuccess) onSuccess();
             } else {
-                alertService.error('فشل التفعيل', result.error || 'كود البرومو غير صالح أو منتهي الصلاحية');
+                const errorMessage = typeof result.error === 'string' ? result.error : 'كود البرومو غير صالح أو منتهي الصلاحية';
+                setError(errorMessage);
             }
         } catch (error) {
-            alertService.error('خطأ', 'حدث خطأ أثناء تفعيل الكود');
+            setError('حدث خطأ أثناء تفعيل الكود، يرجى المحاولة لاحقاً');
         } finally {
             setLoading(false);
         }
@@ -98,13 +102,23 @@ export const PromoCodeModal: React.FC<PromoCodeModalProps> = ({ visible, onClose
                                                 placeholder="أدخل الكود هنا (مثال: FREE30)"
                                                 placeholderTextColor={theme.colors.textMuted}
                                                 value={code}
-                                                onChangeText={(text) => setCode(text.toUpperCase())}
+                                                onChangeText={(text) => {
+                                                    setCode(text.toUpperCase());
+                                                    if (error) setError(null);
+                                                }}
                                                 autoCapitalize="characters"
                                                 autoCorrect={false}
                                                 returnKeyType="done"
                                                 onSubmitEditing={handleApply}
                                             />
                                         </View>
+
+                                        {error && (
+                                            <View style={styles.errorContainer}>
+                                                <Ionicons name="alert-circle" size={16} color={theme.colors.error} />
+                                                <Text style={styles.errorText}>{error}</Text>
+                                            </View>
+                                        )}
 
                                         <View style={styles.actions}>
                                             <TouchableOpacity
@@ -153,7 +167,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 24,
+        padding: Platform.OS === 'android' ? 12 : 24,
         backgroundColor: theme.colors.overlay,
     },
     container: {
@@ -168,7 +182,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         ...getPlatformShadow('xl'),
     },
     gradient: {
-        padding: 28,
+        padding: Platform.OS === 'android' ? 20 : 28,
         alignItems: 'center',
     },
     closeButton: {
@@ -180,25 +194,25 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     },
     header: {
         alignItems: 'center',
-        marginBottom: 32,
-        marginTop: 10,
+        marginBottom: Platform.OS === 'android' ? 16 : 24,
+        marginTop: Platform.OS === 'android' ? 0 : 10,
     },
     iconWrapper: {
-        width: 80,
-        height: 80,
-        borderRadius: 24,
+        width: Platform.OS === 'android' ? 64 : 80,
+        height: Platform.OS === 'android' ? 64 : 80,
+        borderRadius: Platform.OS === 'android' ? 20 : 24,
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 20,
+        marginBottom: Platform.OS === 'android' ? 12 : 20,
         borderWidth: 1,
         borderColor: 'rgba(212, 175, 55, 0.3)',
     },
     title: {
-        fontSize: 24,
+        fontSize: Platform.OS === 'android' ? 20 : 24,
         fontWeight: getPlatformFontWeight('900'),
         color: theme.colors.textPrimary,
         fontFamily: theme.typography.fontFamily,
-        marginBottom: 12,
+        marginBottom: Platform.OS === 'android' ? 8 : 12,
         textAlign: 'center',
     },
     subtitle: {
@@ -211,13 +225,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     },
     inputWrapper: {
         width: '100%',
-        height: 64,
+        height: Platform.OS === 'android' ? 54 : 64,
         backgroundColor: theme.colors.background,
-        borderRadius: 20,
+        borderRadius: Platform.OS === 'android' ? 16 : 20,
         flexDirection: isRTL ? 'row' : 'row-reverse',
         alignItems: 'center',
-        paddingHorizontal: 20,
-        marginBottom: 28,
+        paddingHorizontal: 16,
+        marginBottom: Platform.OS === 'android' ? 20 : 28,
         borderWidth: 2,
         borderColor: theme.colors.border,
     },
@@ -240,8 +254,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     },
     applyButton: {
         width: '100%',
-        height: 60,
-        borderRadius: 20,
+        height: Platform.OS === 'android' ? 50 : 60,
+        borderRadius: Platform.OS === 'android' ? 16 : 20,
         overflow: 'hidden',
         ...getPlatformShadow('md'),
     },
@@ -263,7 +277,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     },
     cancelButton: {
         width: '100%',
-        height: 54,
+        height: Platform.OS === 'android' ? 44 : 54,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -272,5 +286,23 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         fontSize: 16,
         fontWeight: getPlatformFontWeight('700'),
         fontFamily: theme.typography.fontFamily,
+    },
+    errorContainer: {
+        flexDirection: isRTL ? 'row' : 'row-reverse',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: theme.colors.error + '15',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 12,
+        marginBottom: 20,
+        gap: 6,
+    },
+    errorText: {
+        color: theme.colors.error,
+        fontSize: 14,
+        fontWeight: '600',
+        fontFamily: theme.typography.fontFamily,
+        textAlign: 'center',
     },
 });

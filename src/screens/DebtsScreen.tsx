@@ -246,16 +246,18 @@ export const DebtsScreen = ({ navigation, route }: any) => {
     const unpaidInstallments = installments.filter(inst => !inst.isPaid);
 
     return (
-      <DebtItem
-        item={item}
-        onPress={() => handleDebtPress(item)}
-        onEdit={() => handleEdit(item)}
-        onDelete={() => handleDelete(item)}
-        onPay={() => handlePayDebt(item)}
-        formatCurrency={formatCurrency}
-        unpaidInstallmentsCount={unpaidInstallments.length}
-        totalInstallmentsCount={installments.length}
-      />
+      <View style={{ paddingHorizontal: theme.spacing.md, marginBottom: theme.spacing.sm }}>
+        <DebtItem
+          item={item}
+          onPress={() => handleDebtPress(item)}
+          onEdit={() => handleEdit(item)}
+          onDelete={() => handleDelete(item)}
+          onPay={() => handlePayDebt(item)}
+          formatCurrency={formatCurrency}
+          unpaidInstallmentsCount={unpaidInstallments.length}
+          totalInstallmentsCount={installments.length}
+        />
+      </View>
     );
   };
 
@@ -401,11 +403,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
 
   },
   header: {
-    padding: theme.spacing.md,
-    paddingBottom: theme.spacing.sm,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
     backgroundColor: theme.colors.surfaceCard,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
+    marginBottom: theme.spacing.md,
   },
   headerTitleRow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -443,13 +446,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     textAlign: isRTL ? 'right' : 'left',
   },
   filterRow: {
-    marginBottom: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
     direction: 'rtl' as const,
   },
   filterRowContent: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     gap: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.xs,
   },
   filterButton: {
     borderRadius: theme.borderRadius.md,
@@ -486,7 +489,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   summaryRow: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
-    gap: theme.spacing.sm,
+    gap: 4,
+    paddingHorizontal: 2,
   },
   summaryCard: {
     flex: 1,
@@ -510,7 +514,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   listContent: {
-    padding: theme.spacing.md,
+    paddingBottom: theme.spacing.xl,
     paddingTop: 0,
   },
   emptyContainer: {

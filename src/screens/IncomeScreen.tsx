@@ -273,7 +273,7 @@ export const IncomeScreen = ({ navigation, route }: any) => {
       >
         <View style={styles.summaryContent}>
           <View style={styles.summaryIconContainer}>
-            <Ionicons name="trending-up" size={24} color={theme.colors.textPrimary} />
+            <Ionicons name="trending-up" size={24} color="#FFFFFF" />
           </View>
           <View style={styles.summaryTextContainer}>
             <Text style={styles.summaryLabel}>إجمالي الإيرادات</Text>
@@ -323,18 +323,6 @@ export const IncomeScreen = ({ navigation, route }: any) => {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.fixedHeader, { paddingTop: insets.top }]}>
-        <View style={styles.screenHeader}>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('ManageCategories', { type: 'income' })}
-            style={styles.settingsBtn}
-          >
-            <Ionicons name="settings-outline" size={22} color={theme.colors.primary} />
-          </TouchableOpacity>
-          <Text style={styles.screenTitle}>سجل الدخل</Text>
-          <View style={{ width: 40 }} />
-        </View>
-      </View>
 
       <FlatList
         data={income}
@@ -470,7 +458,7 @@ export const IncomeScreen = ({ navigation, route }: any) => {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
-            <Ionicons name="add" size={32} color={theme.colors.textPrimary} />
+            <Ionicons name="add" size={32} color="#FFFFFF" />
           </LinearGradient>
         </TouchableOpacity>
       </View>

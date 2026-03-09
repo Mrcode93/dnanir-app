@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Platform,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -222,7 +223,7 @@ export const AISmartInsightsScreen = ({ navigation }: any) => {
     return (
       <SafeAreaView style={[styles.container, styles.centered]}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>جاري تحليل بياناتك باستخدام الذكاء الاصطناعي...</Text>
+        <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>جاري تهيئة الرؤى الذكية...</Text>
       </SafeAreaView>
     );
   }
@@ -536,6 +537,17 @@ export const AISmartInsightsScreen = ({ navigation }: any) => {
           </>
         )}
       </ScrollView>
+
+      {/* Loading Overlay */}
+      <Modal visible={loading && !!insights} transparent={true} animationType="fade">
+        <View style={styles.overlayContainer}>
+          <View style={[styles.loadingBox, { backgroundColor: theme.colors.surfaceCard, borderColor: theme.colors.border }]}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <Text style={[styles.loadingBoxText, { color: theme.colors.textPrimary }]}>جاري تحليل بياناتك...</Text>
+            <Text style={[styles.loadingBoxSubtext, { color: theme.colors.textSecondary }]}>سيتم تحديث الرؤى فور الانتهاء</Text>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -546,7 +558,32 @@ const createStyles = (theme: any) =>
       flex: 1,
       backgroundColor: theme.colors.background,
       direction: 'rtl' as const,
-
+    },
+    overlayContainer: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    loadingBox: {
+      width: '80%',
+      padding: 30,
+      borderRadius: 24,
+      alignItems: 'center',
+      borderWidth: 1,
+      ...getPlatformShadow('xl'),
+    },
+    loadingBoxText: {
+      marginTop: 20,
+      fontSize: 18,
+      fontWeight: '700',
+      fontFamily: theme.typography.fontFamily,
+    },
+    loadingBoxSubtext: {
+      marginTop: 8,
+      fontSize: 14,
+      fontFamily: theme.typography.fontFamily,
+      textAlign: 'center',
     },
     centered: {
       justifyContent: 'center',

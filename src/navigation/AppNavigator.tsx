@@ -45,6 +45,8 @@ import { alertService } from '../services/alertService';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { SubscriptionsScreen } from '../screens/SubscriptionsScreen';
 import { AddSubscriptionScreen } from '../screens/AddSubscriptionScreen';
+import { CalendarScreen } from '../screens/CalendarScreen';
+
 
 const DashboardHeaderRight = ({ navigation }: { navigation: any }) => {
   const { theme } = useAppTheme();
@@ -112,14 +114,14 @@ const DashboardHeaderRight = ({ navigation }: { navigation: any }) => {
         <Ionicons
           name={isPrivacyEnabled ? 'eye-off' : 'eye-outline'}
           size={22}
-          color={isPrivacyEnabled ? theme.colors.primary : theme.colors.textSecondary}
+          color={isPrivacyEnabled ? "#FFFFFF" : "rgba(255, 255, 255, 0.7)"}
         />
       </TouchableOpacity>
       <TouchableOpacity
         onPress={() => navigation.navigate('Notifications')}
         style={{ padding: 6 }}
       >
-        <Ionicons name="notifications-outline" size={22} color={theme.colors.primary} />
+        <Ionicons name="notifications-outline" size={22} color="#FFFFFF" />
       </TouchableOpacity>
     </View>
   );
@@ -130,27 +132,44 @@ const Stack = createStackNavigator();
 
 const getCommonStackOptions = (theme: AppTheme) => ({
   headerStyle: {
-    backgroundColor: theme.colors.surfaceCard,
+    backgroundColor: theme.colors.background,
     elevation: 0,
     shadowOpacity: 0,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    height: Platform.OS === 'ios' ? 110 : 85,
+    borderBottomWidth: 0,
+    height: Platform.OS === 'ios' ? 120 : 95,
   },
+  headerBackground: () => (
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <View style={{
+        flex: 1,
+        backgroundColor: '#003459',
+        borderBottomLeftRadius: 30,
+        borderBottomRightRadius: 30,
+        ...(Platform.OS === 'ios' ? {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.15,
+          shadowRadius: 8,
+        } : {
+          elevation: 10,
+        })
+      }} />
+    </View>
+  ),
   headerTitleStyle: {
     fontFamily: theme.typography.fontFamily,
     fontSize: 20,
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    marginBottom: Platform.OS === 'ios' ? 0 : 5,
+    color: '#FFFFFF',
+    marginBottom: 0,
   },
   headerTitleAlign: 'center' as const,
-  headerTintColor: theme.colors.primary,
+  headerTintColor: '#FFFFFF',
   headerLeftContainerStyle: {
-    paddingBottom: Platform.OS === 'ios' ? 0 : 5,
+    paddingBottom: 0,
   },
   headerRightContainerStyle: {
-    paddingBottom: Platform.OS === 'ios' ? 0 : 5,
+    paddingBottom: 0,
   },
 });
 
@@ -159,21 +178,11 @@ const SettingsScreenStack = () => {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerShown: true,
-        headerStyle: {
-          backgroundColor: theme.colors.surfaceCard,
-          elevation: 0,
-          shadowOpacity: 0,
-          borderBottomWidth: 1,
-          borderBottomColor: theme.colors.border,
-        },
+        ...getCommonStackOptions(theme),
         headerTitleStyle: {
-          fontFamily: theme.typography.fontFamily,
+          ...getCommonStackOptions(theme).headerTitleStyle,
           fontSize: 18,
-          fontWeight: getPlatformFontWeight('700'),
-          color: theme.colors.textPrimary,
-        },
-        headerTitleAlign: 'center',
+        }
       }}
     >
       <Stack.Screen
@@ -206,7 +215,7 @@ const HeaderLeft = ({ navigation }: { navigation: any }) => {
         padding: 8,
       }}
     >
-      <Ionicons name={isRTL ? "chevron-back" : "chevron-back"} size={28} color={theme.colors.primary} />
+      <Ionicons name={isRTL ? "chevron-back" : "chevron-back"} size={28} color="#FFFFFF" />
     </TouchableOpacity>
   );
 };
@@ -253,7 +262,7 @@ const ExpensesStack = () => {
         name="ExpensesList"
         component={ExpensesScreen}
         options={({ navigation }) => ({
-          headerShown: false,
+          headerShown: true,
           headerTitle: 'سجل المصاريف',
           headerLeft: () => (
             <TouchableOpacity
@@ -264,9 +273,10 @@ const ExpensesStack = () => {
                 padding: 8,
               }}
             >
-              <Ionicons name="settings-outline" size={24} color={theme.colors.primary} />
+              <Ionicons name="settings-outline" size={24} color="#FFFFFF" />
             </TouchableOpacity>
           ),
+          ...getCommonStackOptions(theme),
         })}
       />
       <Stack.Screen
@@ -302,7 +312,7 @@ const IncomeStack = () => {
         name="IncomeList"
         component={IncomeScreen}
         options={({ navigation }) => ({
-          headerShown: false,
+          headerShown: true,
           headerTitle: 'سجل الدخل',
           headerLeft: () => (
             <TouchableOpacity
@@ -313,9 +323,10 @@ const IncomeStack = () => {
                 padding: 8,
               }}
             >
-              <Ionicons name="settings-outline" size={24} color={theme.colors.primary} />
+              <Ionicons name="settings-outline" size={24} color="#FFFFFF" />
             </TouchableOpacity>
           ),
+          ...getCommonStackOptions(theme),
         })}
       />
       <Stack.Screen
@@ -383,8 +394,8 @@ const InsightsStack = () => {
               }}
               style={{ marginLeft: 16, padding: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}
             >
-              <Ionicons name="sparkles" size={22} color={theme.colors.primary} />
-              <Text style={{ color: theme.colors.primary, fontWeight: getPlatformFontWeight('600'), fontSize: 15 }}>رؤى ذكية</Text>
+              <Ionicons name="sparkles" size={22} color="#FFFFFF" />
+              <Text style={{ color: '#FFFFFF', fontWeight: getPlatformFontWeight('600'), fontSize: 15 }}>رؤى ذكية</Text>
             </TouchableOpacity>
           ),
         })}
@@ -414,12 +425,12 @@ const DebtsStack = () => {
           headerLeft: () => <HeaderLeft navigation={navigation} />,
           headerTitle: () => (
             <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
-              <Ionicons name="document-text" size={24} color={theme.colors.primary} />
+              <Ionicons name="document-text" size={24} color="#FFFFFF" />
               <Text style={{
                 fontFamily: theme.typography.fontFamily,
                 fontSize: theme.typography.sizes.lg,
                 fontWeight: getPlatformFontWeight('700'),
-                color: theme.colors.textPrimary,
+                color: '#FFFFFF',
               }}>
                 الديون والأقساط
               </Text>
@@ -431,13 +442,10 @@ const DebtsStack = () => {
             fontWeight: getPlatformFontWeight('700'),
           },
           headerStyle: {
-            backgroundColor: theme.colors.surfaceCard,
-            elevation: 0,
-            shadowOpacity: 0,
-            borderBottomWidth: 1,
-            borderBottomColor: theme.colors.border,
+            backgroundColor: '#003459',
+            borderBottomWidth: 0,
           },
-          headerTintColor: theme.colors.textPrimary,
+          headerTintColor: '#FFFFFF',
           headerBackTitleVisible: false,
           headerBackTitle: '',
           headerRight: () => (
@@ -454,7 +462,7 @@ const DebtsStack = () => {
                 minHeight: 44,
               }}
             >
-              <Ionicons name="add-circle" size={28} color={theme.colors.primary} />
+              <Ionicons name="add-circle" size={28} color="#FFFFFF" />
             </TouchableOpacity>
           ),
         })}
@@ -467,12 +475,12 @@ const DebtsStack = () => {
           headerLeft: () => <HeaderLeft navigation={navigation} />,
           headerTitle: () => (
             <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
-              <Ionicons name="document" size={24} color={theme.colors.primary} />
+              <Ionicons name="document" size={24} color="#FFFFFF" />
               <Text style={{
                 fontFamily: theme.typography.fontFamily,
                 fontSize: theme.typography.sizes.lg,
                 fontWeight: getPlatformFontWeight('700'),
-                color: theme.colors.textPrimary,
+                color: '#FFFFFF',
               }}>
                 تفاصيل الدين
               </Text>
@@ -484,13 +492,10 @@ const DebtsStack = () => {
             fontWeight: getPlatformFontWeight('700'),
           },
           headerStyle: {
-            backgroundColor: theme.colors.surfaceCard,
-            elevation: 0,
-            shadowOpacity: 0,
-            borderBottomWidth: 1,
-            borderBottomColor: theme.colors.border,
+            backgroundColor: '#003459',
+            borderBottomWidth: 0,
           },
-          headerTintColor: theme.colors.textPrimary,
+          headerTintColor: '#FFFFFF',
           headerBackTitleVisible: false,
           headerBackTitle: '',
         })}
@@ -511,7 +516,7 @@ const BillsStack = () => {
   const { theme } = useAppTheme();
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={{ ...getCommonStackOptions(theme) }}>
       <Stack.Screen
         name="BillsList"
         component={BillsScreen}
@@ -520,12 +525,12 @@ const BillsStack = () => {
           headerLeft: () => <HeaderLeft navigation={navigation} />,
           headerTitle: () => (
             <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
-              <Ionicons name="receipt" size={24} color={theme.colors.primary} />
+              <Ionicons name="receipt" size={24} color="#FFFFFF" />
               <Text style={{
                 fontFamily: theme.typography.fontFamily,
                 fontSize: theme.typography.sizes.lg,
                 fontWeight: getPlatformFontWeight('700'),
-                color: theme.colors.textPrimary,
+                color: '#FFFFFF',
               }}>
                 الفواتير
               </Text>
@@ -537,13 +542,10 @@ const BillsStack = () => {
             fontWeight: getPlatformFontWeight('700'),
           },
           headerStyle: {
-            backgroundColor: theme.colors.surfaceCard,
-            elevation: 0,
-            shadowOpacity: 0,
-            borderBottomWidth: 1,
-            borderBottomColor: theme.colors.border,
+            backgroundColor: '#003459',
+            borderBottomWidth: 0,
           },
-          headerTintColor: theme.colors.textPrimary,
+          headerTintColor: '#FFFFFF',
           headerBackTitleVisible: false,
           headerBackTitle: '',
           headerRight: () => (
@@ -560,7 +562,7 @@ const BillsStack = () => {
                 minHeight: 44,
               }}
             >
-              <Ionicons name="add-circle" size={28} color={theme.colors.primary} />
+              <Ionicons name="add-circle" size={28} color="#FFFFFF" />
             </TouchableOpacity>
           ),
         })}
@@ -597,17 +599,9 @@ const DashboardStack = () => {
       <Stack.Screen
         name="DashboardMain"
         component={DashboardScreen}
-        options={({ navigation }) => ({
-          headerShown: true,
-          headerTitle: 'دنانير',
-          headerRight: () => <DashboardHeaderRight navigation={navigation} />,
-          headerTitleStyle: {
-            fontFamily: theme.typography.fontFamily,
-            fontSize: 22,
-            fontWeight: getPlatformFontWeight('800'),
-            color: theme.colors.primary,
-          }
-        })}
+        options={{
+          headerShown: false,
+        }}
       />
     </Stack.Navigator>
   );
@@ -626,17 +620,16 @@ const MainTabs = () => {
       screenOptions={({ route }) => ({
         headerShown: false,
         headerStyle: {
-          backgroundColor: theme.colors.surfaceCard,
+          backgroundColor: '#003459',
           elevation: 0,
           shadowOpacity: 0,
-          borderBottomWidth: 1,
-          borderBottomColor: theme.colors.border,
+          borderBottomWidth: 0,
         },
         headerTitleStyle: {
           fontFamily: theme.typography.fontFamily,
           fontSize: 20,
           fontWeight: getPlatformFontWeight('700'),
-          color: theme.colors.textPrimary,
+          color: '#FFFFFF',
         },
         headerTitleAlign: 'center',
         tabBarShowLabel: true,
@@ -808,7 +801,7 @@ export const AppNavigator = () => {
                   padding: 8,
                 }}
               >
-                <Ionicons name="add-circle" size={28} color={theme.colors.primary} />
+                <Ionicons name="add-circle" size={28} color="#FFFFFF" />
               </TouchableOpacity>
             ),
             ...getCommonStackOptions(theme),
@@ -849,7 +842,7 @@ export const AppNavigator = () => {
                   alignItems: 'center',
                 }}
               >
-                <Ionicons name="add-circle" size={32} color={theme.colors.primary} />
+                <Ionicons name="add-circle" size={32} color="#FFFFFF" />
               </TouchableOpacity>
             ),
             ...getCommonStackOptions(theme),
@@ -913,7 +906,7 @@ export const AppNavigator = () => {
                   padding: 8,
                 }}
               >
-                <Ionicons name="add-circle" size={28} color={theme.colors.primary} />
+                <Ionicons name="add-circle" size={28} color="#FFFFFF" />
               </TouchableOpacity>
             ),
             ...getCommonStackOptions(theme),
@@ -942,7 +935,12 @@ export const AppNavigator = () => {
         <Stack.Screen
           name="Subscriptions"
           component={SubscriptionsScreen}
-          options={{ headerShown: false }}
+          options={({ navigation }) => ({
+            headerShown: true,
+            headerTitle: 'الاشتراكات',
+            headerLeft: () => <HeaderLeft navigation={navigation} />,
+            ...getCommonStackOptions(theme),
+          })}
         />
         <Stack.Screen
           name="AddSubscription"
@@ -952,7 +950,30 @@ export const AppNavigator = () => {
             presentation: 'modal',
           }}
         />
+        <Stack.Screen
+          name="Calendar"
+          component={CalendarScreen}
+          options={({ navigation }) => ({
+            headerShown: true,
+            headerTitle: 'التقويم المالي',
+            headerLeft: () => <HeaderLeft navigation={navigation} />,
+            headerRight: () => (
+              <TouchableOpacity
+                onPress={() => navigation.setParams({ action: 'today' })}
+                style={{
+                  marginRight: isRTL ? 0 : 16,
+                  marginLeft: isRTL ? 16 : 0,
+                  padding: 8,
+                }}
+              >
+                <Ionicons name="calendar-outline" size={24} color={theme.colors.primary} />
+              </TouchableOpacity>
+            ),
+            ...getCommonStackOptions(theme),
+          })}
+        />
       </Stack.Navigator>
+
     </NavigationContainer>
   );
 };

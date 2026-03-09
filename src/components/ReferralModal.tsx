@@ -17,6 +17,7 @@ import { useAppTheme, useThemedStyles } from '../utils/theme-context';
 import { type AppTheme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme-constants';
 import { referralService } from '../services/referralService';
 import { alertService } from '../services/alertService';
+import { isRTL } from '../utils/rtl';
 
 
 interface ReferralModalProps {
@@ -30,10 +31,12 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({ visible, onClose, 
     const styles = useThemedStyles(createStyles);
     const [code, setCode] = useState('');
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const handleApply = async () => {
+        setError(null);
         if (!code.trim()) {
-            alertService.warning('تنبيه', 'يرجى إدخال كود الإحالة');
+            setError('يرجى إدخال كود الإحالة');
             return;
         }
 
@@ -41,15 +44,16 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({ visible, onClose, 
         try {
             const result = await referralService.applyCode(code.trim());
             if (result.success) {
-                alertService.success('تم التفعيل', result.message || 'تم تفعيل الكود بنجاح');
+                // Success alert is handled by the parent components (ProfileScreen)
                 onSuccess(result.data?.rewardDays || 7);
+                setError(null);
                 onClose();
             } else {
-                alertService.error('خطأ', result.error || 'كود الإحالة غير صحيح');
+                const errorMessage = typeof result.error === 'string' ? result.error : 'كود الإحالة غير صحيح';
+                setError(errorMessage);
             }
-        } catch (error) {
-            console.error('Apply referral error:', error);
-            alertService.error('خطأ', 'حدث خطأ أثناء تفعيل الكود');
+        } catch (err) {
+            setError('حدث خطأ أثناء تفعيل الكود، يرجى المحاولة لاحقاً');
         } finally {
             setLoading(false);
         }
@@ -99,12 +103,22 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({ visible, onClose, 
                                         placeholder="مثال: DN-A7BC12"
                                         placeholderTextColor={theme.colors.textMuted}
                                         value={code}
-                                        onChangeText={setCode}
+                                        onChangeText={(text) => {
+                                            setCode(text.toUpperCase());
+                                            if (error) setError(null);
+                                        }}
                                         autoCapitalize="characters"
                                         autoCorrect={false}
                                         textAlign="center"
                                     />
                                 </View>
+
+                                {error && (
+                                    <View style={styles.errorContainer}>
+                                        <Ionicons name="alert-circle" size={16} color={theme.colors.error} />
+                                        <Text style={styles.errorText}>{error}</Text>
+                                    </View>
+                                )}
 
                                 <TouchableOpacity
                                     style={styles.applyButton}
@@ -143,7 +157,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         flex: 1,
         backgroundColor: theme.colors.overlay,
         justifyContent: 'center',
-        padding: 24,
+        padding: Platform.OS === 'android' ? 12 : 24,
     },
     keyboardView: {
         width: '100%',
@@ -155,7 +169,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         ...getPlatformShadow('xl'),
     },
     gradient: {
-        padding: 28,
+        padding: Platform.OS === 'android' ? 20 : 28,
         width: '100%',
         alignItems: 'center',
     },
@@ -172,29 +186,29 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         marginTop: 10,
     },
     iconContainer: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
+        width: Platform.OS === 'android' ? 72 : 100,
+        height: Platform.OS === 'android' ? 72 : 100,
+        borderRadius: Platform.OS === 'android' ? 36 : 50,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 24,
+        marginBottom: Platform.OS === 'android' ? 16 : 24,
         borderWidth: 1,
         borderColor: theme.colors.primary + '33',
     },
     title: {
-        fontSize: 24,
+        fontSize: Platform.OS === 'android' ? 20 : 24,
         fontWeight: getPlatformFontWeight('900'),
         color: theme.colors.textPrimary,
-        marginBottom: 12,
+        marginBottom: Platform.OS === 'android' ? 8 : 12,
         textAlign: 'center',
         fontFamily: theme.typography.fontFamily,
     },
     subtitle: {
-        fontSize: 15,
+        fontSize: Platform.OS === 'android' ? 14 : 15,
         color: theme.colors.textSecondary,
         textAlign: 'center',
-        lineHeight: 22,
-        marginBottom: 32,
+        lineHeight: Platform.OS === 'android' ? 20 : 22,
+        marginBottom: Platform.OS === 'android' ? 20 : 32,
         fontFamily: theme.typography.fontFamily,
         paddingHorizontal: 10,
     },
@@ -205,9 +219,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     input: {
         width: '100%',
         backgroundColor: theme.colors.background,
-        borderRadius: 20,
+        borderRadius: Platform.OS === 'android' ? 16 : 20,
         paddingHorizontal: 16,
-        height: 60,
+        height: Platform.OS === 'android' ? 54 : 60,
         fontSize: 18,
         color: theme.colors.textPrimary,
         fontWeight: getPlatformFontWeight('800'),
@@ -217,8 +231,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     },
     applyButton: {
         width: '100%',
-        height: 60,
-        borderRadius: 20,
+        height: Platform.OS === 'android' ? 54 : 60,
+        borderRadius: Platform.OS === 'android' ? 16 : 20,
         overflow: 'hidden',
         marginBottom: 16,
         ...getPlatformShadow('md'),
@@ -247,5 +261,24 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         fontSize: 16,
         fontWeight: getPlatformFontWeight('600'),
         fontFamily: theme.typography.fontFamily,
+    },
+    errorContainer: {
+        flexDirection: isRTL ? 'row' : 'row-reverse',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: theme.colors.error + '15',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 12,
+        marginBottom: 20,
+        gap: 6,
+        width: '100%',
+    },
+    errorText: {
+        color: theme.colors.error,
+        fontSize: 14,
+        fontWeight: '600',
+        fontFamily: theme.typography.fontFamily,
+        textAlign: 'center',
     },
 });

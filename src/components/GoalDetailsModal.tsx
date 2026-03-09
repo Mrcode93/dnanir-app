@@ -450,11 +450,11 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         borderRadius: 6,
     },
     detailsScroll: {
-        maxHeight: 250,
+        flexShrink: 1,
     },
     detailsScrollContent: {
         paddingHorizontal: 16,
-        paddingBottom: 8,
+        paddingBottom: 16,
     },
     detailsGrid: {
         flexDirection: 'row',
@@ -526,6 +526,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         textAlign: isRTL ? 'right' : 'left',
     },
     mainActions: {
+        marginTop: 4,
         paddingHorizontal: 16,
         paddingBottom: 12,
         gap: 10,

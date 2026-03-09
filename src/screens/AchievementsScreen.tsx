@@ -134,10 +134,7 @@ export const AchievementsScreen = ({ navigation }: any) => {
             ]}>
               {achievement.title}
             </Text>
-            <Text style={[
-              styles.achievementDescription,
-              !isUnlocked && styles.achievementDescriptionLocked,
-            ]}>
+            <Text style={styles.achievementDescription}>
               {achievement.description}
             </Text>
             {achievement.unlockedAt && (
@@ -151,7 +148,7 @@ export const AchievementsScreen = ({ navigation }: any) => {
               style={styles.shareButton}
               onPress={() => handleShareAchievement(achievement)}
             >
-              <Ionicons name="share-social" size={20} color={theme.colors.primary} />
+              <Ionicons name="share-social" size={20} color={theme.colors.info} />
             </TouchableOpacity>
           )}
         </View>
@@ -160,9 +157,9 @@ export const AchievementsScreen = ({ navigation }: any) => {
           <View style={styles.progressBar}>
             <LinearGradient
               colors={
-                isUnlocked
-                  ? [theme.colors.success, theme.colors.success]
-                  : [theme.colors.primary, theme.colors.primary]
+                (isUnlocked
+                  ? theme.gradients.success
+                  : theme.gradients.info) as any
               }
               style={[styles.progressFill, { width: `${progress}%` }]}
               start={{ x: 0, y: 0 }}
@@ -202,7 +199,7 @@ export const AchievementsScreen = ({ navigation }: any) => {
             <View style={styles.headerContent}>
               <View style={styles.headerLeft}>
                 <View style={styles.headerIconContainer}>
-                  <Ionicons name="trophy" size={32} color={theme.colors.textInverse} />
+                  <Ionicons name="trophy" size={32} color={theme.colors.textPrimary} />
                 </View>
                 <View>
                   <Text style={styles.headerTitle}>الإنجازات</Text>
@@ -216,14 +213,14 @@ export const AchievementsScreen = ({ navigation }: any) => {
                   style={styles.shareAllButton}
                   onPress={handleShareAll}
                 >
-                  <Ionicons name="share-social" size={24} color={theme.colors.textInverse} />
+                  <Ionicons name="share-social" size={24} color={theme.colors.textPrimary} />
                 </TouchableOpacity>
               )}
             </View>
             <View style={styles.progressContainerHeader}>
               <View style={styles.progressBarHeader}>
                 <LinearGradient
-                  colors={[theme.colors.textInverse, theme.colors.textInverse]}
+                  colors={[theme.colors.textPrimary, theme.colors.textPrimary]}
                   style={[styles.progressFillHeader, { width: `${progressPercentage}%` }]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
@@ -344,44 +341,56 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     fontSize: theme.typography.sizes.xxl,
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textInverse,
+    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
   headerSubtitle: {
     fontSize: theme.typography.sizes.md,
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: '#FFFFFF',
+    opacity: 0.9,
     fontFamily: theme.typography.fontFamily,
     marginTop: theme.spacing.xs,
   },
   shareAllButton: {
     padding: theme.spacing.sm,
+    backgroundColor: '#ffffff3f',
+    borderRadius: theme.borderRadius.round,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row-reverse',
   },
   progressContainerHeader: {
     marginTop: theme.spacing.md,
+
   },
   progressBarHeader: {
     height: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
     borderRadius: theme.borderRadius.round,
     overflow: 'hidden',
     marginBottom: theme.spacing.xs,
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flex: 1,
+
   },
   progressFillHeader: {
     height: '100%',
     borderRadius: theme.borderRadius.round,
+    backgroundColor: '#FFFFFF',
   },
   progressTextHeader: {
     fontSize: theme.typography.sizes.sm,
-    color: theme.colors.textInverse,
+    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
+
   },
   filterContainer: {
     paddingVertical: theme.spacing.sm,
@@ -453,7 +462,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     opacity: 1,
   },
   achievementHeader: {
-    flexDirection: 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     marginBottom: theme.spacing.md,
   },
@@ -464,7 +473,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: theme.colors.surfaceLight,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: theme.spacing.md,
+    ...(isRTL ? { marginLeft: theme.spacing.md } : { marginRight: theme.spacing.md }),
     position: 'relative',
   },
   achievementIconContainerUnlocked: {
@@ -522,6 +531,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: theme.borderRadius.round,
     overflow: 'hidden',
     marginBottom: theme.spacing.xs,
+    flexDirection: isRTL ? 'row' : 'row-reverse',
   },
   progressFill: {
     height: '100%',

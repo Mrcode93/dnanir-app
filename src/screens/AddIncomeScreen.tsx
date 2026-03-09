@@ -122,7 +122,7 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
       }
     } else {
       if (!isInitialized.current) {
-        resetForm();
+        resetForm(route?.params?.initialDate ? new Date(route.params.initialDate) : undefined);
         loadShortcuts();
         isInitialized.current = true;
         // Small delay for focus on Android is often more stable
@@ -151,11 +151,11 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
     } catch (e) { /* ignore */ }
   };
 
-  const resetForm = () => {
+  const resetForm = (customDate?: Date) => {
     setSource('');
     setAmount('');
     setIncomeSource('salary');
-    setDate(new Date());
+    setDate(customDate || new Date());
     setDescription('');
     setCurrency(currencyCode);
   };

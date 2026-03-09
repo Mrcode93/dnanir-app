@@ -333,7 +333,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.primaryLight,
+    backgroundColor: theme.colors.backgroundSecondary,
     alignItems: 'center',
     justifyContent: 'center',
   },

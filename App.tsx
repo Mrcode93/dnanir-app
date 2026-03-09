@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { StyleSheet, View, Text, TextInput, Image, I18nManager, Platform, AppState, useColorScheme, Appearance, LogBox } from 'react-native';
+import { StyleSheet, View, Text, TextInput, Image, I18nManager, Platform, AppState, useColorScheme, Appearance, LogBox, InteractionManager, TouchableOpacity } from 'react-native';
 
 // Ignore specific logs that shouldn't interrupt the developer flow
 LogBox.ignoreLogs([
@@ -57,6 +57,9 @@ const fontConfig = {
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLocked, setIsLocked] = useState(false);
+  const [isDbReady, setIsDbReady] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
+  const [initRunId, setInitRunId] = useState(0);
   const systemColorScheme = useColorScheme();
   const [themeMode, setThemeMode] = useState<ThemeMode>('system');
 
@@ -84,6 +87,9 @@ export default function App() {
     roundness: 16,
   }), [activeTheme]);
   const isUnlockedRef = useRef(false);
+  const dbReadyRef = useRef(false);
+  const deferredStartupRef = useRef<ReturnType<typeof InteractionManager.runAfterInteractions> | null>(null);
+  const hasQueuedDeferredStartupRef = useRef(false);
   const lastNotificationRefreshRef = useRef(0);
   const [fontsLoaded] = useFonts({
     'Tajawal-Regular': require('./assets/fonts/Tajawal-Regular.ttf'),
@@ -129,20 +135,55 @@ export default function App() {
     } catch (error) {
       console.error('LTR initialization error:', error);
     }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
 
     const initializeApp = async () => {
       const startTime = Date.now();
+      setIsLoading(true);
+      setInitError(null);
+      setIsDbReady(false);
+      dbReadyRef.current = false;
+      hasQueuedDeferredStartupRef.current = false;
+      deferredStartupRef.current?.cancel?.();
+
       try {
         // Critical: Database must be ready first
-        await initDatabase();
+        let dbInitialized = false;
+        let lastInitError: unknown = null;
+
+        for (let attempt = 1; attempt <= 3; attempt += 1) {
+          try {
+            await initDatabase();
+            dbInitialized = true;
+            break;
+          } catch (error) {
+            lastInitError = error;
+            console.error(`Database initialization attempt ${attempt} failed:`, error);
+            if (attempt < 3) {
+              await new Promise(resolve => setTimeout(resolve, attempt * 350));
+            }
+          }
+        }
+
+        if (!dbInitialized) {
+          throw lastInitError || new Error('Database initialization failed');
+        }
+        if (cancelled) {
+          return;
+        }
+        setIsDbReady(true);
+        dbReadyRef.current = true;
 
         // Load dark mode preference from DB
         try {
           const { getAppSettings } = await import('./src/database/database');
           const appSettings = await getAppSettings();
-          if (appSettings?.themeMode) {
+          if (!cancelled && appSettings?.themeMode) {
             setThemeMode(appSettings.themeMode);
-          } else if (appSettings?.darkModeEnabled) {
+          } else if (!cancelled && appSettings?.darkModeEnabled) {
             setThemeMode('dark');
           }
         } catch (e) {
@@ -151,24 +192,9 @@ export default function App() {
 
         // Only await the auth check — it's needed to decide lock screen
         const authEnabled = await isAuthenticationEnabled();
-        setIsLocked(authEnabled);
-
-
-        // Non-critical: fire-and-forget in background
-        initializeNotifications()
-          .then(() => {
-            lastNotificationRefreshRef.current = Date.now();
-          })
-          .catch(e => console.warn('Notifications init skipped:', e));
-
-        import('./src/services/achievementService').then(async ({ initializeAchievements, checkAllAchievements }) => {
-          await initializeAchievements();
-          await checkAllAchievements();
-        }).catch(e => console.warn('Achievements init error:', e));
-
-        import('./src/services/widgetDataService').then(async ({ initializeWidgetData }) => {
-          await initializeWidgetData();
-        }).catch(e => console.warn('Widget data init error:', e));
+        if (!cancelled) {
+          setIsLocked(authEnabled);
+        }
 
         // Brief splash so it doesn't just flash
         const elapsed = Date.now() - startTime;
@@ -178,13 +204,78 @@ export default function App() {
         }
       } catch (error) {
         console.error('Failed to initialize app:', error);
+        if (!cancelled) {
+          setInitError('تعذر تهيئة قاعدة البيانات. يرجى إعادة المحاولة.');
+        }
       } finally {
-        setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
     };
 
     initializeApp();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [initRunId]);
+
+  useEffect(() => {
+    dbReadyRef.current = isDbReady;
+  }, [isDbReady]);
+
+  useEffect(() => {
+    if (isLoading || !fontsLoaded || !isDbReady || hasQueuedDeferredStartupRef.current) {
+      return;
+    }
+
+    let cancelled = false;
+    const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+    hasQueuedDeferredStartupRef.current = true;
+
+    deferredStartupRef.current = InteractionManager.runAfterInteractions(() => {
+      const runDeferredStartup = async () => {
+        try {
+          await initializeNotifications();
+          if (!cancelled) {
+            lastNotificationRefreshRef.current = Date.now();
+          }
+        } catch (e) {
+          console.warn('Notifications init skipped:', e);
+        }
+
+        if (cancelled) return;
+        await wait(120);
+
+        try {
+          const { initializeAchievements, checkAllAchievements } = await import('./src/services/achievementService');
+          await initializeAchievements();
+          await checkAllAchievements();
+        } catch (e) {
+          console.warn('Achievements init error:', e);
+        }
+
+        if (cancelled) return;
+        await wait(120);
+
+        try {
+          const { initializeWidgetData } = await import('./src/services/widgetDataService');
+          await initializeWidgetData();
+        } catch (e) {
+          console.warn('Widget data init error:', e);
+        }
+      };
+
+      runDeferredStartup().catch((error) => {
+        console.warn('Deferred startup failed:', error);
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      deferredStartupRef.current?.cancel?.();
+    };
+  }, [isLoading, fontsLoaded, isDbReady]);
 
   const onLayoutRootView = useCallback(async () => {
     // We hide the native splash screen as soon as our root view is ready.
@@ -227,6 +318,10 @@ export default function App() {
     let appState = AppState.currentState;
 
     const checkAuthOnFocus = async () => {
+      if (!dbReadyRef.current) {
+        return;
+      }
+
       if (authEventService.shouldKeepUnlocked()) {
         isUnlockedRef.current = true;
         setIsLocked(false);
@@ -316,6 +411,10 @@ export default function App() {
     setIsLocked(false);
   };
 
+  const handleRetryInitialization = useCallback(() => {
+    setInitRunId(prev => prev + 1);
+  }, []);
+
   if (isLoading || !fontsLoaded) {
     return (
       <View
@@ -327,6 +426,26 @@ export default function App() {
           style={styles.splashImage}
           resizeMode="contain"
         />
+      </View>
+    );
+  }
+
+  if (initError || !isDbReady) {
+    return (
+      <View
+        style={styles.loadingContainer}
+        onLayout={onLayoutRootView}
+      >
+        <Image
+          source={require('./assets/images/dnanir-splash.png')}
+          style={styles.splashImage}
+          resizeMode="contain"
+        />
+        <Text style={styles.errorTitle}>تعذر فتح التطبيق</Text>
+        <Text style={styles.errorMessage}>{initError || 'قاعدة البيانات غير جاهزة بعد.'}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={handleRetryInitialization}>
+          <Text style={styles.retryButtonText}>إعادة المحاولة</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -374,5 +493,32 @@ const styles = StyleSheet.create({
   splashImage: {
     width: '80%',
     height: '80%',
+  },
+  errorTitle: {
+    marginTop: 8,
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  errorMessage: {
+    marginTop: 8,
+    color: '#DDE7F0',
+    fontSize: 14,
+    lineHeight: 22,
+    textAlign: 'center',
+    paddingHorizontal: 24,
+  },
+  retryButton: {
+    marginTop: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+  },
+  retryButtonText: {
+    color: '#003459',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

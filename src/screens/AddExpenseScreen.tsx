@@ -108,7 +108,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
       }
     } else {
       if (!isInitialized.current) {
-        resetForm();
+        resetForm(route?.params?.initialDate ? new Date(route.params.initialDate) : undefined);
         setShowShortcuts(true);
         loadShortcuts();
         isInitialized.current = true;
@@ -142,11 +142,11 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
     }
   };
 
-  const resetForm = () => {
+  const resetForm = (customDate?: Date) => {
     setTitle('');
     setAmount('');
     setCategory('food');
-    setDate(new Date());
+    setDate(customDate || new Date());
     setDescription('');
     setCurrency(currencyCode);
   };

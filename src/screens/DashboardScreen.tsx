@@ -9,8 +9,13 @@ import {
   Dimensions,
   Platform,
   InteractionManager,
+  Animated,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
+import { ActivityIndicator, StatusBar as RNStatusBar } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { PieChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BalanceCard } from '../components/BalanceCard';
@@ -19,6 +24,7 @@ import { TransactionItem } from '../components/TransactionItem';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
 import { useAppTheme, useThemedStyles } from '../utils/theme-context';
 import { calculateFinancialSummary, getCurrentMonthData, getMonthData } from '../services/financialService';
+import { Modal } from 'react-native';
 import {
   getExpenses,
   getIncome,
@@ -54,6 +60,7 @@ import { ReferralModal } from '../components/ReferralModal';
 import { referralService } from '../services/referralService';
 import { TransactionDetailsModal } from '../components/TransactionDetailsModal';
 import { getSmartExpenseShortcuts, getSmartIncomeShortcuts } from '../services/smartShortcutsService';
+import { syncNewToServer } from '../services/syncService';
 
 const { width } = Dimensions.get('window');
 const MONTH_NAMES = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
@@ -98,16 +105,69 @@ export const DashboardScreen = ({ navigation }: any) => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() + 1 };
   });
+
+  const [syncing, setSyncing] = useState(false);
+  const [canSync, setCanSync] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      authStorage.getUser<{ isPro?: boolean }>().then((user) => {
+        if (!cancelled) setCanSync(!!user?.isPro);
+      });
+      return () => { cancelled = true; };
+    }, [])
+  );
+
+  const handleSyncPress = async () => {
+    if (syncing) return;
+    if (!canSync) {
+      alertService.show({
+        title: 'اشتراك مميز',
+        message: 'مزامنة البيانات متاحة للمشتركين المميزين فقط. يجب أن يكون نوع حسابك أو اشتراكك مميزاً لاستخدام المزامنة.',
+        type: 'warning',
+        confirmText: 'حسناً',
+      });
+      return;
+    }
+    setSyncing(true);
+    const result = await syncNewToServer();
+    setSyncing(false);
+    if (result.success) {
+      alertService.success('تمت المزامنة', result.count > 0 ? `تم رفع ${result.count} عنصر` : 'لا توجد بيانات جديدة');
+      onRefresh();
+    } else {
+      if (result.code !== 'NOT_AUTHENTICATED' && result.code !== 'NOT_PRO') {
+        alertService.error('فشل المزامنة', result.error);
+      }
+    }
+  };
   const [filteredBalance, setFilteredBalance] = useState<number | null>(null);
   const [availableMonths, setAvailableMonths] = useState<Array<{ year: number; month: number }>>([]);
   const [selectedTransaction, setSelectedTransaction] = useState<(Expense | Income) | null>(null);
   const [selectedTransactionType, setSelectedTransactionType] = useState<'expense' | 'income'>('expense');
   const [showTransactionDetails, setShowTransactionDetails] = useState(false);
+  const [showTodayModal, setShowTodayModal] = useState(false);
 
   // useLayoutEffect removed to allow AppNavigator to control tab bar styles globally with safe area insets
 
   const deferredLoadRef = useRef<ReturnType<typeof InteractionManager.runAfterInteractions> | null>(null);
   const lastChallengeRefreshRef = useRef(0);
+  const isLoadingDataRef = useRef(false);
+  const todayModalAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (showTodayModal) {
+      Animated.spring(todayModalAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 50,
+        friction: 8,
+      }).start();
+    } else {
+      todayModalAnim.setValue(0);
+    }
+  }, [showTodayModal]);
 
   const loadMonthData = useCallback(async () => {
     const targetYear = selectedBalanceMonth?.year || new Date().getFullYear();
@@ -291,20 +351,34 @@ export const DashboardScreen = ({ navigation }: any) => {
     }
   }, [loadEssentialData, scheduleSecondaryLoad]);
 
+  const loadDataSafe = useCallback(async () => {
+    if (isLoadingDataRef.current) {
+      return;
+    }
+    isLoadingDataRef.current = true;
+    try {
+      await loadData();
+    } finally {
+      isLoadingDataRef.current = false;
+    }
+  }, [loadData]);
+
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData();
+    await loadDataSafe();
     setRefreshing(false);
   };
 
   useEffect(() => {
-    loadData();
-    const unsubscribe = navigation.addListener('focus', loadData);
+    loadDataSafe();
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadDataSafe();
+    });
     return () => {
       unsubscribe();
       deferredLoadRef.current?.cancel?.();
     };
-  }, [navigation, loadData]);
+  }, [navigation, loadDataSafe]);
 
   const getCategoryName = useCallback((category: string) => {
     return EXPENSE_CATEGORIES[category as keyof typeof EXPENSE_CATEGORIES] ||
@@ -349,6 +423,58 @@ export const DashboardScreen = ({ navigation }: any) => {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
+      <StatusBar style="light" animated={true} />
+      {/* Modern Pro Header - Sticky outside ScrollView */}
+      <View style={styles.headerContainer}>
+        <View style={[styles.headerRoundedBackground, { paddingTop: insets.top + 10 }]}>
+          <View style={styles.headerContent}>
+            {/* Title */}
+            <Text style={styles.headerTitle}>دنانير</Text>
+
+            {/* Actions */}
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                onPress={handleSyncPress}
+                disabled={syncing}
+                style={styles.headerButton}
+                activeOpacity={0.7}
+              >
+                {syncing ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Ionicons
+                    name="cloud-upload-outline"
+                    size={22}
+                    color={canSync ? "#FFFFFF" : "rgba(255, 255, 255, 0.4)"}
+                  />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={togglePrivacy}
+                style={[
+                  styles.headerButton,
+                  isPrivacyEnabled && { backgroundColor: 'rgba(255, 255, 255, 0.25)' }
+                ]}
+              >
+                <Ionicons
+                  name={isPrivacyEnabled ? 'eye-off' : 'eye-outline'}
+                  size={22}
+                  color="#FFFFFF"
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Notifications')}
+                style={styles.headerButton}
+              >
+                <Ionicons name="notifications-outline" size={22} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </View>
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -367,18 +493,12 @@ export const DashboardScreen = ({ navigation }: any) => {
           {summary ? (
             <BalanceCard
               balance={filteredBalance !== null ? filteredBalance : summary.balance}
-              monthlyChange={currentMonthData?.balance || 0}
               selectedMonth={selectedBalanceMonth || undefined}
               onMonthChange={(year, month) => {
                 setSelectedBalanceMonth({ year, month });
               }}
               showFilter={true}
               availableMonths={availableMonths}
-              secondaryAccount={debtsSummary ? {
-                name: 'إجمالي الديون',
-                balance: debtsSummary.remaining,
-                change: 0
-              } : undefined}
             />
           ) : (
             <LinearGradient
@@ -393,41 +513,9 @@ export const DashboardScreen = ({ navigation }: any) => {
             </LinearGradient>
           )}
 
-          {/* Today's Quick Look (Horizontal Tiles) */}
-          {todayData && (
-            <View style={styles.todayQuickLook}>
-              <View style={[styles.quickLookItem, { backgroundColor: theme.colors.surfaceCard, borderColor: theme.colors.success + '40' }]}>
-                <View style={[styles.quickLookIconBg, { backgroundColor: theme.colors.success + '18' }]}>
-                  <Ionicons name="trending-up" size={16} color={theme.colors.success} />
-                </View>
-                <Text style={styles.quickLookLabel}>دخل اليوم</Text>
-                <Text style={[styles.quickLookValue, { color: theme.colors.success }]}>
-                  {isPrivacyEnabled ? '****' : formatCurrency(todayData.income)}
-                </Text>
-              </View>
-              <View style={[styles.quickLookItem, { backgroundColor: theme.colors.surfaceCard, borderColor: theme.colors.error + '40' }]}>
-                <View style={[styles.quickLookIconBg, { backgroundColor: theme.colors.error + '18' }]}>
-                  <Ionicons name="trending-down" size={16} color={theme.colors.error} />
-                </View>
-                <Text style={styles.quickLookLabel}>صرف اليوم</Text>
-                <Text style={[styles.quickLookValue, { color: theme.colors.error }]}>
-                  {isPrivacyEnabled ? '****' : formatCurrency(todayData.expenses)}
-                </Text>
-              </View>
-              <View style={[styles.quickLookItem, { backgroundColor: theme.colors.surfaceCard, borderColor: theme.colors.info + '40' }]}>
-                <View style={[styles.quickLookIconBg, { backgroundColor: theme.colors.info + '18' }]}>
-                  <Ionicons name="wallet-outline" size={16} color={theme.colors.info} />
-                </View>
-                <Text style={styles.quickLookLabel}>الصافي</Text>
-                <Text style={[styles.quickLookValue, { color: theme.colors.info }]}>
-                  {isPrivacyEnabled ? '****' : formatCurrency(todayData.balance)}
-                </Text>
-              </View>
-            </View>
-          )}
         </View>
 
-        {/* Action Shortcuts Grid */}
+        {/* Unified Tool Grid - All items in the circle button style */}
         <View style={styles.actionGrid}>
           <TouchableOpacity
             style={styles.actionItem}
@@ -463,12 +551,77 @@ export const DashboardScreen = ({ navigation }: any) => {
             style={styles.actionItem}
             onPress={() => setShowSmartAdd(true)}
           >
-            <View style={[styles.actionIconBg, { backgroundColor: theme.colors.info + '18', borderColor: theme.colors.info + '40', borderWidth: 1 }]}>
+            <View style={[styles.actionIconBg, { backgroundColor: theme.colors.info + '18' }]}>
               <Ionicons name="mic" size={26} color={theme.colors.info} />
             </View>
             <Text style={styles.actionLabel}>إضافة ذكية</Text>
           </TouchableOpacity>
+
+          {budgetsSummary && (
+            <TouchableOpacity
+              style={styles.actionItem}
+              onPress={() => navigation.navigate('Budget')}
+            >
+              <View style={[styles.actionIconBg, { backgroundColor: theme.colors.error + '18' }]}>
+                <Ionicons name="bar-chart" size={24} color={theme.colors.error} />
+              </View>
+              <Text style={styles.actionLabel}>الميزانية</Text>
+            </TouchableOpacity>
+          )}
+
+          {debtsSummary && (
+            <TouchableOpacity
+              style={styles.actionItem}
+              onPress={() => navigation.navigate('Debts')}
+            >
+              <View style={[styles.actionIconBg, { backgroundColor: theme.colors.info + '18' }]}>
+                <Ionicons name="card" size={24} color={theme.colors.info} />
+              </View>
+              <Text style={styles.actionLabel}>الديون</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={styles.actionItem}
+            onPress={() => navigation.navigate('Bills')}
+          >
+            <View style={[styles.actionIconBg, { backgroundColor: theme.colors.primary + '18' }]}>
+              <Ionicons name="receipt" size={24} color={theme.colors.primary} />
+            </View>
+            <Text style={styles.actionLabel}>الفواتير</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionItem}
+            onPress={() => navigation.navigate('Subscriptions')}
+          >
+            <View style={[styles.actionIconBg, { backgroundColor: theme.colors.warning + '18' }]}>
+              <Ionicons name="repeat" size={24} color={theme.colors.warning} />
+            </View>
+            <Text style={styles.actionLabel}>الاشتراكات</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionItem}
+            onPress={() => setShowTodayModal(true)}
+          >
+            <View style={[styles.actionIconBg, { backgroundColor: theme.colors.primary + '18' }]}>
+              <Ionicons name="list" size={24} color={theme.colors.primary} />
+            </View>
+            <Text style={styles.actionLabel}>كشف حساب اليوم</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionItem}
+            onPress={() => navigation.navigate('Calendar')}
+          >
+            <View style={[styles.actionIconBg, { backgroundColor: '#8B5CF6' + '18' }]}>
+              <Ionicons name="calendar" size={24} color="#8B5CF6" />
+            </View>
+            <Text style={styles.actionLabel}>التقويم</Text>
+          </TouchableOpacity>
         </View>
+
 
         {/* اختصارات سريعة - إضافة مصروف/دخل بضغطة دون فتح النموذج */}
         <View style={styles.shortcutsSection}>
@@ -477,13 +630,15 @@ export const DashboardScreen = ({ navigation }: any) => {
             <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', gap: 12 }}>
               <TouchableOpacity
                 onPress={() => { setManageShortcutsType('expense'); setShowManageShortcuts(true); }}
+                style={[styles.shortcutsHeaderButton, styles.shortcutsHeaderButtonEXP]}
               >
-                <Text style={styles.shortcutsSectionLink}>إدارة المصروفات</Text>
+                <Text style={[styles.shortcutsHeaderButtonText, { color: theme.colors.error }]}>إدارة المصروفات</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => { setManageShortcutsType('income'); setShowManageShortcuts(true); }}
+                style={[styles.shortcutsHeaderButton, styles.shortcutsHeaderButtonINC]}
               >
-                <Text style={[styles.shortcutsSectionLink, { color: theme.colors.success }]}>إدارة الدخل</Text>
+                <Text style={[styles.shortcutsHeaderButtonText, { color: theme.colors.success }]}>إدارة الدخل</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -513,7 +668,7 @@ export const DashboardScreen = ({ navigation }: any) => {
                             description: s.description || '',
                             currency: s.currency || currencyCode,
                           });
-                          loadData();
+                          loadDataSafe();
                           alertService.toastSuccess(`تمت إضافة المصروف: ${s.title}`);
                         } catch (err: any) {
                           alertService.toastError(err?.message || 'فشل الإضافة');
@@ -547,7 +702,7 @@ export const DashboardScreen = ({ navigation }: any) => {
                             currency: s.currency || currencyCode,
                             description: s.description || '',
                           });
-                          loadData();
+                          loadDataSafe();
                           alertService.toastSuccess(`تمت إضافة الدخل: ${s.source}`);
                         } catch (err: any) {
                           alertService.toastError(err?.message || 'فشل الإضافة');
@@ -624,7 +779,7 @@ export const DashboardScreen = ({ navigation }: any) => {
         <ManageShortcutsModal
           visible={showManageShortcuts}
           type={manageShortcutsType}
-          onClose={() => { setShowManageShortcuts(false); loadData(); }}
+          onClose={() => { setShowManageShortcuts(false); loadDataSafe(); }}
           onShortcutUsed={(s) => {
             // When a shortcut is used from the modal, add the transaction directly
             if (manageShortcutsType === 'expense') {
@@ -643,7 +798,7 @@ export const DashboardScreen = ({ navigation }: any) => {
                       description: es.description || '',
                       currency: es.currency || currencyCode,
                     });
-                    loadData();
+                    loadDataSafe();
                     alertService.toastSuccess(`تمت إضافة المصروف: ${es.title}`);
                   } catch (err: any) {
                     alertService.toastError(err?.message || 'فشل الإضافة');
@@ -666,7 +821,7 @@ export const DashboardScreen = ({ navigation }: any) => {
                       currency: is.currency || currencyCode,
                       description: is.description || '',
                     });
-                    loadData();
+                    loadDataSafe();
                     alertService.toastSuccess(`تمت إضافة الدخل: ${is.source}`);
                   } catch (err: any) {
                     alertService.toastError(err?.message || 'فشل الإضافة');
@@ -680,7 +835,7 @@ export const DashboardScreen = ({ navigation }: any) => {
           visible={showSmartAdd}
           onClose={() => setShowSmartAdd(false)}
           onSuccess={() => {
-            loadData();
+            loadDataSafe();
             // Maybe show a toast
           }}
           navigation={navigation}
@@ -689,67 +844,107 @@ export const DashboardScreen = ({ navigation }: any) => {
           visible={showReferralModal}
           onClose={() => setShowReferralModal(false)}
           onSuccess={(rewardDays) => {
-            loadData(); // To refresh Pro status if updated
+            loadDataSafe(); // To refresh Pro status if updated
           }}
         />
 
-        {/* Financial Management Section Title */}
-        <View style={[styles.section, { marginTop: theme.spacing.lg, marginBottom: 0 }]}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>أدوات الإدارة</Text>
-          </View>
-        </View>
-
-        {/* Other Summaries (Debts, Bills) - Compact Grid */}
-        <View style={[styles.summaryGrid, { marginHorizontal: 16 }]}>
-          {debtsSummary && (
-            <TouchableOpacity
-              style={styles.summaryGridItem}
-              onPress={() => navigation.navigate('Debts')}
-            >
-              <View style={[styles.summaryIconBg, { backgroundColor: theme.colors.info }]}>
-                <Ionicons name="card" size={20} color="#FFFFFF" />
-              </View>
-              <Text style={styles.summaryLabel}>الديون</Text>
-              <Text style={styles.summaryValue}>{formatCurrency(debtsSummary.remaining)}</Text>
-            </TouchableOpacity>
-          )}
-
-          {budgetsSummary && (
-            <TouchableOpacity
-              style={styles.summaryGridItem}
-              onPress={() => navigation.navigate('Budget')}
-            >
-              <View style={[styles.summaryIconBg, { backgroundColor: theme.colors.error }]}>
-                <Ionicons name="bar-chart" size={20} color="#FFFFFF" />
-              </View>
-              <Text style={styles.summaryLabel}>الميزانية</Text>
-              <Text style={styles.summaryValue}>{budgetsSummary.exceeded} متجاوز</Text>
-            </TouchableOpacity>
-          )}
-
-          <TouchableOpacity
-            style={styles.summaryGridItem}
-            onPress={() => navigation.navigate('Subscriptions')}
+        {/* Today's Statement Modal - Slide from Bottom Implementation */}
+        <Modal
+          visible={showTodayModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowTodayModal(false)}
+          statusBarTranslucent
+        >
+          <Pressable
+            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}
+            onPress={() => setShowTodayModal(false)}
           >
-            <View style={[styles.summaryIconBg, { backgroundColor: theme.colors.warning }]}>
-              <Ionicons name="repeat" size={20} color="#FFFFFF" />
-            </View>
-            <Text style={styles.summaryLabel}>الاشتراكات</Text>
-            <Text style={styles.summaryValue}>{subscriptionsSummary?.active || 0} نشط</Text>
-          </TouchableOpacity>
+            <Animated.View
+              style={{
+                width: '100%',
+                backgroundColor: theme.colors.surfaceCard,
+                borderTopLeftRadius: 30,
+                borderTopRightRadius: 30,
+                padding: 25,
+                paddingBottom: Math.max(insets.bottom, 25),
+                transform: [{
+                  translateY: todayModalAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [500, 0]
+                  })
+                }],
+                ...getPlatformShadow('xl')
+              }}
+            >
+              <Pressable onPress={(e) => e.stopPropagation()}>
+                {/* Drag Handle */}
+                <View style={{
+                  width: 40,
+                  height: 4,
+                  backgroundColor: theme.colors.border + '80',
+                  borderRadius: 2,
+                  alignSelf: 'center',
+                  marginBottom: 20,
+                  opacity: 0.5
+                }} />
 
-          <TouchableOpacity
-            style={styles.summaryGridItem}
-            onPress={() => navigation.navigate('Bills')}
-          >
-            <View style={[styles.summaryIconBg, { backgroundColor: theme.colors.primary }]}>
-              <Ionicons name="receipt" size={20} color="#FFFFFF" />
-            </View>
-            <Text style={styles.summaryLabel}>الفواتير</Text>
-            <Text style={styles.summaryValue}>عرض الكل</Text>
-          </TouchableOpacity>
-        </View>
+                <Text style={[styles.sectionTitle, { textAlign: 'center', fontSize: 20, marginBottom: 25 }]}>كشف حساب اليوم</Text>
+
+                {todayData ? (
+                  <>
+                    <View style={styles.modalStatRow}>
+                      <View style={[styles.modalStatIcon, { backgroundColor: theme.colors.success + '15' }]}>
+                        <Ionicons name="trending-up" size={24} color={theme.colors.success} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.modalStatLabel}>إجمالي الدخل</Text>
+                        <Text style={[styles.modalStatValue, { color: theme.colors.success }]}>
+                          {isPrivacyEnabled ? '****' : formatCurrency(todayData.income)}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.modalStatRow}>
+                      <View style={[styles.modalStatIcon, { backgroundColor: theme.colors.error + '15' }]}>
+                        <Ionicons name="trending-down" size={24} color={theme.colors.error} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.modalStatLabel}>إجمالي المصاريف</Text>
+                        <Text style={[styles.modalStatValue, { color: theme.colors.error }]}>
+                          {isPrivacyEnabled ? '****' : formatCurrency(todayData.expenses)}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={[styles.modalStatRow, { borderBottomWidth: 0, marginTop: 10 }]}>
+                      <View style={[styles.modalStatIcon, { backgroundColor: theme.colors.info + '15' }]}>
+                        <Ionicons name="wallet-outline" size={24} color={theme.colors.info} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.modalStatLabel}>الصافي</Text>
+                        <Text style={[styles.modalStatValue, { color: theme.colors.info }]}>
+                          {isPrivacyEnabled ? '****' : formatCurrency(todayData.balance)}
+                        </Text>
+                      </View>
+                    </View>
+                  </>
+                ) : (
+                  <ActivityIndicator size="large" color={theme.colors.primary} />
+                )}
+
+                <TouchableOpacity
+                  style={[styles.modalCloseButton, { marginTop: 30, backgroundColor: theme.colors.surface }]}
+                  onPress={() => setShowTodayModal(false)}
+                >
+                  <Text style={[styles.modalCloseButtonText, { color: theme.colors.textPrimary }]}>إغلاق</Text>
+                </TouchableOpacity>
+              </Pressable>
+            </Animated.View>
+          </Pressable>
+        </Modal>
+
+
 
 
 
@@ -1032,10 +1227,46 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: theme.spacing.lg,
-    paddingBottom: 110, // Increased to clear TabBar height
+    paddingBottom: 110,
+    paddingTop: theme.spacing.md,
+  },
+  headerContainer: {
+    backgroundColor: theme.colors.background,
+    zIndex: 10,
+  },
+  headerRoundedBackground: {
+    backgroundColor: '#003459',
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    paddingBottom: Platform.OS === 'ios' ? 25 : 10,
+    ...getPlatformShadow('xl'),
+  },
+  headerContent: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+  },
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: getPlatformFontWeight('900'),
+    color: '#FFFFFF',
+    fontFamily: theme.typography.fontFamily,
+    letterSpacing: 0.5,
+
+  },
+  headerActions: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  headerButton: {
+    padding: 10,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
   heroSection: {
-    marginTop: theme.spacing.sm,
+    marginTop: 10,
     marginBottom: theme.spacing.lg,
   },
   todayQuickLook: {
@@ -1076,13 +1307,15 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   actionGrid: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
-    justifyContent: 'space-between',
-    marginBottom: theme.spacing.xl,
-    paddingHorizontal: theme.spacing.xs,
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    marginBottom: theme.spacing.md,
+    paddingHorizontal: 10,
   },
   actionItem: {
     alignItems: 'center',
-    width: (width - theme.spacing.lg * 2) / 4 - 8,
+    width: (width - (theme.spacing.lg * 2) - 20) / 4, // Subtract scrollContent padding and grid padding
+    marginBottom: theme.spacing.lg,
   },
   actionIconBg: {
     width: 56,
@@ -1120,6 +1353,27 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontSize: 13,
     fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.primary,
+    fontFamily: theme.typography.fontFamily,
+  },
+  shortcutsHeaderButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shortcutsHeaderButtonEXP: {
+    backgroundColor: theme.colors.error + '15',
+    borderColor: theme.colors.error + '30',
+  },
+  shortcutsHeaderButtonINC: {
+    backgroundColor: theme.colors.success + '15',
+    borderColor: theme.colors.success + '30',
+  },
+  shortcutsHeaderButtonText: {
+    fontSize: 12,
+    fontWeight: getPlatformFontWeight('700'),
     fontFamily: theme.typography.fontFamily,
   },
   shortcutsScroll: {
@@ -1185,7 +1439,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.xl,
+    marginBottom: theme.spacing.sm,
     backgroundColor: theme.colors.info + '12',
     borderRadius: 16,
     borderWidth: 1,
@@ -1208,6 +1462,46 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'right' : 'left',
     ...(isRTL ? { marginRight: theme.spacing.md } : { marginLeft: theme.spacing.md }),
+  },
+  modalStatRow: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border + '50',
+    gap: 15,
+  },
+  modalStatIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalStatLabel: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'right' : 'left',
+  },
+  modalStatValue: {
+    fontSize: 18,
+    fontWeight: getPlatformFontWeight('800'),
+    fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'right' : 'left',
+    marginTop: 2,
+  },
+  modalCloseButton: {
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 14,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  modalCloseButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: getPlatformFontWeight('700'),
+    fontFamily: theme.typography.fontFamily,
   },
   pulseSection: {
     marginBottom: theme.spacing.xl,
@@ -1402,21 +1696,22 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     minWidth: 28,
   },
   summaryGrid: {
+    width: '100%',
     flexDirection: isRTL ? 'row-reverse' : 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: theme.spacing.md,
-    marginTop: theme.spacing.sm,
+    paddingHorizontal: 16,
+    marginTop: theme.spacing.xs,
   },
   summaryGridItem: {
-    width: '47%',
-    minHeight: 95,
+    width: '48%',
+    minHeight: Platform.OS === 'android' ? 90 : 100,
     backgroundColor: theme.colors.surfaceCard,
     borderRadius: 24,
-    padding: theme.spacing.sm,
+    padding: Platform.OS === 'android' ? 10 : 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: theme.spacing.xs,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: theme.colors.border,
     ...(Platform.OS === 'ios' ? { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10 } : { elevation: 2 }),
@@ -1430,16 +1725,17 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: theme.spacing.xs,
   },
   summaryLabel: {
-    fontSize: 12,
-    fontWeight: getPlatformFontWeight('600'),
-    color: theme.colors.textMuted,
+    fontSize: 15,
+    fontWeight: getPlatformFontWeight('800'),
+    color: theme.colors.textPrimary,
     marginBottom: 4,
     fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'right' : 'left',
   },
   summaryValue: {
-    fontSize: 15,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
+    fontSize: 13,
+    fontWeight: getPlatformFontWeight('600'),
+    color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
   },
@@ -1536,7 +1832,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   statusCardSubtitle: {
     fontSize: theme.typography.sizes.sm,
-    color: 'rgba(255, 255, 255, 0.85)',
+    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',
@@ -1698,11 +1994,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   achievementProgressBar: {
     height: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
     borderRadius: 8,
     overflow: 'hidden',
     marginTop: theme.spacing.sm,
     width: '100%',
+    direction: 'rtl',
+    textAlign: 'right',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
   },
   achievementProgressFill: {
     height: '100%',

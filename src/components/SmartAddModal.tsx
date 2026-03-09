@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { AppTheme, useAppTheme, useThemedStyles } from '../utils/theme';
+import { AppTheme, useAppTheme, useThemedStyles, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
 import { parseTransactionText, parseMultipleTransactions, ParsedTransaction, CATEGORY_DISPLAY_NAMES, EXPENSE_CATEGORY_LIST, INCOME_CATEGORY_LIST } from '../utils/smartParser';
 import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 import { parseWithGemini } from '../services/geminiService';
@@ -282,20 +282,30 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
                     style={{ flex: 1 }}
                     keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
                 >
-                    {/* Header */}
-                    <LinearGradient
-                        colors={theme.gradients.primary as any}
-                        style={[styles.header, { paddingTop: (insets.top || 12) + 8 }]}
-                    >
-                        <TouchableOpacity onPress={onClose} style={styles.headerBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                            <Ionicons name="close" size={24} color="#fff" />
-                        </TouchableOpacity>
-                        <View style={styles.headerCenter}>
-                            <Ionicons name="sparkles" size={20} color="#FFD700" />
-                            <Text style={styles.headerTitle}>الإضافة الذكية</Text>
+                    {/* Header Container with Rounded Background */}
+                    <View style={styles.headerContainer}>
+                        <View style={[styles.headerRoundedBackground, { paddingTop: (insets.top || 12) + 12 }]}>
+                            <View style={styles.headerContent}>
+                                <TouchableOpacity
+                                    onPress={onClose}
+                                    style={styles.headerCloseButton}
+                                    activeOpacity={0.7}
+                                >
+                                    <Ionicons name="close" size={24} color="#FFFFFF" />
+                                </TouchableOpacity>
+
+                                <View style={styles.headerTitleContainer}>
+                                    <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
+                                        <Text style={styles.headerTitleText}>الإضافة الذكية</Text>
+                                        <Ionicons name="sparkles" size={20} color="#FFD700" />
+                                    </View>
+                                </View>
+
+                                {/* Empty view for spacing */}
+                                <View style={{ width: 40 }} />
+                            </View>
                         </View>
-                        <View style={styles.headerBtn} />
-                    </LinearGradient>
+                    </View>
 
                     <ScrollView
                         style={styles.scrollView}
@@ -666,27 +676,35 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         flex: 1,
     },
     // Header
-    header: {
+    headerContainer: {
+        backgroundColor: theme.colors.background,
+        zIndex: 10,
+    },
+    headerRoundedBackground: {
+        backgroundColor: '#003459',
+        borderBottomLeftRadius: 30,
+        borderBottomRightRadius: 30,
+        paddingBottom: 20,
+        ...getPlatformShadow('lg'),
+    },
+    headerContent: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingBottom: 16,
+        paddingHorizontal: 20,
     },
-    headerBtn: {
-        width: 40,
-        height: 40,
+    headerCloseButton: {
+        padding: 8,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    },
+    headerTitleContainer: {
+        flex: 1,
         alignItems: 'center',
-        justifyContent: 'center',
     },
-    headerCenter: {
-        flexDirection: 'row-reverse',
-        alignItems: 'center',
-        gap: 8,
-    },
-    headerTitle: {
-        fontSize: 18,
-        fontWeight: '700',
+    headerTitleText: {
+        fontSize: 20,
+        fontWeight: getPlatformFontWeight('800'),
         color: '#FFFFFF',
         fontFamily: theme.typography.fontFamily,
     },

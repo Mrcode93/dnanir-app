@@ -11,7 +11,6 @@ import {
     Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Searchbar } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
@@ -30,7 +29,6 @@ export const SubscriptionsScreen = ({ navigation }: any) => {
     const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
     const [filteredSubscriptions, setFilteredSubscriptions] = useState<Subscription[]>([]);
     const [refreshing, setRefreshing] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<SubscriptionCategory | 'all'>('all');
     const [showDeleteAlert, setShowDeleteAlert] = useState(false);
     const [subToDelete, setSubToDelete] = useState<Subscription | null>(null);
@@ -55,19 +53,14 @@ export const SubscriptionsScreen = ({ navigation }: any) => {
     useEffect(() => {
         let filtered = subscriptions;
 
-        if (searchQuery) {
-            filtered = filtered.filter(sub =>
-                sub.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                sub.description?.toLowerCase().includes(searchQuery.toLowerCase())
-            );
-        }
+
 
         if (selectedCategory !== 'all') {
             filtered = filtered.filter(sub => sub.category === selectedCategory);
         }
 
         setFilteredSubscriptions(filtered);
-    }, [subscriptions, searchQuery, selectedCategory]);
+    }, [subscriptions, selectedCategory]);
 
     const onRefresh = async () => {
         setRefreshing(true);
@@ -195,32 +188,13 @@ export const SubscriptionsScreen = ({ navigation }: any) => {
     };
 
     return (
-        <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={28} color={theme.colors.textPrimary} />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>كاشف الاشتراكات</Text>
-                <TouchableOpacity onPress={handleAdd} style={styles.addBtn}>
-                    <Ionicons name="add-circle" size={32} color={theme.colors.primary} />
-                </TouchableOpacity>
-            </View>
+        <View style={styles.container}>
 
             <FlatList
                 data={filteredSubscriptions}
                 ListHeaderComponent={
                     <>
-                        <View style={styles.searchContainer}>
-                            <Searchbar
-                                placeholder="ابحث عن اشتراك..."
-                                onChangeText={setSearchQuery}
-                                value={searchQuery}
-                                style={styles.searchbar}
-                                inputStyle={styles.searchInner}
-                                placeholderTextColor={theme.colors.textMuted}
-                                iconColor={theme.colors.primary}
-                            />
-                        </View>
+
 
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.summaryContainer}>
                             <View style={[styles.summaryCard, { borderLeftColor: theme.colors.primary, borderLeftWidth: 4 }]}>
@@ -283,7 +257,7 @@ export const SubscriptionsScreen = ({ navigation }: any) => {
                 onConfirm={confirmDelete}
                 onCancel={() => setShowDeleteAlert(false)}
             />
-        </SafeAreaView>
+        </View>
     );
 };
 
@@ -311,27 +285,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     addBtn: {
         padding: 4,
     },
-    searchContainer: {
-        paddingHorizontal: 16,
-        marginBottom: 16,
-    },
-    searchbar: {
-        backgroundColor: theme.colors.surfaceCard,
-        borderRadius: 12,
-        elevation: 0,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-    },
-    searchInner: {
-        fontFamily: theme.typography.fontFamily,
-        fontSize: 14,
-        textAlign: isRTL ? 'right' : 'left',
-    },
+
     summaryContainer: {
-        flexDirection: isRTL ? 'row' : 'row-reverse',
+        flexDirection: isRTL ? 'row-reverse' : 'row',
         paddingHorizontal: 16,
         gap: 12,
         marginBottom: 20,
+        alignItems: 'center',
+
     },
     summaryCard: {
         backgroundColor: theme.colors.surfaceCard,
@@ -339,6 +300,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         padding: 16,
         minWidth: 160,
         ...getPlatformShadow('sm'),
+        alignItems: 'center',
     },
     summaryLabel: {
         fontSize: 12,

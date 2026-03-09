@@ -55,35 +55,35 @@ export const getWidgetBalanceData = async (): Promise<WidgetBalanceData> => {
     const currency = await getSelectedCurrencyCode();
     const expenses = await getExpenses();
     const income = await getIncome();
-    
+
     // Get current month data
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
-    
+
     const monthExpenses = expenses.filter(expense => {
       const expenseDate = new Date(expense.date);
-      return expenseDate.getMonth() === currentMonth && 
-             expenseDate.getFullYear() === currentYear;
+      return expenseDate.getMonth() === currentMonth &&
+        expenseDate.getFullYear() === currentYear;
     });
-    
+
     const monthIncome = income.filter(inc => {
       const incomeDate = new Date(inc.date);
-      return incomeDate.getMonth() === currentMonth && 
-             incomeDate.getFullYear() === currentYear;
+      return incomeDate.getMonth() === currentMonth &&
+        incomeDate.getFullYear() === currentYear;
     });
-    
+
     const totalExpenses = monthExpenses.reduce((sum, exp) => {
       // Convert to base currency if needed
       return sum + exp.amount;
     }, 0);
-    
+
     const totalIncome = monthIncome.reduce((sum, inc) => {
       return sum + inc.amount;
     }, 0);
-    
+
     const balance = totalIncome - totalExpenses;
-    
+
     return {
       totalIncome,
       totalExpenses,
@@ -111,32 +111,32 @@ export const getWidgetMonthlySummary = async (): Promise<WidgetMonthlySummary> =
     const currency = await getSelectedCurrencyCode();
     const expenses = await getExpenses();
     const income = await getIncome();
-    
+
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
-    
+
     const monthExpenses = expenses.filter(expense => {
       const expenseDate = new Date(expense.date);
-      return expenseDate.getMonth() === currentMonth && 
-             expenseDate.getFullYear() === currentYear;
+      return expenseDate.getMonth() === currentMonth &&
+        expenseDate.getFullYear() === currentYear;
     });
-    
+
     const monthIncome = income.filter(inc => {
       const incomeDate = new Date(inc.date);
-      return incomeDate.getMonth() === currentMonth && 
-             incomeDate.getFullYear() === currentYear;
+      return incomeDate.getMonth() === currentMonth &&
+        incomeDate.getFullYear() === currentYear;
     });
-    
+
     const totalExpenses = monthExpenses.reduce((sum, exp) => sum + exp.amount, 0);
     const totalIncome = monthIncome.reduce((sum, inc) => sum + inc.amount, 0);
     const balance = totalIncome - totalExpenses;
-    
+
     const monthNames = [
       'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
       'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
     ];
-    
+
     return {
       month: monthNames[currentMonth],
       year: currentYear,
@@ -178,7 +178,7 @@ export const updateWidgets = async (): Promise<void> => {
     const balanceData = await getWidgetBalanceData();
     const monthlySummary = await getWidgetMonthlySummary();
     const quickAddData = await getWidgetQuickAddData();
-    
+
     // Store data in shared storage for widgets to access
     // This will be implemented via native modules
     if (typeof window !== 'undefined' && (window as any).NativeModules?.WidgetModule) {
@@ -201,17 +201,17 @@ export const getWidgetQuickAddData = async (): Promise<WidgetQuickAddData> => {
   try {
     const { EXPENSE_CATEGORIES } = await import('../types');
     const { INCOME_SOURCES } = await import('../types');
-    
+
     const [expenseShortcuts, incomeShortcuts] = await Promise.all([
       getSmartExpenseShortcuts(),
       getSmartIncomeShortcuts(),
     ]);
-    
+
     // Get recent categories from expenses
     const { getExpenses } = await import('../database/database');
     const expenses = await getExpenses();
     const categoryUsage = new Map<string, { count: number; lastUsed: string }>();
-    
+
     expenses.forEach(exp => {
       const existing = categoryUsage.get(exp.category);
       if (!existing || exp.date > existing.lastUsed) {
@@ -221,12 +221,12 @@ export const getWidgetQuickAddData = async (): Promise<WidgetQuickAddData> => {
         });
       }
     });
-    
+
     // Get recent income sources
     const { getIncome } = await import('../database/database');
     const income = await getIncome();
     const sourceUsage = new Map<string, { count: number; lastUsed: string }>();
-    
+
     income.forEach(inc => {
       const existing = sourceUsage.get(inc.source);
       if (!existing || inc.date > existing.lastUsed) {
@@ -236,7 +236,7 @@ export const getWidgetQuickAddData = async (): Promise<WidgetQuickAddData> => {
         });
       }
     });
-    
+
     // Get top 5 most used categories
     const recentCategories = Array.from(categoryUsage.entries())
       .sort((a, b) => {
@@ -251,7 +251,7 @@ export const getWidgetQuickAddData = async (): Promise<WidgetQuickAddData> => {
           key => EXPENSE_CATEGORIES[key as any] === category || key === category
         );
         const label = EXPENSE_CATEGORIES[categoryKey as any] || category;
-        
+
         const categoryIcons: Record<string, string> = {
           food: 'restaurant',
           transport: 'car',
@@ -262,7 +262,7 @@ export const getWidgetQuickAddData = async (): Promise<WidgetQuickAddData> => {
           education: 'school',
           other: 'ellipse',
         };
-        
+
         return {
           category,
           label,
@@ -270,7 +270,7 @@ export const getWidgetQuickAddData = async (): Promise<WidgetQuickAddData> => {
           lastUsed: data.lastUsed,
         };
       });
-    
+
     // Get top 5 most used income sources
     const recentIncomeSources = Array.from(sourceUsage.entries())
       .sort((a, b) => {
@@ -285,7 +285,7 @@ export const getWidgetQuickAddData = async (): Promise<WidgetQuickAddData> => {
           key => INCOME_SOURCES[key as any] === source || key === source
         );
         const label = INCOME_SOURCES[sourceKey as any] || source;
-        
+
         const sourceIcons: Record<string, string> = {
           salary: 'cash',
           business: 'briefcase',
@@ -293,7 +293,7 @@ export const getWidgetQuickAddData = async (): Promise<WidgetQuickAddData> => {
           gift: 'gift',
           other: 'ellipse',
         };
-        
+
         return {
           source,
           label,
@@ -301,7 +301,7 @@ export const getWidgetQuickAddData = async (): Promise<WidgetQuickAddData> => {
           lastUsed: data.lastUsed,
         };
       });
-    
+
     // Combine shortcuts
     const shortcuts = [
       ...expenseShortcuts.slice(0, 3).map((s: any) => ({
@@ -319,7 +319,7 @@ export const getWidgetQuickAddData = async (): Promise<WidgetQuickAddData> => {
         source: s.source,
       })),
     ];
-    
+
     return {
       recentCategories,
       recentIncomeSources,
