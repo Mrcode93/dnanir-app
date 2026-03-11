@@ -482,25 +482,40 @@ export const initDatabase = async () => {
       );
     `);
 
-    // Subscriptions table (Monthly/Yearly fixed costs like Netflix, Gym, etc.)
+
+    // Savings table (Hassala)
     await db.execAsync(`
-      CREATE TABLE IF NOT EXISTS subscriptions (
+      CREATE TABLE IF NOT EXISTS savings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        amount REAL NOT NULL,
+        title TEXT NOT NULL,
+        targetAmount REAL,
+        currentAmount REAL DEFAULT 0,
         currency TEXT DEFAULT 'IQD',
-        category TEXT,
-        nextBillingDate TEXT NOT NULL,
-        billingCycle TEXT NOT NULL,
         description TEXT,
-        isActive INTEGER DEFAULT 1,
-        reminderEnabled INTEGER DEFAULT 1,
-        reminderDaysBefore INTEGER DEFAULT 1,
+        icon TEXT DEFAULT 'wallet',
+        color TEXT DEFAULT '#10B981',
         createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
         synced_at INTEGER
       );
     `);
-    await db.execAsync('CREATE INDEX IF NOT EXISTS idx_subscriptions_next_billing ON subscriptions(nextBillingDate);');
+
+    // Savings transactions table
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS savings_transactions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        savingsId INTEGER NOT NULL,
+        amount REAL NOT NULL,
+        type TEXT NOT NULL,
+        date TEXT NOT NULL,
+        description TEXT,
+        createdAt TEXT NOT NULL,
+        synced_at INTEGER,
+        FOREIGN KEY (savingsId) REFERENCES savings(id) ON DELETE CASCADE
+      );
+    `);
+    await db.execAsync('CREATE INDEX IF NOT EXISTS idx_savings_transactions_savings_id ON savings_transactions(savingsId);');
+
     // Migration: Check if table needs migration (old structure with CHECK constraint)
     try {
       const tableInfo = await db.getAllAsync<{ name: string }>("PRAGMA table_info(ai_insights_cache)");
@@ -621,7 +636,7 @@ export const deleteAllData = async () => {
     'expense_shortcuts', 'income_shortcuts', 'bill_payments',
     'bills', 'notifications', 'ai_insights_cache', 'goal_plan_cache',
     'custom_categories', 'user_settings', 'app_settings',
-    'notification_settings', 'subscriptions'
+    'notification_settings', 'savings', 'savings_transactions'
   ];
 
   try {
@@ -1367,6 +1382,8 @@ export const getUnsyncedNotifications = () => getUnsyncedFromTable<DBNotificatio
 export const getUnsyncedUserSettings = () => getUnsyncedFromTable<import('../types').UserSettings>('user_settings');
 export const getUnsyncedAppSettings = () => getUnsyncedFromTable<import('../types').AppSettings>('app_settings');
 export const getUnsyncedNotificationSettings = () => getUnsyncedFromTable<NotificationSettings>('notification_settings');
+export const getUnsyncedSavings = () => getUnsyncedFromTable<import('../types').Savings>('savings');
+export const getUnsyncedSavingsTransactions = () => getUnsyncedFromTable<import('../types').SavingsTransaction>('savings_transactions');
 
 export const markFinancialGoalsSynced = (ids: number[]) => markTableSynced('financial_goals', ids);
 export const markCustomCategoriesSynced = (ids: number[]) => markTableSynced('custom_categories', ids);
@@ -1382,6 +1399,8 @@ export const markNotificationsSynced = (ids: number[]) => markTableSynced('notif
 export const markUserSettingsSynced = (ids: number[]) => markTableSynced('user_settings', ids);
 export const markAppSettingsSynced = (ids: number[]) => markTableSynced('app_settings', ids);
 export const markNotificationSettingsSynced = (ids: number[]) => markTableSynced('notification_settings', ids);
+export const markSavingsSynced = (ids: number[]) => markTableSynced('savings', ids);
+export const markSavingsTransactionsSynced = (ids: number[]) => markTableSynced('savings_transactions', ids);
 
 export const getAvailableMonths = async (): Promise<{ year: number; month: number }[]> => {
   const database = getDb();
@@ -2221,6 +2240,8 @@ export const clearAllData = async (): Promise<void> => {
     DELETE FROM notifications;
     DELETE FROM ai_insights_cache;
     DELETE FROM goal_plan_cache;
+    DELETE FROM savings_transactions;
+    DELETE FROM savings;
   `);
 };
 
@@ -3232,7 +3253,6 @@ export const getUnreadNotificationsCount = async (): Promise<number> => {
   return result?.count || 0;
 };
 
-/** New-data-only export for incremental sync: only rows where synced_at IS NULL, as items for POST /sync/items */
 export const exportNewDataOnly = async (): Promise<{ items: { type: string; localId: number; data: Record<string, unknown> }[] }> => {
   const [
     expenses,
@@ -3251,6 +3271,8 @@ export const exportNewDataOnly = async (): Promise<{ items: { type: string; loca
     userSettings,
     appSettings,
     notificationSettings,
+    savings,
+    savingsTransactions,
   ] = await Promise.all([
     getUnsyncedExpenses(),
     getUnsyncedIncome(),
@@ -3268,6 +3290,8 @@ export const exportNewDataOnly = async (): Promise<{ items: { type: string; loca
     getUnsyncedUserSettings(),
     getUnsyncedAppSettings(),
     getUnsyncedNotificationSettings(),
+    getUnsyncedSavings(),
+    getUnsyncedSavingsTransactions(),
   ]);
 
   const items: { type: string; localId: number; data: Record<string, unknown> }[] = [];
@@ -3336,11 +3360,16 @@ export const exportNewDataOnly = async (): Promise<{ items: { type: string; loca
     const id = row.id as number | undefined;
     if (typeof id === 'number') items.push({ type: 'notification_settings', localId: id, data: row });
   }
+  for (const s of savings) {
+    items.push({ type: 'savings', localId: (s as any).id, data: s as unknown as Record<string, unknown> });
+  }
+  for (const st of savingsTransactions) {
+    items.push({ type: 'savings_transaction', localId: (st as any).id, data: st as unknown as Record<string, unknown> });
+  }
 
   return { items };
 };
 
-/** Full export for backup/sync: all DB data as one JSON-serializable object */
 export const exportFullData = async (): Promise<Record<string, unknown>> => {
   const [
     expenses,
@@ -3360,6 +3389,8 @@ export const exportFullData = async (): Promise<Record<string, unknown>> => {
     income_shortcuts,
     exchange_rates,
     notifications,
+    savings,
+    savings_transactions,
   ] = await Promise.all([
     getExpenses(),
     getIncome(),
@@ -3378,6 +3409,8 @@ export const exportFullData = async (): Promise<Record<string, unknown>> => {
     getIncomeShortcuts(),
     getAllExchangeRates(),
     getNotifications(),
+    getSavings(),
+    getSavingsTransactionsForAll(),
   ]);
 
   const debt_installments: any[] = [];
@@ -3414,6 +3447,8 @@ export const exportFullData = async (): Promise<Record<string, unknown>> => {
     income_shortcuts,
     exchange_rates,
     notifications,
+    savings,
+    savings_transactions,
   };
 };
 
@@ -3663,61 +3698,135 @@ export const importFullData = async (data: Record<string, unknown>): Promise<voi
       );
     }
   });
+
+  await runSection('savings', async () => {
+    const savings = (data.savings as any[]) || [];
+    for (const s of savings) {
+      await database.runAsync(
+        'INSERT INTO savings (id, title, targetAmount, currentAmount, currency, description, icon, color, createdAt, updatedAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [s.id, str(s.title, 'حصالة'), num(s.targetAmount), num(s.currentAmount), str(s.currency, 'IQD'), safe(s.description), str(s.icon, 'wallet'), str(s.color, '#10B981'), str(s.createdAt, new Date().toISOString()), str(s.updatedAt, new Date().toISOString()), safe(s.synced_at)]
+      );
+    }
+  });
+
+  await runSection('savings_transactions', async () => {
+    const savings_transactions = (data.savings_transactions as any[]) || [];
+    for (const st of savings_transactions) {
+      await database.runAsync(
+        'INSERT INTO savings_transactions (id, savingsId, amount, type, date, description, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [st.id, num(st.savingsId), num(st.amount), str(st.type, 'deposit'), str(st.date, new Date().toISOString().slice(0, 10)), safe(st.description), str(st.createdAt, new Date().toISOString()), safe(st.synced_at)]
+      );
+    }
+  });
 };
 
-// Subscription operations
-export const addSubscription = async (sub: Omit<import('../types').Subscription, 'id'>): Promise<number> => {
+
+
+// Savings operations
+export const getSavings = async (): Promise<import('../types').Savings[]> => {
   const database = getDb();
+  return await database.getAllAsync<import('../types').Savings>('SELECT * FROM savings ORDER BY createdAt DESC');
+};
+
+export const addSavings = async (savings: Omit<import('../types').Savings, 'id' | 'currentAmount' | 'createdAt' | 'updatedAt'>): Promise<number> => {
+  const database = getDb();
+  const now = new Date().toISOString();
   const result = await database.runAsync(
-    'INSERT INTO subscriptions (name, amount, currency, category, nextBillingDate, billingCycle, description, isActive, reminderEnabled, reminderDaysBefore, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO savings (title, targetAmount, currentAmount, currency, description, icon, color, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     [
-      sub.name,
-      sub.amount,
-      sub.currency || 'IQD',
-      sub.category,
-      sub.nextBillingDate,
-      sub.billingCycle,
-      sub.description || null,
-      sub.isActive ? 1 : 0,
-      sub.reminderEnabled ? 1 : 0,
-      sub.reminderDaysBefore || 1,
-      sub.createdAt || new Date().toISOString()
+      savings.title,
+      savings.targetAmount || null,
+      0,
+      savings.currency || 'IQD',
+      savings.description || null,
+      savings.icon || 'wallet',
+      savings.color || '#10B981',
+      now,
+      now
     ]
   );
   return result.lastInsertRowId;
 };
 
-export const getSubscriptions = async (activeOnly: boolean = false): Promise<import('../types').Subscription[]> => {
-  const database = getDb();
-  let query = 'SELECT * FROM subscriptions';
-  if (activeOnly) {
-    query += ' WHERE isActive = 1';
-  }
-  query += ' ORDER BY nextBillingDate ASC';
-  return await database.getAllAsync<import('../types').Subscription>(query);
-};
-
-export const updateSubscription = async (id: number, sub: Partial<import('../types').Subscription>): Promise<void> => {
+export const updateSavings = async (id: number, savings: Partial<import('../types').Savings>): Promise<void> => {
   const database = getDb();
   const fields: string[] = [];
   const vals: any[] = [];
+  const now = new Date().toISOString();
 
-  Object.entries(sub).forEach(([key, val]) => {
+  Object.entries(savings).forEach(([key, val]) => {
     if (key === 'id') return;
     fields.push(`${key} = ?`);
-    vals.push(typeof val === 'boolean' ? (val ? 1 : 0) : val);
+    vals.push(val);
   });
 
   if (fields.length === 0) return;
 
+  // Always update updatedAt
+  if (!fields.includes('updatedAt = ?')) {
+    fields.push('updatedAt = ?');
+    vals.push(now);
+  }
+
   vals.push(id);
   await database.runAsync(
-    `UPDATE subscriptions SET ${fields.join(', ')} WHERE id = ?`,
+    `UPDATE savings SET ${fields.join(', ')} WHERE id = ?`,
     vals
   );
 };
 
-export const deleteSubscription = async (id: number): Promise<void> => {
+export const deleteSavings = async (id: number): Promise<void> => {
   const database = getDb();
-  await database.runAsync('DELETE FROM subscriptions WHERE id = ?', [id]);
+  await database.runAsync('DELETE FROM savings WHERE id = ?', [id]);
 };
+
+export const addSavingsTransaction = async (transaction: Omit<import('../types').SavingsTransaction, 'id' | 'createdAt'>): Promise<number> => {
+  const database = getDb();
+  const now = new Date().toISOString();
+  
+  // Start transaction
+  await database.execAsync('BEGIN TRANSACTION;');
+  
+  try {
+    const result = await database.runAsync(
+      'INSERT INTO savings_transactions (savingsId, amount, type, date, description, createdAt) VALUES (?, ?, ?, ?, ?, ?)',
+      [
+        transaction.savingsId,
+        transaction.amount,
+        transaction.type,
+        transaction.date,
+        transaction.description || null,
+        now
+      ]
+    );
+
+    // Update currentAmount in savings table
+    const amountDelta = transaction.type === 'deposit' ? transaction.amount : -transaction.amount;
+    await database.runAsync(
+      'UPDATE savings SET currentAmount = currentAmount + ?, updatedAt = ? WHERE id = ?',
+      [amountDelta, now, transaction.savingsId]
+    );
+
+    await database.execAsync('COMMIT;');
+    return result.lastInsertRowId;
+  } catch (error) {
+    await database.execAsync('ROLLBACK;');
+    throw error;
+  }
+};
+
+export const getSavingsTransactionsForAll = async (): Promise<import('../types').SavingsTransaction[]> => {
+  const database = getDb();
+  return await database.getAllAsync<import('../types').SavingsTransaction>(
+    'SELECT * FROM savings_transactions ORDER BY date DESC, createdAt DESC'
+  );
+};
+
+export const getSavingsTransactions = async (savingsId: number): Promise<import('../types').SavingsTransaction[]> => {
+  const database = getDb();
+  return await database.getAllAsync<import('../types').SavingsTransaction>(
+    'SELECT * FROM savings_transactions WHERE savingsId = ? ORDER BY date DESC, createdAt DESC',
+    [savingsId]
+  );
+};
+

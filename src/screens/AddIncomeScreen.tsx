@@ -289,16 +289,19 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
                 </View>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shortcutsContent}>
                   <TouchableOpacity style={styles.addShortcutMini} onPress={() => setShowManageShortcuts(true)}>
-                    <Ionicons name="add" size={20} color={theme.colors.success} />
+                    <Ionicons name="add" size={24} color="#10B981" />
                   </TouchableOpacity>
                   {shortcuts.map(s => (
                     <TouchableOpacity
                       key={s.id}
-                      style={[styles.shortcutChip, { backgroundColor: theme.colors.surface }]}
+                      style={styles.shortcutChip}
                       onPress={() => handleShortcutUsed(s)}
                     >
+                      <View style={styles.shortcutChipIconContainer}>
+                        <Ionicons name="add" size={18} color="#10B981" />
+                      </View>
                       <Text style={styles.shortcutChipText}>{s.source}</Text>
-                      <Text style={styles.shortcutChipAmount}>{s.amount}</Text>
+                      <Text style={styles.shortcutChipAmount}>{s.amount} د.ع</Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -428,7 +431,6 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
       {/* Manage Shortcuts Modal */}
       <ManageShortcutsModal
         visible={showManageShortcuts}
-        type="income"
         onClose={() => { setShowManageShortcuts(false); loadShortcuts(); }}
         onShortcutUsed={handleShortcutUsed}
       />
@@ -457,8 +459,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: theme.colors.surface,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: theme.typography.sizes.md,
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -473,14 +475,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: 8,
   },
   currencySymbol: {
-    fontSize: 24,
+    fontSize: theme.typography.sizes.lg,
     color: theme.colors.textSecondary,
-    marginHorizontal: 8,
+    marginHorizontal: theme.spacing.sm,
     fontFamily: theme.typography.fontFamily,
   },
   amountInput: {
-    fontSize: 48,
-    fontWeight: '700',
+    fontSize: theme.typography.sizes.display,
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     backgroundColor: 'transparent',
     textAlign: 'center',
@@ -491,105 +493,122 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   convertedText: {
     textAlign: 'center',
     color: theme.colors.textSecondary,
-    fontSize: 14,
-    marginBottom: 8,
+    fontSize: theme.typography.sizes.sm,
+    marginBottom: theme.spacing.sm,
   },
   currencyPill: {
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.borderRadius.round,
     gap: 4,
-    marginBottom: 20,
+    marginBottom: theme.spacing.lg,
     ...getPlatformShadow('sm'),
   },
   currencyPillText: {
-    fontSize: 12,
+    fontSize: theme.typography.sizes.xs,
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
   },
   shortcutsRow: {
     marginBottom: 12,
   },
   shortcutsSectionHeader: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   shortcutsSectionTitle: {
-    fontSize: 14,
-    fontWeight: getPlatformFontWeight('600'),
+    fontSize: 16,
+    fontWeight: getPlatformFontWeight('800'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
   addShortcutButton: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    backgroundColor: theme.colors.success + '18',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: '#10B98115', // light green transluscent
   },
   addShortcutButtonText: {
-    fontSize: 13,
-    fontWeight: getPlatformFontWeight('600'),
-    color: theme.colors.success,
+    fontSize: 14,
+    fontWeight: getPlatformFontWeight('700'),
+    color: '#10B981',
     fontFamily: theme.typography.fontFamily,
   },
   shortcutsContent: {
-    paddingHorizontal: 12,
-    gap: 8,
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    paddingHorizontal: 0,
+    gap: 12,
+    flexDirection: isRTL ? 'row' : 'row-reverse', // Matches exact layout requested
   },
   addShortcutMini: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: theme.colors.success,
+    borderColor: '#10B981',
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
+    alignSelf: 'center',
   },
   shortcutChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#10B98130',
+    backgroundColor: '#10B98105',
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 80,
+    minWidth: 120,
+  },
+  shortcutChipIconContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
   },
   shortcutChipText: {
-    fontSize: 12,
-    color: theme.colors.textPrimary,
+    fontSize: 16,
+    color: '#0f172a',
     fontFamily: theme.typography.fontFamily,
+    fontWeight: getPlatformFontWeight('700'),
+    marginBottom: 4,
   },
   shortcutChipAmount: {
-    fontSize: 10,
-    color: theme.colors.textSecondary,
-    fontWeight: '700',
+    fontSize: 15,
+    color: '#64748b',
+    fontWeight: getPlatformFontWeight('800'),
+    fontFamily: theme.typography.fontFamily,
   },
   card: {
     backgroundColor: theme.colors.surface,
-    marginHorizontal: 16,
-    borderRadius: 18,
-    padding: 16,
+    marginHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.md,
     ...getPlatformShadow('sm'),
   },
   section: {
     marginBottom: 16,
   },
   sectionLabel: {
-    fontSize: 14,
+    fontSize: theme.typography.sizes.sm,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    marginBottom: 12,
+    marginBottom: theme.spacing.md,
     textAlign: isRTL ? 'right' : 'left',
   },
   categoriesList: {
@@ -598,25 +617,26 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   catItem: {
     alignItems: 'center',
-    gap: 8,
+    gap: theme.spacing.xs,
     borderWidth: 2,
     padding: 4,
     borderColor: 'transparent',
-    borderRadius: 18,
+    borderRadius: theme.borderRadius.lg,
   },
   catIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 20,
+    width: 64,
+    height: 64,
+    borderRadius: theme.borderRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   catName: {
-    fontSize: 12,
+    fontSize: theme.typography.sizes.sm,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    width: 60,
+    width: 80,
     textAlign: 'center',
+    fontWeight: getPlatformFontWeight('600'),
   },
   fieldRow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -625,9 +645,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingVertical: 8,
   },
   fieldIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: theme.borderRadius.lg,
     backgroundColor: theme.colors.surfaceLight,
     alignItems: 'center',
     justifyContent: 'center',
@@ -635,16 +655,16 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   fieldInput: {
     flex: 1,
     backgroundColor: 'transparent',
-    fontSize: 16,
+    fontSize: theme.typography.sizes.lg,
     color: theme.colors.textPrimary,
     textAlign: isRTL ? 'right' : 'left',
     fontFamily: theme.typography.fontFamily,
-    height: 40,
+    height: 50,
     padding: 0,
   },
   fieldText: {
     flex: 1,
-    fontSize: 16,
+    fontSize: theme.typography.sizes.lg,
     color: theme.colors.textPrimary,
     textAlign: isRTL ? 'right' : 'left',
     fontFamily: theme.typography.fontFamily,
@@ -652,24 +672,24 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: theme.colors.border,
-    marginVertical: 12,
-    marginLeft: 48,
+    marginVertical: theme.spacing.md,
+    marginLeft: 44,
   },
   footerContainer: {
-    padding: 16,
+    padding: theme.spacing.md,
     backgroundColor: theme.colors.background,
     // No absolute positioning prevents keyboard overlap
   },
   saveBtn: {
-    height: 48,
-    borderRadius: 20,
+    height: 52,
+    borderRadius: theme.borderRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
     ...getPlatformShadow('md'),
   },
   saveBtnText: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: theme.typography.sizes.md,
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.background,
     fontFamily: theme.typography.fontFamily,
   },
@@ -693,9 +713,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     maxHeight: '60%',
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 12,
+    fontSize: theme.typography.sizes.lg,
+    fontWeight: getPlatformFontWeight('700'),
+    marginBottom: theme.spacing.md,
     textAlign: 'center',
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
@@ -708,7 +728,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderBottomColor: theme.colors.border,
   },
   modalItemText: {
-    fontSize: 16,
+    fontSize: theme.typography.sizes.md,
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -721,7 +741,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   alertTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: getPlatformFontWeight('bold'),
     marginBottom: 12,
     textAlign: 'center',
     color: theme.colors.textPrimary,
@@ -745,7 +765,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center',
   },
   alertBtnText: {
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   }

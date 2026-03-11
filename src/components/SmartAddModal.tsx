@@ -20,7 +20,7 @@ import { parseTransactionText, parseMultipleTransactions, ParsedTransaction, CAT
 import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 import { parseWithGemini } from '../services/geminiService';
 import { getSmartAddUsageInfo, incrementSmartAddUsage, SmartAddUsageInfo } from '../services/smartAddUsage';
-import { addExpense, addIncome } from '../database/database';
+import { addExpense, addIncome, getSavings, addSavingsTransaction, addSavings } from '../database/database';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePrivacy } from '../context/PrivacyContext';
 import { alertService } from '../services/alertService';
@@ -213,7 +213,9 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
         updated[index] = { ...updated[index], [field]: value };
 
         if (field === 'type') {
-            updated[index].category = value === 'expense' ? EXPENSE_CATEGORY_LIST[0] : INCOME_CATEGORY_LIST[0];
+            if (value === 'expense') updated[index].category = EXPENSE_CATEGORY_LIST[0];
+            else if (value === 'income') updated[index].category = INCOME_CATEGORY_LIST[0];
+            else updated[index].category = 'savings';
         }
 
         setParsedResults(updated);
@@ -244,7 +246,7 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
                         description: '',
                         currency: 'IQD',
                     });
-                } else {
+                } else if (item.type === 'income') {
                     await addIncome({
                         source: finalTitle,
                         amount: item.amount,
@@ -253,8 +255,47 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
                         description: '',
                         currency: 'IQD',
                     });
+                } else if (item.type === 'savings') {
+                    let savingsList = await getSavings();
+                    let targetId;
+
+                    if (savingsList.length === 0) {
+                        // Create a default savings goal if none exists
+                        targetId = await addSavings({
+                            title: 'حصالة عامة',
+                            targetAmount: 0,
+                            currency: 'IQD',
+                            icon: 'wallet',
+                            color: '#10B981',
+                            description: 'تم إنشاؤها تلقائياً للإضافة الذكية'
+                        });
+                    } else {
+                        // Try to find a match by title
+                        targetId = savingsList[0].id;
+                        const match = savingsList.find(s =>
+                            s.title.toLowerCase().includes(item.title.toLowerCase()) ||
+                            item.title.toLowerCase().includes(s.title.toLowerCase())
+                        );
+                        if (match) targetId = match.id;
+                    }
+
+                    await addSavingsTransaction({
+                        savingsId: targetId,
+                        amount: item.amount,
+                        type: 'deposit',
+                        date: dateStr,
+                        description: item.title,
+                    });
                 }
             }
+            
+            // Show success toast
+            const count = parsedResults.length;
+            alertService.toastSuccess(
+                count === 1 
+                    ? 'تم حفظ المعاملة بنجاح' 
+                    : `تم حفظ ${count} معاملات بنجاح`
+            );
 
             onSuccess();
             onClose();
@@ -266,7 +307,10 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
         }
     };
 
-    const exampleText = 'صرفت ٣٠ الف على الغدا وشربت شاي ب٣ الاف واستلمت ٤٠٠ الف من بيع مادة';
+    const examples = [
+        'صرفت ٣٠ الف غدا واستلمت ٤٠٠ الف راتب',
+        'ضميت ٥٠ الف بالحصالة ودفعت ٢٥ الف بنزين'
+    ];
 
     return (
         <Modal
@@ -396,35 +440,36 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
                                         </Text>
                                     </View>
                                 )}
-
+ 
+                                  {/* Steps */}
+                                 <View style={[styles.stepsCard, { backgroundColor: theme.colors.surface }]}>
+                                     <View style={styles.stepRow}>
+                                         <View style={[styles.stepIcon, { backgroundColor: theme.colors.primary + '15' }]}>
+                                             <Ionicons name="mic-outline" size={18} color={theme.colors.primary} />
+                                         </View>
+                                         <Text style={[styles.stepText, { color: theme.colors.text }]}>اضغط المايكروفون في الكيبورد</Text>
+                                     </View>
+                                     <View style={styles.stepDivider} />
+                                     <View style={styles.stepRow}>
+                                         <View style={[styles.stepIcon, { backgroundColor: theme.colors.primary + '15' }]}>
+                                             <Ionicons name="chatbubble-outline" size={18} color={theme.colors.primary} />
+                                         </View>
+                                         <Text style={[styles.stepText, { color: theme.colors.text }]}>اذكر المعاملات مع المبالغ</Text>
+                                     </View>
+                                     <View style={styles.stepDivider} />
+                                     <View style={styles.stepRow}>
+                                         <View style={[styles.stepIcon, { backgroundColor: theme.colors.primary + '15' }]}>
+                                             <Ionicons name="checkmark-circle-outline" size={18} color={theme.colors.primary} />
+                                         </View>
+                                         <Text style={[styles.stepText, { color: theme.colors.text }]}>راجع النتائج وأكّد الحفظ</Text>
+                                     </View>
+                                 </View>
+ 
                                 {/* Instruction */}
                                 <Text style={styles.instruction}>
                                     تحدث أو اكتب معاملاتك المالية وسيتم تحليلها تلقائياً
                                 </Text>
 
-                                {/* Steps */}
-                                <View style={[styles.stepsCard, { backgroundColor: theme.colors.surface }]}>
-                                    <View style={styles.stepRow}>
-                                        <View style={[styles.stepIcon, { backgroundColor: theme.colors.primary + '15' }]}>
-                                            <Ionicons name="mic-outline" size={18} color={theme.colors.primary} />
-                                        </View>
-                                        <Text style={[styles.stepText, { color: theme.colors.text }]}>اضغط المايكروفون في الكيبورد</Text>
-                                    </View>
-                                    <View style={styles.stepDivider} />
-                                    <View style={styles.stepRow}>
-                                        <View style={[styles.stepIcon, { backgroundColor: theme.colors.primary + '15' }]}>
-                                            <Ionicons name="chatbubble-outline" size={18} color={theme.colors.primary} />
-                                        </View>
-                                        <Text style={[styles.stepText, { color: theme.colors.text }]}>اذكر المعاملات مع المبالغ</Text>
-                                    </View>
-                                    <View style={styles.stepDivider} />
-                                    <View style={styles.stepRow}>
-                                        <View style={[styles.stepIcon, { backgroundColor: theme.colors.primary + '15' }]}>
-                                            <Ionicons name="checkmark-circle-outline" size={18} color={theme.colors.primary} />
-                                        </View>
-                                        <Text style={[styles.stepText, { color: theme.colors.text }]}>راجع النتائج وأكّد الحفظ</Text>
-                                    </View>
-                                </View>
 
                                 {/* Input */}
                                 <View style={[styles.inputWrapper, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
@@ -462,20 +507,24 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
                                     )}
                                 </View>
 
-                                {/* Example */}
-                                <TouchableOpacity
-                                    style={[styles.exampleCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
-                                    onPress={() => setText(exampleText)}
-                                    activeOpacity={0.7}
-                                >
-                                    <View style={styles.exampleHeader}>
-                                        <Ionicons name="bulb-outline" size={16} color={theme.colors.warning} />
-                                        <Text style={[styles.exampleLabel, { color: theme.colors.textSecondary }]}>جرب هذا المثال</Text>
-                                    </View>
-                                    <Text style={[styles.exampleText, { color: theme.colors.text }]}>
-                                        {exampleText}
-                                    </Text>
-                                </TouchableOpacity>
+                                 {/* Example */}
+                                 <View style={[styles.exampleSection, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                                     <View style={styles.exampleHeader}>
+                                         <Ionicons name="bulb-outline" size={16} color={theme.colors.warning} />
+                                         <Text style={[styles.exampleLabel, { color: theme.colors.textSecondary }]}>أمثلة سريعة (اضغط للتجربة):</Text>
+                                     </View>
+                                     <View style={styles.examplesList}>
+                                         {examples.map((ex, idx) => (
+                                             <TouchableOpacity 
+                                                 key={idx}
+                                                 style={[styles.exampleItem, idx < examples.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.colors.border }]}
+                                                 onPress={() => setText(ex)}
+                                             >
+                                                 <Text style={[styles.exampleText, { color: theme.colors.text }]}>"{ex}"</Text>
+                                             </TouchableOpacity>
+                                         ))}
+                                     </View>
+                                 </View>
 
                                 {/* Processing Indicator */}
                                 {isProcessing && (
@@ -503,18 +552,24 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
                                         <View style={styles.cardHeader}>
                                             <View style={[
                                                 styles.typeBadge,
-                                                { backgroundColor: item.type === 'expense' ? theme.colors.error + '1A' : theme.colors.success + '1A' }
+                                                {
+                                                    backgroundColor: item.type === 'expense'
+                                                        ? theme.colors.error + '1A'
+                                                        : item.type === 'income'
+                                                            ? theme.colors.success + '1A'
+                                                            : theme.colors.primary + '1A'
+                                                }
                                             ]}>
                                                 <Ionicons
-                                                    name={item.type === 'expense' ? 'arrow-down' : 'arrow-up'}
+                                                    name={item.type === 'expense' ? 'arrow-down' : item.type === 'income' ? 'arrow-up' : 'wallet'}
                                                     size={12}
-                                                    color={item.type === 'expense' ? theme.colors.error : theme.colors.success}
+                                                    color={item.type === 'expense' ? theme.colors.error : item.type === 'income' ? theme.colors.success : theme.colors.primary}
                                                 />
                                                 <Text style={[
                                                     styles.typeBadgeText,
-                                                    { color: item.type === 'expense' ? theme.colors.error : theme.colors.success }
+                                                    { color: item.type === 'expense' ? theme.colors.error : item.type === 'income' ? theme.colors.success : theme.colors.primary }
                                                 ]}>
-                                                    {item.type === 'expense' ? 'مصروف' : 'دخل'}
+                                                    {item.type === 'expense' ? 'مصروف' : item.type === 'income' ? 'دخل' : 'حصالة'}
                                                 </Text>
                                             </View>
                                             <TouchableOpacity
@@ -548,7 +603,7 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
                                             <Ionicons name="cash-outline" size={16} color={theme.colors.textSecondary} />
                                             <TextInput
                                                 style={[styles.fieldInput, styles.amountInput, {
-                                                    color: item.type === 'expense' ? theme.colors.error : theme.colors.success,
+                                                    color: item.type === 'expense' ? theme.colors.error : item.type === 'income' ? theme.colors.success : theme.colors.primary,
                                                     borderColor: theme.colors.border,
                                                 }]}
                                                 value={item.amount ? formatNumberWithCommas(item.amount) : ''}
@@ -587,6 +642,16 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
                                                 <Ionicons name="arrow-up-circle-outline" size={16} color={item.type === 'income' ? theme.colors.success : theme.colors.textMuted} />
                                                 <Text style={[styles.toggleText, item.type === 'income' && { color: theme.colors.success, fontWeight: '700' }]}>دخل</Text>
                                             </TouchableOpacity>
+                                            <TouchableOpacity
+                                                style={[
+                                                    styles.toggleBtn,
+                                                    item.type === 'savings' && { backgroundColor: theme.colors.primary + '1A', borderColor: theme.colors.primary }
+                                                ]}
+                                                onPress={() => updateTransaction(index, 'type', 'savings')}
+                                            >
+                                                <Ionicons name="wallet-outline" size={16} color={item.type === 'savings' ? theme.colors.primary : theme.colors.textMuted} />
+                                                <Text style={[styles.toggleText, item.type === 'savings' && { color: theme.colors.primary, fontWeight: '700' }]}>حصالة</Text>
+                                            </TouchableOpacity>
                                         </View>
 
                                         {/* Category */}
@@ -595,7 +660,7 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
                                             showsHorizontalScrollIndicator={false}
                                             contentContainerStyle={styles.categoryScroll}
                                         >
-                                            {(item.type === 'expense' ? EXPENSE_CATEGORY_LIST : INCOME_CATEGORY_LIST).map((cat) => (
+                                            {item.type !== 'savings' ? (item.type === 'expense' ? EXPENSE_CATEGORY_LIST : INCOME_CATEGORY_LIST).map((cat) => (
                                                 <TouchableOpacity
                                                     key={cat}
                                                     style={[
@@ -615,7 +680,18 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
                                                         {CATEGORY_DISPLAY_NAMES[cat] || cat}
                                                     </Text>
                                                 </TouchableOpacity>
-                                            ))}
+                                            )) : (
+                                                <View
+                                                    style={[
+                                                        styles.categoryChip,
+                                                        { borderColor: theme.colors.primary, backgroundColor: theme.colors.primary + '1A' }
+                                                    ]}
+                                                >
+                                                    <Text style={[styles.categoryChipText, { color: theme.colors.primary, fontWeight: '700' }]}>
+                                                        {CATEGORY_DISPLAY_NAMES.savings}
+                                                    </Text>
+                                                </View>
+                                            )}
                                         </ScrollView>
                                     </View>
                                 ))}
@@ -747,8 +823,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     },
     usageBadgeText: {
         fontSize: 11,
-        fontWeight: '600',
         fontFamily: theme.typography.fontFamily,
+        fontWeight: '600',
+        marginRight: 4,
     },
     // Instruction
     instruction: {
@@ -819,30 +896,36 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         marginLeft: 12,
         ...theme.shadows.sm,
     },
-    // Example
-    exampleCard: {
-        borderRadius: 14,
-        padding: 14,
+    // Example Section
+    exampleSection: {
+        borderRadius: 16,
+        padding: 12,
+        marginBottom: 20,
         borderWidth: 1,
-        borderStyle: 'dashed',
-        marginBottom: 16,
+        ...theme.shadows.sm,
     },
     exampleHeader: {
         flexDirection: 'row-reverse',
         alignItems: 'center',
         gap: 6,
-        marginBottom: 8,
+        marginBottom: 10,
     },
     exampleLabel: {
         fontSize: 12,
-        fontWeight: '600',
         fontFamily: theme.typography.fontFamily,
+        fontWeight: '700',
+    },
+    examplesList: {
+        gap: 0,
+    },
+    exampleItem: {
+        paddingVertical: 10,
     },
     exampleText: {
         fontSize: 13,
         fontFamily: theme.typography.fontFamily,
         textAlign: 'right',
-        lineHeight: 20,
+        lineHeight: 18,
     },
     // Processing
     processingContainer: {

@@ -41,12 +41,12 @@ export const lightTheme = {
     goalRose: ['#FB7185', '#F43F5E', '#E11D48'],
   },
   spacing: {
-    xs: Platform.OS === 'android' ? 3 : 4,
-    sm: Platform.OS === 'android' ? 6 : 8,
-    md: Platform.OS === 'android' ? 12 : 16,
-    lg: Platform.OS === 'android' ? 20 : 24,
-    xl: Platform.OS === 'android' ? 28 : 32,
-    xxl: Platform.OS === 'android' ? 40 : 48,
+    xs: Platform.OS === 'android' ? 2 : 3,
+    sm: Platform.OS === 'android' ? 4 : 6,
+    md: Platform.OS === 'android' ? 8 : 12,
+    lg: Platform.OS === 'android' ? 12 : 16,
+    xl: Platform.OS === 'android' ? 16 : 20,
+    xxl: Platform.OS === 'android' ? 24 : 28,
   },
   borderRadius: {
     sm: Platform.OS === 'android' ? 3 : 4,
@@ -93,15 +93,15 @@ export const lightTheme = {
     },
   },
   typography: {
-    fontFamily: 'Tajawal-Regular',
+    fontFamily: 'DINNext-Medium',
     sizes: {
-      xs: 12,
-      sm: 14,
-      md: 16,
-      lg: 18,
-      xl: 20,
-      xxl: 24,
-      display: 36,
+      xs: Platform.OS === 'android' ? 12 : 14,
+      sm: Platform.OS === 'android' ? 14 : 18,
+      md: Platform.OS === 'android' ? 16 : 20,
+      lg: Platform.OS === 'android' ? 18 : 22,
+      xl: Platform.OS === 'android' ? 20 : 24,
+      xxl: Platform.OS === 'android' ? 22 : 28,
+      display: Platform.OS === 'android' ? 40 : 48,
     },
   },
 };
@@ -221,9 +221,9 @@ export const getPlatformShadow = (size: 'xs' | 'sm' | 'md' | 'lg' | 'xl') => {
 
 export const getPlatformFontWeight = (weight: any = '400') => {
   if (Platform.OS === 'android') {
-    // Android falls back to system font (Roboto) if custom font + numeric weight is used
+    // Android falls back to system font if custom font + numeric weight is used
     // and that weight isn't explicitly defined in a font family configuration.
-    // For Tajawal-Regular, we use 'normal' to ensure the font family is applied.
+    // For DINNext, we use 'normal' for bold weights if we don't have separate family entries.
     const boldWeights = ['500', '600', '700', '800', '900', 'bold'];
     if (boldWeights.includes(weight.toString())) {
       return 'normal';

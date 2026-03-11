@@ -39,8 +39,7 @@ import {
   addExpense,
   addIncome,
 } from '../database/database';
-import { getSubscriptions, checkAndProcessSubscriptions } from '../services/subscriptionService';
-import { Expense, Income, FinancialGoal, Debt, EXPENSE_CATEGORIES, Challenge, Subscription, ExpenseShortcut, IncomeShortcut } from '../types';
+import { Expense, Income, FinancialGoal, Debt, EXPENSE_CATEGORIES, Challenge, ExpenseShortcut, IncomeShortcut } from '../types';
 import { updateAllChallenges } from '../services/challengeService';
 import { getUnlockedAchievementsCount, getTotalAchievementsCount } from '../services/achievementService';
 import { calculateBudgetStatus, BudgetStatus } from '../services/budgetService';
@@ -52,6 +51,7 @@ import { convertCurrency, formatCurrencyAmount } from '../services/currencyServi
 
 import { usePrivacy } from '../context/PrivacyContext';
 import { SmartAddModal } from '../components/SmartAddModal';
+import { CircularProgress } from '../components/CircularProgress';
 import { ManageShortcutsModal } from '../components/ManageShortcutsModal';
 import { authStorage } from '../services/authStorage';
 import { authApiService } from '../services/authApiService';
@@ -68,7 +68,7 @@ const MONTH_NAMES = ['يناير', 'فبراير', 'مارس', 'أبريل', 'م
 const WEEKDAY_NAMES = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 const CHALLENGE_REFRESH_MS = 3 * 60 * 60 * 1000;
 
-export const DashboardScreen = ({ navigation }: any) => {
+const DashboardScreenComponent = ({ navigation }: any) => {
   const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const { formatCurrency, currencyCode } = useCurrency();
@@ -85,7 +85,7 @@ export const DashboardScreen = ({ navigation }: any) => {
   const [manageShortcutsType, setManageShortcutsType] = useState<'expense' | 'income'>('expense');
   const [showReferralModal, setShowReferralModal] = useState(false);
   const [recentTransactions, setRecentTransactions] = useState<(Expense | Income)[]>([]);
-  const [subscriptionsSummary, setSubscriptionsSummary] = useState<{ active: number } | null>(null);
+
   const [refreshing, setRefreshing] = useState(false);
   const [userName, setUserName] = useState<string>('');
   const [activeGoals, setActiveGoals] = useState<FinancialGoal[]>([]);
@@ -240,7 +240,6 @@ export const DashboardScreen = ({ navigation }: any) => {
         challenges,
         shortcutsExp,
         shortcutsInc,
-        subs,
       ] = await Promise.all([
         getUserSettings(),
         getFinancialGoals(),
@@ -257,10 +256,9 @@ export const DashboardScreen = ({ navigation }: any) => {
         })(),
         getSmartExpenseShortcuts(),
         getSmartIncomeShortcuts(),
-        getSubscriptions(true),
       ]);
 
-      setSubscriptionsSummary({ active: subs.length });
+
 
       if (userSettings?.name) {
         setUserName(userSettings.name);
@@ -428,8 +426,18 @@ export const DashboardScreen = ({ navigation }: any) => {
       <View style={styles.headerContainer}>
         <View style={[styles.headerRoundedBackground, { paddingTop: insets.top + 10 }]}>
           <View style={styles.headerContent}>
-            {/* Title */}
-            <Text style={styles.headerTitle}>دنانير</Text>
+            {/* Title / Greeting */}
+            <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
+              {userName ? (
+                (() => {
+                  const hour = new Date().getHours();
+                  const firstWord = userName.split(' ')[0];
+                  if (hour >= 5 && hour < 12) return `صباح الخير، ${firstWord}`;
+                  if (hour >= 12 && hour < 18) return `أهلاً، ${firstWord}`;
+                  return `مساء الخير، ${firstWord}`;
+                })()
+              ) : 'دنانير'}
+            </Text>
 
             {/* Actions */}
             <View style={styles.headerActions}>
@@ -515,6 +523,8 @@ export const DashboardScreen = ({ navigation }: any) => {
 
         </View>
 
+        <View style={styles.sectionDivider} />
+
         {/* Unified Tool Grid - All items in the circle button style */}
         <View style={styles.actionGrid}>
           <TouchableOpacity
@@ -545,16 +555,6 @@ export const DashboardScreen = ({ navigation }: any) => {
               <Ionicons name="flag" size={28} color={theme.colors.warning} />
             </View>
             <Text style={styles.actionLabel}>الأهداف</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionItem}
-            onPress={() => setShowSmartAdd(true)}
-          >
-            <View style={[styles.actionIconBg, { backgroundColor: theme.colors.info + '18' }]}>
-              <Ionicons name="mic" size={26} color={theme.colors.info} />
-            </View>
-            <Text style={styles.actionLabel}>إضافة ذكية</Text>
           </TouchableOpacity>
 
           {budgetsSummary && (
@@ -591,24 +591,27 @@ export const DashboardScreen = ({ navigation }: any) => {
             <Text style={styles.actionLabel}>الفواتير</Text>
           </TouchableOpacity>
 
+
+
           <TouchableOpacity
             style={styles.actionItem}
-            onPress={() => navigation.navigate('Subscriptions')}
+            onPress={() => navigation.navigate('Savings')}
           >
-            <View style={[styles.actionIconBg, { backgroundColor: theme.colors.warning + '18' }]}>
-              <Ionicons name="repeat" size={24} color={theme.colors.warning} />
+            <View style={[styles.actionIconBg, { backgroundColor: '#10B981' + '18' }]}>
+              <Ionicons name="wallet" size={24} color="#10B981" />
             </View>
-            <Text style={styles.actionLabel}>الاشتراكات</Text>
+            <Text style={styles.actionLabel}>الحصالة</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.actionItem}
             onPress={() => setShowTodayModal(true)}
           >
+
             <View style={[styles.actionIconBg, { backgroundColor: theme.colors.primary + '18' }]}>
               <Ionicons name="list" size={24} color={theme.colors.primary} />
             </View>
-            <Text style={styles.actionLabel}>كشف حساب اليوم</Text>
+            <Text style={styles.actionLabel}>ملخص اليوم</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -622,25 +625,19 @@ export const DashboardScreen = ({ navigation }: any) => {
           </TouchableOpacity>
         </View>
 
+        <View style={styles.sectionDivider} />
 
         {/* اختصارات سريعة - إضافة مصروف/دخل بضغطة دون فتح النموذج */}
         <View style={styles.shortcutsSection}>
           <View style={styles.shortcutsSectionHeader}>
             <Text style={styles.shortcutsSectionTitle}>اختصارات ذكية</Text>
-            <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', gap: 12 }}>
-              <TouchableOpacity
-                onPress={() => { setManageShortcutsType('expense'); setShowManageShortcuts(true); }}
-                style={[styles.shortcutsHeaderButton, styles.shortcutsHeaderButtonEXP]}
-              >
-                <Text style={[styles.shortcutsHeaderButtonText, { color: theme.colors.error }]}>إدارة المصروفات</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => { setManageShortcutsType('income'); setShowManageShortcuts(true); }}
-                style={[styles.shortcutsHeaderButton, styles.shortcutsHeaderButtonINC]}
-              >
-                <Text style={[styles.shortcutsHeaderButtonText, { color: theme.colors.success }]}>إدارة الدخل</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              onPress={() => setShowManageShortcuts(true)}
+              style={styles.shortcutsHeaderButtonNew}
+            >
+              <Ionicons name="add" size={18} color={theme.colors.primary} />
+              <Text style={styles.shortcutsHeaderButtonTextNew}>إضافة</Text>
+            </TouchableOpacity>
           </View>
           {(expenseShortcuts.length > 0 || incomeShortcuts.length > 0) ? (
             <ScrollView
@@ -649,40 +646,6 @@ export const DashboardScreen = ({ navigation }: any) => {
               contentContainerStyle={styles.shortcutsScrollContent}
               style={styles.shortcutsScroll}
             >
-              {expenseShortcuts.map((s) => (
-                <TouchableOpacity
-                  key={`exp-${s.id}`}
-                  style={[styles.shortcutChip, styles.shortcutChipExpense]}
-                  onPress={() => {
-                    alertService.confirm(
-                      'تأكيد إضافة مصروف',
-                      `${s.title}\n${formatCurrency(s.amount)}\n\nهل تريد إضافة هذا المصروف؟`,
-                      async () => {
-                        try {
-                          const dateStr = formatDateLocal(new Date());
-                          await addExpense({
-                            title: s.title,
-                            amount: s.amount,
-                            category: s.category as any,
-                            date: dateStr,
-                            description: s.description || '',
-                            currency: s.currency || currencyCode,
-                          });
-                          loadDataSafe();
-                          alertService.toastSuccess(`تمت إضافة المصروف: ${s.title}`);
-                        } catch (err: any) {
-                          alertService.toastError(err?.message || 'فشل الإضافة');
-                        }
-                      }
-                    );
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="remove-circle-outline" size={18} color={theme.colors.error} />
-                  <Text style={styles.shortcutChipLabel} numberOfLines={1}>{s.title}</Text>
-                  <Text style={styles.shortcutChipAmount}>{formatCurrency(s.amount)}</Text>
-                </TouchableOpacity>
-              ))}
               {incomeShortcuts.map((s) => (
                 <TouchableOpacity
                   key={`inc-${s.id}`}
@@ -712,8 +675,42 @@ export const DashboardScreen = ({ navigation }: any) => {
                   }}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="add-circle-outline" size={18} color={theme.colors.success} />
+                  <Ionicons name="add-circle-outline" size={20} color="#10B981" />
                   <Text style={styles.shortcutChipLabel} numberOfLines={1}>{s.source}</Text>
+                  <Text style={styles.shortcutChipAmount}>{formatCurrency(s.amount)}</Text>
+                </TouchableOpacity>
+              ))}
+              {expenseShortcuts.map((s) => (
+                <TouchableOpacity
+                  key={`exp-${s.id}`}
+                  style={[styles.shortcutChip, styles.shortcutChipExpense]}
+                  onPress={() => {
+                    alertService.confirm(
+                      'تأكيد إضافة مصروف',
+                      `${s.title}\n${formatCurrency(s.amount)}\n\nهل تريد إضافة هذا المصروف؟`,
+                      async () => {
+                        try {
+                          const dateStr = formatDateLocal(new Date());
+                          await addExpense({
+                            title: s.title,
+                            amount: s.amount,
+                            category: s.category as any,
+                            date: dateStr,
+                            description: s.description || '',
+                            currency: s.currency || currencyCode,
+                          });
+                          loadDataSafe();
+                          alertService.toastSuccess(`تمت إضافة المصروف: ${s.title}`);
+                        } catch (err: any) {
+                          alertService.toastError(err?.message || 'فشل الإضافة');
+                        }
+                      }
+                    );
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="remove-circle-outline" size={20} color="#EF4444" />
+                  <Text style={styles.shortcutChipLabel} numberOfLines={1}>{s.title}</Text>
                   <Text style={styles.shortcutChipAmount}>{formatCurrency(s.amount)}</Text>
                 </TouchableOpacity>
               ))}
@@ -721,31 +718,25 @@ export const DashboardScreen = ({ navigation }: any) => {
           ) : (
             <TouchableOpacity
               style={styles.shortcutsEmptyHint}
-              onPress={() => { setManageShortcutsType('expense'); setShowManageShortcuts(true); }}
+              onPress={() => setShowManageShortcuts(true)}
             >
-              <Ionicons name="flash-outline" size={24} color={theme.colors.textSecondary} />
+              <Ionicons name="flash-outline" size={36} color="#64748b" style={{ transform: [{ rotate: '15deg' }] }} />
               <Text style={styles.shortcutsEmptyHintText}>لا توجد اختصارات. اضغط لإضافة اسم، فئة ومبلغ ثم استخدمها من هنا دون فتح النموذج.</Text>
             </TouchableOpacity>
           )}
         </View>
 
+        <View style={styles.sectionDivider} />
+
         <TouchableOpacity
           style={styles.smartInsightsRow}
           onPress={async () => {
             try {
-              // Perform a real auth check with the server
               const { isAuthenticated, user } = await authApiService.checkAuth();
-
-              console.log('[AI Insights] Dashboard button pressed check:', {
-                isAuthenticated,
-                userId: user?.id ?? null,
-              });
-
               if (!isAuthenticated) {
-                console.log('[AI Insights] Not authenticated -> showing login alert');
                 alertService.show({
                   title: 'تسجيل الدخول',
-                  message: 'يجب تسجيل الدخول أو إنشاء حساب لاستخدام التحليل الذكي بمساعدة الذكاء الاصطناعي.',
+                  message: 'يجب تسجيل الدخول لاستخدام التحليل الذكي بمساعدة الذكاء الاصطناعي.',
                   confirmText: 'تسجيل الدخول',
                   cancelText: 'إلغاء',
                   showCancel: true,
@@ -753,36 +744,56 @@ export const DashboardScreen = ({ navigation }: any) => {
                 });
                 return;
               }
-
-              console.log('[AI Insights] Auth OK -> navigating to AISmartInsights');
               navigation.navigate('AISmartInsights');
             } catch (e) {
-              console.error('AI button auth check error:', e);
-              // Fallback to local check if offline
               const token = await authStorage.getAccessToken();
-              if (token) {
-                navigation.navigate('AISmartInsights');
-              } else {
-                navigation.navigate('Auth');
-              }
+              if (token) navigation.navigate('AISmartInsights');
+              else navigation.navigate('Auth');
             }
           }}
-          activeOpacity={0.8}
+          activeOpacity={0.9}
         >
-          <View style={styles.smartInsightsIconBg}>
-            <Ionicons name="sparkles" size={28} color={theme.colors.info} />
-          </View>
-          <Text style={styles.smartInsightsLabel}>التحليل الذكي</Text>
-          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={22} color={theme.colors.info} />
+          <LinearGradient
+            colors={['#4f46e5', '#3b82f6', '#0ea5e9']}
+            style={styles.smartInsightsGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            {/* Background glowing shape */}
+            <View style={styles.smartInsightsGlow} />
+
+            <View style={styles.smartInsightsHeader}>
+              <View style={styles.smartInsightsIconContainer}>
+                <Ionicons name="sparkles" size={28} color="#FFFFFF" />
+              </View>
+              <View style={styles.smartInsightsBadge}>
+                <Text style={styles.smartInsightsBadgeText}>مُدعم بالذكاء الاصطناعي</Text>
+              </View>
+            </View>
+
+            <View style={styles.smartInsightsTextContainer}>
+              <Text style={styles.smartInsightsLabel}>التحليل الذكي والتقارير</Text>
+              <Text style={styles.smartInsightsDesc}>
+                اكتشف أنماط إنفاقك واحصل على توجيهات استراتيجية لنموك المالي.
+              </Text>
+            </View>
+
+            <View style={styles.smartInsightsAction}>
+              <Text style={styles.smartInsightsActionText}>ابدأ التحليل الآن</Text>
+              <Ionicons name={isRTL ? 'arrow-back' : 'arrow-forward'} size={20} color="#FFFFFF" />
+            </View>
+          </LinearGradient>
         </TouchableOpacity>
+
+        <View style={styles.sectionDivider} />
 
         <ManageShortcutsModal
           visible={showManageShortcuts}
-          type={manageShortcutsType}
           onClose={() => { setShowManageShortcuts(false); loadDataSafe(); }}
           onShortcutUsed={(s) => {
             // When a shortcut is used from the modal, add the transaction directly
-            if (manageShortcutsType === 'expense') {
+            // The modal now passes the shortcut directly, and we infer its type
+            if ('title' in s) { // It's an ExpenseShortcut
               const es = s as ExpenseShortcut;
               alertService.confirm(
                 'تأكيد إضافة مصروف',
@@ -889,7 +900,7 @@ export const DashboardScreen = ({ navigation }: any) => {
                   opacity: 0.5
                 }} />
 
-                <Text style={[styles.sectionTitle, { textAlign: 'center', fontSize: 20, marginBottom: 25 }]}>كشف حساب اليوم</Text>
+                <Text style={[styles.sectionTitle, { textAlign: 'center', fontSize: 20, marginBottom: 25 }]}>ملخص اليوم</Text>
 
                 {todayData ? (
                   <>
@@ -952,46 +963,6 @@ export const DashboardScreen = ({ navigation }: any) => {
 
 
 
-        {/* Goals Progress Carousel - أهدافي المالية */}
-        {activeGoals.length > 0 && (
-          <View style={styles.goalsSection}>
-            <View style={styles.goalsSectionHeader}>
-              <Text style={styles.goalsSectionTitle}>أهدافي المالية</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Goals')} activeOpacity={0.7}>
-                <Text style={styles.goalsSectionFilter}>الكل</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.goalsCarousel}>
-              {activeGoals.map((goal) => {
-                const goalAmounts = convertedGoalAmounts[goal.id] || { current: goal.currentAmount, target: goal.targetAmount };
-                const percent = Math.min((goalAmounts.current / (goalAmounts.target || 1)) * 100, 100);
-
-                return (
-                  <TouchableOpacity
-                    key={goal.id}
-                    style={styles.goalCard}
-                    onPress={() => navigation.navigate('Goals', { screen: 'GoalDetails', params: { goalId: goal.id } })}
-                    activeOpacity={0.85}
-                  >
-                    <View style={styles.goalCardHeader}>
-                      <Ionicons name="flag" size={20} color={theme.colors.primary} />
-                      <Text style={styles.goalCardTitle} numberOfLines={1}>{goal.title}</Text>
-                    </View>
-                    <Text style={styles.goalCardAmount}>{formatCurrency(goalAmounts.current)}</Text>
-                    <View style={styles.goalCardProgressRow}>
-                      <Text style={styles.goalPercentText}>{isPrivacyEnabled ? '**%' : `${Math.round(percent)}%`}</Text>
-                      <View style={styles.goalProgressBar}>
-                        <View style={[styles.goalProgressFill, { width: `${percent}%` }]} />
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        )}
-
         {/* Status & Achievements Section */}
         <View style={styles.section}>
           <TouchableOpacity
@@ -999,86 +970,99 @@ export const DashboardScreen = ({ navigation }: any) => {
             onPress={() => navigation.navigate('Achievements')}
           >
             <LinearGradient
-              colors={theme.gradients.primary as any}
+              colors={['#0f172a', '#1e293b']}
               style={styles.statusCardGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
               <View style={styles.statusCardHeader}>
                 <View style={styles.statusCardIconContainer}>
-                  <Ionicons name="trophy" size={24} color="#FFFFFF" />
+                  <Ionicons name="medal" size={28} color="#FFD700" />
                 </View>
                 <View style={styles.statusCardTitleContainer}>
-                  <Text style={styles.statusCardTitle}>مستوى الإنجاز</Text>
-                  <Text style={styles.statusCardSubtitle}>أنت تحرز تقدماً رائعاً!</Text>
+                  <Text style={styles.statusCardTitle}>سجل إنجازاتك</Text>
+                  <Text style={styles.statusCardSubtitle}>خطواتك نحو النجاح المالي</Text>
                 </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={{
-                    color: '#FFFFFF',
-                    fontWeight: getPlatformFontWeight('800'),
-                    fontSize: 18,
-                    fontFamily: theme.typography.fontFamily
-                  }}>
-                    {achievementsCount.unlocked}/{achievementsCount.total}
-                  </Text>
-                  <View style={styles.achievementProgressBar}>
-                    <View style={[styles.achievementProgressFill, { width: `${(achievementsCount.unlocked / (achievementsCount.total || 1)) * 100}%` }]} />
+                <View style={styles.statusProgressWrapper}>
+                  <View style={styles.statusProgressBadge}>
+                    <Text style={styles.statusProgressText}>
+                      {achievementsCount.unlocked}/{achievementsCount.total}
+                    </Text>
                   </View>
                 </View>
               </View>
+              {/* Custom abstract background shape */}
+              <View style={styles.statusCardAbstractShape} />
             </LinearGradient>
           </TouchableOpacity>
         </View>
 
+        <View style={styles.sectionDivider} />
+
         {/* Challenges Section */}
         {activeChallenges.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>تحديات نشطة</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Challenges')}>
-                <Text style={styles.sectionLink}>الكل</Text>
-              </TouchableOpacity>
-            </View>
+          <>
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>تحديات نشطة</Text>
+                <TouchableOpacity onPress={() => navigation.navigate('Challenges')}>
+                  <Text style={styles.sectionLink}>الكل</Text>
+                </TouchableOpacity>
+              </View>
 
-            {activeChallenges.map((challenge) => (
-              <TouchableOpacity
-                key={challenge.id}
-                style={styles.challengePreviewCardWrapper}
-                onPress={() => navigation.navigate('Challenges')}
-              >
-                <LinearGradient
-                  colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-                  style={styles.challengePreviewCard}
+              {activeChallenges.map((challenge) => (
+                <TouchableOpacity
+                  key={challenge.id}
+                  style={styles.challengePreviewCardWrapper}
+                  onPress={() => navigation.navigate('Challenges')}
+                  activeOpacity={0.8}
                 >
-                  <View style={styles.challengePreviewHeader}>
-                    <View style={[styles.challengePreviewIconContainer, { backgroundColor: theme.colors.surfaceLight }]}>
-                      <Ionicons name={challenge.icon as any || 'star'} size={24} color={theme.colors.primary} />
-                    </View>
-                    <View style={styles.challengePreviewContent}>
-                      <Text style={styles.challengePreviewTitle}>{challenge.title}</Text>
-                      <View style={styles.challengePreviewProgressBar}>
-                        <View
-                          style={[
-                            styles.challengePreviewProgressFill,
-                            {
-                              width: `${(challenge.currentProgress / (challenge.targetProgress || 1)) * 100}%`,
-                              backgroundColor: theme.colors.primary
-                            }
-                          ]}
-                        />
+                  <LinearGradient
+                    colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[styles.challengePreviewCard]}
+                  >
+                    <View style={styles.challengePreviewHeader}>
+                      <View style={styles.challengePreviewContent}>
+                        <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                          <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 12 }}>
+                            <View style={[styles.challengePreviewIconContainer, { backgroundColor: theme.colors.primary + '15' }]}>
+                              <Ionicons name={challenge.icon as any || 'star'} size={24} color={theme.colors.primary} />
+                            </View>
+                            <View>
+                              <Text style={styles.challengePreviewTitle}>{challenge.title}</Text>
+                              <Text style={styles.challengePreviewDescription} numberOfLines={1}>
+                                {`${challenge.currentProgress} / ${challenge.targetProgress}`}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+                        <View style={styles.challengePreviewProgressContainer}>
+                          <View style={[styles.challengePreviewProgressBar, { backgroundColor: theme.colors.primary + '20' }]}>
+                            <View
+                              style={[
+                                styles.challengePreviewProgressFill,
+                                {
+                                  width: `${(challenge.currentProgress / (challenge.targetProgress || 1)) * 100}%`,
+                                  backgroundColor: theme.colors.primary
+                                }
+                              ]}
+                            />
+                          </View>
+                          <Text style={styles.challengePreviewPercentText}>
+                            {isPrivacyEnabled ? '**%' : `${Math.round((challenge.currentProgress / (challenge.targetProgress || 1)) * 100)}%`}
+                          </Text>
+                        </View>
                       </View>
                     </View>
-                    <View style={styles.challengePreviewPercentBadge}>
-                      <Text style={styles.challengePreviewPercentText}>
-                        {isPrivacyEnabled ? '**%' : `${Math.round((challenge.currentProgress / (challenge.targetProgress || 1)) * 100)}%`}
-                      </Text>
-                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
+              ))}
+            </View>
 
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
-            ))}
-          </View>
+            <View style={styles.sectionDivider} />
+          </>
         )}
 
 
@@ -1131,25 +1115,41 @@ export const DashboardScreen = ({ navigation }: any) => {
           }
         }}
       />
+
+
     </SafeAreaView>
   );
 };
+
+export const DashboardScreen = React.memo(DashboardScreenComponent);
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
   },
-
-  headerContainer: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.sm,
-    paddingBottom: theme.spacing.md,
-    backgroundColor: theme.colors.surfaceCard,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    ...getPlatformShadow('sm'),
+  fab: {
+    position: 'absolute',
+    bottom: 30, // Slightly higher
+    left: isRTL ? 24 : undefined,
+    right: isRTL ? undefined : 24,
+    width: 68, // Slightly larger
+    height: 68,
+    borderRadius: 34,
+    elevation: 8,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    zIndex: 1000,
   },
+  fabGradient: {
+    flex: 1,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
   headerRow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
@@ -1162,15 +1162,6 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     gap: 8,
-  },
-  headerButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: theme.colors.surfaceLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
   },
   topInfo: {
     paddingTop: theme.spacing.md,
@@ -1196,18 +1187,18 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     ...getPlatformShadow('md'),
   },
   greetingText: {
-    fontSize: 22,
-    fontWeight: getPlatformFontWeight('800'),
+    fontSize: theme.typography.sizes.xl,
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'right' : 'left',
     letterSpacing: -0.3,
   },
   dateText: {
-    fontSize: 13,
+    fontSize: theme.typography.sizes.xs,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    marginTop: 4,
+    marginTop: theme.spacing.xs,
     textAlign: isRTL ? 'right' : 'left',
     letterSpacing: 0.2,
   },
@@ -1238,7 +1229,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: '#003459',
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
-    paddingBottom: Platform.OS === 'ios' ? 25 : 10,
+    paddingBottom: Platform.OS === 'ios' ? 12 : 6,
     ...getPlatformShadow('xl'),
   },
   headerContent: {
@@ -1248,25 +1239,27 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingHorizontal: 20,
   },
   headerTitle: {
-    fontSize: 26,
-    fontWeight: getPlatformFontWeight('900'),
+    flex: 1,
+    maxWidth: '55%',
+    fontSize: theme.typography.sizes.xl,
+    fontWeight: getPlatformFontWeight('400'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     letterSpacing: 0.5,
-
+    textAlign: isRTL ? 'right' : 'left',
   },
   headerActions: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: theme.spacing.sm,
   },
   headerButton: {
-    padding: 10,
-    borderRadius: 14,
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
   heroSection: {
-    marginTop: 10,
+    marginTop: theme.spacing.sm,
     marginBottom: theme.spacing.lg,
   },
   todayQuickLook: {
@@ -1277,12 +1270,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   quickLookItem: {
     flex: 1,
-    padding: theme.spacing.sm,
-    paddingVertical: 12,
-    borderRadius: 16,
+    padding: theme.spacing.md,
+    paddingVertical: theme.spacing.md,
+    borderRadius: 20,
     alignItems: 'center',
-    borderWidth: 1,
-    ...getPlatformShadow('sm'),
+    borderWidth: 1.5,
+    ...getPlatformShadow('md'),
   },
   quickLookIconBg: {
     width: 32,
@@ -1293,175 +1286,231 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: 4,
   },
   quickLookLabel: {
-    fontSize: 10,
-    fontWeight: getPlatformFontWeight('600'),
+    fontSize: theme.typography.sizes.xs,
+    fontWeight: getPlatformFontWeight('400'),
     marginTop: 2,
     fontFamily: theme.typography.fontFamily,
     color: theme.colors.textMuted,
   },
   quickLookValue: {
-    fontSize: 13,
-    fontWeight: getPlatformFontWeight('800'),
+    fontSize: theme.typography.sizes.xs,
+    fontWeight: getPlatformFontWeight('600'),
     marginTop: 2,
     fontFamily: theme.typography.fontFamily,
   },
   actionGrid: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     flexWrap: 'wrap',
-    justifyContent: 'flex-start',
+    justifyContent: 'center', // Center items
     marginBottom: theme.spacing.md,
-    paddingHorizontal: 10,
   },
   actionItem: {
     alignItems: 'center',
-    width: (width - (theme.spacing.lg * 2) - 20) / 4, // Subtract scrollContent padding and grid padding
-    marginBottom: theme.spacing.lg,
+    width: (width - (theme.spacing.lg * 2)) / 4,
+    marginBottom: theme.spacing.md,
   },
   actionIconBg: {
-    width: 56,
-    height: 56,
+    width: 60,
+    height: 60,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: theme.spacing.xs,
   },
   actionLabel: {
-    fontSize: 11,
-    fontWeight: getPlatformFontWeight('600'),
+    fontSize: 12,
+    fontWeight: getPlatformFontWeight('300'),
     color: theme.colors.textPrimary,
     textAlign: 'center',
     fontFamily: theme.typography.fontFamily,
+    marginTop: 2,
   },
   shortcutsSection: {
-    marginBottom: theme.spacing.lg,
-    direction: 'rtl' as const,
+    marginBottom: theme.spacing.xl,
+    paddingHorizontal: theme.spacing.sm,
   },
   shortcutsSectionHeader: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.xs,
+    marginBottom: theme.spacing.lg,
   },
   shortcutsSectionTitle: {
-    fontSize: 15,
-    fontWeight: getPlatformFontWeight('700'),
+    fontSize: 20,
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
-  shortcutsSectionLink: {
-    fontSize: 13,
-    fontWeight: getPlatformFontWeight('600'),
-    color: theme.colors.primary,
-    fontFamily: theme.typography.fontFamily,
-  },
-  shortcutsHeaderButton: {
+  shortcutsHeaderButtonNew: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: theme.colors.surfaceLight,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
-  shortcutsHeaderButtonEXP: {
-    backgroundColor: theme.colors.error + '15',
-    borderColor: theme.colors.error + '30',
-  },
-  shortcutsHeaderButtonINC: {
-    backgroundColor: theme.colors.success + '15',
-    borderColor: theme.colors.success + '30',
+  shortcutsHeaderButtonTextNew: {
+    fontSize: 13,
+    fontWeight: getPlatformFontWeight('400'),
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
   },
   shortcutsHeaderButtonText: {
-    fontSize: 12,
-    fontWeight: getPlatformFontWeight('700'),
+    fontSize: 14,
+    fontWeight: getPlatformFontWeight('400'),
     fontFamily: theme.typography.fontFamily,
   },
   shortcutsScroll: {
     marginHorizontal: -theme.spacing.xs,
+    transform: [{ scaleX: isRTL ? -1 : 1 }],
   },
   shortcutsScrollContent: {
     paddingHorizontal: theme.spacing.xs,
-    gap: 10,
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    gap: theme.spacing.sm,
+    flexDirection: 'row',
   },
   shortcutChip: {
     minWidth: 120,
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 12,
-    borderRadius: 14,
-    borderWidth: 1,
+    borderRadius: 20,
+    borderWidth: 1.2,
     alignItems: 'center',
     justifyContent: 'center',
+    transform: [{ scaleX: isRTL ? -1 : 1 }],
   },
   shortcutChipExpense: {
-    backgroundColor: theme.colors.error + '12',
-    borderColor: theme.colors.error + '40',
+    backgroundColor: 'rgba(239, 68, 68, 0.05)',
+    borderColor: 'rgba(239, 68, 68, 0.2)',
   },
   shortcutChipIncome: {
-    backgroundColor: theme.colors.success + '12',
-    borderColor: theme.colors.success + '40',
+    backgroundColor: 'rgba(16, 185, 129, 0.05)',
+    borderColor: 'rgba(16, 185, 129, 0.2)',
   },
   shortcutChipLabel: {
-    fontSize: 12,
-    fontWeight: getPlatformFontWeight('600'),
-    color: theme.colors.textPrimary,
+    fontSize: 14,
+    fontWeight: getPlatformFontWeight('500'),
+    color: '#0f172a',
     fontFamily: theme.typography.fontFamily,
-    marginTop: 4,
+    marginTop: 8,
   },
   shortcutChipAmount: {
     fontSize: 13,
-    fontWeight: getPlatformFontWeight('800'),
-    color: theme.colors.textSecondary,
+    fontWeight: getPlatformFontWeight('400'),
+    color: '#64748b',
     fontFamily: theme.typography.fontFamily,
-    marginTop: 2,
+    marginTop: 4,
   },
   shortcutsEmptyHint: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    gap: 10,
+    padding: theme.spacing.xl,
+    paddingVertical: 32,
+    backgroundColor: 'transparent',
+    borderRadius: 32,
+    borderWidth: 2,
+    borderColor: 'rgba(148, 163, 184, 0.15)',
+    borderStyle: 'dashed',
+    gap: 16,
   },
   shortcutsEmptyHintText: {
-    flex: 1,
-    fontSize: 13,
-    color: theme.colors.textSecondary,
+    fontSize: 15,
+    fontWeight: getPlatformFontWeight('400'),
+    color: '#64748b',
     fontFamily: theme.typography.fontFamily,
-    textAlign: isRTL ? 'left' : 'right',
+    textAlign: 'center',
+    lineHeight: 24,
+    paddingHorizontal: 20,
   },
   smartInsightsRow: {
-    width: '100%',
+    marginHorizontal: theme.spacing.sm,
+    marginBottom: theme.spacing.xl,
+    borderRadius: 32,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    ...getPlatformShadow('lg'),
+  },
+  smartInsightsGradient: {
+    padding: theme.spacing.xl,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  smartInsightsGlow: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    top: -50,
+    left: -50,
+    zIndex: 0,
+  },
+  smartInsightsHeader: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.sm,
-    backgroundColor: theme.colors.info + '12',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: theme.colors.info + '40',
-    direction: 'ltr' as const,
+    marginBottom: theme.spacing.md,
+    zIndex: 1,
   },
-  smartInsightsIconBg: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: theme.colors.info + '20',
+  smartInsightsIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  smartInsightsBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  smartInsightsBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: getPlatformFontWeight('500'),
+    fontFamily: theme.typography.fontFamily,
+  },
+  smartInsightsTextContainer: {
+    marginBottom: theme.spacing.lg,
+    zIndex: 1,
   },
   smartInsightsLabel: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
+    fontSize: 20,
+    fontWeight: getPlatformFontWeight('600'),
+    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'right' : 'left',
-    ...(isRTL ? { marginRight: theme.spacing.md } : { marginLeft: theme.spacing.md }),
+    marginBottom: 4,
+  },
+  smartInsightsDesc: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'right' : 'left',
+    lineHeight: 20,
+    fontWeight: getPlatformFontWeight('400'),
+  },
+  smartInsightsAction: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 8,
+    zIndex: 1,
+  },
+  smartInsightsActionText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: getPlatformFontWeight('500'),
+    fontFamily: theme.typography.fontFamily,
   },
   modalStatRow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -1486,7 +1535,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   modalStatValue: {
     fontSize: 18,
-    fontWeight: getPlatformFontWeight('800'),
+    fontWeight: getPlatformFontWeight('600'),
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'right' : 'left',
     marginTop: 2,
@@ -1500,7 +1549,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   modalCloseButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: getPlatformFontWeight('700'),
+    fontWeight: getPlatformFontWeight('500'),
     fontFamily: theme.typography.fontFamily,
   },
   pulseSection: {
@@ -1519,14 +1568,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   pulseTitle: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('700'),
+    fontWeight: getPlatformFontWeight('500'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
   pulseLink: {
     fontSize: theme.typography.sizes.sm,
     color: 'rgba(255, 255, 255, 0.7)',
-    fontWeight: getPlatformFontWeight('600'),
+    fontWeight: getPlatformFontWeight('400'),
     fontFamily: theme.typography.fontFamily,
   },
   pulseStats: {
@@ -1540,7 +1589,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   pulseStatNum: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: getPlatformFontWeight('800'),
+    fontWeight: getPlatformFontWeight('600'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
@@ -1588,22 +1637,25 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   sectionTitle: {
-    fontSize: theme.typography.sizes.lg,
-    fontWeight: getPlatformFontWeight('800'),
+    fontSize: 22,
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
   sectionLink: {
-    fontSize: theme.typography.sizes.sm,
+    fontSize: 15,
     color: theme.colors.primary,
-    fontWeight: getPlatformFontWeight('700'),
+    fontWeight: getPlatformFontWeight('600'),
     fontFamily: theme.typography.fontFamily,
   },
   transactionList: {
     backgroundColor: theme.colors.surfaceCard,
-    borderRadius: 20,
-    padding: theme.spacing.sm,
-    ...getPlatformShadow('sm'),
+    borderRadius: 32,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.03)',
+    ...getPlatformShadow('md'),
+    shadowOpacity: 0.05,
   },
   emptyText: {
     textAlign: 'center',
@@ -1624,14 +1676,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   goalsSectionTitle: {
     fontSize: 20,
-    fontWeight: getPlatformFontWeight('800'),
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
   goalsSectionFilter: {
     fontSize: 15,
     color: theme.colors.textMuted,
-    fontWeight: getPlatformFontWeight('600'),
+    fontWeight: getPlatformFontWeight('400'),
     fontFamily: theme.typography.fontFamily,
   },
   goalsCarousel: {
@@ -1640,60 +1692,42 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     flexDirection: isRTL ? 'row' : 'row-reverse',
   },
   goalCard: {
-    width: width * 0.48,
+    width: width * 0.75, // Much wider for a premium feel
     backgroundColor: theme.colors.surfaceCard,
-    borderRadius: theme.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.md,
-    minWidth: '100%',
-    direction: 'rtl' as const,
+    borderRadius: 28,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border + '50',
+    padding: theme.spacing.lg,
+    marginRight: 0,
+    ...getPlatformShadow('md'),
   },
   goalCardHeader: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
-    marginBottom: theme.spacing.sm,
-    gap: 8,
+    marginBottom: theme.spacing.md,
+    gap: 12,
   },
   goalCardTitle: {
-    fontSize: 15,
-    fontWeight: getPlatformFontWeight('700'),
+    fontSize: 17,
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     flex: 1,
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'left' : 'right',
   },
   goalCardAmount: {
-    fontSize: 18,
-    fontWeight: getPlatformFontWeight('800'),
+    fontSize: 20,
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
-    marginBottom: theme.spacing.sm,
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'right' : 'left',
   },
-  goalCardProgressRow: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  goalProgressBar: {
-    flex: 1,
-    height: 6,
-    backgroundColor: theme.colors.border,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  goalProgressFill: {
-    height: '100%',
-    backgroundColor: theme.colors.primary,
-    borderRadius: 3,
-  },
   goalPercentText: {
-    fontSize: 12,
-    color: theme.colors.textMuted,
+    fontSize: 13,
+    color: theme.colors.textPrimary,
     fontWeight: getPlatformFontWeight('600'),
     fontFamily: theme.typography.fontFamily,
-    minWidth: 28,
+    textAlign: 'center',
   },
   summaryGrid: {
     width: '100%',
@@ -1707,11 +1741,11 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     width: '48%',
     minHeight: Platform.OS === 'android' ? 90 : 100,
     backgroundColor: theme.colors.surfaceCard,
-    borderRadius: 24,
-    padding: Platform.OS === 'android' ? 10 : 14,
+    borderRadius: theme.borderRadius.xl,
+    padding: Platform.OS === 'android' ? theme.spacing.sm : theme.spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: theme.spacing.md,
     borderWidth: 1,
     borderColor: theme.colors.border,
     ...(Platform.OS === 'ios' ? { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10 } : { elevation: 2 }),
@@ -1725,16 +1759,16 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: theme.spacing.xs,
   },
   summaryLabel: {
-    fontSize: 15,
-    fontWeight: getPlatformFontWeight('800'),
+    fontSize: theme.typography.sizes.sm,
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     marginBottom: 4,
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'right' : 'left',
   },
   summaryValue: {
-    fontSize: 13,
-    fontWeight: getPlatformFontWeight('600'),
+    fontSize: theme.typography.sizes.xs,
+    fontWeight: getPlatformFontWeight('400'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
@@ -1755,7 +1789,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   budgetQuickTitle: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: getPlatformFontWeight('700'),
+    fontWeight: getPlatformFontWeight('500'),
     color: '#FFFFFF',
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
@@ -1783,7 +1817,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   currencyConverterTitle: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: getPlatformFontWeight('700'),
+    fontWeight: getPlatformFontWeight('500'),
     color: '#FFFFFF',
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
@@ -1796,46 +1830,76 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     textAlign: 'right',
   },
   statusCard: {
-    borderRadius: theme.borderRadius.lg,
-    marginBottom: theme.spacing.sm,
+    borderRadius: 32,
+    marginBottom: theme.spacing.lg,
     overflow: 'hidden',
-    ...(Platform.OS === 'ios' ? { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 } : { elevation: 2 }),
+    ...getPlatformShadow('lg'),
   },
   statusCardGradient: {
-    padding: theme.spacing.md,
+    padding: theme.spacing.xl,
+    paddingVertical: 24,
   },
   statusCardHeader: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    marginBottom: theme.spacing.sm,
+    gap: 16,
+    zIndex: 2,
   },
   statusCardIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 56,
+    height: 56,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 215, 0, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
-    ...(isRTL ? { marginLeft: theme.spacing.sm } : { marginRight: theme.spacing.sm }),
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.3)',
   },
   statusCardTitleContainer: {
     flex: 1,
   },
   statusCardTitle: {
-    fontSize: theme.typography.sizes.lg,
-    fontWeight: getPlatformFontWeight('700'),
-    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: getPlatformFontWeight('600'),
+    color: '#F8FAFC',
     fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.xs,
-    textAlign: 'right',
-    writingDirection: 'rtl',
+    textAlign: isRTL ? 'right' : 'left',
+    marginBottom: 4,
   },
   statusCardSubtitle: {
-    fontSize: theme.typography.sizes.sm,
-    color: '#FFFFFF',
+    fontSize: 14,
+    color: 'rgba(248, 250, 252, 0.7)',
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
-    writingDirection: 'rtl',
+    textAlign: isRTL ? 'right' : 'left',
+    fontWeight: getPlatformFontWeight('400'),
+  },
+  statusProgressWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusProgressBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  statusProgressText: {
+    color: '#FFD700',
+    fontWeight: getPlatformFontWeight('600'),
+    fontSize: 16,
+    fontFamily: theme.typography.fontFamily,
+  },
+  statusCardAbstractShape: {
+    position: 'absolute',
+    right: -40,
+    bottom: -50,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    zIndex: 1,
   },
   statusCardStats: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -1856,8 +1920,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     textAlign: 'center',
   },
   statusCardStatValue: {
-    fontSize: theme.typography.sizes.lg,
-    fontWeight: getPlatformFontWeight('700'),
+    fontSize: theme.typography.sizes.md,
+    fontWeight: getPlatformFontWeight('400'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
@@ -1868,85 +1932,64 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginHorizontal: theme.spacing.sm,
   },
   challengePreviewCardWrapper: {
-    marginBottom: theme.spacing.sm,
-    borderRadius: theme.borderRadius.lg,
-    overflow: 'hidden',
-    ...(Platform.OS === 'ios' ? { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2 } : { elevation: 1 }),
+    marginBottom: theme.spacing.lg,
   },
   challengePreviewCard: {
-    borderRadius: 24,
-    padding: theme.spacing.lg,
-    backgroundColor: theme.colors.surfaceCard,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    ...(Platform.OS === 'ios' ? { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10 } : { elevation: 2 }),
+    borderRadius: 28,
+    padding: theme.spacing.xl,
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 0, 0, 0.03)',
+    ...getPlatformShadow('md'),
   },
   challengePreviewHeader: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    marginBottom: theme.spacing.sm,
+    flexDirection: 'column',
   },
   challengePreviewIconContainer: {
     width: 48,
     height: 48,
-    borderRadius: 20,
-    backgroundColor: theme.colors.surfaceLight,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    ...(isRTL ? { marginLeft: theme.spacing.md } : { marginRight: theme.spacing.md }),
   },
   challengePreviewContent: {
     flex: 1,
   },
   challengePreviewTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 19,
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
-    marginBottom: 4,
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  challengePreviewPercentBadge: {
-    backgroundColor: theme.colors.surfaceLight,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  challengePreviewPercentText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: theme.colors.primary,
-    fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'right' : 'left',
   },
   challengePreviewDescription: {
-    fontSize: theme.typography.sizes.xs,
-    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 14,
+    color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
-    writingDirection: 'rtl',
+    textAlign: isRTL ? 'right' : 'left',
+    marginTop: 2,
   },
-  challengePreviewPercent: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('700'),
-    color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
-    ...(isRTL ? { marginLeft: theme.spacing.sm } : { marginRight: theme.spacing.sm }),
-    textAlign: 'right',
+  challengePreviewProgressContainer: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginTop: 8,
   },
   challengePreviewProgressBar: {
-    height: 8,
-    backgroundColor: theme.colors.border,
-    borderRadius: 4,
+    flex: 1,
+    height: 10,
+    borderRadius: 5,
     overflow: 'hidden',
-    marginBottom: 0,
   },
   challengePreviewProgressFill: {
     height: '100%',
-    backgroundColor: theme.colors.primary,
-    borderRadius: 4,
+    borderRadius: 5,
+  },
+  challengePreviewPercentText: {
+    fontSize: 16,
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.primary,
+    fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'left' : 'right',
   },
   challengePreviewDays: {
     fontSize: theme.typography.sizes.xs,
@@ -1964,9 +2007,18 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center',
     ...(Platform.OS === 'ios' ? { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2 } : { elevation: 1 }),
   },
+  sectionDivider: {
+    height: 1,
+    backgroundColor: theme.colors.border,
+    marginHorizontal: 24,
+    opacity: 1,
+    marginBottom: theme.spacing.lg,
+    width: '100%',
+    alignSelf: 'center',
+  },
   emptyChallengeTitle: {
     fontSize: theme.typography.sizes.lg,
-    fontWeight: getPlatformFontWeight('700'),
+    fontWeight: getPlatformFontWeight('500'),
     color: theme.colors.textPrimary,
     marginTop: theme.spacing.md,
     marginBottom: theme.spacing.sm,
@@ -2010,14 +2062,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   emptyChallengeButtonText: {
     fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('600'),
+    fontWeight: getPlatformFontWeight('400'),
     color: theme.colors.textInverse,
     ...(isRTL ? { marginRight: theme.spacing.sm } : { marginLeft: theme.spacing.sm }),
     fontFamily: theme.typography.fontFamily,
   },
   balanceSkeleton: {
-    borderRadius: 24,
-    padding: 20,
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing.md,
     minHeight: 180,
     ...getPlatformShadow('xl'),
     overflow: 'hidden',

@@ -12,7 +12,7 @@ import { CATEGORY_DISPLAY_NAMES } from '../utils/iraqi-language-pack';
 export interface GeminiTransaction {
     title: string;
     amount: number;
-    type: 'expense' | 'income';
+    type: 'expense' | 'income' | 'savings';
     category: string;
 }
 
@@ -38,6 +38,7 @@ export const parseWithGemini = async (text: string): Promise<GeminiTransaction[]
         categories = [
             ...BUILTIN_EXPENSE_CATEGORIES.map(key => ({ key, name: CATEGORY_DISPLAY_NAMES[key] || key })),
             ...BUILTIN_INCOME_CATEGORIES.map(key => ({ key, name: CATEGORY_DISPLAY_NAMES[key] || key })),
+            { key: 'savings', name: CATEGORY_DISPLAY_NAMES.savings || 'ادخار/حصالة' },
             ...customCategories.map(c => ({ key: c.name, name: c.name })),
         ];
     } catch (e) {

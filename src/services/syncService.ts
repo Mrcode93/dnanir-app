@@ -23,6 +23,8 @@ import {
   markUserSettingsSynced,
   markAppSettingsSynced,
   markNotificationSettingsSynced,
+  markSavingsSynced,
+  markSavingsTransactionsSynced,
 } from '../database/database';
 
 export type SyncResult =
@@ -250,6 +252,8 @@ export async function syncNewToServer(): Promise<NewSyncResult> {
       if (byType('user_settings').length) await markUserSettingsSynced(byType('user_settings'));
       if (byType('app_settings').length) await markAppSettingsSynced(byType('app_settings'));
       if (byType('notification_settings').length) await markNotificationSettingsSynced(byType('notification_settings'));
+      if (byType('savings').length) await markSavingsSynced(byType('savings'));
+      if (byType('savings_transaction').length) await markSavingsTransactionsSynced(byType('savings_transaction'));
     }
 
     if (__DEV__) console.log('[sync] incremental done, syncedCount:', syncedCount);

@@ -136,7 +136,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginVertical: 10,
   },
   card: {
-    borderRadius: 24,
+    borderRadius: theme.borderRadius.xl,
     minHeight: 180,
     overflow: 'hidden',
     position: 'relative',
@@ -166,8 +166,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingHorizontal: theme.spacing.md,
+    paddingTop: theme.spacing.md,
     zIndex: 1,
   },
   brandBadge: {
@@ -176,7 +176,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 10,
+    borderRadius: theme.borderRadius.sm,
   },
   brandIconContainer: {
     width: 20,
@@ -189,19 +189,19 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   brandText: {
     color: '#FFF',
-    fontSize: 12,
-    fontWeight: getPlatformFontWeight('700'),
+    fontSize: theme.typography.sizes.xs,
+    fontWeight: getPlatformFontWeight('500'),
     fontFamily: theme.typography.fontFamily,
   },
   topRight: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: theme.spacing.sm,
   },
   trendBadge: {
     width: 28,
     height: 28,
-    borderRadius: 8,
+    borderRadius: theme.borderRadius.sm,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -210,7 +210,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     // Spacer
   },
   filterButton: {
-    borderRadius: 8,
+    borderRadius: theme.borderRadius.sm,
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderWidth: 0,
     paddingHorizontal: 8,
@@ -222,7 +222,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 12,
+    marginVertical: theme.spacing.md,
     height: 20,
     width: '100%',
     position: 'relative',
@@ -232,8 +232,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     width: 12,
     height: 20,
     backgroundColor: theme.colors.background,
-    borderTopRightRadius: 10,
-    borderBottomRightRadius: 10,
+    borderTopRightRadius: theme.borderRadius.xl,
+    borderBottomRightRadius: theme.borderRadius.xl,
     position: 'absolute',
     left: 0,
   },
@@ -241,8 +241,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     width: 12,
     height: 20,
     backgroundColor: theme.colors.background,
-    borderTopLeftRadius: 10,
-    borderBottomLeftRadius: 10,
+    borderTopLeftRadius: theme.borderRadius.xl,
+    borderBottomLeftRadius: theme.borderRadius.xl,
     position: 'absolute',
     right: 0,
   },
@@ -257,16 +257,16 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
 
   // Bottom Section
   bottomSection: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingHorizontal: theme.spacing.md,
+    paddingBottom: theme.spacing.md,
     zIndex: 1,
   },
   greeting: {
-    fontSize: 13,
+    fontSize: theme.typography.sizes.xs,
     color: 'rgba(255, 255, 255, 0.8)',
-    fontWeight: getPlatformFontWeight('500'),
+    fontWeight: getPlatformFontWeight('400'),
     fontFamily: theme.typography.fontFamily,
-    marginBottom: 4,
+    marginBottom: theme.spacing.xs,
     textAlign: isRTL ? 'right' : 'left',
   },
   balanceRow: {
@@ -274,7 +274,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: isRTL ? 'flex-end' : 'flex-start',
   },
   balanceLabel: {
-    fontSize: 12,
+    fontSize: theme.typography.sizes.xs,
     color: 'rgba(255, 255, 255, 0.7)',
     fontFamily: theme.typography.fontFamily,
     marginBottom: 4,
@@ -284,8 +284,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center',
   },
   balanceAmount: {
-    fontSize: 28,
-    fontWeight: getPlatformFontWeight('800'),
+    fontSize: theme.typography.sizes.xxl,
+    fontWeight: getPlatformFontWeight('600'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
@@ -306,7 +306,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     ...(isRTL ? { marginLeft: 8 } : { marginRight: 8 }),
   },
   periodLabel: {
-    fontSize: 11,
+    fontSize: theme.typography.sizes.xs,
     color: 'rgba(255, 255, 255, 0.7)',
     fontFamily: theme.typography.fontFamily,
     letterSpacing: 0.2,

@@ -326,7 +326,7 @@ export const DebtsScreen = ({ navigation, route }: any) => {
             {/* Summary Cards */}
             <View style={styles.summaryRow}>
               <View style={styles.summaryCard}>
-                <Text style={styles.summaryLabel}>إجمالي الديون المستحقة</Text>
+                <Text style={styles.summaryLabel}>ديون مستحقة</Text>
                 <Text style={styles.summaryAmount}>{formatCurrency(totalDebts)}</Text>
               </View>
               <View style={styles.summaryCard}>
@@ -501,14 +501,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     justifyContent: 'center',
   },
   summaryLabel: {
-    fontSize: theme.typography.sizes.xs,
+    fontSize: 12,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.xs,
+    marginBottom: 4,
     textAlign: 'center',
   },
   summaryAmount: {
-    fontSize: theme.typography.sizes.lg,
+    fontSize: 15,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,

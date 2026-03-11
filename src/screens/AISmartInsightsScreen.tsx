@@ -9,7 +9,9 @@ import {
   ActivityIndicator,
   Platform,
   Modal,
+  InteractionManager,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -191,13 +193,19 @@ export const AISmartInsightsScreen = ({ navigation }: any) => {
     runAnalyze();
   }, [usage, runAnalyze]);
 
-  React.useEffect(() => {
-    getAiInsightsCache().then((cached) => {
-      if (cached?.data) {
-        setInsights(cached.data as unknown as SmartInsightsData);
-      }
-    });
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      const task = InteractionManager.runAfterInteractions(() => {
+        getAiInsightsCache().then((cached) => {
+          if (cached?.data) {
+            setInsights(cached.data as unknown as SmartInsightsData);
+          }
+        });
+        loadUsage();
+      });
+      return () => task.cancel();
+    }, [loadUsage])
+  );
 
   React.useEffect(() => {
     if (authChecked && !needsAuth) {
@@ -567,21 +575,21 @@ const createStyles = (theme: any) =>
     },
     loadingBox: {
       width: '80%',
-      padding: 30,
-      borderRadius: 24,
+      padding: theme.spacing.xl,
+      borderRadius: theme.borderRadius.xl,
       alignItems: 'center',
       borderWidth: 1,
       ...getPlatformShadow('xl'),
     },
     loadingBoxText: {
-      marginTop: 20,
-      fontSize: 18,
+      marginTop: theme.spacing.lg,
+      fontSize: theme.typography.sizes.md,
       fontWeight: '700',
       fontFamily: theme.typography.fontFamily,
     },
     loadingBoxSubtext: {
-      marginTop: 8,
-      fontSize: 14,
+      marginTop: theme.spacing.sm,
+      fontSize: theme.typography.sizes.sm,
       fontFamily: theme.typography.fontFamily,
       textAlign: 'center',
     },
@@ -590,26 +598,26 @@ const createStyles = (theme: any) =>
       alignItems: 'center',
     },
     scroll: { flex: 1 },
-    scrollContent: { padding: 20, paddingBottom: 40 },
+    scrollContent: { padding: theme.spacing.md, paddingBottom: theme.spacing.xxl },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 24,
-      marginTop: Platform.OS === 'android' ? 16 : 10,
-      paddingVertical: Platform.OS === 'android' ? 8 : 0,
+      marginBottom: theme.spacing.lg,
+      marginTop: Platform.OS === 'android' ? theme.spacing.md : theme.spacing.sm,
+      paddingVertical: Platform.OS === 'android' ? theme.spacing.sm : 0,
     },
     headerLeft: {
       flex: 1,
     },
     headerTitle: {
-      fontSize: 28,
+      fontSize: theme.typography.sizes.xxl,
       fontWeight: getPlatformFontWeight('800'),
       fontFamily: theme.typography.fontFamily,
       textAlign: 'left',
     },
     headerSubtitle: {
-      fontSize: 14,
+      fontSize: theme.typography.sizes.sm,
       fontFamily: theme.typography.fontFamily,
       textAlign: 'left',
       marginTop: 2,
@@ -617,15 +625,15 @@ const createStyles = (theme: any) =>
     usageBadge: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
-      marginTop: 8,
-      paddingVertical: 6,
-      paddingHorizontal: 10,
-      borderRadius: 10,
+      gap: theme.spacing.xs,
+      marginTop: theme.spacing.sm,
+      paddingVertical: theme.spacing.xs,
+      paddingHorizontal: theme.spacing.sm,
+      borderRadius: theme.borderRadius.md,
       alignSelf: 'flex-start',
     },
     usageText: {
-      fontSize: 13,
+      fontSize: theme.typography.sizes.xs,
       fontFamily: theme.typography.fontFamily,
       fontWeight: getPlatformFontWeight('600'),
     },
@@ -638,7 +646,7 @@ const createStyles = (theme: any) =>
     refreshBadgeGradient: {
       width: '100%',
       height: '100%',
-      borderRadius: 22,
+      borderRadius: theme.borderRadius.round,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -646,39 +654,39 @@ const createStyles = (theme: any) =>
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 10,
-      paddingVertical: 14,
-      paddingHorizontal: 20,
-      borderRadius: 14,
-      marginBottom: 16,
+      gap: theme.spacing.sm,
+      paddingVertical: theme.spacing.md,
+      paddingHorizontal: theme.spacing.lg,
+      borderRadius: theme.borderRadius.md,
+      marginBottom: theme.spacing.md,
     },
     analyzeBtnLabel: {
       color: '#fff',
-      fontSize: 16,
+      fontSize: theme.typography.sizes.sm,
       fontWeight: getPlatformFontWeight('700'),
       fontFamily: theme.typography.fontFamily,
     },
     inlineError: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
-      padding: 14,
-      borderRadius: 12,
+      gap: theme.spacing.sm,
+      padding: theme.spacing.md,
+      borderRadius: theme.borderRadius.md,
       borderWidth: 1,
-      marginBottom: 16,
+      marginBottom: theme.spacing.md,
     },
     inlineErrorText: {
       flex: 1,
-      fontSize: 14,
+      fontSize: theme.typography.sizes.sm,
       textAlign: 'left',
       fontFamily: theme.typography.fontFamily,
     },
     emptyState: {
-      padding: 30,
-      borderRadius: 24,
+      padding: theme.spacing.xl,
+      borderRadius: theme.borderRadius.xl,
       borderWidth: 1,
       alignItems: 'center',
-      marginTop: 20,
+      marginTop: theme.spacing.lg,
       ...getPlatformShadow('md'),
     },
     emptyStateIconContainer: {
@@ -691,23 +699,23 @@ const createStyles = (theme: any) =>
       marginBottom: 20,
     },
     emptyStateTitle: {
-      fontSize: 20,
+      fontSize: theme.typography.sizes.lg,
       fontWeight: getPlatformFontWeight('700'),
-      marginBottom: 10,
+      marginBottom: theme.spacing.sm,
       textAlign: 'center',
       fontFamily: theme.typography.fontFamily,
     },
     emptyStateText: {
-      fontSize: 15,
+      fontSize: theme.typography.sizes.sm,
       textAlign: 'center',
       lineHeight: 22,
-      marginBottom: 24,
+      marginBottom: theme.spacing.lg,
       fontFamily: theme.typography.fontFamily,
     },
     largeAnalyzeBtn: {
       width: '100%',
       height: 56,
-      borderRadius: 16,
+      borderRadius: theme.borderRadius.lg,
       ...getPlatformShadow('md'),
     },
     largeAnalyzeBtnGradient: {
@@ -721,31 +729,31 @@ const createStyles = (theme: any) =>
     },
     largeAnalyzeBtnText: {
       color: '#fff',
-      fontSize: 16,
+      fontSize: theme.typography.sizes.sm,
       fontWeight: getPlatformFontWeight('700'),
       fontFamily: theme.typography.fontFamily,
     },
     loadingText: {
-      marginTop: 20,
-      fontSize: 16,
+      marginTop: theme.spacing.lg,
+      fontSize: theme.typography.sizes.sm,
       textAlign: 'center',
-      paddingHorizontal: 40,
+      paddingHorizontal: theme.spacing.xxl,
       fontFamily: theme.typography.fontFamily,
     },
     statusCard: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 16,
-      padding: 20,
-      borderRadius: 24,
+      gap: theme.spacing.md,
+      padding: theme.spacing.md,
+      borderRadius: theme.borderRadius.xl,
       borderWidth: 1.5,
-      marginBottom: 24,
+      marginBottom: theme.spacing.lg,
       ...getPlatformShadow('md'),
     },
     statusIconContainer: {
       width: 52,
       height: 52,
-      borderRadius: 16,
+      borderRadius: theme.borderRadius.lg,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -753,7 +761,7 @@ const createStyles = (theme: any) =>
       flex: 1,
     },
     statusLabel: {
-      fontSize: 12,
+      fontSize: theme.typography.sizes.xs,
       fontWeight: getPlatformFontWeight('700'),
       textTransform: 'uppercase',
       letterSpacing: 1,
@@ -762,20 +770,20 @@ const createStyles = (theme: any) =>
       fontFamily: theme.typography.fontFamily,
     },
     statusMessage: {
-      fontSize: 18,
+      fontSize: theme.typography.sizes.md,
       fontWeight: getPlatformFontWeight('800'),
       textAlign: 'left',
       lineHeight: 24,
       fontFamily: theme.typography.fontFamily,
     },
     section: {
-      marginBottom: 30,
+      marginBottom: theme.spacing.xl,
     },
     sectionHeader: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
-      marginBottom: 16,
+      gap: theme.spacing.md,
+      marginBottom: theme.spacing.md,
     },
     sectionIcon: {
       width: 36,
@@ -785,18 +793,18 @@ const createStyles = (theme: any) =>
       justifyContent: 'center',
     },
     sectionTitle: {
-      fontSize: 19,
+      fontSize: theme.typography.sizes.lg,
       fontWeight: getPlatformFontWeight('800'),
       textAlign: 'left',
       fontFamily: theme.typography.fontFamily,
     },
     bulletCard: {
       flexDirection: 'row',
-      padding: 16,
-      borderRadius: 18,
-      marginBottom: 10,
+      padding: theme.spacing.md,
+      borderRadius: theme.borderRadius.lg,
+      marginBottom: theme.spacing.sm,
       alignItems: 'flex-start',
-      gap: 12,
+      gap: theme.spacing.md,
       ...getPlatformShadow('sm'),
     },
     bulletDot: {
@@ -808,7 +816,7 @@ const createStyles = (theme: any) =>
     },
     bulletText: {
       flex: 1,
-      fontSize: 15,
+      fontSize: theme.typography.sizes.sm,
       lineHeight: 24,
       textAlign: 'left',
       writingDirection: 'rtl' as const,
@@ -816,60 +824,60 @@ const createStyles = (theme: any) =>
     },
     riskCard: {
       flexDirection: 'row',
-      padding: 16,
-      borderRadius: 18,
-      marginBottom: 10,
+      padding: theme.spacing.md,
+      borderRadius: theme.borderRadius.lg,
+      marginBottom: theme.spacing.sm,
       alignItems: 'flex-start',
       borderLeftWidth: 4,
       borderLeftColor: theme.colors.error,
-      gap: 12,
+      gap: theme.spacing.md,
     },
     tipCard: {
       flexDirection: 'row',
-      padding: 16,
-      borderRadius: 18,
-      marginBottom: 10,
+      padding: theme.spacing.md,
+      borderRadius: theme.borderRadius.lg,
+      marginBottom: theme.spacing.sm,
       alignItems: 'flex-start',
       borderWidth: 1,
-      gap: 12,
+      gap: theme.spacing.md,
     },
     cardIcon: {
       marginTop: 2,
     },
     glassCard: {
-      padding: 18,
-      borderRadius: 20,
+      padding: theme.spacing.md,
+      borderRadius: theme.borderRadius.lg,
       ...getPlatformShadow('sm'),
     },
     predictionCard: {
-      padding: 20,
-      borderRadius: 24,
+      padding: theme.spacing.md,
+      borderRadius: theme.borderRadius.xl,
       ...getPlatformShadow('md'),
     },
     predictionText: {
-      fontSize: 17,
+      fontSize: theme.typography.sizes.md,
       lineHeight: 26,
       textAlign: 'left',
       writingDirection: 'rtl' as const,
-      marginBottom: 16,
+      marginBottom: theme.spacing.md,
       fontFamily: theme.typography.fontFamily,
     },
     predictionStatRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingTop: 16,
+      paddingTop: theme.spacing.md,
       borderTopWidth: 1,
       borderTopColor: 'rgba(0,0,0,0.05)',
-      marginBottom: 16,
+      marginBottom: theme.spacing.md,
     },
     predictionLabel: {
-      fontSize: 14,
+      fontSize: theme.typography.sizes.sm,
       textAlign: 'left',
       fontFamily: theme.typography.fontFamily,
     },
     estimatedRemaining: {
-      fontSize: 20,
+      fontSize: theme.typography.sizes.lg,
       fontWeight: getPlatformFontWeight('800'),
       textAlign: 'left',
       fontFamily: theme.typography.fontFamily,
@@ -877,13 +885,13 @@ const createStyles = (theme: any) =>
     dailyBudgetBox: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
-      padding: 12,
-      borderRadius: 12,
+      gap: theme.spacing.sm,
+      padding: theme.spacing.md,
+      borderRadius: theme.borderRadius.md,
     },
     dailyBudgetText: {
       flex: 1,
-      fontSize: 14,
+      fontSize: theme.typography.sizes.sm,
       fontWeight: getPlatformFontWeight('600'),
       textAlign: 'left',
       fontFamily: theme.typography.fontFamily,
@@ -891,36 +899,36 @@ const createStyles = (theme: any) =>
     comparisonRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 12,
+      gap: theme.spacing.md,
     },
     statBadge: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
-      paddingVertical: 6,
-      paddingHorizontal: 10,
-      borderRadius: 8,
+      gap: theme.spacing.xs,
+      paddingVertical: theme.spacing.xs,
+      paddingHorizontal: theme.spacing.sm,
+      borderRadius: theme.borderRadius.sm,
     },
     comparisonBadge: {
-      fontSize: 13,
+      fontSize: theme.typography.sizes.xs,
       fontWeight: getPlatformFontWeight('700'),
       textAlign: 'left',
       fontFamily: theme.typography.fontFamily,
     },
     categoryCard: {
-      padding: 18,
-      borderRadius: 22,
-      marginBottom: 12,
+      padding: theme.spacing.md,
+      borderRadius: theme.borderRadius.xl,
+      marginBottom: theme.spacing.md,
       ...getPlatformShadow('sm'),
     },
     categoryCardHeader: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 10,
+      marginBottom: theme.spacing.sm,
     },
     categoryName: {
-      fontSize: 17,
+      fontSize: theme.typography.sizes.md,
       fontWeight: getPlatformFontWeight('800'),
       textAlign: 'left',
       fontFamily: theme.typography.fontFamily,
@@ -932,9 +940,9 @@ const createStyles = (theme: any) =>
       borderRadius: 1,
     },
     insightText: {
-      fontSize: 15,
+      fontSize: theme.typography.sizes.sm,
       lineHeight: 22,
-      marginBottom: 12,
+      marginBottom: theme.spacing.md,
       textAlign: 'left',
       writingDirection: 'rtl' as const,
       fontFamily: theme.typography.fontFamily,
@@ -942,13 +950,13 @@ const createStyles = (theme: any) =>
     recommendationBox: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      gap: 8,
-      padding: 12,
-      borderRadius: 12,
+      gap: theme.spacing.sm,
+      padding: theme.spacing.md,
+      borderRadius: theme.borderRadius.md,
     },
     recommendationText: {
       flex: 1,
-      fontSize: 14,
+      fontSize: theme.typography.sizes.sm,
       lineHeight: 20,
       fontStyle: 'italic',
       textAlign: 'left',
@@ -957,11 +965,11 @@ const createStyles = (theme: any) =>
     },
     actionItemCard: {
       flexDirection: 'row',
-      padding: 18,
-      borderRadius: 22,
-      marginBottom: 12,
+      padding: theme.spacing.md,
+      borderRadius: theme.borderRadius.xl,
+      marginBottom: theme.spacing.md,
       alignItems: 'flex-start',
-      gap: 16,
+      gap: theme.spacing.md,
       ...getPlatformShadow('sm'),
     },
     priorityBadge: {
@@ -973,7 +981,7 @@ const createStyles = (theme: any) =>
     },
     priorityText: {
       color: '#fff',
-      fontSize: 14,
+      fontSize: theme.typography.sizes.sm,
       fontWeight: getPlatformFontWeight('800'),
       fontFamily: theme.typography.fontFamily,
     },
@@ -981,14 +989,14 @@ const createStyles = (theme: any) =>
       flex: 1,
     },
     actionItemTitle: {
-      fontSize: 17,
+      fontSize: theme.typography.sizes.md,
       fontWeight: getPlatformFontWeight('800'),
       marginBottom: 6,
       textAlign: 'left',
       fontFamily: theme.typography.fontFamily,
     },
     actionItemDescription: {
-      fontSize: 14,
+      fontSize: theme.typography.sizes.sm,
       lineHeight: 22,
       textAlign: 'left',
       writingDirection: 'rtl' as const,
@@ -996,9 +1004,9 @@ const createStyles = (theme: any) =>
     },
     bottomAnalyzeBtn: {
       height: 56,
-      borderRadius: 16,
-      marginTop: 10,
-      marginBottom: 20,
+      borderRadius: theme.borderRadius.lg,
+      marginTop: theme.spacing.sm,
+      marginBottom: theme.spacing.md,
       ...getPlatformShadow('md'),
     },
     bottomAnalyzeBtnGradient: {
@@ -1012,7 +1020,7 @@ const createStyles = (theme: any) =>
     },
     bottomAnalyzeBtnText: {
       color: '#fff',
-      fontSize: 16,
+      fontSize: theme.typography.sizes.sm,
       fontWeight: getPlatformFontWeight('700'),
       fontFamily: theme.typography.fontFamily,
     },

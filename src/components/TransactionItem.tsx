@@ -425,7 +425,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   itemTitle: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'right' : 'left',
@@ -448,7 +448,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   categoryText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     fontFamily: theme.typography.fontFamily,
   },
   amountColumn: {
@@ -456,13 +456,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   amountText: {
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: getPlatformFontWeight('600'),
     fontFamily: theme.typography.fontFamily,
   },
   subAmountText: {
     fontSize: 11,
     color: theme.colors.textMuted,
     marginTop: 2,
+    fontFamily: theme.typography.fontFamily,
   },
   menuTrigger: {
     padding: 4,
@@ -495,7 +496,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   menuHeaderTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('500'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
@@ -528,7 +529,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   menuOptionTitle: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('500'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: 4,
@@ -546,7 +547,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   closeButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('400'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   }

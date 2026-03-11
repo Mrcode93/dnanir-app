@@ -35,6 +35,11 @@ export const INCOME_INTENTS = [
     'ربحت', 'طلع ربح', 'فزت'
 ];
 
+// ---- Savings (ادخار) ----
+export const SAVINGS_INTENTS = [
+    'ضميت', 'توفير', 'ادخار', 'دخرت', 'حصالة', 'حصالتي', 'بالحصالة', 'للحصالة', 'وفرت', 'تخزين', 'ضم'
+];
+
 // ---- Negatives (نفي) ----
 export const NEGATIVE_INTENTS = [
     'ما', 'مو', 'ماكو', 'بدون',
@@ -220,5 +225,6 @@ export const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
     freelance: 'عمل حر',
     investment: 'استثمار',
     gift: 'هدية',
-    other: 'أخرى'
+    other: 'أخرى',
+    savings: 'ادخار/حصالة'
 };

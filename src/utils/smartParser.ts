@@ -4,13 +4,14 @@ import {
     EXPENSE_KEYWORDS,
     INCOME_KEYWORDS,
     CATEGORY_DISPLAY_NAMES,
-    NEGATIVE_INTENTS
+    NEGATIVE_INTENTS,
+    SAVINGS_INTENTS
 } from './iraqi-language-pack';
 
 export interface ParsedTransaction {
     amount: number | null;
     category: string;
-    type: 'expense' | 'income';
+    type: 'expense' | 'income' | 'savings';
     title: string;
     confidence: number; // 0 to 1
 }
@@ -127,15 +128,19 @@ export const parseTransactionText = (text: string): ParsedTransaction => {
 
     let amount: number | null = null;
     let category = 'other';
-    let type: 'expense' | 'income' = 'expense';
+    let type: 'expense' | 'income' | 'savings' = 'expense';
     let title = cleanText;
     let confidence = 0;
 
     // 1. Intent Check
     const hasExpenseIntent = EXPENSE_INTENTS.some(w => lowerText.includes(w)) || ROOT_MATCHERS.spend.test(lowerText);
     const hasIncomeIntent = INCOME_INTENTS.some(w => lowerText.includes(w)) || ROOT_MATCHERS.get.test(lowerText);
+    const hasSavingsIntent = SAVINGS_INTENTS.some(w => lowerText.includes(w));
 
-    if (hasIncomeIntent && !hasExpenseIntent) {
+    if (hasSavingsIntent) {
+        type = 'savings';
+        category = 'savings';
+    } else if (hasIncomeIntent && !hasExpenseIntent) {
         type = 'income';
     } else if (hasExpenseIntent) {
         type = 'expense';
@@ -169,7 +174,7 @@ export const parseTransactionText = (text: string): ParsedTransaction => {
     // 4. Title Refinement - Strip intents and numbers
     title = cleanText
         .replace(/(\d+(?:[.,]\d+)?)/g, '') // Remove numbers
-        .replace(new RegExp(`(${EXPENSE_INTENTS.concat(INCOME_INTENTS).join('|')})`, 'g'), '') // Remove intent words
+        .replace(new RegExp(`(${EXPENSE_INTENTS.concat(INCOME_INTENTS).concat(SAVINGS_INTENTS).join('|')})`, 'g'), '') // Remove intent words
         .replace(/\s*(الف|الاف|آلاف|دينار|د\.ع|alf|مليون|ملايين|m|ورقة|شدة|ربع|نص|ونص|وربع|ونصف)\s*/gi, '') // Remove units
         .replace(/\s+/g, ' ')
         .trim();
@@ -181,7 +186,7 @@ export const parseTransactionText = (text: string): ParsedTransaction => {
     // 5. Confidence Calculation
     if (amount) confidence += 0.4;
     if (foundCategory) confidence += 0.3;
-    if (hasExpenseIntent || hasIncomeIntent) confidence += 0.2;
+    if (hasExpenseIntent || hasIncomeIntent || hasSavingsIntent) confidence += 0.2;
     if (title.length > 3 && title !== CATEGORY_DISPLAY_NAMES[category]) confidence += 0.1;
 
     // Penalize if it looks like "nothing" or negative context

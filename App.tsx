@@ -28,6 +28,7 @@ import { syncNewToServer } from './src/services/syncService';
 import { AlertProvider } from './src/components/AlertProvider';
 import { PrivacyProvider } from './src/context/PrivacyContext';
 import PushNotificationManager from './src/components/PushNotificationManager';
+import { VideoSplash } from './src/components/VideoSplash';
 
 // Prevent valid splash screen from auto-hiding
 // We call this at top level to catch it as early as possible
@@ -36,15 +37,22 @@ SplashScreen.preventAutoHideAsync().catch(() => { });
 const fontConfig = {
   config: {
     regular: {
-      fontFamily: 'Tajawal-Regular',
+      fontFamily: 'DINNext-Regular',
       fontWeight: '400' as const,
       fontSize: 16,
       letterSpacing: 0.5,
       lineHeight: 24,
     },
     medium: {
-      fontFamily: 'Tajawal-Regular',
+      fontFamily: 'DINNext-Medium',
       fontWeight: '600' as const,
+      fontSize: 16,
+      letterSpacing: 0.5,
+      lineHeight: 24,
+    },
+    light: {
+      fontFamily: 'DINNext-Light',
+      fontWeight: '300' as const,
       fontSize: 16,
       letterSpacing: 0.5,
       lineHeight: 24,
@@ -62,6 +70,7 @@ export default function App() {
   const [initRunId, setInitRunId] = useState(0);
   const systemColorScheme = useColorScheme();
   const [themeMode, setThemeMode] = useState<ThemeMode>('system');
+  const [isVideoFinished, setIsVideoFinished] = useState(false);
 
   const isDark = useMemo(() => {
     if (themeMode === 'system') {
@@ -92,7 +101,9 @@ export default function App() {
   const hasQueuedDeferredStartupRef = useRef(false);
   const lastNotificationRefreshRef = useRef(0);
   const [fontsLoaded] = useFonts({
-    'Tajawal-Regular': require('./assets/fonts/Tajawal-Regular.ttf'),
+    'DINNext-Regular': require('./assets/fonts/din-next-lt-w23-regular-1.ttf'),
+    'DINNext-Medium': require('./assets/fonts/din-next-lt-w23-medium.ttf'),
+    'DINNext-Light': require('./assets/fonts/din-next-lt-w23-ultra-light-1.ttf'),
   });
 
   useEffect(() => {
@@ -105,7 +116,7 @@ export default function App() {
 
       const isAndroid = Platform.OS === 'android';
       const defaultTypographyStyle = {
-        fontFamily: 'Tajawal-Regular',
+        fontFamily: 'DINNext-Regular',
         ...(isAndroid
           ? {
             textAlign: 'right' as const,
@@ -415,34 +426,29 @@ export default function App() {
     setInitRunId(prev => prev + 1);
   }, []);
 
-  if (isLoading || !fontsLoaded) {
+  if (!isVideoFinished) {
+    return <VideoSplash onFinish={() => setIsVideoFinished(true)} />;
+  }
+
+  if (isLoading || !fontsLoaded || !isDbReady) {
     return (
       <View
         style={styles.loadingContainer}
         onLayout={onLayoutRootView}
       >
-        <Image
-          source={require('./assets/images/dnanir-splash.png')}
-          style={styles.splashImage}
-          resizeMode="contain"
-        />
+        <Text style={styles.loadingText}>جاري التحميل...</Text>
       </View>
     );
   }
 
-  if (initError || !isDbReady) {
+  if (initError) {
     return (
       <View
         style={styles.loadingContainer}
         onLayout={onLayoutRootView}
       >
-        <Image
-          source={require('./assets/images/dnanir-splash.png')}
-          style={styles.splashImage}
-          resizeMode="contain"
-        />
         <Text style={styles.errorTitle}>تعذر فتح التطبيق</Text>
-        <Text style={styles.errorMessage}>{initError || 'قاعدة البيانات غير جاهزة بعد.'}</Text>
+        <Text style={styles.errorMessage}>{initError}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={handleRetryInitialization}>
           <Text style={styles.retryButtonText}>إعادة المحاولة</Text>
         </TouchableOpacity>
@@ -490,9 +496,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#003459',
     padding: 40,
   },
-  splashImage: {
-    width: '80%',
-    height: '80%',
+  loadingText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontFamily: 'DINNext-Regular',
+    marginTop: 20,
   },
   errorTitle: {
     marginTop: 8,

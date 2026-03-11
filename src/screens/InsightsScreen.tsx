@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,9 @@ import {
   RefreshControl,
   Dimensions,
   TouchableOpacity,
+  InteractionManager,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LineChart, PieChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -185,11 +187,14 @@ export const InsightsScreen = ({ navigation }: any) => {
     }
   };
 
-  useEffect(() => {
-    loadData();
-    const unsubscribe = navigation.addListener('focus', loadData);
-    return unsubscribe;
-  }, [navigation, selectedMonth, showComparison]);
+  useFocusEffect(
+    useCallback(() => {
+      const task = InteractionManager.runAfterInteractions(() => {
+        loadData();
+      });
+      return () => task.cancel();
+    }, [selectedMonth, showComparison])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -300,7 +305,7 @@ export const InsightsScreen = ({ navigation }: any) => {
           c.category,
         amount: c.amount,
         color: CATEGORY_COLORS[index % CATEGORY_COLORS.length],
-        legendFontColor: theme.colors.textPrimary,
+        legendFontColor: '#FFFFFF',
         legendFontSize: 12,
       }));
   };
@@ -312,7 +317,7 @@ export const InsightsScreen = ({ navigation }: any) => {
     backgroundGradientTo: theme.colors.surfaceCard,
     decimalPlaces: 0,
     color: (opacity = 1) => theme.colors.primary,
-    labelColor: (opacity = 1) => theme.colors.textSecondary,
+    labelColor: (opacity = 1) => '#FFFFFF',
     style: { borderRadius: 16 },
     propsForDots: {
       r: "4",
@@ -714,7 +719,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
+    padding: theme.spacing.md,
     paddingBottom: 40,
   },
   // Health & Actions
@@ -723,8 +728,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   healthScoreCard: {
     flex: 1.8,
-    borderRadius: 24,
-    padding: 16,
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing.md,
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -732,33 +737,34 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   healthScoreRow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
-    gap: 12,
-    marginBottom: 16,
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
   },
   savingsRateMiniCard: {
     flex: 1,
     backgroundColor: theme.colors.surfaceCard,
-    borderRadius: 24,
-    padding: 12,
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
     ...getPlatformShadow('sm'),
   },
   savingsLabel: {
-    fontSize: 12,
+    fontSize: theme.typography.sizes.xs,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: 2,
     textAlign: 'center',
   },
   savingsValue: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: theme.typography.sizes.md,
+    fontWeight: getPlatformFontWeight('800'),
     fontFamily: theme.typography.fontFamily,
   },
   savingsSubtext: {
     fontSize: 9,
     color: theme.colors.textMuted,
+    fontFamily: theme.typography.fontFamily,
     marginTop: 2,
     textAlign: 'center',
   },
@@ -767,26 +773,27 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: isRTL ? 'flex-end' : 'flex-start',
   },
   healthScoreLabel: {
-    fontSize: 14,
+    fontSize: theme.typography.sizes.sm,
     color: 'rgba(255, 255, 255, 0.9)',
     fontFamily: theme.typography.fontFamily,
     marginBottom: 4,
   },
   healthScoreValue: {
-    fontSize: 32,
-    fontWeight: '800',
+    fontSize: theme.typography.sizes.display,
+    fontWeight: getPlatformFontWeight('800'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
   healthScoreStatus: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: theme.typography.sizes.md,
+    fontWeight: getPlatformFontWeight('600'),
     color: '#FFFFFF',
+    fontFamily: theme.typography.fontFamily,
     marginTop: 4,
     backgroundColor: 'rgba(0,0,0,0.1)',
-    paddingHorizontal: 12,
+    paddingHorizontal: theme.spacing.sm,
     paddingVertical: 2,
-    borderRadius: 10,
+    borderRadius: theme.borderRadius.sm,
   },
   healthScoreGauge: {
     width: 60,
@@ -830,7 +837,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   actionBtnLabel: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -868,8 +875,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   monthBadgeText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
   },
   // Tab Switcher
   tabSwitcher: {
@@ -893,12 +901,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   tabText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
   },
   activeTabText: {
     color: '#FFFFFF',
+    fontFamily: theme.typography.fontFamily,
   },
   // Donut Chart
   donutContainer: {
@@ -917,13 +926,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   donutCenterLabel: {
     fontSize: 12,
-    color: theme.colors.textSecondary,
+    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
   donutCenterValue: {
     fontSize: 18,
-    fontWeight: '700',
-    color: theme.colors.textPrimary,
+    fontWeight: getPlatformFontWeight('700'),
+    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
   legendContainer: {
@@ -950,8 +959,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   legendValue: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
   },
   // Insights
   insightsScroll: {
@@ -984,7 +994,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   insightProTitle: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     fontFamily: theme.typography.fontFamily,
   },
   insightProContent: {
@@ -1006,14 +1016,15 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: getPlatformFontWeight('800'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
   seeAllText: {
     fontSize: 14,
     color: theme.colors.primary,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
+    fontFamily: theme.typography.fontFamily,
   },
   premiumCategoryCard: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -1043,13 +1054,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   premiumCategoryName: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
   premiumCategoryAmount: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -1080,7 +1091,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   chartTitlePremium: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -1116,7 +1127,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   predictionTitle: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'right' : 'left',
@@ -1137,8 +1148,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   predictionValue: {
     fontSize: 20,
-    fontWeight: '800',
+    fontWeight: getPlatformFontWeight('800'),
     color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
   },
   confidenceBadge: {
     paddingHorizontal: 8,
@@ -1147,7 +1159,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   confidenceText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
+    fontFamily: theme.typography.fontFamily,
   },
   comparisonButton: {
     backgroundColor: theme.colors.primary,
@@ -1163,7 +1176,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   comparisonButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     fontFamily: theme.typography.fontFamily,
   },
   comparisonCard: {
@@ -1178,7 +1191,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   comparisonTitle: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: getPlatformFontWeight('800'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'right' : 'left',
@@ -1204,13 +1217,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   comparisonValueMain: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
   comparisonPercent: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: getPlatformFontWeight('700'),
+    fontFamily: theme.typography.fontFamily,
   },
   divider: {
     height: 1,

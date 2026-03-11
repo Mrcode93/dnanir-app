@@ -14,7 +14,7 @@
     ],
     "name": "دنانير",
     "slug": "dnanir",
-    "version": "1.2.3",
+    "version": "1.2.4",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "automatic",
@@ -23,7 +23,6 @@
     "primaryLanguage": "ar",
     "description": "تطبيق دنانير - تطبيقك الذكي لإدارة الأموال وتتبع المصروفات والدخل بطريقة سهلة وممتعة",
     "splash": {
-      "image": "./assets/images/dnanir-splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#003459"
     },
@@ -32,7 +31,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.mrcodeiq.dinar",
       "googleServicesFile": "./GoogleService-Info.plist",
-      "buildNumber": "25",
+      "buildNumber": "26",
       "infoPlist": {
         "CFBundleURLTypes": [
           {
@@ -66,7 +65,9 @@
         "locale": "ar"
       },
       "fonts": [
-        "./assets/fonts/Tajawal-Regular.ttf"
+        "./assets/fonts/din-next-lt-w23-regular-1.ttf",
+        "./assets/fonts/din-next-lt-w23-medium.ttf",
+        "./assets/fonts/din-next-lt-w23-ultra-light-1.ttf"
       ],
       "notificationMode": "production",
       "usesAppleSignIn": false,
@@ -87,7 +88,9 @@
       "googleServicesFile": "./google-services.json",
       "versionCode": 23,
       "fonts": [
-        "./assets/fonts/Tajawal-Regular.ttf"
+        "./assets/fonts/din-next-lt-w23-regular-1.ttf",
+        "./assets/fonts/din-next-lt-w23-medium.ttf",
+        "./assets/fonts/din-next-lt-w23-ultra-light-1.ttf"
       ],
       "permissions": [
         "android.permission.INTERNET",

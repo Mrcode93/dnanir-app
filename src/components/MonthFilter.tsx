@@ -44,7 +44,7 @@ export const MonthFilter: React.FC<MonthFilterProps> = ({
     if (!selectedMonth || (selectedMonth.year === 0 && selectedMonth.month === 0)) {
       return 'الكل';
     }
-    return `${monthNames[selectedMonth.month - 1]} (${selectedMonth.month}) ${selectedMonth.year}`;
+    return `${monthNames[selectedMonth.month - 1]} ${selectedMonth.year}`;
   };
 
   // Generate months list (only months with data + current month)
@@ -223,12 +223,11 @@ export const MonthFilter: React.FC<MonthFilterProps> = ({
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
   filterButton: {
-    borderRadius: 14,
+    borderRadius: theme.borderRadius.md,
     backgroundColor: theme.colors.surfaceLight,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    minWidth: 110,
-    maxWidth: 150,
+    minWidth: 155,
     overflow: 'hidden',
   },
   filterButtonContent: {

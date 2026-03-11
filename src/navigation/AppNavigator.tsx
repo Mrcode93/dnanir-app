@@ -1,11 +1,13 @@
 import React, { useState, useCallback } from 'react';
-import { NavigationContainer, useFocusEffect } from '@react-navigation/native';
+import { NavigationContainer, useFocusEffect, useNavigation } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createStackNavigator, TransitionPresets } from '@react-navigation/stack';
+import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, Platform, Text, TouchableOpacity, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { ActivityIndicator, Platform, Text, TouchableOpacity, View, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getPlatformFontWeight, type AppTheme } from '../utils/theme-constants';
+import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
 import { useAppTheme } from '../utils/theme-context';
 import { isRTL } from '../utils/rtl';
 import { DashboardScreen } from '../screens/DashboardScreen';
@@ -43,9 +45,12 @@ import { onboardingStorage } from '../services/onboardingStorage';
 import { syncNewToServer } from '../services/syncService';
 import { alertService } from '../services/alertService';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
-import { SubscriptionsScreen } from '../screens/SubscriptionsScreen';
-import { AddSubscriptionScreen } from '../screens/AddSubscriptionScreen';
+
 import { CalendarScreen } from '../screens/CalendarScreen';
+import { SmartAddModal } from '../components/SmartAddModal';
+import { SavingsScreen } from '../screens/SavingsScreen';
+import { AddSavingsScreen } from '../screens/AddSavingsScreen';
+
 
 
 const DashboardHeaderRight = ({ navigation }: { navigation: any }) => {
@@ -131,6 +136,7 @@ const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
 const getCommonStackOptions = (theme: AppTheme) => ({
+  ...TransitionPresets.SlideFromRightIOS,
   headerStyle: {
     backgroundColor: theme.colors.background,
     elevation: 0,
@@ -158,7 +164,7 @@ const getCommonStackOptions = (theme: AppTheme) => ({
   ),
   headerTitleStyle: {
     fontFamily: theme.typography.fontFamily,
-    fontSize: 20,
+    fontSize: theme.typography.sizes.lg,
     fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     marginBottom: 0,
@@ -172,6 +178,7 @@ const getCommonStackOptions = (theme: AppTheme) => ({
     paddingBottom: 0,
   },
 });
+
 
 const SettingsScreenStack = () => {
   const { theme } = useAppTheme();
@@ -215,7 +222,7 @@ const HeaderLeft = ({ navigation }: { navigation: any }) => {
         padding: 8,
       }}
     >
-      <Ionicons name={isRTL ? "chevron-back" : "chevron-back"} size={28} color="#FFFFFF" />
+      <Ionicons name="close" size={28} color="#FFFFFF" />
     </TouchableOpacity>
   );
 };
@@ -251,81 +258,37 @@ const HeaderBackWithLabel = ({ navigation, label }: { navigation: any; label: st
   );
 };
 
-const ExpensesStack = () => {
-  const { theme } = useAppTheme();
+const TopTab = createMaterialTopTabNavigator();
 
+const TransactionsTabs = () => {
+  const { theme } = useAppTheme();
   return (
-    <Stack.Navigator
-      screenOptions={getCommonStackOptions(theme)}
+    <TopTab.Navigator
+      initialRouteName="ExpensesList"
+      screenOptions={{
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: theme.colors.textMuted,
+        tabBarIndicatorStyle: { backgroundColor: theme.colors.primary, height: 3 },
+        tabBarStyle: { backgroundColor: theme.colors.surface },
+        tabBarLabelStyle: { fontFamily: theme.typography.fontFamily, fontWeight: getPlatformFontWeight('700'), fontSize: 14 },
+      }}
     >
-      <Stack.Screen
-        name="ExpensesList"
-        component={ExpensesScreen}
-        options={({ navigation }) => ({
-          headerShown: true,
-          headerTitle: 'سجل المصاريف',
-          headerLeft: () => (
-            <TouchableOpacity
-              onPress={() => navigation.navigate('ManageCategories', { type: 'expense' })}
-              style={{
-                marginLeft: isRTL ? 0 : 16,
-                marginRight: isRTL ? 16 : 0,
-                padding: 8,
-              }}
-            >
-              <Ionicons name="settings-outline" size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-          ),
-          ...getCommonStackOptions(theme),
-        })}
-      />
-      <Stack.Screen
-        name="ManageCategories"
-        component={ManageCategoriesScreen}
-        options={({ navigation }) => ({
-          headerShown: true,
-          headerTitle: 'إدارة الفئات',
-          headerLeft: () => <HeaderBackWithLabel navigation={navigation} label="سجل المصاريف" />,
-          headerBackTitleVisible: false,
-          headerBackTitle: '',
-        })}
-      />
-      <Stack.Screen
-        name="AddCategory"
-        component={AddCategoryScreen}
-        options={{
-          headerShown: false,
-          presentation: 'modal',
-        }}
-      />
-    </Stack.Navigator>
+      <TopTab.Screen name="ExpensesList" component={ExpensesScreen} options={{ title: 'المصاريف' }} />
+      <TopTab.Screen name="IncomeList" component={IncomeScreen} options={{ title: 'الدخل' }} />
+    </TopTab.Navigator>
   );
 };
 
-const IncomeStack = () => {
+const TransactionsStack = () => {
   const { theme } = useAppTheme();
   return (
-    <Stack.Navigator
-      screenOptions={getCommonStackOptions(theme)}
-    >
+    <Stack.Navigator screenOptions={getCommonStackOptions(theme)}>
       <Stack.Screen
-        name="IncomeList"
-        component={IncomeScreen}
+        name="TransactionsTabs"
+        component={TransactionsTabs}
         options={({ navigation }) => ({
           headerShown: true,
-          headerTitle: 'سجل الدخل',
-          headerLeft: () => (
-            <TouchableOpacity
-              onPress={() => navigation.navigate('ManageCategories', { type: 'income' })}
-              style={{
-                marginLeft: isRTL ? 0 : 16,
-                marginRight: isRTL ? 16 : 0,
-                padding: 8,
-              }}
-            >
-              <Ionicons name="settings-outline" size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-          ),
+          headerTitle: 'المعاملات المالية',
           ...getCommonStackOptions(theme),
         })}
       />
@@ -335,7 +298,7 @@ const IncomeStack = () => {
         options={({ navigation }) => ({
           headerShown: true,
           headerTitle: 'إدارة الفئات',
-          headerLeft: () => <HeaderBackWithLabel navigation={navigation} label="سجل الدخل" />,
+          headerLeft: () => <HeaderBackWithLabel navigation={navigation} label="العودة" />,
           headerBackTitleVisible: false,
           headerBackTitle: '',
         })}
@@ -345,11 +308,10 @@ const IncomeStack = () => {
         component={AddCategoryScreen}
         options={{
           headerShown: false,
-          presentation: 'modal',
+          ...TransitionPresets.ModalSlideFromBottomIOS,
         }}
       />
     </Stack.Navigator>
-
   );
 };
 
@@ -395,7 +357,7 @@ const InsightsStack = () => {
               style={{ marginLeft: 16, padding: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}
             >
               <Ionicons name="sparkles" size={22} color="#FFFFFF" />
-              <Text style={{ color: '#FFFFFF', fontWeight: getPlatformFontWeight('600'), fontSize: 15 }}>رؤى ذكية</Text>
+              <Text style={{ color: '#FFFFFF', fontWeight: getPlatformFontWeight('600'), fontSize: 15, fontFamily: theme.typography.fontFamily }}>رؤى ذكية</Text>
             </TouchableOpacity>
           ),
         })}
@@ -608,119 +570,150 @@ const DashboardStack = () => {
 };
 
 const MainTabs = () => {
-  const { theme } = useAppTheme(); // Need theme here too
+  const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
+  const [showSmartAdd, setShowSmartAdd] = useState(false);
+
   const minBottomInset = Platform.OS === 'android' ? 28 : 10;
   const tabBottomPadding = Math.max(insets.bottom, minBottomInset);
-  const tabBaseHeight = Platform.OS === 'android' ? 56 : 58;
+  const tabBaseHeight = Platform.OS === 'android' ? 64 : 68;
+  const EmptyComponent = () => null;
 
   return (
-    <Tab.Navigator
-      initialRouteName="Dashboard"
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        headerStyle: {
-          backgroundColor: '#003459',
-          elevation: 0,
-          shadowOpacity: 0,
-          borderBottomWidth: 0,
-        },
-        headerTitleStyle: {
-          fontFamily: theme.typography.fontFamily,
-          fontSize: 20,
-          fontWeight: getPlatformFontWeight('700'),
-          color: '#FFFFFF',
-        },
-        headerTitleAlign: 'center',
-        tabBarShowLabel: true,
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName: keyof typeof Ionicons.glyphMap;
-
-          if (route.name === 'Dashboard') {
-            iconName = focused ? 'grid' : 'grid-outline';
-          } else if (route.name === 'Expenses') {
-            iconName = focused ? 'file-tray-full' : 'file-tray-full-outline';
-          } else if (route.name === 'Income') {
-            iconName = focused ? 'wallet' : 'wallet-outline';
-          } else if (route.name === 'Insights') {
-            iconName = focused ? 'pie-chart' : 'pie-chart-outline';
-          } else if (route.name === 'Settings') {
-            iconName = focused ? 'cog' : 'cog-outline';
-          } else {
-            iconName = 'help-outline';
-          }
-
-          // Pro Active State: Icon inside a soft pill background
-          if (focused) {
-            return (
+    <>
+      <Tab.Navigator
+        initialRouteName="Dashboard"
+        screenOptions={({ route }) => ({
+          headerShown: false,
+          tabBarHideOnKeyboard: true,
+          tabBarShowLabel: true,
+          tabBarActiveTintColor: theme.colors.primary,
+          tabBarInactiveTintColor: theme.colors.textMuted,
+          tabBarStyle: {
+            backgroundColor: theme.colors.surfaceCard,
+            borderTopWidth: 1,
+            borderTopColor: theme.colors.border,
+            height: tabBaseHeight + tabBottomPadding,
+            paddingBottom: tabBottomPadding,
+            paddingTop: 12,
+            elevation: 20,
+            shadowColor: theme.colors.shadow,
+            shadowOffset: { width: 0, height: -4 },
+            shadowOpacity: 0.1,
+            shadowRadius: 12,
+            flexDirection: isRTL ? 'row' : 'row-reverse',
+          },
+          tabBarLabelStyle: {
+            fontFamily: theme.typography.fontFamily,
+            fontSize: 12,
+            fontWeight: getPlatformFontWeight('500'),
+            marginTop: 4,
+            textAlign: 'center',
+          },
+        })}
+      >
+        <Tab.Screen
+          name="Settings"
+          component={SettingsScreenStack}
+          options={{
+            title: 'الإعدادات',
+            tabBarIcon: ({ focused }) => (
+              <Ionicons name={focused ? 'cog' : 'cog-outline'} size={24} color={focused ? theme.colors.primary : '#94A3B8'} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Insights"
+          component={InsightsStack}
+          options={{
+            title: 'التحليلات',
+            tabBarIcon: ({ focused }) => (
+              <Ionicons name={focused ? 'pie-chart' : 'pie-chart-outline'} size={24} color={focused ? theme.colors.primary : '#94A3B8'} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="SmartAdd"
+          component={EmptyComponent}
+          options={{
+            title: '', // No title
+            tabBarIcon: () => (
               <View style={{
-                backgroundColor: theme.colors.primary + '15', // Ultra light background
-                width: 48, // Fixed width
-                height: 32, // Fixed height
-                borderRadius: 16,
+                width: 68,
+                height: 68,
+                borderRadius: 34,
+                backgroundColor: theme.colors.surfaceCard,
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginBottom: 4 // Push it up slightly
+                marginTop: -30,
+                ...getPlatformShadow('lg'),
+                padding: 4,
               }}>
-                <Ionicons name={iconName} size={20} color={theme.colors.primary} />
-              </View>
-            );
-          }
+                <LinearGradient
+                  colors={['#003459', '#0077B6', '#00A8E8']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: 30,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 2,
+                    borderColor: 'rgba(255, 255, 255, 0.2)',
+                  }}
+                >
+                  <Ionicons name="mic" size={32} color="#FFFFFF" />
 
-          return <Ionicons name={iconName} size={24} color={'#94A3B8'} />;
-        },
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.textMuted,
-        tabBarStyle: {
-          backgroundColor: theme.colors.surfaceCard,
-          borderTopWidth: 1,
-          borderTopColor: theme.colors.border,
-          height: tabBaseHeight + tabBottomPadding,
-          paddingBottom: tabBottomPadding,
-          paddingTop: Platform.OS === 'android' ? 10 : 12,
-          elevation: 20,
-          shadowColor: theme.colors.shadow,
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.1,
-          shadowRadius: 12,
-          flexDirection: isRTL ? 'row-reverse' : 'row',
-          display: 'flex',
-        },
-        tabBarLabelStyle: {
-          fontFamily: theme.typography.fontFamily,
-          fontSize: 11,
-          fontWeight: '600',
-          marginTop: 4,
-          textAlign: 'center',
-        },
-      })}
-    >
-      <Tab.Screen
-        name="Settings"
-        component={SettingsScreenStack}
-        options={{ title: 'الإعدادات' }}
+                  {/* Inner Glow effect overlay */}
+                  <View style={{
+                    position: 'absolute',
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: 30,
+                    borderWidth: 1.5,
+                    borderColor: 'rgba(255,255,255,0.1)',
+                  }} />
+                </LinearGradient>
+              </View>
+            ),
+          }}
+          listeners={{
+            tabPress: (e) => {
+              e.preventDefault();
+              setShowSmartAdd(true);
+            },
+          }}
+        />
+        <Tab.Screen
+          name="Transactions"
+          component={TransactionsStack}
+          options={{
+            title: 'المعاملات',
+            tabBarIcon: ({ focused }) => (
+              <Ionicons name={focused ? 'swap-horizontal' : 'swap-horizontal-outline'} size={24} color={focused ? theme.colors.primary : '#94A3B8'} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Dashboard"
+          component={DashboardStack}
+          options={{
+            title: 'الرئيسية',
+            tabBarIcon: ({ focused }) => (
+              <Ionicons name={focused ? 'grid' : 'grid-outline'} size={24} color={focused ? theme.colors.primary : '#94A3B8'} />
+            ),
+          }}
+        />
+      </Tab.Navigator>
+      <SmartAddModal
+        visible={showSmartAdd}
+        onClose={() => setShowSmartAdd(false)}
+        onSuccess={() => { }}
+        navigation={navigation}
       />
-      <Tab.Screen
-        name="Insights"
-        component={InsightsStack}
-        options={{ title: 'التحليلات' }}
-      />
-      <Tab.Screen
-        name="Income"
-        component={IncomeStack}
-        options={{ title: 'الدخل' }}
-      />
-      <Tab.Screen
-        name="Expenses"
-        component={ExpensesStack}
-        options={{ title: 'المصاريف' }}
-      />
-      <Tab.Screen
-        name="Dashboard"
-        component={DashboardStack}
-        options={{ title: 'الرئيسية' }}
-      />
-    </Tab.Navigator>
+    </>
   );
 };
 
@@ -746,7 +739,7 @@ export const AppNavigator = () => {
 
   return (
     <NavigationContainer
-      direction={isRTL ? 'rtl' : 'ltr'}
+      direction={isRTL ? 'ltr' : 'rtl'}
       onReady={() => {
       }}
     >
@@ -772,7 +765,7 @@ export const AppNavigator = () => {
           component={AddExpenseScreen}
           options={{
             headerShown: false,
-            presentation: 'modal',
+            ...TransitionPresets.ModalSlideFromBottomIOS,
           }}
         />
         <Stack.Screen
@@ -780,7 +773,7 @@ export const AppNavigator = () => {
           component={AddIncomeScreen}
           options={{
             headerShown: false,
-            presentation: 'modal',
+            ...TransitionPresets.ModalSlideFromBottomIOS,
           }}
         />
 
@@ -807,6 +800,39 @@ export const AppNavigator = () => {
             ...getCommonStackOptions(theme),
           })}
         />
+
+        <Stack.Screen
+          name="Savings"
+          component={SavingsScreen}
+          options={({ navigation }) => ({
+            headerShown: true,
+            headerLeft: () => <HeaderLeft navigation={navigation} />,
+            headerTitle: 'الحصالة - توفير مالي',
+            headerRight: () => (
+              <TouchableOpacity
+                onPress={() => navigation.navigate('AddSavings')}
+                style={{
+                  marginRight: isRTL ? 0 : 16,
+                  marginLeft: isRTL ? 16 : 0,
+                  padding: 8,
+                }}
+              >
+                <Ionicons name="add-circle" size={28} color="#FFFFFF" />
+              </TouchableOpacity>
+            ),
+            ...getCommonStackOptions(theme),
+          })}
+        />
+
+        <Stack.Screen
+          name="AddSavings"
+          component={AddSavingsScreen}
+          options={{
+            headerShown: false,
+            ...TransitionPresets.ModalSlideFromBottomIOS,
+          }}
+        />
+
         <Stack.Screen
           name="AddGoal"
           component={AddGoalScreen}
@@ -932,24 +958,7 @@ export const AppNavigator = () => {
             ...getCommonStackOptions(theme),
           })}
         />
-        <Stack.Screen
-          name="Subscriptions"
-          component={SubscriptionsScreen}
-          options={({ navigation }) => ({
-            headerShown: true,
-            headerTitle: 'الاشتراكات',
-            headerLeft: () => <HeaderLeft navigation={navigation} />,
-            ...getCommonStackOptions(theme),
-          })}
-        />
-        <Stack.Screen
-          name="AddSubscription"
-          component={AddSubscriptionScreen}
-          options={{
-            headerShown: false,
-            presentation: 'modal',
-          }}
-        />
+
         <Stack.Screen
           name="Calendar"
           component={CalendarScreen}

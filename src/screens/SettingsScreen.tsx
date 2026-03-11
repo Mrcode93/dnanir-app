@@ -908,8 +908,8 @@ export const SettingsScreen = ({ navigation }: any) => {
               <Ionicons name="person" size={24} color={theme.colors.primary} />
             </View>
             <View style={{ flex: 1, marginLeft: 16, marginRight: 16 }}>
-              <Text style={{ fontSize: 18, fontWeight: '700', color: theme.colors.textPrimary, fontFamily: theme.typography.fontFamily, textAlign: 'left' }}>الحساب والملف الشخصي</Text>
-              <Text style={{ fontSize: 13, color: theme.colors.textSecondary, fontFamily: theme.typography.fontFamily, marginTop: 4, textAlign: 'left' }}>إدارة الحساب، المزامنة، والإحالة</Text>
+              <Text style={styles.profileTitle}>الحساب والملف الشخصي</Text>
+              <Text style={styles.profileSubtitle}>إدارة الحساب، المزامنة، والإحالة</Text>
             </View>
             <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={24} color={theme.colors.textMuted} />
           </View>
@@ -2246,6 +2246,20 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'left' : 'right',
+  },
+  profileTitle: {
+    fontSize: 18,
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
+    textAlign: 'left',
+  },
+  profileSubtitle: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+    marginTop: 4,
+    textAlign: 'left',
   },
   accountInfo: {
     marginBottom: theme.spacing.md,

@@ -464,38 +464,28 @@ export interface BillPayment {
   createdAt: string;
 }
 
-// Subscriptions
-export type SubscriptionCategory =
-  | 'streaming'   // نيتفلكس، يوتيوب، شاهد
-  | 'internet'    // إنترنت
-  | 'gym'         // جيم
-  | 'education'   // دورات، تطبيقات تعليمية
-  | 'software'    // تطبيقات، برامج
-  | 'service'     // مولدة، حرس، ماء صحي
-  | 'other';
 
-export interface Subscription {
+
+// Savings
+export interface Savings {
   id: number;
-  name: string;
-  amount: number;
+  title: string;
+  targetAmount?: number;
+  currentAmount: number;
   currency?: string;
-  category: SubscriptionCategory;
-  nextBillingDate: string; // ISO date string YYYY-MM-DD
-  billingCycle: 'weekly' | 'monthly' | 'yearly';
   description?: string;
-  isActive: boolean;
-  reminderEnabled: boolean;
-  reminderDaysBefore: number;
+  icon?: string;
+  color?: string;
   createdAt: string;
+  updatedAt: string;
 }
 
-export const SUBSCRIPTION_CATEGORIES: Record<SubscriptionCategory, { label: string; icon: string; color: string }> = {
-  streaming: { label: 'بث ترفيهي', icon: 'play-circle', color: '#EF4444' },
-  internet: { label: 'إنترنت', icon: 'wifi', color: '#3B82F6' },
-  gym: { label: 'رياضة وجيم', icon: 'fitness', color: '#10B981' },
-  education: { label: 'تعليم', icon: 'school', color: '#8B5CF6' },
-  software: { label: 'تطبيقات وبرامج', icon: 'apps', color: '#06B6D4' },
-  service: { label: 'خدمات (مولدة/أخرى)', icon: 'construct', color: '#F59E0B' },
-  other: { label: 'أخرى', icon: 'star', color: '#6B7280' },
-};
-
+export interface SavingsTransaction {
+  id: number;
+  savingsId: number;
+  amount: number;
+  type: 'deposit' | 'withdrawal';
+  date: string;
+  description?: string;
+  createdAt: string;
+}
