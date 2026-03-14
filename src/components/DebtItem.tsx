@@ -319,7 +319,7 @@ const DebtItemComponent: React.FC<DebtItemProps> = ({
                 </TouchableOpacity>
               )}
 
-              {onEdit && (
+              {onEdit && !item.isPaid && (
                 <TouchableOpacity
                   style={[styles.menuOption, { marginTop: 8 }]}
                   onPress={() => {

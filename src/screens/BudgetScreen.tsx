@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   RefreshControl,
   TouchableOpacity,
   Modal,
@@ -12,6 +11,7 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Searchbar } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -152,13 +152,13 @@ export const BudgetScreen = ({ navigation, route }: any) => {
             const convertedAmount = await convertCurrency(status.budget.amount, budgetCurrency, currencyCode);
             converted[status.budget.id] = convertedAmount;
           } catch (error) {
-            console.error('Error converting currency:', error);
+            
           }
         }
       }
       setConvertedAmounts(converted);
     } catch (error) {
-      console.error('Error loading budgets:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء تحميل الميزانيات');
     }
   };
@@ -240,9 +240,9 @@ export const BudgetScreen = ({ navigation, route }: any) => {
       await loadData();
       setShowDeleteConfirm(false);
       setBudgetToDelete(null);
-      alertService.success('نجح', 'تم حذف الميزانية بنجاح');
+      alertService.toastSuccess('تم حذف الميزانية بنجاح');
     } catch (error) {
-      console.error('Error deleting budget:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء حذف الميزانية');
       setShowDeleteConfirm(false);
       setBudgetToDelete(null);
@@ -380,8 +380,10 @@ export const BudgetScreen = ({ navigation, route }: any) => {
   return (
     <View style={styles.container}>
 
-      <FlatList
+      <FlashList
         data={filteredBudgets}
+        // @ts-ignore
+        estimatedItemSize={180}
         ListHeaderComponent={
           <View style={styles.header}>
 

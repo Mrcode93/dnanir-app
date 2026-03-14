@@ -194,7 +194,7 @@ const TransactionItemComponent: React.FC<TransactionItemProps> = ({
           const converted = await convertCurrency(amount, itemCurrency, currencyCode);
           setConvertedAmount(converted);
         } catch (error) {
-          console.error('Error converting currency:', error);
+          
           setConvertedAmount(null);
         }
       } else {

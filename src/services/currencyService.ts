@@ -92,7 +92,7 @@ export const convertCurrency = async (
     const missingKey = getRateKey(fromCurrency, toCurrency);
     if (!missingRateWarnings.has(missingKey)) {
       missingRateWarnings.add(missingKey);
-      console.warn(`No exchange rate found for ${fromCurrency} to ${toCurrency}`);
+      
     }
     return amount;
   }
@@ -160,24 +160,23 @@ export const formatCurrencyAmount = (
   amount: number | null | undefined,
   currencyCode: string
 ): string => {
-  if (amount === null || amount === undefined) {
-    const currency = CURRENCIES.find(c => c.code === currencyCode);
-    if (!currency) return `0.00 ${currencyCode}`;
-    if (currencyCode === 'IQD') return `0 ${currency.symbol}`;
-    return `${currency.symbol}0.00`;
-  }
-
   const currency = CURRENCIES.find(c => c.code === currencyCode);
-  if (!currency) {
-    return `${amount.toFixed(2)} ${currencyCode}`;
+  const symbol = currency ? currency.symbol : currencyCode;
+
+  if (amount === null || amount === undefined) {
+    const formattedZero = currencyCode === 'IQD' ? '0' : '0.00';
+    return `${formattedZero} ${symbol}`;
   }
 
   // Format based on currency
   if (currencyCode === 'IQD') {
-    return `${amount.toLocaleString('en-US')} ${currency.symbol}`;
+    return `${amount.toLocaleString('en-US')} ${symbol}`;
   }
 
-  return `${currency.symbol}${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `${amount.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} ${symbol}`;
 };
 
 /**

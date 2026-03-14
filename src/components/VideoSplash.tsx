@@ -21,7 +21,7 @@ class VideoSplashErrorBoundary extends React.Component<{ onFinish: () => void; c
     }
 
     componentDidCatch(error: any) {
-        console.error('VideoSplash Error:', error);
+        
         // If the video splash fails, just proceed to the app
         this.props.onFinish();
     }

@@ -12,6 +12,7 @@ import {
     Platform,
     Dimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { isRTL } from '../utils/rtl';
@@ -37,17 +38,20 @@ type ShortcutType = 'expense' | 'income';
 
 interface ManageShortcutsModalProps {
     visible: boolean;
+    type?: ShortcutType;
     onClose: () => void;
     onShortcutUsed?: (shortcut: ExpenseShortcut | IncomeShortcut, type: ShortcutType) => void;
 }
 
 export const ManageShortcutsModal: React.FC<ManageShortcutsModalProps> = ({
     visible,
+    type = 'expense',
     onClose,
     onShortcutUsed,
 }) => {
     const { theme } = useAppTheme();
     const styles = useThemedStyles(createStyles);
+    const insets = useSafeAreaInsets();
     const { currencyCode, formatCurrency } = useCurrency();
 
     // Data
@@ -93,7 +97,7 @@ export const ManageShortcutsModal: React.FC<ManageShortcutsModalProps> = ({
             ));
             setCategories(allCats);
         } catch (error) {
-            console.error('Error loading shortcuts:', error);
+            
         } finally {
             setIsLoading(false);
         }
@@ -103,12 +107,12 @@ export const ManageShortcutsModal: React.FC<ManageShortcutsModalProps> = ({
         if (visible) {
             loadData();
             setMode('list');
-            resetForm();
+            resetForm(type);
         }
-    }, [visible, loadData]);
+    }, [visible, loadData, type]);
 
-    const resetForm = () => {
-        setFormType('expense');
+    const resetForm = (preferredType: ShortcutType = type) => {
+        setFormType(preferredType);
         setFormTitle('');
         setFormAmount('');
         setFormCategory('');
@@ -118,8 +122,8 @@ export const ManageShortcutsModal: React.FC<ManageShortcutsModalProps> = ({
     };
 
     const openAddForm = () => {
-        resetForm();
-        const availableCats = categories.filter(c => c.type === 'expense');
+        resetForm(formType);
+        const availableCats = categories.filter(c => c.type === formType);
         if (availableCats.length > 0) {
             setFormCategory(availableCats[0].name);
         }
@@ -337,8 +341,9 @@ export const ManageShortcutsModal: React.FC<ManageShortcutsModalProps> = ({
 
     const renderForm = () => (
         <KeyboardAvoidingView
-            behavior="padding"
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={{ flex: 1 }}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20}
         >
             {/* Header */}
             <View style={styles.header}>
@@ -476,7 +481,7 @@ export const ManageShortcutsModal: React.FC<ManageShortcutsModalProps> = ({
             </ScrollView>
 
             {/* Save Button */}
-            <View style={styles.formFooter}>
+            <View style={[styles.formFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
                 <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
                     <Text style={styles.saveBtnText}>
                         {mode === 'add' ? 'إضافة الاختصار' : 'حفظ التغييرات'}
@@ -487,7 +492,7 @@ export const ManageShortcutsModal: React.FC<ManageShortcutsModalProps> = ({
     );
 
     return (
-        <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+        <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose} statusBarTranslucent={true}>
             <View style={styles.container}>
                 {mode === 'list' ? renderList() : renderForm()}
             </View>
@@ -700,9 +705,9 @@ const createStyles = (theme: AppTheme) =>
         formFooter: {
             paddingHorizontal: 20,
             paddingVertical: 16,
-            paddingBottom: Platform.OS === 'ios' ? 34 : 16,
             borderTopWidth: 1,
             borderTopColor: theme.colors.border,
+            backgroundColor: theme.colors.background,
         },
         saveBtn: {
             backgroundColor: theme.colors.primary,

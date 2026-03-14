@@ -42,6 +42,7 @@ import { ReferralModal } from '../components/ReferralModal';
 import { PromoCodeModal } from '../components/PromoCodeModal';
 
 import { CONTACT_INFO, APP_LINKS, SHARE_APP_MESSAGE } from '../constants/contactConstants';
+import { CurrencyPickerModal } from '../components/CurrencyPickerModal';
 import { convertArabicToEnglish } from '../utils/numbers';
 import Constants from 'expo-constants';
 import * as Clipboard from 'expo-clipboard';
@@ -137,7 +138,7 @@ export const ProfileScreen = ({ navigation }: any) => {
         refreshUnsyncedStatus(),
       ]);
     } catch (error) {
-      console.error('Error loading profile screen data:', error);
+      
     } finally {
       if (showLoader) setIsProfileLoading(false);
     }
@@ -155,7 +156,7 @@ export const ProfileScreen = ({ navigation }: any) => {
 
   const checkAuthStatus = async (userFromServer?: any, forceServer = false) => {
     // if (__DEV__) {
-    //   console.log('🔄 Checking Auth Status...', { hasUserFromServer: !!userFromServer });
+    //   
     // }
     try {
       if (userFromServer) {
@@ -181,7 +182,7 @@ export const ProfileScreen = ({ navigation }: any) => {
 
       const status = await authApiService.checkAuth();
       // if (__DEV__) {
-      //   console.log('✅ Auth API Status:', status);
+      //   
       // }
 
       setIsAuthenticated(status.isAuthenticated);
@@ -192,7 +193,7 @@ export const ProfileScreen = ({ navigation }: any) => {
         setUserPhone('');
       }
     } catch (error) {
-      console.error('❌ Error checking auth status:', error);
+      
       setIsAuthenticated(false);
       setUserData(null);
       setUserPhone('');
@@ -205,7 +206,7 @@ export const ProfileScreen = ({ navigation }: any) => {
       setIsAuthenticated(false);
       setUserData(null);
       setUserPhone('');
-      alertService.success('نجح', 'تم تسجيل الخروج بنجاح');
+      alertService.toastSuccess('تم تسجيل الخروج بنجاح');
     } catch (error) {
       alertService.error('خطأ', 'فشل تسجيل الخروج');
     }
@@ -550,18 +551,18 @@ export const ProfileScreen = ({ navigation }: any) => {
       // Reload from DB so state matches persisted value (handles focus race)
       await loadSettings();
 
-      alertService.success('نجح', `تم حفظ وقت التذكير اليومي: ${timeString}`);
+      alertService.toastSuccess(`تم حفظ وقت التذكير اليومي: ${timeString}`);
 
       if (dailyReminder) {
         try {
           await scheduleDailyReminder();
         } catch (error) {
-          console.error('Error scheduling daily reminder:', error);
+          
           alertService.error('خطأ', 'تم حفظ الوقت لكن فشل جدولة التذكير');
         }
       }
     } catch (error) {
-      console.error('Error saving daily reminder time:', error);
+      
       alertService.error('خطأ', 'فشل حفظ وقت التذكير اليومي');
     }
   };
@@ -606,7 +607,7 @@ export const ProfileScreen = ({ navigation }: any) => {
     if (expenseReminder) {
       try {
         await sendExpenseReminder();
-        alertService.success('نجح', `تم تعيين وقت تذكير المصاريف إلى ${timeString}`);
+        alertService.toastSuccess(`تم تعيين وقت تذكير المصاريف إلى ${timeString}`);
       } catch (error) {
         alertService.error('خطأ', 'فشل جدولة تذكير المصاريف');
       }
@@ -753,7 +754,7 @@ export const ProfileScreen = ({ navigation }: any) => {
       await upsertAppSettings({ ...settingsToSave, currency: currency.name, themeMode: settingsToSave.themeMode });
       notifyCurrencyChanged();
       setShowCurrencyPicker(false);
-      alertService.success('نجح', `تم تغيير العملة إلى ${currency.name}`);
+      alertService.toastSuccess(`تم تغيير العملة إلى ${currency.name}`);
 
       // Reload exchange rate for new currency
       if (currencyCode !== 'USD') {
@@ -774,7 +775,7 @@ export const ProfileScreen = ({ navigation }: any) => {
       setExportingPDF(true);
       const uri = await generateMonthlyReport();
       await sharePDF(uri);
-      alertService.success('نجح', 'تم تصدير التقرير بنجاح');
+      alertService.toastSuccess('تم تصدير التقرير بنجاح');
     } catch (error) {
       alertService.error('خطأ', 'حدث خطأ أثناء تصدير التقرير');
     } finally {
@@ -811,7 +812,7 @@ export const ProfileScreen = ({ navigation }: any) => {
       });
 
       setShowExchangeRateModal(false);
-      alertService.success('نجح', 'تم حفظ سعر الصرف بنجاح');
+      alertService.toastSuccess('تم حفظ سعر الصرف بنجاح');
     } catch (error) {
       alertService.error('خطأ', 'حدث خطأ أثناء حفظ سعر الصرف');
     }
@@ -830,7 +831,7 @@ export const ProfileScreen = ({ navigation }: any) => {
         alertService.warning('تنبيه', 'لا يمكن فتح تطبيق البريد الإلكتروني');
       }
     } catch (error) {
-      console.error('Error opening email:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء فتح البريد الإلكتروني');
     }
   };
@@ -853,7 +854,7 @@ export const ProfileScreen = ({ navigation }: any) => {
         }
       }
     } catch (error) {
-      console.error('Error opening WhatsApp:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء فتح WhatsApp');
     }
   };
@@ -866,7 +867,7 @@ export const ProfileScreen = ({ navigation }: any) => {
         setReferralInfo(result.data);
       }
     } catch (err) {
-      console.error('Error loading referral info:', err);
+      
     } finally {
       setLoadingReferral(false);
     }
@@ -881,7 +882,7 @@ export const ProfileScreen = ({ navigation }: any) => {
         message,
       });
     } catch (error) {
-      console.error('Error sharing referral:', error);
+      
     }
   };
 
@@ -1027,7 +1028,7 @@ export const ProfileScreen = ({ navigation }: any) => {
                           onPress={async () => {
                             const id = String(userData.id);
                             await Clipboard.setStringAsync(id);
-                            alertService.success('تم النسخ', 'تم نسخ معرف المستخدم');
+                            alertService.toastSuccess('تم نسخ معرف المستخدم');
                           }}
                           style={styles.proFeaturePill}
                           activeOpacity={0.7}
@@ -1044,7 +1045,7 @@ export const ProfileScreen = ({ navigation }: any) => {
                       onPress={async () => {
                         const id = String(userData.id);
                         await Clipboard.setStringAsync(id);
-                        alertService.success('تم النسخ', 'تم نسخ معرف المستخدم');
+                        alertService.toastSuccess('تم نسخ معرف المستخدم');
                       }}
                       style={styles.copyIdButton}
                       activeOpacity={0.7}
@@ -1172,7 +1173,7 @@ export const ProfileScreen = ({ navigation }: any) => {
                       const result = await syncNewToServer();
                       setSyncing(false);
                       if (result.success) {
-                        alertService.success('تمت المزامنة', result.count > 0 ? `تمت إضافة ${result.count} عنصر جديد` : 'لا توجد بيانات جديدة');
+                        alertService.toastSuccess(result.count > 0 ? `تمت إضافة ${result.count} عنصر جديد` : 'لا توجد بيانات جديدة');
                       } else {
                         alertService.error('فشل المزامنة', result.error);
                       }
@@ -1316,7 +1317,7 @@ export const ProfileScreen = ({ navigation }: any) => {
         visible={showReferralModal}
         onClose={() => setShowReferralModal(false)}
         onSuccess={async (rewardDays) => {
-          alertService.success('تم التفعيل', `مبروك! حصلت على ${rewardDays} أيام إضافية في اشتراك برو.`);
+          alertService.toastSuccess(`مبروك! حصلت على ${rewardDays} أيام إضافية في اشتراك برو.`);
           // Refresh user data to hide the apply button
           await checkAuthStatus(null, true);
           loadReferralInfo();
@@ -1454,14 +1455,14 @@ export const ProfileScreen = ({ navigation }: any) => {
                           setUserData(result.user);
                         } else if (!result.success) {
                           // If server update fails, we still keep local for now but log it
-                          console.error('Failed to sync name to server:', result.error);
+                          
                         }
                       }
 
                       setShowNameModal(false);
-                      alertService.success('نجح', 'تم تحديث الاسم بنجاح');
+                      alertService.toastSuccess('تم تحديث الاسم بنجاح');
                     } catch (error) {
-                      console.error('Error saving name:', error);
+                      
                       alertService.error('خطأ', 'فشل تحديث الاسم');
                     }
                   }}

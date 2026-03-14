@@ -139,9 +139,9 @@ export const AddBillModal: React.FC<AddBillModalProps> = ({
 
       onClose();
       resetForm();
-      alertService.success('نجح', editingBill ? 'تم تحديث الفاتورة بنجاح' : 'تم إضافة الفاتورة بنجاح');
+      alertService.toastSuccess(editingBill ? 'تم تحديث الفاتورة بنجاح' : 'تم إضافة الفاتورة بنجاح');
     } catch (error) {
-      console.error('Error saving bill:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء حفظ الفاتورة');
     } finally {
       setLoading(false);

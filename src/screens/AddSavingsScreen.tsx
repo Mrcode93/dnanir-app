@@ -76,7 +76,7 @@ export const AddSavingsScreen = ({ navigation, route }: any) => {
       }
       navigation.goBack();
     } catch (error) {
-      console.error('Error saving savings:', error);
+      
       alertService.error('خطأ', 'فشل حفظ الحصالة');
     } finally {
       setLoading(false);

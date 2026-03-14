@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Platform } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
@@ -29,7 +30,7 @@ export const NotificationsScreen = ({ navigation }: any) => {
         try {
             const { getNotifications, markAllNotificationsRead } = await import('../database/database');
             const data = await getNotifications();
-            setNotifications(data.map(n => ({
+            const mapped = data.map(n => ({
                 id: n.id.toString(),
                 title: n.title,
                 body: n.body,
@@ -37,12 +38,33 @@ export const NotificationsScreen = ({ navigation }: any) => {
                 data: n.data ? (typeof n.data === 'string' ? JSON.parse(n.data) : n.data) : null,
                 type: (n as any).type,
                 read: n.read
-            })));
+            }));
+
+            // Hide duplicated rows (same content arriving twice within a few seconds).
+            const deduped: NotificationItem[] = [];
+            for (const item of mapped) {
+                const itemType = item.type || item.data?.type || 'default';
+                const hasDuplicate = deduped.some(existing => {
+                    const existingType = existing.type || existing.data?.type || 'default';
+                    return (
+                        existing.title === item.title &&
+                        existing.body === item.body &&
+                        existingType === itemType &&
+                        Math.abs(existing.date - item.date) <= 5000
+                    );
+                });
+
+                if (!hasDuplicate) {
+                    deduped.push(item);
+                }
+            }
+
+            setNotifications(deduped);
 
             // Mark all as read after loading (or maybe on focus?)
             await markAllNotificationsRead();
         } catch (error) {
-            console.error('Error loading notifications:', error);
+            
         }
     };
 
@@ -62,7 +84,7 @@ export const NotificationsScreen = ({ navigation }: any) => {
             await clearNotifications();
             setNotifications([]);
         } catch (error) {
-            console.error('Error clearing notifications:', error);
+            
         }
     };
 
@@ -126,10 +148,11 @@ export const NotificationsScreen = ({ navigation }: any) => {
 
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
-            <FlatList
+            <FlashList
                 data={notifications}
                 renderItem={renderItem}
                 keyExtractor={item => item.id}
+                estimatedItemSize={100}
                 contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 20 }]}
                 initialNumToRender={10}
                 maxToRenderPerBatch={8}
@@ -137,12 +160,7 @@ export const NotificationsScreen = ({ navigation }: any) => {
                 updateCellsBatchingPeriod={50}
                 removeClippedSubviews={Platform.OS === 'android'}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-                ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                        <Ionicons name="notifications-off-outline" size={64} color={theme.colors.textMuted} />
-                        <Text style={styles.emptyText}>لا توجد إشعارات حالياً</Text>
-                    </View>
-                }
+                ListFooterComponent={<View style={{ height: insets.bottom + 20 }} />}
             />
         </SafeAreaView>
     );

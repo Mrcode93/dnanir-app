@@ -97,7 +97,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
             const stats = await getFinancialStatsAggregated();
             setCurrentBalance(stats.balance);
         } catch (error) {
-            console.error('Error loading balance:', error);
+            
         }
     };
 
@@ -195,9 +195,9 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
             }
 
             handleClose();
-            alertService.success('نجح', editingDebt ? 'تم تحديث الدين بنجاح' : 'تم إضافة الدين بنجاح');
+            alertService.toastSuccess(editingDebt ? 'تم تحديث الدين بنجاح' : 'تم إضافة الدين بنجاح');
         } catch (error) {
-            console.error('Error saving debt:', error);
+            
             alertService.error('خطأ', 'حدث خطأ أثناء حفظ البيانات');
         } finally {
             setLoading(false);

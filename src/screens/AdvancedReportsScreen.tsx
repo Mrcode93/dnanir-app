@@ -53,7 +53,7 @@ export const AdvancedReportsScreen = ({ navigation }: any) => {
       setCustomCategories(expenseCategories);
       setCustomSources(incomeSources);
     } catch (error) {
-      console.error('Error loading custom categories:', error);
+      
     }
   };
 
@@ -63,7 +63,7 @@ export const AdvancedReportsScreen = ({ navigation }: any) => {
       const data = await generateAdvancedReport(filter);
       setReportData(data);
     } catch (error) {
-      console.error('Error generating report:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء إنشاء التقرير');
     } finally {
       setLoading(false);
@@ -80,7 +80,7 @@ export const AdvancedReportsScreen = ({ navigation }: any) => {
         dialogTitle: 'تصدير التقرير',
       });
     } catch (error) {
-      console.error('Error exporting CSV:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء تصدير التقرير');
     }
   };
@@ -92,7 +92,7 @@ export const AdvancedReportsScreen = ({ navigation }: any) => {
       const uri = await generateAdvancedPDFReport(reportData);
       await sharePDF(uri);
     } catch (error) {
-      console.error('Error exporting PDF:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء تصدير PDF');
     } finally {
       setExportingPDF(false);

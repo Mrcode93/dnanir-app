@@ -29,11 +29,11 @@ class AuthEventService {
         const result = callback();
         if (result instanceof Promise) {
           result.catch(error => {
-            console.error('Error in auth state change callback:', error);
+            
           });
         }
       } catch (error) {
-        console.error('Error in auth state change callback:', error);
+        
       }
     });
   }

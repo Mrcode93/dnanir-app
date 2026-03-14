@@ -147,12 +147,12 @@ export const updateChallengeProgress = async (challengeId: number): Promise<void
       // Check achievements after completing challenge (async, don't wait)
       try {
         const { checkAllAchievements } = await import('./achievementService');
-        checkAllAchievements().catch(err => console.error('Error checking achievements after challenge completion:', err));
+        checkAllAchievements().catch(() => {});
       } catch (error) {
         // Ignore if achievementService is not available
       }
     } catch (error) {
-      console.error('Error sending challenge completion notification:', error);
+      
     }
   }
 };

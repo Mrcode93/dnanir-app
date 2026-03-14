@@ -103,7 +103,7 @@ export const ConfirmAlert: React.FC<ConfirmAlertProps> = ({
         }
       }
     } catch (error) {
-      console.error('Error in ConfirmAlert onConfirm:', error);
+      
     }
   };
 

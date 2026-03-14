@@ -2,6 +2,13 @@
   "expo": {
     "plugins": [
       "./plugins/withAndroidIcons.js",
+      "./plugins/withAndroidWidget.js",
+      [
+        "@bacons/apple-targets",
+        {
+          "appleTeamId": "9CKZ5C5K3C"
+        }
+      ],
       [
         "expo-notifications",
         {
@@ -14,7 +21,7 @@
     ],
     "name": "دنانير",
     "slug": "dnanir",
-    "version": "1.2.4",
+    "version": "1.2.5",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "automatic",
@@ -31,11 +38,12 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.mrcodeiq.dinar",
       "googleServicesFile": "./GoogleService-Info.plist",
-      "buildNumber": "26",
+      "buildNumber": "32",
       "infoPlist": {
         "CFBundleURLTypes": [
           {
             "CFBundleURLSchemes": [
+              "dnanir",
               "com.googleusercontent.apps.147402049587-ed1u349b6sap5v6f4b7j3s0qb4qbahq1"
             ]
           }
@@ -70,7 +78,12 @@
         "./assets/fonts/din-next-lt-w23-ultra-light-1.ttf"
       ],
       "notificationMode": "production",
-      "usesAppleSignIn": false,
+      "appleTeamId": "9CKZ5C5K3C",
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.com.mrcodeiq.dinar"
+        ]
+      },
       "config": {
         "usesNonExemptEncryption": false
       }
@@ -109,9 +122,7 @@
     "web": {
       "favicon": "./assets/logo.png"
     },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.0",
     "extra": {
       "eas": {
         "projectId": "84527916-7a14-4070-bd36-1035bfd146ec"

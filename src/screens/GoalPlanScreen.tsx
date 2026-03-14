@@ -120,7 +120,7 @@ export const GoalPlanScreen = ({ route, navigation }: any) => {
         try {
           await saveGoalPlanCache(goal.id, result.data);
         } catch (cacheError) {
-          console.error('Error saving goal plan cache:', cacheError);
+          
           // Don't fail the whole operation if cache save fails
         }
       } else {

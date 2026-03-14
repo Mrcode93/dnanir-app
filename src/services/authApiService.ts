@@ -51,7 +51,7 @@ const saveUserProfileToLocal = async (user: UserData): Promise<void> => {
       isPro: user.isPro || false,
     });
   } catch (error) {
-    console.error('Error saving user profile:', error);
+    
     // Don't fail login if profile save fails
   }
 };
@@ -154,7 +154,7 @@ export const authApiService = {
       const { clearUserProfile } = await import('../database/database');
       await clearUserProfile();
     } catch (error) {
-      console.error('Error clearing user profile:', error);
+      
       // Don't fail logout if profile clear fails
     }
 
@@ -206,7 +206,7 @@ export const authApiService = {
 
       return { isAuthenticated: false };
     } catch (error) {
-      console.error('Check auth error:', error);
+      
       return { isAuthenticated: false };
     }
   },
@@ -291,7 +291,7 @@ export const authApiService = {
       try {
         await saveUserProfileToLocal(response.data.user);
       } catch (err) {
-        console.error('Error updating local profile:', err);
+        
       }
 
       authEventService.notifyAuthChanged();

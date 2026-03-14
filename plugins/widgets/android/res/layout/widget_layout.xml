@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:layout_margin="8dp"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <!-- Header -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <TextView
+            android:id="@+id/widget_app_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:text="دنانير"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/widget_balance"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="---"
+                android:textColor="#FFFFFF"
+                android:textSize="24sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/widget_balance_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="IQD / الرصيد"
+                android:textColor="#66FFFFFF"
+                android:textSize="9sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </RelativeLayout>
+
+    <Space
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <!-- Action Bar (Equal Size, No Text) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <!-- Smart Add -->
+        <ImageButton
+            android:id="@+id/btn_smart_add"
+            android:layout_width="54dp"
+            android:layout_height="54dp"
+            android:layout_weight="1"
+            android:background="@android:drawable/btn_default_small"
+            android:backgroundTint="#0077B6"
+            android:padding="16dp"
+            android:scaleType="fitCenter"
+            android:src="@android:drawable/ic_btn_speak_now"
+            android:tint="#FFFFFF" />
+
+        <Space
+            android:layout_width="20dp"
+            android:layout_height="wrap_content" />
+
+        <!-- Income -->
+        <ImageButton
+            android:id="@+id/btn_add_income"
+            android:layout_width="54dp"
+            android:layout_height="54dp"
+            android:layout_weight="1"
+            android:background="@android:drawable/btn_default_small"
+            android:backgroundTint="#1A4CAF50"
+            android:padding="16dp"
+            android:scaleType="fitCenter"
+            android:src="@android:drawable/ic_input_add"
+            android:tint="#4CAF50" />
+
+        <Space
+            android:layout_width="20dp"
+            android:layout_height="wrap_content" />
+
+        <!-- Expense -->
+        <ImageButton
+            android:id="@+id/btn_add_expense"
+            android:layout_width="54dp"
+            android:layout_height="54dp"
+            android:layout_weight="1"
+            android:background="@android:drawable/btn_default_small"
+            android:backgroundTint="#1AFF5252"
+            android:padding="16dp"
+            android:scaleType="fitCenter"
+            android:src="@android:drawable/ic_menu_add"
+            android:tint="#FF5252" />
+
+    </LinearLayout>
+
+</LinearLayout>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,9 @@ import {
   Dimensions,
   TouchableOpacity,
   InteractionManager,
+  Share,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -31,6 +34,9 @@ import { getCustomCategories, getAvailableMonths } from '../database/database';
 import { MonthFilter } from '../components/MonthFilter';
 import { BalanceCard } from '../components/BalanceCard';
 import { formatDateLocal } from '../utils/date';
+import { generateMonthlyReport, sharePDF, generateAdvancedPDFReport, generateFullReport } from '../services/pdfService';
+import { generateAdvancedReport } from '../services/advancedReportsService';
+import { alertService } from '../services/alertService';
 
 const { width } = Dimensions.get('window');
 
@@ -97,14 +103,95 @@ export const InsightsScreen = ({ navigation }: any) => {
     return { year: now.getFullYear(), month: now.getMonth() + 1 };
   });
   const [availableMonths, setAvailableMonths] = useState<Array<{ year: number; month: number }>>([]);
+  const [showExportModal, setShowExportModal] = useState(false);
+
+  const handleExportSelectedMonth = async () => {
+    try {
+      const pdfUri = await generateMonthlyReport(selectedMonth.month - 1, selectedMonth.year);
+      await sharePDF(pdfUri);
+    } catch (error) {
+      
+      alertService.error('خطأ', 'تعذر إنشاء تقرير PDF حالياً');
+    }
+  };
+
+  const handleExportTwoMonths = async () => {
+    try {
+      const prevMonth = selectedMonth.month === 1 ? 12 : selectedMonth.month - 1;
+      const prevYear = selectedMonth.month === 1 ? selectedMonth.year - 1 : selectedMonth.year;
+      const startDate = new Date(prevYear, prevMonth - 1, 1).toISOString();
+      const endDate = new Date(selectedMonth.year, selectedMonth.month, 0).toISOString();
+      
+      const reportData = await generateAdvancedReport({
+        startDate,
+        endDate
+      });
+      const pdfUri = await generateAdvancedPDFReport(reportData);
+      await sharePDF(pdfUri);
+    } catch (error) {
+      
+      alertService.error('خطأ', 'تعذر إنشاء تقرير PDF حالياً');
+    }
+  };
+
+  const handleExportAll = async () => {
+    try {
+      const pdfUri = await generateFullReport();
+      await sharePDF(pdfUri);
+    } catch (error) {
+      
+      alertService.error('خطأ', 'تعذر إنشاء تقرير PDF حالياً');
+    }
+  };
+
+  const handleExportPdf = () => {
+    setShowExportModal(true);
+  };
+
+  const handleShareSummary = async () => {
+    try {
+      if (!summary) {
+        alertService.warning('تنبيه', 'لا توجد بيانات للشهر المحدد');
+        return;
+      }
+
+      const monthLabel = `${selectedMonth.month}/${selectedMonth.year}`;
+      const incomeAmount = summary?.totalIncome || 0;
+      const expenseAmount = summary?.totalExpenses || 0;
+      const balanceAmount = summary?.balance || 0;
+
+      const message = [
+        `ملخصي المالي - ${monthLabel}`,
+        `الدخل: ${formatCurrency(incomeAmount)}`,
+        `المصاريف: ${formatCurrency(expenseAmount)}`,
+        `الصافي: ${formatCurrency(balanceAmount)}`,
+        '',
+        '— تطبيق دنانير',
+      ].join('\n');
+
+      await Share.share({ message });
+    } catch (error) {
+      
+      alertService.error('خطأ', 'تعذر مشاركة الملخص حالياً');
+    }
+  };
 
   const loadData = async () => {
     try {
-      // Query available months directly from SQLite instead of loading all rows.
-      const months = await getAvailableMonths();
-      setAvailableMonths(months);
+      // Parallelize non-dependent requests
+      const [months, customCats, prediction, trend] = await Promise.all([
+        getAvailableMonths(),
+        getCustomCategories('expense'),
+        predictNextMonthExpenses(3),
+        getMonthlyTrendData(6)
+      ]);
 
-      // Load Month Data
+      setAvailableMonths(months);
+      setCustomCategories(customCats);
+      setPredictionData(prediction);
+      setMonthlyTrend(trend);
+
+      // Dependent month data
       let monthData;
       if (selectedMonth && (selectedMonth.year !== 0 || selectedMonth.month !== 0)) {
         monthData = await getMonthData(selectedMonth.year, selectedMonth.month);
@@ -112,12 +199,13 @@ export const InsightsScreen = ({ navigation }: any) => {
         monthData = await getCurrentMonthData();
       }
 
-      // Calculate summary
+      setMonthlyData(monthData);
+
+      // Calculations
       const monthIncome = monthData.totalIncome;
       const monthExpenses = monthData.totalExpenses;
       const monthBalance = monthData.balance;
 
-      // Calculate expense categories manually for consistency
       const expenseCategoryMap = new Map<string, number>();
       (monthData.expenses || []).forEach((item: any) => {
         const current = expenseCategoryMap.get(item.category) || 0;
@@ -132,7 +220,6 @@ export const InsightsScreen = ({ navigation }: any) => {
         }))
         .sort((a, b) => b.amount - a.amount);
 
-      // Calculate income categories
       const incomeCategoryMap = new Map<string, number>();
       (monthData.income || []).forEach((item: any) => {
         const current = incomeCategoryMap.get(item.category) || 0;
@@ -159,31 +246,14 @@ export const InsightsScreen = ({ navigation }: any) => {
       };
 
       setSummary(financialSummary);
-      setMonthlyData(monthData);
+      setInsights(generateFinancialInsights(financialSummary));
 
-      // Insights
-      const financialInsights = generateFinancialInsights(financialSummary);
-      setInsights(financialInsights);
-
-      // Categories
-      const customCats = await getCustomCategories('expense');
-      setCustomCategories(customCats);
-
-      // Prediction
-      const prediction = await predictNextMonthExpenses(3);
-      setPredictionData(prediction);
-
-      // Trend
-      const trend = await getMonthlyTrendData(6);
-      setMonthlyTrend(trend);
-
-      // Comparison
       if (showComparison) {
         const comparison = await comparePeriods(selectedPeriod1, selectedPeriod2);
         setComparisonData(comparison);
       }
     } catch (error) {
-      console.error('Error loading insights data:', error);
+      
     }
   };
 
@@ -244,11 +314,8 @@ export const InsightsScreen = ({ navigation }: any) => {
   const healthColors = getHealthColor(healthScore);
 
   // --- Charts Data Helpers ---
-  const getExpenseTrendData = () => {
+  const getExpenseTrendData = useCallback(() => {
     if (!monthlyData?.expenses) return null;
-    // Logic to show last 7 days of SELECTED MONTH or relative if current
-    // Simplification: showing aggregate by day for the selected month data loaded
-    // But monthlyData loaded assumes range. Let's filter distinct dates from loaded expenses.
 
     // Group by date
     const dailyMap = new Map<string, number>();
@@ -258,7 +325,7 @@ export const InsightsScreen = ({ navigation }: any) => {
     });
 
     // Sort dates
-    const sortedDates = Array.from(dailyMap.keys()).sort().slice(-7); // Last 7 active days or just limit
+    const sortedDates = Array.from(dailyMap.keys()).sort().slice(-7);
 
     if (sortedDates.length === 0) return null;
 
@@ -273,7 +340,7 @@ export const InsightsScreen = ({ navigation }: any) => {
         strokeWidth: 3
       }]
     };
-  };
+  }, [monthlyData, theme.colors.error]);
 
   const CATEGORY_COLORS = [
     '#3B82F6', // Blue
@@ -288,7 +355,7 @@ export const InsightsScreen = ({ navigation }: any) => {
     '#84CC16', // lime
   ];
 
-  const getCategoryPieData = () => {
+  const pieData = useMemo(() => {
     if (!summary) return [];
 
     const categories = activeTab === 'expenses' ? summary.topExpenseCategories : summary.topIncomeCategories;
@@ -308,7 +375,7 @@ export const InsightsScreen = ({ navigation }: any) => {
         legendFontColor: '#FFFFFF',
         legendFontSize: 12,
       }));
-  };
+  }, [summary, activeTab]);
 
   // --- Chart Config ---
   const chartConfig = {
@@ -384,10 +451,7 @@ export const InsightsScreen = ({ navigation }: any) => {
           <View style={styles.quickActionsGrid}>
             <TouchableOpacity
               style={styles.quickActionBtn}
-              onPress={() => {
-                // Implementation for PDF export
-                console.log('Exporting PDF');
-              }}
+              onPress={handleExportPdf}
             >
               <View style={[styles.actionIconCircle, { backgroundColor: theme.colors.info + '15' }]}>
                 <Ionicons name="document-text" size={20} color={theme.colors.info} />
@@ -407,10 +471,7 @@ export const InsightsScreen = ({ navigation }: any) => {
 
             <TouchableOpacity
               style={styles.quickActionBtn}
-              onPress={() => {
-                // Future implementation for CSV
-                console.log('Exporting CSV');
-              }}
+              onPress={handleShareSummary}
             >
               <View style={[styles.actionIconCircle, { backgroundColor: theme.colors.success + '15' }]}>
                 <Ionicons name="share-social" size={20} color={theme.colors.success} />
@@ -452,7 +513,6 @@ export const InsightsScreen = ({ navigation }: any) => {
           </View>
 
           {(() => {
-            const pieData = getCategoryPieData();
             if (pieData.length === 0) return (
               <View style={styles.noDataContainer}>
                 <Ionicons name="stats-chart-outline" size={48} color={theme.colors.textMuted} />
@@ -706,6 +766,72 @@ export const InsightsScreen = ({ navigation }: any) => {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Export Options Modal */}
+      <Modal visible={showExportModal} transparent animationType="slide" onRequestClose={() => setShowExportModal(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowExportModal(false)}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>خيارات تصدير PDF</Text>
+              <TouchableOpacity onPress={() => setShowExportModal(false)} style={styles.modalCloseBtn}>
+                <Ionicons name="close-circle" size={24} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            
+            <TouchableOpacity 
+              style={styles.exportOptionBtn}
+              onPress={() => {
+                setShowExportModal(false);
+                setTimeout(handleExportSelectedMonth, 300);
+              }}
+            >
+              <View style={[styles.exportIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                <Ionicons name="calendar-outline" size={24} color={theme.colors.primary} />
+              </View>
+              <View style={styles.exportOptionTextContainer}>
+                <Text style={styles.exportOptionTitle}>الشهر المحدد</Text>
+                <Text style={styles.exportOptionSubtitle}>تصدير بيانات شهر {selectedMonth.month} لسنة {selectedMonth.year}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={theme.colors.textMuted} />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.exportOptionBtn}
+              onPress={() => {
+                setShowExportModal(false);
+                setTimeout(handleExportTwoMonths, 300);
+              }}
+            >
+              <View style={[styles.exportIconBox, { backgroundColor: theme.colors.info + '15' }]}>
+                <Ionicons name="copy-outline" size={24} color={theme.colors.info} />
+              </View>
+              <View style={styles.exportOptionTextContainer}>
+                <Text style={styles.exportOptionTitle}>شهرين معاً</Text>
+                <Text style={styles.exportOptionSubtitle}>تصدير بيانات الشهر المحدد والشهر الذي يسبقه</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={theme.colors.textMuted} />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.exportOptionBtn}
+              onPress={() => {
+                setShowExportModal(false);
+                setTimeout(handleExportAll, 300);
+              }}
+            >
+              <View style={[styles.exportIconBox, { backgroundColor: theme.colors.success + '15' }]}>
+                <Ionicons name="infinite-outline" size={24} color={theme.colors.success} />
+              </View>
+              <View style={styles.exportOptionTextContainer}>
+                <Text style={styles.exportOptionTitle}>تصدير الكل</Text>
+                <Text style={styles.exportOptionSubtitle}>إنشاء تقرير شامل لجميع المعاملات</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={theme.colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
+
     </SafeAreaView >
   );
 };
@@ -1249,5 +1375,68 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textMuted,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
+  },
+  // Export Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: theme.colors.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 40,
+    ...getPlatformShadow('lg'),
+  },
+  modalHeader: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+  exportOptionBtn: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: theme.colors.surfaceCard,
+    borderRadius: 16,
+    marginBottom: 12,
+    ...getPlatformShadow('sm'),
+  },
+  exportIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  exportOptionTextContainer: {
+    flex: 1,
+    marginHorizontal: 16,
+    alignItems: isRTL ? 'flex-end' : 'flex-start',
+  },
+  exportOptionTitle: {
+    fontSize: 16,
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
+    marginBottom: 4,
+  },
+  exportOptionSubtitle: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'right' : 'left',
   },
 });

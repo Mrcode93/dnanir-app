@@ -31,6 +31,7 @@ import { ReceiptScannerModal } from './ReceiptScannerModal';
 import { ReceiptData } from '../services/receiptOCRService';
 import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 import { getSmartExpenseShortcuts } from '../services/smartShortcutsService';
+import { resolveIoniconName, toOutlineIoniconName } from '../utils/icon-utils';
 
 interface AddExpenseModalProps {
   visible: boolean;
@@ -271,7 +272,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
     const cat = categories.find(c => c.name === categoryName);
     if (cat) {
       return {
-        icon: cat.icon,
+        icon: resolveIoniconName(cat.icon, 'ellipse'),
         color: cat.color,
         colors: [cat.color, cat.color],
       };
@@ -367,37 +368,47 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                     <View style={styles.shortcutsSection}>
                       <View style={styles.shortcutsHeader}>
                         <View style={styles.shortcutsHeaderLeft}>
-                          <Ionicons name="flash" size={18} color={theme.colors.primary} />
                           <Text style={styles.shortcutsTitle}>الاختصارات السريعة</Text>
+                          <Ionicons name="flash" size={18} color={theme.colors.primary} />
                         </View>
-                        <TouchableOpacity onPress={() => setShowManageShortcuts(true)}>
-                          <Text style={{ color: theme.colors.primary, fontSize: 13, fontFamily: theme.typography.fontFamily }}>إدارة</Text>
+                        <TouchableOpacity
+                          onPress={() => setShowManageShortcuts(true)}
+                          style={styles.manageButton}
+                        >
+                          <Ionicons name="settings-outline" size={16} color={theme.colors.primary} />
+                          <Text style={styles.manageText}>إدارة</Text>
                         </TouchableOpacity>
                       </View>
                       {shortcuts.length > 0 ? (
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shortcutsScroll}>
+                        <ScrollView
+                          horizontal
+                          showsHorizontalScrollIndicator={false}
+                          style={[styles.shortcutsScrollView, { transform: [{ scaleX: isRTL ? -1 : 1 }] }]}
+                          contentContainerStyle={[styles.shortcutsScroll, { flexDirection: 'row' }]}
+                        >
                           {shortcuts.map(shortcut => (
-                            <TouchableOpacity
-                              key={shortcut.id}
-                              onPress={() => handleShortcutPress(shortcut)}
-                              activeOpacity={0.8}
-                              style={styles.shortcutCardPressable}
-                            >
-                              <LinearGradient
-                                colors={getCategoryInfo(shortcut.category).colors as any}
-                                style={styles.shortcutGradient}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
+                            <View key={shortcut.id} style={[styles.shortcutCard, { transform: [{ scaleX: isRTL ? -1 : 1 }] }]}>
+                              <TouchableOpacity
+                                onPress={() => handleShortcutPress(shortcut)}
+                                activeOpacity={0.8}
+                                style={styles.shortcutCardPressable}
                               >
-                                <View style={styles.shortcutIconContainer}>
-                                  <Ionicons name={getCategoryInfo(shortcut.category).icon as any} size={28} color="#FFFFFF" />
-                                </View>
-                                <Text style={styles.shortcutTitle} numberOfLines={1}>{shortcut.title}</Text>
-                                <Text style={styles.shortcutAmount}>{formatCurrency(shortcut.amount)}</Text>
-                              </LinearGradient>
-                            </TouchableOpacity>
+                                <LinearGradient
+                                  colors={getCategoryInfo(shortcut.category).colors as any}
+                                  style={styles.shortcutGradient}
+                                  start={{ x: 0, y: 0 }}
+                                  end={{ x: 1, y: 1 }}
+                                >
+                                  <View style={styles.shortcutIconContainer}>
+                                    <Ionicons name={getCategoryInfo(shortcut.category).icon as any} size={28} color="#FFFFFF" />
+                                  </View>
+                                  <Text style={styles.shortcutTitle} numberOfLines={1}>{shortcut.title}</Text>
+                                  <Text style={styles.shortcutAmount}>{formatCurrency(shortcut.amount)}</Text>
+                                </LinearGradient>
+                              </TouchableOpacity>
+                            </View>
                           ))}
-                          <TouchableOpacity onPress={() => setShowManageShortcuts(true)} style={styles.addShortcutButton} activeOpacity={0.7}>
+                          <TouchableOpacity onPress={() => setShowManageShortcuts(true)} style={[styles.addShortcutButton, { transform: [{ scaleX: isRTL ? -1 : 1 }] }]} activeOpacity={0.7}>
                             <View style={styles.addShortcutContent}>
                               <View style={styles.addShortcutIconContainer}>
                                 <Ionicons name="add" size={28} color={theme.colors.primary} />
@@ -564,6 +575,8 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                     >
                       {categories.map((cat) => {
                         const isSelected = category === cat.name;
+                        const selectedIcon = resolveIoniconName(cat.icon, 'ellipse');
+                        const unselectedIcon = toOutlineIoniconName(cat.icon, 'ellipse-outline');
                         // Parse color gradient from hex color
                         const color1 = cat.color;
                         const color2 = cat.color; // Use same color or create darker shade
@@ -584,7 +597,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                                 end={{ x: 1, y: 1 }}
                               >
                                 <Ionicons
-                                  name={cat.icon as any}
+                                  name={selectedIcon}
                                   size={20}
                                   color="#FFFFFF"
                                 />
@@ -593,7 +606,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                             ) : (
                               <View style={styles.categoryDefault}>
                                 <Ionicons
-                                  name={`${cat.icon}-outline` as any}
+                                  name={unselectedIcon}
                                   size={20}
                                   color={theme.colors.textSecondary}
                                 />
@@ -1030,6 +1043,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderTopRightRadius: theme.borderRadius.xl,
     overflow: 'hidden',
     zIndex: 1000,
+    direction: 'ltr',
   },
   currencyModalGradient: {
     maxHeight: '100%',
@@ -1119,69 +1133,70 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   shortcutsSection: {
     marginBottom: theme.spacing.lg,
     paddingTop: theme.spacing.md,
+    paddingHorizontal: 16,
+
+
   },
   shortcutsHeader: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: theme.spacing.md,
-    paddingHorizontal: theme.spacing.xs,
   },
   shortcutsHeaderLeft: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     gap: theme.spacing.sm,
-  },
-  shortcutsIconBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: theme.colors.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   shortcutsTitle: {
     fontSize: theme.typography.sizes.lg,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    writingDirection: 'rtl',
   },
-  toggleButton: {
-    padding: theme.spacing.xs,
-    borderRadius: theme.borderRadius.sm,
-    backgroundColor: theme.colors.surfaceLight,
+  manageButton: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.primary + '15',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: theme.borderRadius.round,
+    gap: 4,
+  },
+  manageText: {
+    color: theme.colors.primary,
+    fontSize: 13,
+    fontWeight: getPlatformFontWeight('700'),
+    fontFamily: theme.typography.fontFamily,
   },
   shortcutsScrollView: {
-    marginHorizontal: -theme.spacing.md,
-    paddingHorizontal: theme.spacing.md,
+    marginHorizontal: -16,
   },
   shortcutsScroll: {
-    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: 16,
     gap: theme.spacing.md,
-    paddingRight: theme.spacing.xs,
+    paddingVertical: theme.spacing.xs,
   },
   shortcutCard: {
     width: 140,
     borderRadius: theme.borderRadius.lg,
-    overflow: 'visible',
-    marginRight: theme.spacing.xs,
-    position: 'relative',
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: theme.colors.border + '40',
+    backgroundColor: theme.colors.surface,
+    ...getPlatformShadow('md'),
   },
   shortcutCardFirst: {
     marginRight: 0,
   },
   shortcutCardPressable: {
-    borderRadius: theme.borderRadius.lg,
-    overflow: 'hidden',
-    ...getPlatformShadow('lg'),
+    flex: 1,
   },
   shortcutGradient: {
     padding: theme.spacing.md,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    minHeight: 140,
-    position: 'relative',
+    justifyContent: 'center',
+    minHeight: 130,
   },
   shortcutActions: {
     position: 'absolute',
@@ -1210,13 +1225,15 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     ...getPlatformShadow('sm'),
   },
   shortcutIconContainer: {
-    width: 56,
-    height: 48,
-    borderRadius: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   shortcutTitle: {
     fontSize: theme.typography.sizes.md,

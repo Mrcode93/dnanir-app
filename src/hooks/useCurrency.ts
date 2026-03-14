@@ -23,7 +23,7 @@ export const useCurrency = () => {
         }
       }
     } catch (error) {
-      console.error('Error loading currency:', error);
+      
     } finally {
       setLoading(false);
     }

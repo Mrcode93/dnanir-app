@@ -60,7 +60,7 @@ export const AddSavingsTransactionModal: React.FC<AddSavingsTransactionModalProp
       await onConfirm(Number(cleanAmount), type);
       onClose();
     } catch (error) {
-      console.error('Error in modal confirm:', error);
+      
     } finally {
       setLoading(false);
     }

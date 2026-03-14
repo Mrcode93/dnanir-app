@@ -191,6 +191,15 @@ export const initDatabase = async () => {
     } catch (e) {
       // Column already exists, ignore
     }
+    // Add base_amount columns if they don't exist
+    try {
+      await db.execAsync('ALTER TABLE financial_goals ADD COLUMN base_target_amount REAL;');
+      await db.execAsync('ALTER TABLE financial_goals ADD COLUMN base_current_amount REAL;');
+      await db.execAsync('UPDATE financial_goals SET base_target_amount = targetAmount WHERE base_target_amount IS NULL;');
+      await db.execAsync('UPDATE financial_goals SET base_current_amount = currentAmount WHERE base_current_amount IS NULL;');
+    } catch (e) {
+      // Column already exists, ignore
+    }
     try {
       await db.execAsync('ALTER TABLE financial_goals ADD COLUMN synced_at INTEGER;');
     } catch (e) { }
@@ -228,6 +237,14 @@ export const initDatabase = async () => {
     } catch (e) {
       // Column already exists, ignore
     }
+    // Add base_amount column if it doesn't exist
+    try {
+      await db.execAsync('ALTER TABLE budgets ADD COLUMN base_amount REAL;');
+      // Initialize existing records
+      await db.execAsync('UPDATE budgets SET base_amount = amount WHERE base_amount IS NULL;');
+    } catch (e) {
+      // Column already exists, ignore
+    }
     try {
       await db.execAsync('ALTER TABLE budgets ADD COLUMN synced_at INTEGER;');
     } catch (e) { }
@@ -248,6 +265,13 @@ export const initDatabase = async () => {
         createdAt TEXT NOT NULL
       );
     `);
+    try {
+      await db.execAsync('ALTER TABLE recurring_expenses ADD COLUMN base_amount REAL;');
+      await db.execAsync('UPDATE recurring_expenses SET base_amount = amount WHERE base_amount IS NULL;');
+    } catch (e) { }
+    try {
+      await db.execAsync('ALTER TABLE recurring_expenses ADD COLUMN currency TEXT DEFAULT "IQD";');
+    } catch (e) { }
     try {
       await db.execAsync('ALTER TABLE recurring_expenses ADD COLUMN synced_at INTEGER;');
     } catch (e) { }
@@ -278,6 +302,12 @@ export const initDatabase = async () => {
         createdAt TEXT NOT NULL
       );
     `);
+    try {
+      await db.execAsync('ALTER TABLE debts ADD COLUMN base_total_amount REAL;');
+      await db.execAsync('ALTER TABLE debts ADD COLUMN base_remaining_amount REAL;');
+      await db.execAsync('UPDATE debts SET base_total_amount = totalAmount WHERE base_total_amount IS NULL;');
+      await db.execAsync('UPDATE debts SET base_remaining_amount = remainingAmount WHERE base_remaining_amount IS NULL;');
+    } catch (e) { }
     try {
       await db.execAsync('ALTER TABLE debts ADD COLUMN synced_at INTEGER;');
     } catch (e) { }
@@ -424,6 +454,10 @@ export const initDatabase = async () => {
       // Column already exists, ignore
     }
     try {
+      await db.execAsync('ALTER TABLE bills ADD COLUMN base_amount REAL;');
+      await db.execAsync('UPDATE bills SET base_amount = amount WHERE base_amount IS NULL;');
+    } catch (e) { }
+    try {
       await db.execAsync('ALTER TABLE bills ADD COLUMN synced_at INTEGER;');
     } catch (e) { }
 
@@ -500,6 +534,17 @@ export const initDatabase = async () => {
       );
     `);
 
+    // Add base_amount columns if they don't exist
+    try {
+      await db.execAsync('ALTER TABLE savings ADD COLUMN base_target_amount REAL;');
+      await db.execAsync('ALTER TABLE savings ADD COLUMN base_current_amount REAL;');
+      await db.execAsync('UPDATE savings SET base_target_amount = targetAmount WHERE base_target_amount IS NULL;');
+      await db.execAsync('UPDATE savings SET base_current_amount = currentAmount WHERE base_current_amount IS NULL;');
+    } catch (e) { }
+    try {
+      await db.execAsync('ALTER TABLE savings ADD COLUMN synced_at INTEGER;');
+    } catch (e) { }
+
     // Savings transactions table
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS savings_transactions (
@@ -546,7 +591,7 @@ export const initDatabase = async () => {
       }
     } catch (e) {
       // Migration failed, table might already be in correct format
-      console.warn('AI insights cache migration warning:', e);
+      
     }
 
     // Goal plan cache (history of plans per goal)
@@ -595,7 +640,7 @@ export const initDatabase = async () => {
       await db.execAsync('CREATE INDEX IF NOT EXISTS idx_goal_plan_cache_month_year ON goal_plan_cache(year, month);');
     } catch (e) {
       // Migration failed, table might already be in correct format
-      console.warn('Goal plan cache migration warning:', e);
+      
     }
     try {
       // Create indexes for better performance
@@ -609,12 +654,12 @@ export const initDatabase = async () => {
 
     // Exchange rates are non-critical for first frame; run in background.
     initializeExchangeRates(db).catch(err => {
-      console.warn('Exchange rates initialization warning:', err);
+      
     });
 
     // Clean up old AI cache (keep last 6 months) - run in background, don't block initialization
     cleanupOldAiCache().catch(err => {
-      console.error('Error cleaning up old AI cache:', err);
+      
     });
   } catch (error) {
     // Database initialization error
@@ -627,7 +672,7 @@ export const initDatabase = async () => {
  */
 export const deleteAllData = async () => {
   const database = getDb();
-  console.log('--- DELETING ALL APP DATA ---');
+  
 
   const tables = [
     'expenses', 'income', 'financial_goals', 'budgets',
@@ -644,14 +689,14 @@ export const deleteAllData = async () => {
       try {
         await database.runAsync(`DELETE FROM ${table}`);
       } catch (error) {
-        console.warn(`Could not delete from table ${table}:`, error);
+        
       }
     }
 
     try {
       await database.execAsync('VACUUM;');
     } catch (e) {
-      console.warn('Vacuum failed:', e);
+      
     }
 
     // Re-initialize default categories
@@ -675,7 +720,7 @@ export const deleteAllData = async () => {
 
     return true;
   } catch (error) {
-    console.error('Error deleting all data:', error);
+    
     throw error;
   }
 };
@@ -1789,12 +1834,21 @@ export const clearIncome = async (): Promise<void> => {
 export const addFinancialGoal = async (goal: Omit<import('../types').FinancialGoal, 'id' | 'createdAt'>): Promise<number> => {
   const database = getDb();
   const createdAt = new Date().toISOString();
+  
+  let baseTargetAmount = goal.base_target_amount !== undefined ? goal.base_target_amount : goal.targetAmount;
+  if (isNaN(baseTargetAmount)) baseTargetAmount = goal.targetAmount;
+  
+  let baseCurrentAmount = goal.base_current_amount !== undefined ? goal.base_current_amount : goal.currentAmount || 0;
+  if (isNaN(baseCurrentAmount)) baseCurrentAmount = goal.currentAmount || 0;
+
   const result = await database.runAsync(
-    'INSERT INTO financial_goals (title, targetAmount, currentAmount, targetDate, category, description, createdAt, completed, currency) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO financial_goals (title, targetAmount, base_target_amount, currentAmount, base_current_amount, targetDate, category, description, createdAt, completed, currency) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     [
       goal.title,
       goal.targetAmount,
+      baseTargetAmount,
       goal.currentAmount || 0,
+      baseCurrentAmount,
       goal.targetDate || null,
       goal.category,
       goal.description || null,
@@ -1868,6 +1922,14 @@ export const updateFinancialGoal = async (id: number, goal: Partial<import('../t
   if (goal.currency !== undefined) {
     updates.push('currency = ?');
     values.push(goal.currency || 'IQD');
+  }
+  if (goal.base_target_amount !== undefined) {
+    updates.push('base_target_amount = ?');
+    values.push(goal.base_target_amount);
+  }
+  if (goal.base_current_amount !== undefined) {
+    updates.push('base_current_amount = ?');
+    values.push(goal.base_current_amount);
   }
 
   if (updates.length > 0) {
@@ -1969,15 +2031,20 @@ export interface Budget {
   year: number;
   createdAt: string;
   currency?: string;
+  base_amount?: number;
 }
 
 export const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt'>): Promise<number> => {
   const database = getDb();
   const createdAt = new Date().toISOString();
+  
+  let baseAmount = budget.base_amount !== undefined ? budget.base_amount : budget.amount;
+  if (isNaN(baseAmount)) baseAmount = budget.amount;
+
   try {
     const result = await database.runAsync(
-      'INSERT OR REPLACE INTO budgets (category, amount, month, year, createdAt, currency) VALUES (?, ?, ?, ?, ?, ?)',
-      [budget.category, budget.amount, budget.month, budget.year, createdAt, budget.currency || 'IQD']
+      'INSERT OR REPLACE INTO budgets (category, amount, base_amount, month, year, createdAt, currency) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [budget.category, budget.amount, baseAmount, budget.month, budget.year, createdAt, budget.currency || 'IQD']
     );
     return result.lastInsertRowId;
   } catch (error) {
@@ -2038,6 +2105,10 @@ export const updateBudget = async (id: number, budget: Partial<Budget>): Promise
     updates.push('currency = ?');
     values.push(budget.currency || 'IQD');
   }
+  if (budget.base_amount !== undefined) {
+    updates.push('base_amount = ?');
+    values.push(budget.base_amount);
+  }
 
   if (updates.length > 0) {
     values.push(id);
@@ -2065,6 +2136,8 @@ export interface RecurringExpense {
   endDate?: string;
   description?: string;
   isActive: boolean;
+  currency?: string;
+  base_amount?: number;
   lastProcessedDate?: string;
   createdAt: string;
 }
@@ -2072,11 +2145,16 @@ export interface RecurringExpense {
 export const addRecurringExpense = async (expense: Omit<RecurringExpense, 'id' | 'createdAt'>): Promise<number> => {
   const database = getDb();
   const createdAt = new Date().toISOString();
+  
+  let baseAmount = expense.base_amount !== undefined ? expense.base_amount : expense.amount;
+  if (isNaN(baseAmount)) baseAmount = expense.amount;
+
   const result = await database.runAsync(
-    'INSERT INTO recurring_expenses (title, amount, category, recurrenceType, recurrenceValue, startDate, endDate, description, isActive, lastProcessedDate, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO recurring_expenses (title, amount, base_amount, category, recurrenceType, recurrenceValue, startDate, endDate, description, isActive, lastProcessedDate, createdAt, currency) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     [
       expense.title,
       expense.amount,
+      baseAmount,
       expense.category,
       expense.recurrenceType,
       expense.recurrenceValue,
@@ -2086,6 +2164,7 @@ export const addRecurringExpense = async (expense: Omit<RecurringExpense, 'id' |
       expense.isActive ? 1 : 0,
       expense.lastProcessedDate || null,
       createdAt,
+      expense.currency || 'IQD',
     ]
   );
   return result.lastInsertRowId;
@@ -2165,6 +2244,14 @@ export const updateRecurringExpense = async (id: number, expense: Partial<Recurr
   if (expense.lastProcessedDate !== undefined) {
     updates.push('lastProcessedDate = ?');
     values.push(expense.lastProcessedDate || null);
+  }
+  if (expense.currency !== undefined) {
+    updates.push('currency = ?');
+    values.push(expense.currency || 'IQD');
+  }
+  if (expense.base_amount !== undefined) {
+    updates.push('base_amount = ?');
+    values.push(expense.base_amount);
   }
 
   if (updates.length > 0) {
@@ -2258,7 +2345,7 @@ export const cleanupOldAiCache = async (): Promise<void> => {
       clearOldGoalPlanCache(6), // Keep 6 months
     ]);
   } catch (error) {
-    console.error('Error cleaning up AI cache:', error);
+    
   }
 };
 
@@ -2274,6 +2361,8 @@ export interface Debt {
   type: 'debt' | 'installment' | 'advance';
   direction?: 'owed_by_me' | 'owed_to_me';
   currency?: string;
+  base_total_amount?: number;
+  base_remaining_amount?: number;
   isPaid: boolean;
   createdAt: string;
 }
@@ -2293,12 +2382,21 @@ export const addDebt = async (debt: Omit<Debt, 'id' | 'createdAt'>): Promise<num
   const database = getDb();
   const createdAt = new Date().toISOString();
   const direction = debt.direction || 'owed_by_me';
+  
+  let baseTotal = debt.base_total_amount !== undefined ? debt.base_total_amount : debt.totalAmount;
+  if (isNaN(baseTotal)) baseTotal = debt.totalAmount;
+  
+  let baseRemaining = debt.base_remaining_amount !== undefined ? debt.base_remaining_amount : debt.remainingAmount;
+  if (isNaN(baseRemaining)) baseRemaining = debt.remainingAmount;
+
   const result = await database.runAsync(
-    'INSERT INTO debts (debtorName, totalAmount, remainingAmount, startDate, dueDate, description, type, direction, currency, isPaid, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO debts (debtorName, totalAmount, base_total_amount, remainingAmount, base_remaining_amount, startDate, dueDate, description, type, direction, currency, isPaid, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     [
       debt.debtorName,
       debt.totalAmount,
+      baseTotal,
       debt.remainingAmount,
+      baseRemaining,
       debt.startDate,
       debt.dueDate || null,
       debt.description || null,
@@ -2380,6 +2478,14 @@ export const updateDebt = async (id: number, debt: Partial<Debt>): Promise<void>
   if (debt.currency !== undefined) {
     updates.push('currency = ?');
     values.push(debt.currency || 'IQD');
+  }
+  if (debt.base_total_amount !== undefined) {
+    updates.push('base_total_amount = ?');
+    values.push(debt.base_total_amount);
+  }
+  if (debt.base_remaining_amount !== undefined) {
+    updates.push('base_remaining_amount = ?');
+    values.push(debt.base_remaining_amount);
   }
   if (debt.isPaid !== undefined) {
     updates.push('isPaid = ?');
@@ -2993,6 +3099,7 @@ export interface Bill {
   recurrenceValue?: number;
   description?: string;
   currency?: string;
+  base_amount?: number;
   isPaid: boolean;
   paidDate?: string;
   reminderDaysBefore: number;
@@ -3012,11 +3119,16 @@ export interface BillPayment {
 export const addBill = async (bill: Omit<Bill, 'id' | 'createdAt'>): Promise<number> => {
   const database = getDb();
   const createdAt = new Date().toISOString();
+  
+  let baseAmount = bill.base_amount !== undefined ? bill.base_amount : bill.amount;
+  if (isNaN(baseAmount)) baseAmount = bill.amount;
+
   const result = await database.runAsync(
-    'INSERT INTO bills (title, amount, category, dueDate, recurrenceType, recurrenceValue, description, currency, isPaid, paidDate, reminderDaysBefore, image_path, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO bills (title, amount, base_amount, category, dueDate, recurrenceType, recurrenceValue, description, currency, isPaid, paidDate, reminderDaysBefore, image_path, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     [
       bill.title,
       bill.amount,
+      baseAmount,
       bill.category,
       bill.dueDate,
       bill.recurrenceType || null,
@@ -3093,6 +3205,10 @@ export const updateBill = async (id: number, bill: Partial<Bill>): Promise<void>
   if (bill.currency !== undefined) {
     updates.push('currency = ?');
     values.push(bill.currency || 'IQD');
+  }
+  if (bill.base_amount !== undefined) {
+    updates.push('base_amount = ?');
+    values.push(bill.base_amount);
   }
   if (bill.isPaid !== undefined) {
     updates.push('isPaid = ?');
@@ -3465,9 +3581,7 @@ export const importFullData = async (data: Record<string, unknown>): Promise<voi
   const runSection = async (name: string, fn: () => Promise<void>) => {
     try {
       await fn();
-      if (typeof __DEV__ !== 'undefined' && __DEV__) console.log('[importFullData]', name, 'ok');
     } catch (err: any) {
-      if (typeof __DEV__ !== 'undefined' && __DEV__) console.error('[importFullData] FAILED at', name, err?.message ?? err);
       throw new Error(`${name}: ${err?.message ?? err}`);
     }
   };
@@ -3731,12 +3845,21 @@ export const getSavings = async (): Promise<import('../types').Savings[]> => {
 export const addSavings = async (savings: Omit<import('../types').Savings, 'id' | 'currentAmount' | 'createdAt' | 'updatedAt'>): Promise<number> => {
   const database = getDb();
   const now = new Date().toISOString();
+  
+  let baseTarget = savings.base_target_amount !== undefined ? savings.base_target_amount : savings.targetAmount || 0;
+  if (isNaN(baseTarget)) baseTarget = savings.targetAmount || 0;
+  
+  let baseCurrent = savings.base_current_amount !== undefined ? savings.base_current_amount : 0;
+  if (isNaN(baseCurrent)) baseCurrent = 0;
+
   const result = await database.runAsync(
-    'INSERT INTO savings (title, targetAmount, currentAmount, currency, description, icon, color, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO savings (title, targetAmount, base_target_amount, currentAmount, base_current_amount, currency, description, icon, color, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     [
       savings.title,
       savings.targetAmount || null,
+      baseTarget,
       0,
+      baseCurrent,
       savings.currency || 'IQD',
       savings.description || null,
       savings.icon || 'wallet',
@@ -3783,10 +3906,10 @@ export const deleteSavings = async (id: number): Promise<void> => {
 export const addSavingsTransaction = async (transaction: Omit<import('../types').SavingsTransaction, 'id' | 'createdAt'>): Promise<number> => {
   const database = getDb();
   const now = new Date().toISOString();
-  
+
   // Start transaction
   await database.execAsync('BEGIN TRANSACTION;');
-  
+
   try {
     const result = await database.runAsync(
       'INSERT INTO savings_transactions (savingsId, amount, type, date, description, createdAt) VALUES (?, ?, ?, ?, ?, ?)',
@@ -3815,6 +3938,46 @@ export const addSavingsTransaction = async (transaction: Omit<import('../types')
   }
 };
 
+export const transferBetweenSavings = async (
+  fromId: number,
+  toId: number,
+  amount: number,
+  date: string,
+  description?: string
+): Promise<void> => {
+  const database = getDb();
+  const now = new Date().toISOString();
+
+  await database.execAsync('BEGIN TRANSACTION;');
+
+  try {
+    // 1. Withdrawal from source
+    await database.runAsync(
+      'INSERT INTO savings_transactions (savingsId, amount, type, date, description, createdAt) VALUES (?, ?, ?, ?, ?, ?)',
+      [fromId, amount, 'withdrawal', date, description || 'تحويل إلى حصالة أخرى', now]
+    );
+    await database.runAsync(
+      'UPDATE savings SET currentAmount = currentAmount - ?, updatedAt = ? WHERE id = ?',
+      [amount, now, fromId]
+    );
+
+    // 2. Deposit to destination
+    await database.runAsync(
+      'INSERT INTO savings_transactions (savingsId, amount, type, date, description, createdAt) VALUES (?, ?, ?, ?, ?, ?)',
+      [toId, amount, 'deposit', date, description || 'تحويل من حصالة أخرى', now]
+    );
+    await database.runAsync(
+      'UPDATE savings SET currentAmount = currentAmount + ?, updatedAt = ? WHERE id = ?',
+      [amount, now, toId]
+    );
+
+    await database.execAsync('COMMIT;');
+  } catch (error) {
+    await database.execAsync('ROLLBACK;');
+    throw error;
+  }
+};
+
 export const getSavingsTransactionsForAll = async (): Promise<import('../types').SavingsTransaction[]> => {
   const database = getDb();
   return await database.getAllAsync<import('../types').SavingsTransaction>(
@@ -3830,3 +3993,77 @@ export const getSavingsTransactions = async (savingsId: number): Promise<import(
   );
 };
 
+/**
+ * Recalculate all base_amount values for all items based on target currency.
+ * This should be called when the user changes their primary currency in settings.
+ */
+export const recalculateAllBaseAmounts = async (targetCurrency: string, convertFn: (amount: number, from: string, to: string) => Promise<number>) => {
+  const database = getDb();
+  
+
+  try {
+    // 1. Expenses
+    const expenses = await database.getAllAsync<any>('SELECT id, amount, currency FROM expenses');
+    for (const item of expenses) {
+      const baseAmount = await convertFn(item.amount, item.currency || 'IQD', targetCurrency);
+      await database.runAsync('UPDATE expenses SET base_amount = ? WHERE id = ?', [baseAmount, item.id]);
+    }
+
+    // 2. Income
+    const income = await database.getAllAsync<any>('SELECT id, amount, currency FROM income');
+    for (const item of income) {
+      const baseAmount = await convertFn(item.amount, item.currency || 'IQD', targetCurrency);
+      await database.runAsync('UPDATE income SET base_amount = ? WHERE id = ?', [baseAmount, item.id]);
+    }
+
+    // 3. Budgets
+    const budgets = await database.getAllAsync<any>('SELECT id, amount, currency FROM budgets');
+    for (const item of budgets) {
+      const baseAmount = await convertFn(item.amount, item.currency || 'IQD', targetCurrency);
+      await database.runAsync('UPDATE budgets SET base_amount = ? WHERE id = ?', [baseAmount, item.id]);
+    }
+
+    // 4. Goals
+    const goals = await database.getAllAsync<any>('SELECT id, targetAmount, currentAmount, currency FROM financial_goals');
+    for (const item of goals) {
+      const baseTarget = await convertFn(item.targetAmount, item.currency || 'IQD', targetCurrency);
+      const baseCurrent = await convertFn(item.currentAmount, item.currency || 'IQD', targetCurrency);
+      await database.runAsync('UPDATE financial_goals SET base_target_amount = ?, base_current_amount = ? WHERE id = ?', [baseTarget, baseCurrent, item.id]);
+    }
+
+    // 5. Debts
+    const debts = await database.getAllAsync<any>('SELECT id, totalAmount, remainingAmount, currency FROM debts');
+    for (const item of debts) {
+      const baseTotal = await convertFn(item.totalAmount, item.currency || 'IQD', targetCurrency);
+      const baseRem = await convertFn(item.remainingAmount, item.currency || 'IQD', targetCurrency);
+      await database.runAsync('UPDATE debts SET base_total_amount = ?, base_remaining_amount = ? WHERE id = ?', [baseTotal, baseRem, item.id]);
+    }
+
+    // 6. Savings
+    const savingsItems = await database.getAllAsync<any>('SELECT id, targetAmount, currentAmount, currency FROM savings');
+    for (const item of savingsItems) {
+      const baseTarget = await convertFn(item.targetAmount || 0, item.currency || 'IQD', targetCurrency);
+      const baseCurrent = await convertFn(item.currentAmount, item.currency || 'IQD', targetCurrency);
+      await database.runAsync('UPDATE savings SET base_target_amount = ?, base_current_amount = ? WHERE id = ?', [baseTarget, baseCurrent, item.id]);
+    }
+
+    // 7. Bills
+    const bills = await database.getAllAsync<any>('SELECT id, amount, currency FROM bills');
+    for (const item of bills) {
+      const baseAmount = await convertFn(item.amount, item.currency || 'IQD', targetCurrency);
+      await database.runAsync('UPDATE bills SET base_amount = ? WHERE id = ?', [baseAmount, item.id]);
+    }
+
+    // 8. Recurring Expenses
+    const recurring = await database.getAllAsync<any>('SELECT id, amount, currency FROM recurring_expenses');
+    for (const item of recurring) {
+      const baseAmount = await convertFn(item.amount, item.currency || 'IQD', targetCurrency);
+      await database.runAsync('UPDATE recurring_expenses SET base_amount = ? WHERE id = ?', [baseAmount, item.id]);
+    }
+
+    
+  } catch (error) {
+    
+    throw error;
+  }
+};

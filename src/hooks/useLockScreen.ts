@@ -59,7 +59,7 @@ export const useLockScreen = (onUnlock: () => void): UseLockScreenReturn => {
         setAuthMethod('password');
       }
     } catch (error) {
-      console.error('Error loading auth method:', error);
+      
       setAuthMethod('password');
     }
   }, []);
@@ -93,7 +93,7 @@ export const useLockScreen = (onUnlock: () => void): UseLockScreenReturn => {
         }
       }
     } catch (error) {
-      console.error('Biometric auth error:', error);
+      
       // Fallback to password on error
       const method = await getAuthenticationMethod();
       if (method === 'password' || method === 'biometric') {

@@ -85,7 +85,7 @@ export const AddGoalAmountModal: React.FC<AddGoalAmountModalProps> = ({
             setAmount('');
             onClose();
         } catch (error) {
-            console.error('Error adding goal amount:', error);
+            
         } finally {
             setLoading(false);
         }
@@ -108,6 +108,7 @@ export const AddGoalAmountModal: React.FC<AddGoalAmountModalProps> = ({
             transparent={true}
             animationType="fade"
             onRequestClose={handleClose}
+            statusBarTranslucent
         >
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

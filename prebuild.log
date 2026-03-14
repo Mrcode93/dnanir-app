@@ -1,0 +1,21 @@
+env: load .env
+env: export EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY EXPO_PUBLIC_GEMINI_API_KEY
+- Creating native directory (./ios)
+✔ Created native directory | reusing /ios
+- Updating package.json
+✔ Updated package.json | no changes
+- Running prebuild
+Target "widget" already exists, updating instead of creating a new one
+✖ Prebuild failed
+TypeError: [ios.xcodeProjectBeta2]: withIosXcodeProjectBeta2BaseMod: Cannot read properties of undefined (reading 'removeFromProject')
+TypeError: [ios.xcodeProjectBeta2]: withIosXcodeProjectBeta2BaseMod: Cannot read properties of undefined (reading 'removeFromProject')
+    at applyXcodeChanges (/Users/amerurux/Documents/money-app/dnanir-app/node_modules/@bacons/apple-targets/build/with-xcode-changes.js:200:53)
+    at /Users/amerurux/Documents/money-app/dnanir-app/node_modules/@bacons/apple-targets/build/with-xcode-changes.js:30:15
+    at action (/Users/amerurux/Documents/money-app/dnanir-app/node_modules/@expo/config-plugins/build/plugins/withMod.js:199:29)
+    at interceptingMod (/Users/amerurux/Documents/money-app/dnanir-app/node_modules/@expo/config-plugins/build/plugins/withMod.js:104:27)
+    at action (/Users/amerurux/Documents/money-app/dnanir-app/node_modules/@expo/config-plugins/build/plugins/createBaseMod.js:60:27)
+    at async interceptingMod (/Users/amerurux/Documents/money-app/dnanir-app/node_modules/@expo/config-plugins/build/plugins/withMod.js:104:21)
+    at async evalModsAsync (/Users/amerurux/Documents/money-app/dnanir-app/node_modules/@expo/config-plugins/build/plugins/mod-compiler.js:206:25)
+    at async compileModsAsync (/Users/amerurux/Documents/money-app/dnanir-app/node_modules/@expo/config-plugins/build/plugins/mod-compiler.js:123:10)
+    at async configureProjectAsync (/Users/amerurux/Documents/money-app/dnanir-app/node_modules/expo/node_modules/@expo/cli/build/src/prebuild/configureProjectAsync.js:92:14)
+    at async prebuildAsync (/Users/amerurux/Documents/money-app/dnanir-app/node_modules/expo/node_modules/@expo/cli/build/src/prebuild/prebuildAsync.js:164:9)

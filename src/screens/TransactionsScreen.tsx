@@ -18,7 +18,7 @@ export const TransactionsTabs = () => {
   const { theme } = useAppTheme();
   return (
     <TopTab.Navigator
-      initialRouteName="Expenses"
+      initialRouteName="Income"
       screenOptions={{
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.textMuted,

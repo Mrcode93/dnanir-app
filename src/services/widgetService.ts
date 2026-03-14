@@ -92,7 +92,7 @@ export const getWidgetBalanceData = async (): Promise<WidgetBalanceData> => {
       lastUpdated: new Date().toISOString(),
     };
   } catch (error) {
-    console.error('Error getting widget balance data:', error);
+    
     return {
       totalIncome: 0,
       totalExpenses: 0,
@@ -149,7 +149,7 @@ export const getWidgetMonthlySummary = async (): Promise<WidgetMonthlySummary> =
       lastUpdated: new Date().toISOString(),
     };
   } catch (error) {
-    console.error('Error getting widget monthly summary:', error);
+    
     const now = new Date();
     const monthNames = [
       'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
@@ -190,7 +190,7 @@ export const updateWidgets = async (): Promise<void> => {
       });
     }
   } catch (error) {
-    console.error('Error updating widgets:', error);
+    
   }
 };
 
@@ -327,7 +327,7 @@ export const getWidgetQuickAddData = async (): Promise<WidgetQuickAddData> => {
       lastUpdated: new Date().toISOString(),
     };
   } catch (error) {
-    console.error('Error getting widget quick add data:', error);
+    
     return {
       recentCategories: [],
       recentIncomeSources: [],

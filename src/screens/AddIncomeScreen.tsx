@@ -10,6 +10,7 @@ import {
   Pressable,
   Modal,
   StatusBar,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextInput } from 'react-native-paper';
@@ -33,6 +34,7 @@ import { convertCurrency } from '../services/currencyService';
 import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 import { formatDateLocal } from '../utils/date';
 import { getSmartIncomeShortcuts } from '../services/smartShortcutsService';
+import { resolveIoniconName, toOutlineIoniconName } from '../utils/icon-utils';
 
 interface AddIncomeScreenProps {
   navigation: any;
@@ -51,6 +53,17 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
   const isInitialized = React.useRef(false);
   const amountInputRef = React.useRef<any>(null);
 
+  const handleClose = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Main' }],
+      });
+    }
+  };
+
   // State
   const [source, setSource] = useState('');
   const [amount, setAmount] = useState('');
@@ -63,6 +76,23 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const keyboardWillShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const keyboardWillHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+
+    return () => {
+      keyboardWillHideListener.remove();
+      keyboardWillShowListener.remove();
+    };
+  }, []);
   const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
 
   // Data State
@@ -161,9 +191,9 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
   };
 
   const handleSave = async () => {
-    const finalSource = source.trim() || incomeSource || 'أخرى';
+    const finalSource = source.trim();
     if (!finalSource) {
-      alertService.warning('تنبيه', 'يرجى إدخال المصدر');
+      alertService.warning('تنبيه', 'يرجى إدخال مصدر الدخل');
       return;
     }
     const cleanAmount = amount.replace(/,/g, '');
@@ -191,7 +221,7 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
         await addIncome(data);
         alertService.toastSuccess('تم إضافة الدخل');
       }
-      navigation.goBack();
+      handleClose();
       resetForm();
     } catch (e: any) {
       alertService.error('خطأ', e.message);
@@ -211,7 +241,7 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
         date: new Date().toISOString().split('T')[0],
         description: s.description || '',
       });
-      navigation.goBack();
+      handleClose();
       alertService.toastSuccess('أضيف من الاختصار');
     } catch (e: any) {
       alertService.error('خطأ', e.message);
@@ -221,7 +251,12 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
 
   const getSourceInfo = (name: string) => {
     const cat = categories.find(c => c.name === name);
-    if (cat) return { icon: cat.icon, color: cat.color };
+    if (cat) {
+      return {
+        icon: resolveIoniconName(cat.icon, 'wallet-outline'),
+        color: cat.color || theme.colors.primary,
+      };
+    }
     return { icon: 'wallet-outline', color: theme.colors.primary };
   };
 
@@ -233,12 +268,12 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
       <KeyboardAvoidingView
         behavior="padding"
         style={styles.flex1}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
+        keyboardVerticalOffset={0}
       >
         <View style={styles.flex1}>
           {/* Header */}
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeBtn}>
+            <TouchableOpacity onPress={handleClose} style={styles.closeBtn}>
               <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{income ? 'تعديل دخل' : 'دخل جديد'}</Text>
@@ -316,17 +351,23 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesList}>
                   {categories.map(cat => {
                     const isSelected = incomeSource === cat.name;
+                    const iconName = isSelected
+                      ? resolveIoniconName(cat.icon, 'wallet-outline')
+                      : toOutlineIoniconName(cat.icon, 'wallet-outline');
                     return (
                       <TouchableOpacity
                         key={cat.id}
                         style={[styles.catItem, isSelected && { borderColor: cat.color }]}
                         onPress={() => {
                           setIncomeSource(cat.name);
-                          if (!source) setSource(cat.name);
                         }}
                       >
                         <View style={[styles.catIcon, { backgroundColor: isSelected ? cat.color : theme.colors.surfaceLight }]}>
-                          <Ionicons name={cat.icon as any} size={20} color={isSelected ? theme.colors.background : theme.colors.textSecondary} />
+                          <Ionicons
+                            name={iconName}
+                            size={20}
+                            color={isSelected ? theme.colors.background : theme.colors.textSecondary}
+                          />
                         </View>
                         <Text style={[styles.catName, isSelected && { color: cat.color, fontWeight: '700' }]} numberOfLines={1}>{cat.name}</Text>
                       </TouchableOpacity>
@@ -387,7 +428,7 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
           </ScrollView>
 
           {/* Footer containing Button - NOT absolute */}
-          <View style={[styles.footerContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+          <View style={[styles.footerContainer, { paddingBottom: isKeyboardVisible ? 8 : Math.max(insets.bottom, 16) }]}>
             <TouchableOpacity
               style={[styles.saveBtn, { backgroundColor: currentSourceInfo.color || theme.colors.success }]}
               onPress={handleSave}
@@ -516,9 +557,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   shortcutsRow: {
     marginBottom: 12,
+    paddingHorizontal: theme.spacing.md,
   },
   shortcutsSectionHeader: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
@@ -583,14 +625,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   shortcutChipText: {
     fontSize: 16,
-    color: '#0f172a',
+    color: '#10B981',
     fontFamily: theme.typography.fontFamily,
     fontWeight: getPlatformFontWeight('700'),
     marginBottom: 4,
   },
   shortcutChipAmount: {
     fontSize: 15,
-    color: '#64748b',
+    color: theme.colors.textSecondary,
     fontWeight: getPlatformFontWeight('800'),
     fontFamily: theme.typography.fontFamily,
   },
@@ -685,7 +727,6 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: theme.borderRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    ...getPlatformShadow('md'),
   },
   saveBtnText: {
     fontSize: theme.typography.sizes.md,

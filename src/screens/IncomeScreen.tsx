@@ -13,6 +13,7 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Searchbar } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -163,7 +164,7 @@ export const IncomeScreen = ({ navigation, route }: any) => {
       }
 
     } catch (error) {
-      console.error('Error loading income:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء تحميل البيانات');
     } finally {
       setLoading(false);
@@ -324,8 +325,10 @@ export const IncomeScreen = ({ navigation, route }: any) => {
   return (
     <View style={styles.container}>
 
-      <FlatList
+      <FlashList
         data={income}
+        // @ts-ignore
+        estimatedItemSize={88}
         ListHeaderComponent={
           <>
             <View style={styles.header}>
@@ -364,6 +367,13 @@ export const IncomeScreen = ({ navigation, route }: any) => {
                     <Text style={styles.daySelectorText}>{formatDateLocal(selectedDate)}</Text>
                   </TouchableOpacity>
                 )}
+
+                <TouchableOpacity
+                  style={{ padding: 8, marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0 }}
+                  onPress={() => navigation.navigate('ManageCategories', { type: 'income' })}
+                >
+                  <Ionicons name="albums-outline" size={24} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
               </View>
 
               {showDatePicker && (
@@ -633,11 +643,11 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: '#FFFFFF',
   },
   monthFilterWrapper: {
-    flex: 1,
-    alignItems: isRTL ? 'flex-start' : 'flex-end',
+    flexShrink: 1,
+    alignItems: 'center',
   },
   daySelector: {
-    flex: 1,
+    flexShrink: 1,
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',

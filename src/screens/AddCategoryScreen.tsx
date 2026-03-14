@@ -81,7 +81,7 @@ export const AddCategoryScreen: React.FC<AddCategoryScreenProps> = ({
           icon: selectedIcon,
           color: selectedColor[0]
         });
-        alertService.success('نجح', 'تم تحديث الفئة بنجاح');
+        alertService.toastSuccess('تم تحديث الفئة بنجاح');
       } else {
         await addCustomCategory({
           name: name.trim(),
@@ -89,7 +89,7 @@ export const AddCategoryScreen: React.FC<AddCategoryScreenProps> = ({
           icon: selectedIcon,
           color: selectedColor[0]
         });
-        alertService.success('نجح', 'تم إضافة الفئة بنجاح');
+        alertService.toastSuccess('تم إضافة الفئة بنجاح');
       }
       navigation.goBack();
     } catch (error: any) {
@@ -116,7 +116,7 @@ export const AddCategoryScreen: React.FC<AddCategoryScreenProps> = ({
               {category ? 'تعديل الفئة' : 'إضافة فئة جديدة'}
             </Text>
             <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
+              <Ionicons name="close" size={28} color={theme.colors.textPrimary} />
             </TouchableOpacity>
           </View>
 

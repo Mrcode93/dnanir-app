@@ -193,7 +193,7 @@ export const initializeAchievements = async (): Promise<void> => {
       }
     }
   } catch (error) {
-    console.error('Error initializing achievements:', error);
+    
   }
 };
 
@@ -252,7 +252,7 @@ export const checkAllAchievements = async (): Promise<void> => {
       }
     }
   } catch (error) {
-    console.error('Error checking achievements:', error);
+    
   } finally {
     // Release lock
     isCheckingAchievements = false;
@@ -261,7 +261,7 @@ export const checkAllAchievements = async (): Promise<void> => {
     if (pendingCheck) {
       // Use setTimeout to avoid immediate recursion
       setTimeout(() => {
-        checkAllAchievements().catch(err => console.error('Error in pending achievement check:', err));
+        checkAllAchievements().catch(() => {});
       }, 100);
     }
   }

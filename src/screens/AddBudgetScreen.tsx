@@ -103,7 +103,7 @@ export const AddBudgetScreen: React.FC<AddBudgetScreenProps> = ({
       const categories = await getCustomCategories('expense');
       setCustomCategories(categories);
     } catch (error) {
-      console.error('Error loading custom categories:', error);
+      
     }
   };
 
@@ -152,7 +152,7 @@ export const AddBudgetScreen: React.FC<AddBudgetScreenProps> = ({
           year,
           currency: currency,
         });
-        alertService.success('نجح', 'تم تحديث الميزانية بنجاح');
+        alertService.toastSuccess('تم تحديث الميزانية بنجاح');
       } else {
         await addBudget({
           category: selectedCategory,
@@ -161,12 +161,12 @@ export const AddBudgetScreen: React.FC<AddBudgetScreenProps> = ({
           year,
           currency: currency,
         });
-        alertService.success('نجح', 'تم إضافة الميزانية بنجاح');
+        alertService.toastSuccess('تم إضافة الميزانية بنجاح');
       }
 
       handleClose();
     } catch (error) {
-      console.error('Error saving budget:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء حفظ الميزانية');
     } finally {
       setLoading(false);

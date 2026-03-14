@@ -60,7 +60,7 @@ export const markBillAsPaid = async (
         currency: bill.currency || 'IQD',
       });
     } catch (error) {
-      console.error('Error adding expense for bill payment:', error);
+      
     }
   }
 
@@ -75,7 +75,7 @@ export const markBillAsPaid = async (
     const toCancel = collectBillNotificationIds(allScheduled, billId);
     await cancelScheduledNotificationsByIds(toCancel);
   } catch (error) {
-    console.error('Error canceling bill notifications:', error);
+    
   }
 };
 
@@ -113,7 +113,7 @@ export const payBill = async (billId: number, amount: number, paymentDate?: stri
       currency: bill.currency || 'IQD',
     });
   } catch (error) {
-    console.error('Error adding expense for bill payment:', error);
+    
   }
 
   const paymentId = await addBillPayment({
@@ -221,7 +221,7 @@ export const scheduleBillReminder = async (
       });
     }
   } catch (error) {
-    console.error('Error scheduling bill reminder:', error);
+    
   }
 };
 
@@ -269,6 +269,6 @@ export const scheduleAllBillReminders = async (): Promise<void> => {
       });
     }
   } catch (error) {
-    console.error('Error scheduling all bill reminders:', error);
+    
   }
 };

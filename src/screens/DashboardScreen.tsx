@@ -38,8 +38,13 @@ import {
   getAvailableMonths,
   addExpense,
   addIncome,
+  getAppSettings,
+  upsertAppSettings,
+  recalculateAllBaseAmounts,
 } from '../database/database';
-import { Expense, Income, FinancialGoal, Debt, EXPENSE_CATEGORIES, Challenge, ExpenseShortcut, IncomeShortcut } from '../types';
+import { CURRENCIES, Expense, Income, FinancialGoal, Debt, EXPENSE_CATEGORIES, Challenge, ExpenseShortcut, IncomeShortcut } from '../types';
+import { notifyCurrencyChanged } from '../services/currencyEvents';
+import { CurrencyPickerModal } from '../components/CurrencyPickerModal';
 import { updateAllChallenges } from '../services/challengeService';
 import { getUnlockedAchievementsCount, getTotalAchievementsCount } from '../services/achievementService';
 import { calculateBudgetStatus, BudgetStatus } from '../services/budgetService';
@@ -76,30 +81,54 @@ const DashboardScreenComponent = ({ navigation }: any) => {
 
   // Format full date consistently
   const formatFullDate = useCallback((date: Date) => {
-    return `${WEEKDAY_NAMES[date.getDay()]}، ${date.getDate()} ${MONTH_NAMES[date.getMonth()]}، ${date.getFullYear()}`;
+    return `${WEEKDAY_NAMES[date.getDay()]}، ${date.getDate()}${MONTH_NAMES[date.getMonth()]}، ${date.getFullYear()}`;
   }, []);
   const insets = useSafeAreaInsets();
-  const [summary, setSummary] = useState<any>(null);
+  const [dashboardData, setDashboardData] = useState<{
+    summary: any;
+    recentTransactions: (Expense | Income)[];
+    todayData: { income: number; expenses: number; balance: number } | null;
+    currentMonthData: { totalIncome: number; totalExpenses: number; balance: number } | null;
+    availableMonths: Array<{ year: number; month: number }>;
+    filteredBalance: number | null;
+  }>({
+    summary: null,
+    recentTransactions: [],
+    todayData: null,
+    currentMonthData: null,
+    availableMonths: [],
+    filteredBalance: null,
+  });
+
+  const [secondaryData, setSecondaryData] = useState<{
+    userName: string;
+    activeGoals: FinancialGoal[];
+    convertedGoalAmounts: Record<number, { current: number; target: number }>;
+    debtsSummary: { total: number; active: number; paid: number; remaining: number } | null;
+    budgetsSummary: { total: number; spent: number; remaining: number; exceeded: number } | null;
+    activeChallenges: Challenge[];
+    customCategories: any[];
+    achievementsCount: { unlocked: number; total: number };
+    expenseShortcuts: ExpenseShortcut[];
+    incomeShortcuts: IncomeShortcut[];
+  }>({
+    userName: '',
+    activeGoals: [],
+    convertedGoalAmounts: {},
+    debtsSummary: null,
+    budgetsSummary: null,
+    activeChallenges: [],
+    customCategories: [],
+    achievementsCount: { unlocked: 0, total: 0 },
+    expenseShortcuts: [],
+    incomeShortcuts: [],
+  });
   const [showSmartAdd, setShowSmartAdd] = useState(false);
   const [showManageShortcuts, setShowManageShortcuts] = useState(false);
   const [manageShortcutsType, setManageShortcutsType] = useState<'expense' | 'income'>('expense');
   const [showReferralModal, setShowReferralModal] = useState(false);
-  const [recentTransactions, setRecentTransactions] = useState<(Expense | Income)[]>([]);
 
   const [refreshing, setRefreshing] = useState(false);
-  const [userName, setUserName] = useState<string>('');
-  const [activeGoals, setActiveGoals] = useState<FinancialGoal[]>([]);
-  const [convertedGoalAmounts, setConvertedGoalAmounts] = useState<Record<number, { current: number; target: number }>>({});
-  const [todayData, setTodayData] = useState<{ income: number; expenses: number; balance: number } | null>(null);
-  const [debtsSummary, setDebtsSummary] = useState<{ total: number; active: number; paid: number; remaining: number } | null>(null);
-  const [billsSummary, setBillsSummary] = useState<{ total: number; unpaid: number; paid: number; dueSoon: number } | null>(null);
-  const [budgetsSummary, setBudgetsSummary] = useState<{ total: number; spent: number; remaining: number; exceeded: number } | null>(null);
-  const [activeChallenges, setActiveChallenges] = useState<Challenge[]>([]);
-  const [customCategories, setCustomCategories] = useState<any[]>([]);
-  const [achievementsCount, setAchievementsCount] = useState<{ unlocked: number; total: number }>({ unlocked: 0, total: 0 });
-  const [currentMonthData, setCurrentMonthData] = useState<{ totalIncome: number; totalExpenses: number; balance: number } | null>(null);
-  const [expenseShortcuts, setExpenseShortcuts] = useState<ExpenseShortcut[]>([]);
-  const [incomeShortcuts, setIncomeShortcuts] = useState<IncomeShortcut[]>([]);
   // Initialize with current month by default
   const [selectedBalanceMonth, setSelectedBalanceMonth] = useState<{ year: number; month: number }>(() => {
     const now = new Date();
@@ -134,7 +163,7 @@ const DashboardScreenComponent = ({ navigation }: any) => {
     const result = await syncNewToServer();
     setSyncing(false);
     if (result.success) {
-      alertService.success('تمت المزامنة', result.count > 0 ? `تم رفع ${result.count} عنصر` : 'لا توجد بيانات جديدة');
+      alertService.toastSuccess(result.count > 0 ? `تم رفع ${result.count} عنصر` : 'لا توجد بيانات جديدة');
       onRefresh();
     } else {
       if (result.code !== 'NOT_AUTHENTICATED' && result.code !== 'NOT_PRO') {
@@ -148,12 +177,14 @@ const DashboardScreenComponent = ({ navigation }: any) => {
   const [selectedTransactionType, setSelectedTransactionType] = useState<'expense' | 'income'>('expense');
   const [showTransactionDetails, setShowTransactionDetails] = useState(false);
   const [showTodayModal, setShowTodayModal] = useState(false);
+  const [showCurrencyPickerModal, setShowCurrencyPickerModal] = useState(false);
 
   // useLayoutEffect removed to allow AppNavigator to control tab bar styles globally with safe area insets
 
   const deferredLoadRef = useRef<ReturnType<typeof InteractionManager.runAfterInteractions> | null>(null);
   const lastChallengeRefreshRef = useRef(0);
   const isLoadingDataRef = useRef(false);
+  const referralTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const todayModalAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -176,12 +207,15 @@ const DashboardScreenComponent = ({ navigation }: any) => {
 
     if (!isAllTime) {
       const monthData = await getMonthData(targetYear, targetMonth);
-      setCurrentMonthData({
-        totalIncome: monthData.totalIncome,
-        totalExpenses: monthData.totalExpenses,
-        balance: monthData.balance,
-      });
-      setFilteredBalance(monthData.balance);
+      setDashboardData(prev => ({
+        ...prev,
+        currentMonthData: {
+          totalIncome: monthData.totalIncome,
+          totalExpenses: monthData.totalExpenses,
+          balance: monthData.balance,
+        },
+        filteredBalance: monthData.balance,
+      }));
       return;
     }
 
@@ -192,8 +226,11 @@ const DashboardScreenComponent = ({ navigation }: any) => {
       totalExpenses: stats?.totalExpenses || 0,
       balance: stats?.balance || 0,
     };
-    setCurrentMonthData(allTimeData);
-    setFilteredBalance(allTimeData.balance);
+    setDashboardData(prev => ({
+      ...prev,
+      currentMonthData: allTimeData,
+      filteredBalance: allTimeData.balance,
+    }));
   }, [selectedBalanceMonth]);
 
   const loadEssentialData = useCallback(async () => {
@@ -209,19 +246,22 @@ const DashboardScreenComponent = ({ navigation }: any) => {
         getRecentTransactions(5),
       ]);
 
-      setSummary(financialSummary);
-      setAvailableMonths(months);
-      setTodayData({
-        income: todayStats.totalIncome,
-        expenses: todayStats.totalExpenses,
-        balance: todayStats.balance,
-      });
-      setRecentTransactions(recent);
+      setDashboardData(prev => ({
+        ...prev,
+        summary: financialSummary,
+        availableMonths: months,
+        todayData: {
+          income: todayStats.totalIncome,
+          expenses: todayStats.totalExpenses,
+          balance: todayStats.balance,
+        },
+        recentTransactions: recent,
+      }));
 
       // Month data can load slightly after
       await loadMonthData();
     } catch (error) {
-      console.error('Error loading dashboard essential data:', error);
+      
     }
   }, [loadMonthData]);
 
@@ -258,14 +298,8 @@ const DashboardScreenComponent = ({ navigation }: any) => {
         getSmartIncomeShortcuts(),
       ]);
 
-
-
-      if (userSettings?.name) {
-        setUserName(userSettings.name);
-      }
-
+      const authUser = await authStorage.getUser();
       const active = allGoals.filter(g => !g.completed).slice(0, 3);
-      setActiveGoals(active);
 
       // Convert goal amounts in parallel
       const convertedEntries = await Promise.all(
@@ -281,45 +315,45 @@ const DashboardScreenComponent = ({ navigation }: any) => {
             ]);
             return [goal.id, { current: convertedCurrent, target: convertedTarget }] as const;
           } catch (error) {
-            console.error('Error converting currency:', error);
+            
             return [goal.id, { current: goal.currentAmount, target: goal.targetAmount }] as const;
           }
         })
       );
-      setConvertedGoalAmounts(Object.fromEntries(convertedEntries));
 
       const activeDebts = debts.filter(d => !d.isPaid);
       const paidDebts = debts.filter(d => d.isPaid);
       const totalRemaining = activeDebts.reduce((sum, d) => sum + d.remainingAmount, 0);
-      setDebtsSummary({
-        total: debts.length,
-        active: activeDebts.length,
-        paid: paidDebts.length,
-        remaining: totalRemaining,
-      });
 
       const totalBudget = budgetStatuses.reduce((sum, b) => sum + b.budget.amount, 0);
       const totalSpent = budgetStatuses.reduce((sum, b) => sum + b.spent, 0);
       const totalRemainingBudget = totalBudget - totalSpent;
       const exceededBudgets = budgetStatuses.filter(b => b.isExceeded).length;
-      setBudgetsSummary({
-        total: budgetStatuses.length,
-        spent: totalSpent,
-        remaining: totalRemainingBudget,
-        exceeded: exceededBudgets,
+
+      setSecondaryData({
+        userName: authUser?.name || userSettings?.name || '',
+        activeGoals: active,
+        convertedGoalAmounts: Object.fromEntries(convertedEntries),
+        debtsSummary: {
+          total: debts.length,
+          active: activeDebts.length,
+          paid: paidDebts.length,
+          remaining: totalRemaining,
+        },
+        budgetsSummary: {
+          total: budgetStatuses.length,
+          spent: totalSpent,
+          remaining: totalRemainingBudget,
+          exceeded: exceededBudgets,
+        },
+        activeChallenges: challenges.filter(c => !c.completed).slice(0, 3),
+        customCategories: customCats,
+        achievementsCount: { unlocked: achievements[0], total: achievements[1] },
+        expenseShortcuts: shortcutsExp,
+        incomeShortcuts: shortcutsInc,
       });
-
-      const activeChallengesList = challenges.filter(c => !c.completed);
-      setActiveChallenges(activeChallengesList.slice(0, 3));
-
-      const [unlocked, total] = achievements;
-      setAchievementsCount({ unlocked, total });
-      setExpenseShortcuts(shortcutsExp);
-      setIncomeShortcuts(shortcutsInc);
-
-      setCustomCategories(customCats);
     } catch (error) {
-      console.error('Error loading dashboard secondary data:', error);
+      
     }
   }, [currencyCode]);
 
@@ -341,11 +375,12 @@ const DashboardScreenComponent = ({ navigation }: any) => {
         const isDismissed = await referralService.isDismissed();
         if (!isDismissed) {
           // Show modal after a short delay
-          setTimeout(() => setShowReferralModal(true), 2000);
+          if (referralTimeoutRef.current) clearTimeout(referralTimeoutRef.current);
+          referralTimeoutRef.current = setTimeout(() => setShowReferralModal(true), 2000);
         }
       }
     } catch (error) {
-      console.error('Error checking referral status:', error);
+      
     }
   }, [loadEssentialData, scheduleSecondaryLoad]);
 
@@ -375,14 +410,28 @@ const DashboardScreenComponent = ({ navigation }: any) => {
     return () => {
       unsubscribe();
       deferredLoadRef.current?.cancel?.();
+      if (referralTimeoutRef.current) clearTimeout(referralTimeoutRef.current);
     };
   }, [navigation, loadDataSafe]);
 
   const getCategoryName = useCallback((category: string) => {
     return EXPENSE_CATEGORIES[category as keyof typeof EXPENSE_CATEGORIES] ||
-      customCategories.find(c => c.name === category)?.name ||
+      secondaryData.customCategories.find(c => c.name === category)?.name ||
       category;
-  }, [customCategories]);
+  }, [secondaryData.customCategories]);
+
+  const greetingText = useMemo(() => {
+    const hour = new Date().getHours();
+    const isValidName = secondaryData.userName && secondaryData.userName !== 'المستخدم';
+    const firstWord = isValidName ? secondaryData.userName.split(' ')[0] : '';
+    
+    let greeting = '';
+    if (hour >= 5 && hour < 12) greeting = 'صباح الخير';
+    else if (hour >= 12 && hour < 18) greeting = 'أهلاً';
+    else greeting = 'مساء الخير';
+
+    return isValidName ? `${greeting}، ${firstWord}` : greeting;
+  }, [secondaryData.userName]);
 
   const getCategoryColor = useCallback((category: string, index: number) => {
     const categoryColors: Record<string, string> = {
@@ -396,7 +445,7 @@ const DashboardScreenComponent = ({ navigation }: any) => {
       other: '#6B7280',
     };
 
-    const customColor = customCategories.find(c => c.name === category)?.color;
+    const customColor = secondaryData.customCategories.find(c => c.name === category)?.color;
     if (customColor) return customColor;
 
     return categoryColors[category] || [
@@ -406,10 +455,10 @@ const DashboardScreenComponent = ({ navigation }: any) => {
       theme.colors.warning,
       theme.colors.error,
     ][index % 5];
-  }, [customCategories, theme]);
+  }, [secondaryData.customCategories, theme]);
 
   const chartData = useMemo(() => {
-    const categories = summary?.topExpenseCategories || [];
+    const categories = dashboardData.summary?.topExpenseCategories || [];
     return categories.map((cat: any, index: number) => ({
       name: getCategoryName(cat.category),
       population: cat.amount,
@@ -417,7 +466,44 @@ const DashboardScreenComponent = ({ navigation }: any) => {
       legendFontColor: theme.colors.textPrimary,
       legendFontSize: 13,
     }));
-  }, [summary?.topExpenseCategories, getCategoryName, getCategoryColor, theme.colors.textPrimary]);
+  }, [dashboardData.summary?.topExpenseCategories, getCategoryName, getCategoryColor, theme.colors.textPrimary]);
+
+  const handleCurrencyChange = async (newCurrencyCode: string) => {
+    const currency = CURRENCIES.find(c => c.code === newCurrencyCode);
+    if (currency) {
+      if (newCurrencyCode === currencyCode) {
+        setShowCurrencyPickerModal(false);
+        return;
+      }
+
+      try {
+        const appSettings = await getAppSettings();
+        const settingsToSave = appSettings || {
+          notificationsEnabled: true,
+          darkModeEnabled: false,
+          themeMode: 'light',
+          autoBackupEnabled: false,
+          autoSyncEnabled: false,
+          currency: 'دينار عراقي',
+          language: 'ar',
+        };
+        await upsertAppSettings({ ...settingsToSave, currency: currency.name, themeMode: settingsToSave.themeMode });
+
+        // Recalculate historical base amounts
+        await recalculateAllBaseAmounts(newCurrencyCode, convertCurrency);
+
+        notifyCurrencyChanged();
+        setShowCurrencyPickerModal(false);
+        alertService.toastSuccess(`تم تغيير العملة إلى ${currency.name}`);
+        
+        // Refresh data
+        onRefresh();
+      } catch (error) {
+        
+        alertService.toastError('حدث خطأ أثناء تغيير العملة');
+      }
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
@@ -428,15 +514,7 @@ const DashboardScreenComponent = ({ navigation }: any) => {
           <View style={styles.headerContent}>
             {/* Title / Greeting */}
             <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
-              {userName ? (
-                (() => {
-                  const hour = new Date().getHours();
-                  const firstWord = userName.split(' ')[0];
-                  if (hour >= 5 && hour < 12) return `صباح الخير، ${firstWord}`;
-                  if (hour >= 12 && hour < 18) return `أهلاً، ${firstWord}`;
-                  return `مساء الخير، ${firstWord}`;
-                })()
-              ) : 'دنانير'}
+              {greetingText}
             </Text>
 
             {/* Actions */}
@@ -498,15 +576,16 @@ const DashboardScreenComponent = ({ navigation }: any) => {
 
         {/* Main Balance Hero */}
         <View style={styles.heroSection}>
-          {summary ? (
+          {dashboardData.summary ? (
             <BalanceCard
-              balance={filteredBalance !== null ? filteredBalance : summary.balance}
+              balance={dashboardData.filteredBalance !== null ? dashboardData.filteredBalance : dashboardData.summary.balance}
               selectedMonth={selectedBalanceMonth || undefined}
               onMonthChange={(year, month) => {
                 setSelectedBalanceMonth({ year, month });
               }}
               showFilter={true}
-              availableMonths={availableMonths}
+              availableMonths={dashboardData.availableMonths}
+              onCurrencyPress={() => setShowCurrencyPickerModal(true)}
             />
           ) : (
             <LinearGradient
@@ -557,7 +636,7 @@ const DashboardScreenComponent = ({ navigation }: any) => {
             <Text style={styles.actionLabel}>الأهداف</Text>
           </TouchableOpacity>
 
-          {budgetsSummary && (
+          {secondaryData.budgetsSummary && (
             <TouchableOpacity
               style={styles.actionItem}
               onPress={() => navigation.navigate('Budget')}
@@ -569,7 +648,7 @@ const DashboardScreenComponent = ({ navigation }: any) => {
             </TouchableOpacity>
           )}
 
-          {debtsSummary && (
+          {secondaryData.debtsSummary && (
             <TouchableOpacity
               style={styles.actionItem}
               onPress={() => navigation.navigate('Debts')}
@@ -639,14 +718,14 @@ const DashboardScreenComponent = ({ navigation }: any) => {
               <Text style={styles.shortcutsHeaderButtonTextNew}>إضافة</Text>
             </TouchableOpacity>
           </View>
-          {(expenseShortcuts.length > 0 || incomeShortcuts.length > 0) ? (
+          {(secondaryData.expenseShortcuts.length > 0 || secondaryData.incomeShortcuts.length > 0) ? (
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.shortcutsScrollContent}
               style={styles.shortcutsScroll}
             >
-              {incomeShortcuts.map((s) => (
+              {secondaryData.incomeShortcuts.map((s) => (
                 <TouchableOpacity
                   key={`inc-${s.id}`}
                   style={[styles.shortcutChip, styles.shortcutChipIncome]}
@@ -680,7 +759,7 @@ const DashboardScreenComponent = ({ navigation }: any) => {
                   <Text style={styles.shortcutChipAmount}>{formatCurrency(s.amount)}</Text>
                 </TouchableOpacity>
               ))}
-              {expenseShortcuts.map((s) => (
+              {secondaryData.expenseShortcuts.map((s) => (
                 <TouchableOpacity
                   key={`exp-${s.id}`}
                   style={[styles.shortcutChip, styles.shortcutChipExpense]}
@@ -902,7 +981,7 @@ const DashboardScreenComponent = ({ navigation }: any) => {
 
                 <Text style={[styles.sectionTitle, { textAlign: 'center', fontSize: 20, marginBottom: 25 }]}>ملخص اليوم</Text>
 
-                {todayData ? (
+                {dashboardData.todayData ? (
                   <>
                     <View style={styles.modalStatRow}>
                       <View style={[styles.modalStatIcon, { backgroundColor: theme.colors.success + '15' }]}>
@@ -911,7 +990,7 @@ const DashboardScreenComponent = ({ navigation }: any) => {
                       <View style={{ flex: 1 }}>
                         <Text style={styles.modalStatLabel}>إجمالي الدخل</Text>
                         <Text style={[styles.modalStatValue, { color: theme.colors.success }]}>
-                          {isPrivacyEnabled ? '****' : formatCurrency(todayData.income)}
+                          {isPrivacyEnabled ? '****' : formatCurrency(dashboardData.todayData.income)}
                         </Text>
                       </View>
                     </View>
@@ -923,7 +1002,7 @@ const DashboardScreenComponent = ({ navigation }: any) => {
                       <View style={{ flex: 1 }}>
                         <Text style={styles.modalStatLabel}>إجمالي المصاريف</Text>
                         <Text style={[styles.modalStatValue, { color: theme.colors.error }]}>
-                          {isPrivacyEnabled ? '****' : formatCurrency(todayData.expenses)}
+                          {isPrivacyEnabled ? '****' : formatCurrency(dashboardData.todayData.expenses)}
                         </Text>
                       </View>
                     </View>
@@ -935,7 +1014,7 @@ const DashboardScreenComponent = ({ navigation }: any) => {
                       <View style={{ flex: 1 }}>
                         <Text style={styles.modalStatLabel}>الصافي</Text>
                         <Text style={[styles.modalStatValue, { color: theme.colors.info }]}>
-                          {isPrivacyEnabled ? '****' : formatCurrency(todayData.balance)}
+                          {isPrivacyEnabled ? '****' : formatCurrency(dashboardData.todayData.balance)}
                         </Text>
                       </View>
                     </View>
@@ -986,7 +1065,7 @@ const DashboardScreenComponent = ({ navigation }: any) => {
                 <View style={styles.statusProgressWrapper}>
                   <View style={styles.statusProgressBadge}>
                     <Text style={styles.statusProgressText}>
-                      {achievementsCount.unlocked}/{achievementsCount.total}
+                      {secondaryData.achievementsCount.unlocked}/{secondaryData.achievementsCount.total}
                     </Text>
                   </View>
                 </View>
@@ -1000,7 +1079,7 @@ const DashboardScreenComponent = ({ navigation }: any) => {
         <View style={styles.sectionDivider} />
 
         {/* Challenges Section */}
-        {activeChallenges.length > 0 && (
+        {secondaryData.activeChallenges.length > 0 && (
           <>
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
@@ -1010,7 +1089,7 @@ const DashboardScreenComponent = ({ navigation }: any) => {
                 </TouchableOpacity>
               </View>
 
-              {activeChallenges.map((challenge) => (
+              {secondaryData.activeChallenges.map((challenge) => (
                 <TouchableOpacity
                   key={challenge.id}
                   style={styles.challengePreviewCardWrapper}
@@ -1076,7 +1155,7 @@ const DashboardScreenComponent = ({ navigation }: any) => {
           </View>
 
           <View style={styles.transactionList}>
-            {recentTransactions.map((item, index) => (
+            {dashboardData.recentTransactions.map((item, index) => (
               <TransactionItem
                 key={`${(item as any).type}-${item.id}`}
                 item={item}
@@ -1089,7 +1168,7 @@ const DashboardScreenComponent = ({ navigation }: any) => {
                 }}
               />
             ))}
-            {recentTransactions.length === 0 && (
+            {dashboardData.recentTransactions.length === 0 && (
               <Text style={styles.emptyText}>لا توجد عمليات مضافة مؤخراً</Text>
             )}
           </View>
@@ -1103,7 +1182,7 @@ const DashboardScreenComponent = ({ navigation }: any) => {
         visible={showTransactionDetails}
         item={selectedTransaction}
         type={selectedTransactionType}
-        customCategories={customCategories}
+        customCategories={secondaryData.customCategories}
         onClose={() => { setShowTransactionDetails(false); setSelectedTransaction(null); }}
         onEdit={() => {
           if (selectedTransaction) {
@@ -1117,6 +1196,12 @@ const DashboardScreenComponent = ({ navigation }: any) => {
       />
 
 
+      <CurrencyPickerModal
+        visible={showCurrencyPickerModal}
+        selectedCurrency={currencyCode}
+        onSelect={handleCurrencyChange}
+        onClose={() => setShowCurrencyPickerModal(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -1393,14 +1478,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   shortcutChipLabel: {
     fontSize: 14,
     fontWeight: getPlatformFontWeight('500'),
-    color: '#0f172a',
+    color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginTop: 8,
   },
   shortcutChipAmount: {
     fontSize: 13,
     fontWeight: getPlatformFontWeight('400'),
-    color: '#64748b',
+    color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     marginTop: 4,
   },

@@ -121,7 +121,7 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
       const categories = await getCustomCategories('expense');
       setCustomCategories(categories);
     } catch (error) {
-      console.error('Error loading custom categories:', error);
+      
     }
   };
 
@@ -157,7 +157,7 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
           year,
           currency: currency,
         });
-        alertService.success('نجح', 'تم تحديث الميزانية بنجاح');
+        alertService.toastSuccess('تم تحديث الميزانية بنجاح');
       } else {
         await addBudget({
           category: selectedCategory,
@@ -166,13 +166,13 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
           year,
           currency: currency,
         });
-        alertService.success('نجح', 'تم إضافة الميزانية بنجاح');
+        alertService.toastSuccess('تم إضافة الميزانية بنجاح');
       }
 
       onSave();
       onClose();
     } catch (error) {
-      console.error('Error saving budget:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء حفظ الميزانية');
     }
   };

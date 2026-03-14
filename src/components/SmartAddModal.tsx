@@ -174,7 +174,7 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
 
         try {
             // Try Gemini AI first
-            console.log('=== SMART PARSER (Gemini) ===');
+            // console.log('=== SMART PARSER (Gemini) ===');
             const geminiResults = await parseWithGemini(text);
 
             if (geminiResults && geminiResults.length > 0) {
@@ -195,11 +195,11 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
                 return;
             }
         } catch (error) {
-            console.log('Gemini failed, falling back to local parser:', error);
+            
         }
 
         // Fallback: local regex parser
-        console.log('=== SMART PARSER (Local Fallback) ===');
+        // console.log('=== SMART PARSER (Local Fallback) ===');
         let results = parseMultipleTransactions(text);
         if (results.length === 0) {
             results = [parseTransactionText(text)];
@@ -300,7 +300,7 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
             onSuccess();
             onClose();
         } catch (error) {
-            console.error('Error saving smart transactions:', error);
+            
             alert('حدث خطأ أثناء الحفظ. يرجى المحاولة مرة أخرى.');
         } finally {
             setIsProcessing(false);

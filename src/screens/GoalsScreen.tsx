@@ -44,6 +44,7 @@ export const GoalsScreen = ({ navigation, route }: any) => {
   const [selectedGoal, setSelectedGoal] = useState<FinancialGoal | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [showAddAmount, setShowAddAmount] = useState(false);
+  const [deletingGoalId, setDeletingGoalId] = useState<number | null>(null);
 
   const loadGoals = async () => {
     try {
@@ -54,38 +55,44 @@ export const GoalsScreen = ({ navigation, route }: any) => {
       // Calculate converted totals and currency breakdown
       const active = allGoals.filter(g => !g.completed);
       if (active.length > 0) {
-        let totalCurrentConverted = 0;
-        let totalTargetConverted = 0;
         const breakdown: Record<string, { current: number; target: number }> = {};
-
-        for (const goal of active) {
-          const goalCurrency = goal.currency || currencyCode;
-
-          // Add to breakdown by currency
-          if (!breakdown[goalCurrency]) {
-            breakdown[goalCurrency] = { current: 0, target: 0 };
-          }
-          breakdown[goalCurrency].current += goal.currentAmount;
-          breakdown[goalCurrency].target += goal.targetAmount;
-
-          // Convert to primary currency and add to totals
-          if (goalCurrency !== currencyCode) {
-            try {
-              const convertedCurrent = await convertCurrency(goal.currentAmount, goalCurrency, currencyCode);
-              const convertedTarget = await convertCurrency(goal.targetAmount, goalCurrency, currencyCode);
-              totalCurrentConverted += convertedCurrent;
-              totalTargetConverted += convertedTarget;
-            } catch (error) {
-              console.error('Error converting currency:', error);
-              // If conversion fails, add original amount
-              totalCurrentConverted += goal.currentAmount;
-              totalTargetConverted += goal.targetAmount;
+        const convertedGoals = await Promise.all(
+          active.map(async (goal) => {
+            const goalCurrency = goal.currency || currencyCode;
+            if (!breakdown[goalCurrency]) {
+              breakdown[goalCurrency] = { current: 0, target: 0 };
             }
-          } else {
-            totalCurrentConverted += goal.currentAmount;
-            totalTargetConverted += goal.targetAmount;
-          }
-        }
+            breakdown[goalCurrency].current += goal.currentAmount;
+            breakdown[goalCurrency].target += goal.targetAmount;
+
+            if (goalCurrency === currencyCode) {
+              return {
+                current: goal.currentAmount,
+                target: goal.targetAmount,
+              };
+            }
+
+            try {
+              const [convertedCurrent, convertedTarget] = await Promise.all([
+                convertCurrency(goal.currentAmount, goalCurrency, currencyCode),
+                convertCurrency(goal.targetAmount, goalCurrency, currencyCode),
+              ]);
+              return {
+                current: convertedCurrent,
+                target: convertedTarget,
+              };
+            } catch (error) {
+              
+              return {
+                current: goal.currentAmount,
+                target: goal.targetAmount,
+              };
+            }
+          })
+        );
+
+        const totalCurrentConverted = convertedGoals.reduce((sum, item) => sum + item.current, 0);
+        const totalTargetConverted = convertedGoals.reduce((sum, item) => sum + item.target, 0);
 
         setConvertedTotals({ current: totalCurrentConverted, target: totalTargetConverted });
         setCurrencyBreakdown(breakdown);
@@ -94,7 +101,7 @@ export const GoalsScreen = ({ navigation, route }: any) => {
         setCurrencyBreakdown({});
       }
     } catch (error) {
-      console.error('Error loading goals:', error);
+      
     }
   };
 
@@ -126,13 +133,24 @@ export const GoalsScreen = ({ navigation, route }: any) => {
   };
 
   const handleDeleteGoal = async (goalId: number) => {
+    if (deletingGoalId !== null) return;
+
+    setDeletingGoalId(goalId);
+    setShowDetails(false);
+    setShowAddAmount(false);
+    setSelectedGoal((prev) => (prev?.id === goalId ? null : prev));
+    setGoals((prev) => prev.filter((goal) => goal.id !== goalId));
+
     try {
       await deleteFinancialGoal(goalId);
       await loadGoals();
       alertService.toastSuccess('تم حذف الهدف بنجاح');
     } catch (error) {
-      console.error('Error deleting goal:', error);
+      
+      await loadGoals();
       alertService.toastError('حدث خطأ أثناء حذف الهدف');
+    } finally {
+      setDeletingGoalId(null);
     }
   };
 
@@ -148,7 +166,7 @@ export const GoalsScreen = ({ navigation, route }: any) => {
       await loadGoals();
       alertService.toastSuccess('تمت إضافة المبلغ بنجاح');
     } catch (error) {
-      console.error('Error adding amount to goal:', error);
+      
       alertService.toastError('حدث خطأ أثناء إضافة المبلغ');
     }
   };
@@ -177,7 +195,7 @@ export const GoalsScreen = ({ navigation, route }: any) => {
       }
       navigation.navigate('GoalPlan', { goal });
     } catch (e) {
-      console.error('Goal plan button error:', e);
+      
       alertService.error('خطأ', 'حدث خطأ. تأكد من تسجيل الدخول وحاول مرة أخرى.');
     }
   };

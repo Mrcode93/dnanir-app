@@ -44,7 +44,7 @@ export const PromoCodeModal: React.FC<PromoCodeModalProps> = ({ visible, onClose
         try {
             const result = await promoService.applyCode(code);
             if (result.success) {
-                alertService.success('تم التفعيل', result.message || 'تم تفعيل كود البرومو بنجاح!');
+                alertService.toastSuccess(result.message || 'تم تفعيل كود البرومو بنجاح!');
                 setCode('');
                 setError(null);
                 onClose();
@@ -66,6 +66,7 @@ export const PromoCodeModal: React.FC<PromoCodeModalProps> = ({ visible, onClose
             transparent
             animationType="fade"
             onRequestClose={onClose}
+            statusBarTranslucent
         >
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

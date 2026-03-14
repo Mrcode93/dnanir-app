@@ -81,7 +81,7 @@ export const useAuthSettings = (onAuthChanged?: () => void): UseAuthSettingsRetu
         }
       }
     } catch (error) {
-      console.error('Error loading auth status:', error);
+      
     } finally {
       setIsLoading(false);
     }
@@ -110,7 +110,7 @@ export const useAuthSettings = (onAuthChanged?: () => void): UseAuthSettingsRetu
       // If neither is enabled, allow (shouldn't happen)
       return true;
     } catch (error) {
-      console.error('Authentication error:', error);
+      
       return false;
     }
   }, [biometricEnabled, biometricAvailable, passwordEnabled]);
@@ -135,7 +135,7 @@ export const useAuthSettings = (onAuthChanged?: () => void): UseAuthSettingsRetu
     try {
       const success = await setupPassword(password);
       if (success) {
-        alertService.success('نجح', 'تم تفعيل قفل كلمة المرور بنجاح');
+        alertService.toastSuccess('تم تفعيل قفل كلمة المرور بنجاح');
         setPassword('');
         setConfirmPassword('');
         onAuthChanged?.();
@@ -167,14 +167,14 @@ export const useAuthSettings = (onAuthChanged?: () => void): UseAuthSettingsRetu
       // If test passes, save the settings
       const success = await setupBiometric();
       if (success) {
-        alertService.success('نجح', `تم تفعيل ${biometricType} بنجاح`);
+        alertService.toastSuccess(`تم تفعيل ${biometricType} بنجاح`);
         onAuthChanged?.();
         await loadAuthStatus();
       } else {
         alertService.error('خطأ', 'حدث خطأ أثناء إعداد المصادقة البيومترية');
       }
     } catch (error) {
-      console.error('Biometric test error:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء اختبار المصادقة البيومترية');
     } finally {
       setIsLoading(false);
@@ -215,7 +215,7 @@ export const useAuthSettings = (onAuthChanged?: () => void): UseAuthSettingsRetu
           // Notify App.tsx that authentication has changed
           authEventService.notifyAuthChanged();
           
-          alertService.success('نجح', 'تم تعطيل القفل بنجاح');
+          alertService.toastSuccess('تم تعطيل القفل بنجاح');
           onAuthChanged?.();
           await loadAuthStatus();
         } catch (error) {
@@ -251,7 +251,7 @@ export const useAuthSettings = (onAuthChanged?: () => void): UseAuthSettingsRetu
             authEventService.notifyAuthChanged();
           }
           
-          alertService.success('نجح', 'تم تعطيل قفل كلمة المرور بنجاح');
+          alertService.toastSuccess('تم تعطيل قفل كلمة المرور بنجاح');
           onAuthChanged?.();
           await loadAuthStatus();
         } catch (error) {
@@ -287,7 +287,7 @@ export const useAuthSettings = (onAuthChanged?: () => void): UseAuthSettingsRetu
             authEventService.notifyAuthChanged();
           }
           
-          alertService.success('نجح', `تم تعطيل ${biometricType} بنجاح`);
+          alertService.toastSuccess(`تم تعطيل ${biometricType} بنجاح`);
           onAuthChanged?.();
           await loadAuthStatus();
         } catch (error) {

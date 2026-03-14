@@ -15,7 +15,7 @@ export const shareAchievement = async (achievement: Achievement): Promise<void> 
   } catch (error: any) {
     // User cancelled or error
     if (error.message !== 'User did not share') {
-      console.error('Error sharing achievement:', error);
+      
     }
   }
 };
@@ -37,7 +37,7 @@ export const shareAchievements = async (achievements: Achievement[]): Promise<vo
   } catch (error: any) {
     // User cancelled or error
     if (error.message !== 'User did not share') {
-      console.error('Error sharing achievements:', error);
+      
     }
   }
 };
@@ -56,7 +56,7 @@ export const shareChallengeCompletion = async (challengeTitle: string): Promise<
   } catch (error: any) {
     // User cancelled or error
     if (error.message !== 'User did not share') {
-      console.error('Error sharing challenge completion:', error);
+      
     }
   }
 };

@@ -18,7 +18,7 @@ export const getSelectedCurrencyCode = async (): Promise<string> => {
     // Default to IQD
     return 'IQD';
   } catch (error) {
-    console.error('Error getting selected currency:', error);
+    
     return 'IQD';
   }
 };
@@ -226,7 +226,7 @@ export const calculateAverageMonthlySavings = async (months: number = 6): Promis
 
     return positiveSavings.reduce((sum, s) => sum + s, 0) / positiveSavings.length;
   } catch (error) {
-    console.error('Error calculating average monthly savings:', error);
+    
     return 0;
   }
 };
@@ -542,7 +542,7 @@ export const predictNextMonthExpenses = async (monthsToAnalyze: number = 3): Pro
       confidence,
     };
   } catch (error) {
-    console.error('Error predicting next month expenses:', error);
+    
     return {
       predictedTotal: 0,
       predictedByCategory: [],
@@ -613,7 +613,7 @@ export const getMonthlyTrendData = async (months: number = 6): Promise<Array<{
 
     return trendData.reverse(); // Reverse to show oldest first
   } catch (error) {
-    console.error('Error getting monthly trend data:', error);
+    
     return [];
   }
 };

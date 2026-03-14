@@ -87,7 +87,7 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
       setPaymentType('all');
       onClose();
     } catch (error) {
-      console.error('Error paying debt:', error);
+      
     } finally {
       setLoading(false);
     }
@@ -120,6 +120,7 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
       transparent={true}
       animationType="fade"
       onRequestClose={handleClose}
+      statusBarTranslucent
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

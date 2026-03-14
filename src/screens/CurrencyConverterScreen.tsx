@@ -76,7 +76,7 @@ export const CurrencyConverterScreen = ({ navigation }: any) => {
       setExchangeRate(rate);
       setConvertedAmount(converted);
     } catch (error) {
-      console.error('Error converting currency:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء تحويل العملة');
     } finally {
       setLoading(false);

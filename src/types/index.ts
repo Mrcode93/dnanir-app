@@ -107,6 +107,8 @@ export interface FinancialGoal {
   createdAt: string;
   completed: boolean;
   currency?: string;
+  base_target_amount?: number;
+  base_current_amount?: number;
 }
 
 export type GoalCategory =
@@ -142,6 +144,8 @@ export interface RecurringExpense {
   endDate?: string;
   description?: string;
   isActive: boolean;
+  currency?: string;
+  base_amount?: number;
   lastProcessedDate?: string;
   createdAt: string;
 }
@@ -213,6 +217,17 @@ export interface ReportFilter {
 /** owed_by_me = دين على (أنا مدين) | owed_to_me = دين لي (مدين لي - عند التسديد يضاف لرصيدي) */
 export type DebtDirection = 'owed_by_me' | 'owed_to_me';
 
+export interface Budget {
+  id: number;
+  category: string;
+  amount: number;
+  month: string;
+  year: number;
+  createdAt: string;
+  currency?: string;
+  base_amount?: number;
+}
+
 export interface Debt {
   id: number;
   debtorName: string;
@@ -225,6 +240,8 @@ export interface Debt {
   /** دين على (أنا أدفع) أو دين لي (يُسدّد لي → يضاف رصيد). Default: owed_by_me */
   direction?: DebtDirection;
   currency?: string;
+  base_total_amount?: number;
+  base_remaining_amount?: number;
   isPaid: boolean;
   createdAt: string;
 }
@@ -427,6 +444,7 @@ export interface Bill {
   recurrenceValue?: number;
   description?: string;
   currency?: string;
+  base_amount?: number;
   isPaid: boolean;
   paidDate?: string;
   reminderDaysBefore: number;
@@ -473,6 +491,8 @@ export interface Savings {
   targetAmount?: number;
   currentAmount: number;
   currency?: string;
+  base_target_amount?: number;
+  base_current_amount?: number;
   description?: string;
   icon?: string;
   color?: string;

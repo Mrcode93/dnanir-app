@@ -59,7 +59,7 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
       const updatedChallenges = await getChallenges();
       setChallenges(updatedChallenges);
     } catch (error) {
-      console.error('Error loading challenges:', error);
+      
     }
   };
 
@@ -87,9 +87,9 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
       await createChallenge(type);
       await loadChallenges();
       setShowAddModal(false);
-      alertService.success('نجح', 'تم إضافة التحدي بنجاح');
+      alertService.toastSuccess('تم إضافة التحدي بنجاح');
     } catch (error) {
-      console.error('Error creating challenge:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء إضافة التحدي');
     }
   };
@@ -115,9 +115,9 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
       );
       await loadChallenges();
       setShowCustomModal(false);
-      alertService.success('نجح', 'تم إضافة التحدي المخصص بنجاح');
+      alertService.toastSuccess('تم إضافة التحدي المخصص بنجاح');
     } catch (error) {
-      console.error('Error creating custom challenge:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء إضافة التحدي المخصص');
     }
   };
@@ -136,9 +136,9 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
       setChallengeToDelete(null);
       setShowMenuForChallenge(null);
       await loadChallenges();
-      alertService.success('نجح', 'تم حذف التحدي بنجاح');
+      alertService.toastSuccess('تم حذف التحدي بنجاح');
     } catch (error) {
-      console.error('Error deleting challenge:', error);
+      
       setShowDeleteAlert(false);
       setChallengeToDelete(null);
       alertService.error('خطأ', 'حدث خطأ أثناء حذف التحدي');
@@ -152,11 +152,11 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
   };
 
   const handleDeletePress = (challenge: Challenge) => {
-    console.log('handleDeletePress called for challenge:', challenge.id);
+    
     setChallengeToDelete(challenge);
     setShowMenuForChallenge(null);
     setShowDeleteAlert(true);
-    console.log('showDeleteAlert set to true');
+    
   };
 
   const handleCompleteChallenge = async (challenge: Challenge) => {
@@ -168,17 +168,17 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
       });
       await loadChallenges();
       setShowMenuForChallenge(null);
-      alertService.success('نجح', 'تم إكمال التحدي بنجاح! 🎉');
+      alertService.toastSuccess('تم إكمال التحدي بنجاح! 🎉');
 
       // Offer to share
       try {
         await shareChallengeCompletion(challenge.title);
       } catch (shareError) {
         // User cancelled or error, ignore
-        console.log('Share cancelled or error:', shareError);
+        
       }
     } catch (error) {
-      console.error('Error completing challenge:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء إكمال التحدي');
     }
   };
@@ -191,9 +191,9 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
       });
       await loadChallenges();
       setShowMenuForChallenge(null);
-      alertService.success('نجح', 'تم إعادة فتح التحدي');
+      alertService.toastSuccess('تم إعادة فتح التحدي');
     } catch (error) {
-      console.error('Error reopening challenge:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء إعادة فتح التحدي');
     }
   };
@@ -208,9 +208,9 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
       try {
         await updateAllChallenges();
         await loadChallenges();
-        alertService.success('نجح', 'تم تحديث التقدم');
+        alertService.toastSuccess('تم تحديث التقدم');
       } catch (error) {
-        console.error('Error updating progress:', error);
+        
         alertService.error('خطأ', 'حدث خطأ أثناء تحديث التقدم');
       }
     }
@@ -396,7 +396,7 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
                     style={styles.menuOption}
                     onPress={(e) => {
                       e.stopPropagation();
-                      console.log('Delete button pressed (active)');
+                      // console.log('Delete button pressed (active)');
                       handleDeletePress(challenge);
                     }}
                     activeOpacity={0.7}
@@ -433,7 +433,7 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
                     style={styles.menuOption}
                     onPress={(e) => {
                       e.stopPropagation();
-                      console.log('Delete button pressed (completed)');
+                      // console.log('Delete button pressed (completed)');
                       handleDeletePress(challenge);
                     }}
                     activeOpacity={0.7}
@@ -705,9 +705,9 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
               await loadChallenges();
               setShowCustomModal(false);
               setEditingChallenge(null);
-              alertService.success('نجح', 'تم تحديث التحدي بنجاح');
+              alertService.toastSuccess('تم تحديث التحدي بنجاح');
             } catch (error) {
-              console.error('Error updating challenge:', error);
+              
               alertService.error('خطأ', 'حدث خطأ أثناء تحديث التحدي');
             }
           } else {

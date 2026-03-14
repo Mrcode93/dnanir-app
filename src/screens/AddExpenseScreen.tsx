@@ -10,6 +10,7 @@ import {
   Pressable,
   Alert,
   Modal,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextInput, IconButton } from 'react-native-paper';
@@ -27,6 +28,7 @@ import { convertCurrency } from '../services/currencyService';
 import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 import { formatDateLocal } from '../utils/date';
 import { getSmartExpenseShortcuts } from '../services/smartShortcutsService';
+import { resolveIoniconName, toOutlineIoniconName } from '../utils/icon-utils';
 
 interface AddExpenseScreenProps {
   navigation: any;
@@ -45,6 +47,17 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
   const isInitialized = React.useRef(false);
   const amountInputRef = React.useRef<any>(null);
 
+  const handleClose = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Main' }],
+      });
+    }
+  };
+
   // State
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
@@ -57,6 +70,23 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const keyboardWillShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const keyboardWillHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+
+    return () => {
+      keyboardWillHideListener.remove();
+      keyboardWillShowListener.remove();
+    };
+  }, []);
   const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
 
   // Data State
@@ -152,9 +182,9 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
   };
 
   const handleSave = async () => {
-    const finalTitle = title.trim() || category || 'مصروف';
+    const finalTitle = title.trim();
     if (!finalTitle) {
-      alertService.warning('تنبيه', 'يرجى إدخال العنوان أو الفئة');
+      alertService.warning('تنبيه', 'يرجى إدخال عنوان المصروف');
       return;
     }
     const cleanAmount = amount.replace(/,/g, '');
@@ -182,7 +212,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
         await addExpense(expenseData);
         alertService.toastSuccess('تمت الإضافة بنجاح');
       }
-      navigation.goBack();
+      handleClose();
       resetForm();
     } catch (error: any) {
       alertService.error('خطأ', error.message);
@@ -202,7 +232,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
         description: s.description || '',
         currency: s.currency || currencyCode,
       });
-      navigation.goBack();
+      handleClose();
       alertService.toastSuccess('أضيف من الاختصار');
     } catch (error: any) {
       alertService.error('خطأ', error.message);
@@ -212,7 +242,12 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
 
   const getCategoryInfo = (categoryName: string) => {
     const cat = categories.find(c => c.name === categoryName);
-    if (cat) return { icon: cat.icon, color: cat.color };
+    if (cat) {
+      return {
+        icon: resolveIoniconName(cat.icon, 'ellipse'),
+        color: cat.color || theme.colors.textSecondary,
+      };
+    }
 
     // Fallback defaults
     const defaultInfo = { icon: 'ellipse', color: theme.colors.textSecondary };
@@ -228,12 +263,12 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
       <KeyboardAvoidingView
         behavior="padding"
         style={styles.flex1}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
+        keyboardVerticalOffset={0}
       >
 
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeBtn}>
+          <TouchableOpacity onPress={handleClose} style={styles.closeBtn}>
             <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{expense ? 'تعديل مصروف' : 'مصروف جديد'}</Text>
@@ -279,7 +314,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
               <View style={styles.shortcutsSectionHeader}>
                 <Text style={styles.shortcutsSectionTitle}>اختصارات سريعة</Text>
                 <TouchableOpacity style={styles.addShortcutButton} onPress={() => setShowManageShortcuts(true)}>
-                  <Ionicons name="hourglass-outline" size={18} color={theme.colors.background} />
+                  <Ionicons name="settings-outline" size={16} color={theme.colors.error} />
                   <Text style={styles.addShortcutButtonText}>إدارة</Text>
                 </TouchableOpacity>
               </View>
@@ -314,23 +349,25 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesList}>
                 {categories.map(cat => {
                   const isSelected = category === cat.name;
+                  const iconName = isSelected
+                    ? resolveIoniconName(cat.icon, 'ellipse')
+                    : toOutlineIoniconName(cat.icon, 'ellipse-outline');
                   return (
                     <TouchableOpacity
                       key={cat.id}
                       style={[styles.catItem, isSelected && styles.catItemActive, { borderColor: isSelected ? cat.color : 'transparent' }]}
                       onPress={() => {
                         setCategory(cat.name);
-                        if (!title) setTitle(cat.name);
                       }}
                     >
                       <View style={[styles.catIcon, { backgroundColor: isSelected ? cat.color : theme.colors.surfaceLight }]}>
                         <Ionicons
-                          name={cat.icon as any}
+                          name={iconName}
                           size={20}
                           color={isSelected ? theme.colors.background : theme.colors.textSecondary}
                         />
                       </View>
-                      <Text style={[styles.catName, isSelected && { color: cat.color, fontWeight: '700' }]} numberOfLines={1}>{cat.name}</Text>
+                      <Text style={[styles.catName, isSelected && { color: cat.color }]} numberOfLines={1}>{cat.name}</Text>
                     </TouchableOpacity>
                   )
                 })}
@@ -390,7 +427,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
         </ScrollView>
 
         {/* Floating Save Button */}
-        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        <View style={[styles.footer, { paddingBottom: isKeyboardVisible ? 8 : Math.max(insets.bottom, 16) }]}>
           <TouchableOpacity style={[styles.saveBtn, { backgroundColor: currentCategoryInfo.color || theme.colors.primary }]} onPress={handleSave} disabled={loading}>
             {loading ? <ActivityIndicator color={theme.colors.background} /> : <Text style={styles.saveBtnText}>حفظ المصروف</Text>}
           </TouchableOpacity>
@@ -517,9 +554,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   shortcutsRow: {
     marginBottom: 12,
+    paddingHorizontal: theme.spacing.md,
   },
   shortcutsSectionHeader: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
@@ -531,7 +569,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   addShortcutButton: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     gap: 6,
     paddingVertical: 8,
@@ -549,6 +587,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingHorizontal: 0,
     gap: 12,
     flexDirection: isRTL ? 'row' : 'row-reverse', // Matches exact layout requested
+    justifyContent: 'center',
   },
   addShortcutMini: {
     width: 48,
@@ -584,14 +623,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   shortcutChipText: {
     fontSize: 16,
-    color: '#0f172a',
+    color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     fontWeight: getPlatformFontWeight('700'),
     marginBottom: 4,
   },
   shortcutChipAmount: {
     fontSize: 15,
-    color: '#64748b',
+    color: theme.colors.textSecondary,
     fontWeight: getPlatformFontWeight('800'),
     fontFamily: theme.typography.fontFamily,
   },
@@ -639,7 +678,6 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     width: 80,
     textAlign: 'center',
-    fontWeight: getPlatformFontWeight('600'),
   },
   fieldRow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -687,7 +725,6 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: theme.borderRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    ...getPlatformShadow('md'),
   },
   saveBtnText: {
     fontSize: theme.typography.sizes.md,

@@ -1,12 +1,41 @@
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { apiRequest } from './apiService';
 import { API_ENDPOINTS } from '../config/api';
+import { INTERNAL_INBOX_SAVED_FLAG } from './notificationService';
 
 const isExpoGo =
     Constants.appOwnership === 'expo' || Constants.executionEnvironment === 'storeClient';
+const PUSH_TOKEN_STORAGE_KEY = '@dnanir_push_token';
+const INSTALLATION_TOKEN_STORAGE_KEY = '@dnanir_installation_token';
+
+const createInstallationToken = () =>
+    `DeviceToken[${Platform.OS}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}]`;
+
+const getOrCreateInstallationToken = async (): Promise<string> => {
+    const existing = await AsyncStorage.getItem(INSTALLATION_TOKEN_STORAGE_KEY);
+    if (existing?.trim()) {
+        return existing.trim();
+    }
+    const generated = createInstallationToken();
+    await AsyncStorage.setItem(INSTALLATION_TOKEN_STORAGE_KEY, generated);
+    return generated;
+};
+
+const setStoredPushToken = async (token: string): Promise<void> => {
+    if (!token?.trim()) {
+        return;
+    }
+    await AsyncStorage.setItem(PUSH_TOKEN_STORAGE_KEY, token.trim());
+};
+
+const getStoredPushToken = async (): Promise<string | null> => {
+    const value = await AsyncStorage.getItem(PUSH_TOKEN_STORAGE_KEY);
+    return value?.trim() ? value.trim() : null;
+};
 
 // Ensure notification handler is set
 Notifications.setNotificationHandler({
@@ -21,14 +50,16 @@ Notifications.setNotificationHandler({
 
 export const pushNotificationService = {
     registerForPushNotificationsAsync: async (askPermission = true) => {
-        let token;
+        let token: string | null = null;
 
         // Remote push token generation is not supported in Expo Go (SDK 53+).
         if (isExpoGo) {
             if (__DEV__) {
-                console.log('[PushService] Skipping push token registration in Expo Go. Use a development build.');
+                
             }
-            return null;
+            token = await getOrCreateInstallationToken();
+            await setStoredPushToken(token);
+            return token;
         }
 
         if (Platform.OS === 'android') {
@@ -44,15 +75,21 @@ export const pushNotificationService = {
             const { status: existingStatus } = await Notifications.getPermissionsAsync();
             let finalStatus = existingStatus;
             if (existingStatus !== 'granted') {
-                if (!askPermission) return null;
+                if (!askPermission) {
+                    token = await getOrCreateInstallationToken();
+                    await setStoredPushToken(token);
+                    return token;
+                }
                 const { status } = await Notifications.requestPermissionsAsync();
                 finalStatus = status;
             }
             if (finalStatus !== 'granted') {
                 if (__DEV__) {
-                    console.log('Permission not granted for push notifications');
+                    
                 }
-                return null;
+                token = await getOrCreateInstallationToken();
+                await setStoredPushToken(token);
+                return token;
             }
 
             try {
@@ -64,16 +101,21 @@ export const pushNotificationService = {
                 token = (await Notifications.getExpoPushTokenAsync({
                     projectId,
                 })).data;
+                await setStoredPushToken(token);
                 // if (__DEV__) {
-                //     console.log('Push token received');
+                //     
                 // }
             } catch (e) {
-                console.error('[PushService] Token generation error:', e);
+                
+                token = await getOrCreateInstallationToken();
+                await setStoredPushToken(token);
             }
         } else {
             if (__DEV__) {
-                console.log('Must use physical device for Push Notifications');
+                
             }
+            token = await getOrCreateInstallationToken();
+            await setStoredPushToken(token);
         }
 
         return token;
@@ -89,33 +131,35 @@ export const pushNotificationService = {
                     token,
                     userId,
                     platform,
-                    appId: '69892d29f246fee6edf11f35'
                 })
             });
 
             if (!response.error && (response.data as any)?.success !== false) {
+                await setStoredPushToken(token);
                 return true;
             }
             // Do not show "login" to user — this endpoint is public; failure is e.g. invalid token
             if (response.error && !String(response.error).toLowerCase().includes('login')) {
-                console.error('[PushService] Server rejected token:', response.error);
+                
             }
             return false;
         } catch (error) {
-            console.error('[PushService] Error sending push token to server:', error);
+            
             return false;
         }
     },
 
     removeTokenFromServer: async () => {
         try {
+            const token = await getStoredPushToken();
             await apiRequest(API_ENDPOINTS.DEVICES.REMOVE, {
                 method: 'POST',
-                body: JSON.stringify({})
+                body: JSON.stringify(token ? { token } : {})
             });
+            await AsyncStorage.removeItem(PUSH_TOKEN_STORAGE_KEY);
             return true;
         } catch (error) {
-            console.error('[PushService] Error removing token:', error);
+            
             return false;
         }
     },
@@ -126,6 +170,23 @@ export const pushNotificationService = {
             try {
                 const { title, body, data } = notification.request.content;
                 const { addNotification } = await import('../database/database');
+                const parsedData =
+                    typeof data === 'string'
+                        ? (() => {
+                            try {
+                                return JSON.parse(data) as Record<string, unknown>;
+                            } catch {
+                                return {};
+                            }
+                        })()
+                        : (data && typeof data === 'object' ? data as Record<string, unknown> : {});
+
+                if (parsedData[INTERNAL_INBOX_SAVED_FLAG]) {
+                    if (__DEV__) {
+                        
+                    }
+                    return;
+                }
 
                 let notificationDate = notification.date;
 
@@ -143,15 +204,15 @@ export const pushNotificationService = {
                 await addNotification({
                     title: title || 'No Title',
                     body: body || '',
-                    data: typeof data === 'string' ? data : JSON.stringify(data),
+                    data: typeof data === 'string' ? data : JSON.stringify(parsedData),
                     date: notificationDate,
-                    type: (data?.type as string) || 'default'
+                    type: (parsedData?.type as string) || 'default'
                 });
                 if (__DEV__) {
-                    console.log('[PushService] Notification saved to database');
+                    
                 }
             } catch (error) {
-                console.error('[PushService] Error saving notification:', error);
+                
             }
         });
 
@@ -172,7 +233,7 @@ export const pushNotificationService = {
         const type = (data?.type as string) || 'default';
 
         if (__DEV__) {
-            console.log('[PushService] Handling notification click:', type, data);
+            
         }
 
         // TODO: Implement navigation based on notification type

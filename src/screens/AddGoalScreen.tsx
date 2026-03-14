@@ -173,15 +173,15 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
 
       if (editingGoal) {
         await updateFinancialGoal(editingGoal.id, goalData);
-        alertService.success('نجح', 'تم تحديث الهدف بنجاح');
+        alertService.toastSuccess('تم تحديث الهدف بنجاح');
       } else {
         await addFinancialGoal(goalData);
-        alertService.success('نجح', 'تم إضافة الهدف بنجاح');
+        alertService.toastSuccess('تم إضافة الهدف بنجاح');
       }
 
       handleClose();
     } catch (error) {
-      console.error('Error saving goal:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء حفظ الهدف');
     } finally {
       setLoading(false);

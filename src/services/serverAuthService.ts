@@ -89,7 +89,7 @@ export const logout = async (): Promise<void> => {
   try {
     await pushNotificationService.removeTokenFromServer();
   } catch (e) {
-    console.error('Error removing push token on logout:', e);
+    
   }
   await clearAuthData();
   authEventService.notifyAuthChanged();

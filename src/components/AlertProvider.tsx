@@ -28,11 +28,11 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         // but the modal is already closed
         if (result instanceof Promise) {
           result.catch(error => {
-            console.error('Alert callback error:', error);
+            
           });
         }
       } catch (error) {
-        console.error('Alert callback error:', error);
+        
       }
     }
   }, [alertOptions]);

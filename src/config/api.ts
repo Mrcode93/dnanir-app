@@ -8,13 +8,13 @@
 
 // Development: Uses production server (no separate dev server).
 // To test locally, uncomment the localhost line below and set to your IP.
-// const DEV_API_URL = 'http://192.168.0.101:3000';
-const DEV_API_URL = 'https://urcash.up.railway.app';
+const DEV_API_URL = 'https://dnanir.up.railway.app';
+// const DEV_API_URL = 'https://urcash.up.railway.app';
 // const DEV_API_URL = 'http://192.168.31.221:8080';
 
 // Production API URL
-// const PROD_API_URL = 'https://api.dnanir.com';
-const PROD_API_URL = 'https://urcash.up.railway.app';
+const PROD_API_URL = 'https://dnanir.up.railway.app';
+// const PROD_API_URL = 'https://urcash.up.railway.app';
 // const PROD_API_URL = 'http://192.168.31.221:8080';
 
 // Check if we're in development mode
@@ -37,14 +37,14 @@ export const getApiUrl = (endpoint: string) => {
 export const API_ENDPOINTS = {
   // Auth
   AUTH: {
-    REGISTER: '/api/dnanir/auth/register',
-    LOGIN: '/api/dnanir/auth/login',
-    CHECK: '/api/dnanir/auth/check',
-    SEND_OTP: '/api/dnanir/auth/otp/send',
-    VERIFY_OTP: '/api/dnanir/auth/otp/verify',
-    RESET_PASSWORD: '/api/dnanir/auth/reset-password',
-    UPDATE_PROFILE: '/api/dnanir/auth/update-profile',
-    REFRESH_TOKEN: '/api/dnanir/auth/refresh-token',
+    REGISTER: '/api/auth/register',
+    LOGIN: '/api/auth/login',
+    CHECK: '/api/auth/check',
+    SEND_OTP: '/api/auth/otp/send',
+    VERIFY_OTP: '/api/auth/otp/verify',
+    RESET_PASSWORD: '/api/auth/reset-password',
+    UPDATE_PROFILE: '/api/auth/update-profile',
+    REFRESH_TOKEN: '/api/auth/refresh-token',
   },
   // Subscription
   SUBSCRIPTION: {
@@ -59,11 +59,11 @@ export const API_ENDPOINTS = {
     CHATBOT: '/api/ai/chatbot',
     CATEGORIZE: '/api/ai/categorize',
     ANALYZE: '/api/ai/analyze',
-    USAGE: '/api/dnanir/ai/usage',
-    INSIGHTS: '/api/dnanir/ai/insights',
-    GOAL_PLAN: '/api/dnanir/ai/goal-plan',
-    SMART_ADD: '/api/dnanir/ai/smart-add',
-    SMART_ADD_USAGE: '/api/dnanir/ai/smart-add/usage',
+    USAGE: '/api/ai/usage',
+    INSIGHTS: '/api/ai/insights',
+    GOAL_PLAN: '/api/ai/goal-plan',
+    SMART_ADD: '/api/ai/smart-add',
+    SMART_ADD_USAGE: '/api/ai/smart-add/usage',
   },
   // Health
   HEALTH: '/health',
@@ -74,18 +74,18 @@ export const API_ENDPOINTS = {
   },
   // Sync (Pro)
   SYNC: {
-    UPLOAD: '/api/dnanir/sync/upload',
-    FULL: '/api/dnanir/sync/full',
-    ITEMS: '/api/dnanir/sync/items',
-    DELETE_DATA: '/api/dnanir/sync/data',
+    UPLOAD: '/api/sync/upload',
+    FULL: '/api/sync/full',
+    ITEMS: '/api/sync/items',
+    DELETE_DATA: '/api/sync/data',
   },
   // Referral (Growth)
   REFERRAL: {
-    INFO: '/api/dnanir/referral/info',
-    APPLY: '/api/dnanir/referral/apply',
+    INFO: '/api/referral/info',
+    APPLY: '/api/referral/apply',
   },
   // Promo (Marketing)
   PROMO: {
-    APPLY: '/api/dnanir/promo/apply',
+    APPLY: '/api/promo/apply',
   },
 };

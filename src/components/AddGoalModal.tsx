@@ -173,7 +173,7 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
       resetForm();
       onDismiss();
     } catch (error) {
-      console.error('Error saving goal:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء حفظ الهدف');
     } finally {
       setLoading(false);
@@ -558,6 +558,7 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
         transparent={true}
         animationType="slide"
         onRequestClose={() => setShowCurrencyPicker(false)}
+        statusBarTranslucent
       >
         <Pressable
           style={styles.currencyModalOverlay}

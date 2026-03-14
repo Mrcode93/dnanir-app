@@ -27,6 +27,12 @@ export const PrivacyProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const newState = !isPrivacyEnabled;
         setIsPrivacyEnabled(newState);
         AsyncStorage.setItem('privacy_mode', String(newState));
+        
+        // Sync to Widget Storage (DefaultPreference)
+        import('react-native-default-preference').then((DefaultPreference) => {
+            DefaultPreference.default.setName('group.com.mrcodeiq.dinar');
+            DefaultPreference.default.set('privacy_mode', String(newState));
+        });
     };
 
     return (

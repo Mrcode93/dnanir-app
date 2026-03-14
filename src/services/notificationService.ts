@@ -13,6 +13,8 @@ import {
   DEFAULT_TIMING
 } from '../constants/notificationConstants';
 
+export const INTERNAL_INBOX_SAVED_FLAG = '__savedToInbox';
+
 // لا نلغي الإشعارات في وضع التطوير حتى يعمل التذكير اليومي ويبقى مفعّلاً عند فتح التطبيق
 const disableScheduledNotificationsInDev = false;
 
@@ -53,7 +55,7 @@ const saveToInternalInbox = async (title: string, body: string, type: string, da
       data: JSON.stringify(data)
     });
   } catch (error) {
-    console.warn('Could not save notification to inbox:', error);
+    
   }
 };
 
@@ -65,18 +67,19 @@ const pushInstantNotification = async (params: {
   priority?: Notifications.AndroidNotificationPriority;
 }): Promise<void> => {
   const { title, body, type, data = {}, priority = Notifications.AndroidNotificationPriority.DEFAULT } = params;
+  const inboxData = { ...data, [INTERNAL_INBOX_SAVED_FLAG]: true };
   await Notifications.scheduleNotificationAsync({
     content: {
       title,
       body,
       sound: true,
       priority,
-      data: { ...data, type },
+      data: { ...inboxData, type },
       ...(Platform.OS === 'android' && { channelId: NOTIFICATION_CHANNELS.FINANCIAL }),
     },
     trigger: null,
   });
-  await saveToInternalInbox(title, body, type, data);
+  await saveToInternalInbox(title, body, type, inboxData);
 };
 
 const clearScheduledNotificationsInDevelopment = async (): Promise<boolean> => {
@@ -220,7 +223,7 @@ export const scheduleDailyReminder = async () => {
       });
     }
   } catch (error) {
-    console.error('Error scheduling daily reminder:', error);
+    
   }
 };
 
@@ -449,7 +452,7 @@ export const sendExpenseReminder = async () => {
       });
     }
   } catch (error) {
-    console.error('Error scheduling expense reminder:', error);
+    
   }
 };
 
@@ -500,18 +503,19 @@ export const sendTestNotification = async () => {
     const title = '🔔 إشعار تجريبي';
     const body = 'نظام الإشعارات يعمل بنجاح! نصوصك وأوقاتك صارت منظمة.';
 
+    const inboxData = { [INTERNAL_INBOX_SAVED_FLAG]: true };
     await Notifications.scheduleNotificationAsync({
       content: {
         title,
         body,
         sound: true,
-        data: { type: 'test' },
+        data: { type: 'test', ...inboxData },
         ...(Platform.OS === 'android' && { channelId: NOTIFICATION_CHANNELS.FINANCIAL }),
       },
       trigger: null,
     });
 
-    await saveToInternalInbox(title, body, 'test');
+    await saveToInternalInbox(title, body, 'test', inboxData);
     return true;
   } catch (error) {
     throw error;
@@ -533,6 +537,7 @@ export const checkDebtReminders = async () => {
         : `يوجد دين مستحق لـ ${debt.debtorName} بقيمة ${debt.remainingAmount} دينار`;
 
       const type = NOTIFICATION_CATEGORIES.DEBT_REMINDERS;
+      const inboxData = { debtId: debt.id, [INTERNAL_INBOX_SAVED_FLAG]: true };
 
       await Notifications.scheduleNotificationAsync({
         identifier: `debt-${debt.id}-${installment?.id || 'full'}`,
@@ -541,13 +546,13 @@ export const checkDebtReminders = async () => {
           body,
           sound: true,
           priority: Notifications.AndroidNotificationPriority.HIGH,
-          data: { type, debtId: debt.id },
+          data: { type, ...inboxData },
           ...(Platform.OS === 'android' && { channelId: NOTIFICATION_CHANNELS.FINANCIAL }),
         },
         trigger: null,
       });
 
-      await saveToInternalInbox(title, body, type, { debtId: debt.id });
+      await saveToInternalInbox(title, body, type, inboxData);
     }
   } catch (error) {
     // Ignore
@@ -652,23 +657,25 @@ export const sendAchievementUnlockedNotification = async (achievement: {
 
     const title = '🏆 إنجاز جديد!';
     const body = achievement.title + (achievement.description ? `\n${achievement.description}` : '');
+    const inboxData = {
+      achievementType: achievement.type,
+      [INTERNAL_INBOX_SAVED_FLAG]: true,
+    };
 
     await Notifications.scheduleNotificationAsync({
       content: {
         title,
         body,
         sound: true,
-        data: { type: NOTIFICATION_CATEGORIES.ACHIEVEMENTS, achievementType: achievement.type },
+        data: { type: NOTIFICATION_CATEGORIES.ACHIEVEMENTS, ...inboxData },
         ...(Platform.OS === 'android' && { channelId: NOTIFICATION_CHANNELS.FINANCIAL }),
       },
       trigger: null,
     });
 
-    await saveToInternalInbox(title, body, NOTIFICATION_CATEGORIES.ACHIEVEMENTS, {
-      achievementType: achievement.type,
-    });
+    await saveToInternalInbox(title, body, NOTIFICATION_CATEGORIES.ACHIEVEMENTS, inboxData);
   } catch (error) {
-    console.warn('Could not send achievement notification:', error);
+    
   }
 };
 
@@ -700,6 +707,6 @@ export const sendChallengeCompletionNotification = async (challenge: {
       priority: Notifications.AndroidNotificationPriority.HIGH,
     });
   } catch (error) {
-    console.warn('Could not send challenge completion notification:', error);
+    
   }
 };

@@ -120,14 +120,14 @@ export const AuthScreen = ({ navigation, route }: any) => {
             });
 
             if (result.success) {
-                alertService.success('نجح', 'تم تسجيل الدخول بنجاح');
+                alertService.toastSuccess('تم تسجيل الدخول بنجاح');
                 onSuccess?.(result.user);
                 navigation.goBack();
             } else {
                 alertService.error('خطأ', result.error || 'فشل تسجيل الدخول');
             }
         } catch (error) {
-            console.error('Login error:', error);
+            
             alertService.error('خطأ', 'حدث خطأ أثناء تسجيل الدخول');
         } finally {
             setLoading(false);
@@ -175,7 +175,7 @@ export const AuthScreen = ({ navigation, route }: any) => {
             if (result.success) {
                 setResendCountdown(60);
                 setOtpCode('');
-                alertService.success('تم', 'تم إعادة إرسال رمز التحقق');
+                alertService.toastSuccess('تم إعادة إرسال رمز التحقق');
             } else {
                 alertService.error('خطأ', result.error || 'فشل إعادة إرسال رمز التحقق');
             }
@@ -201,7 +201,7 @@ export const AuthScreen = ({ navigation, route }: any) => {
                 alertService.error('خطأ', result.error || 'فشل إرسال رمز التحقق');
             }
         } catch (error) {
-            console.error('Send OTP error:', error);
+            
             alertService.error('خطأ', 'حدث خطأ أثناء إرسال رمز التحقق');
         } finally {
             setLoading(false);
@@ -222,7 +222,7 @@ export const AuthScreen = ({ navigation, route }: any) => {
                 const result = await authApiService.resetPassword(fullPhone, otpCode, password.trim());
                 if (result.success) {
                     setOtpVisible(false);
-                    alertService.success('نجح', 'تم تغيير كلمة المرور بنجاح، يمكنك الآن تسجيل الدخول');
+                    alertService.toastSuccess('تم تغيير كلمة المرور بنجاح، يمكنك الآن تسجيل الدخول');
                     setIsForgotMode(false);
                     setIsLogin(true);
                     setOtpCode('');
@@ -243,7 +243,7 @@ export const AuthScreen = ({ navigation, route }: any) => {
 
                     if (registerResult.success) {
                         setOtpVisible(false);
-                        alertService.success('نجح', 'تم إنشاء الحساب بنجاح');
+                        alertService.toastSuccess('تم إنشاء الحساب بنجاح');
                         onSuccess?.(registerResult.user);
                         navigation.goBack();
                     } else {
@@ -254,7 +254,7 @@ export const AuthScreen = ({ navigation, route }: any) => {
                 }
             }
         } catch (error) {
-            console.error('Verify and action error:', error);
+            
             alertService.error('خطأ', 'حدث خطأ أثناء العملية');
         } finally {
             setVerifyingOtp(false);

@@ -20,7 +20,7 @@ export const getAccessToken = async (): Promise<string | null> => {
   try {
     return await authStorage.getAccessToken();
   } catch (error) {
-    console.error('Error getting access token:', error);
+    
     return null;
   }
 };
@@ -32,7 +32,7 @@ export const setAccessToken = async (token: string): Promise<void> => {
   try {
     await authStorage.setAccessToken(token);
   } catch (error) {
-    console.error('Error storing access token:', error);
+    
   }
 };
 
@@ -43,7 +43,7 @@ export const getRefreshToken = async (): Promise<string | null> => {
   try {
     return await authStorage.getRefreshToken();
   } catch (error) {
-    console.error('Error getting refresh token:', error);
+    
     return null;
   }
 };
@@ -55,7 +55,7 @@ export const setRefreshToken = async (token: string): Promise<void> => {
   try {
     await authStorage.setRefreshToken(token);
   } catch (error) {
-    console.error('Error storing refresh token:', error);
+    
   }
 };
 
@@ -66,7 +66,7 @@ export const setUser = async (user: any): Promise<void> => {
   try {
     await authStorage.setUser(user);
   } catch (error) {
-    console.error('Error storing user:', error);
+    
   }
 };
 
@@ -77,7 +77,7 @@ export const getUser = async (): Promise<any | null> => {
   try {
     return await authStorage.getUser();
   } catch (error) {
-    console.error('Error getting user:', error);
+    
     return null;
   }
 };
@@ -89,7 +89,7 @@ export const clearAuthData = async (): Promise<void> => {
   try {
     await authStorage.clearAuthData();
   } catch (error) {
-    console.error('Error clearing auth data:', error);
+    
   }
 };
 
@@ -128,7 +128,7 @@ export const apiRequest = async <T = any>(
 
     return { data };
   } catch (error: any) {
-    console.error('API request error:', error);
+    
     return {
       error: 'Network error',
       message: error.message || 'Failed to connect to server',
@@ -185,7 +185,7 @@ export const apiRequestWithFile = async <T = any>(
 
     return { data };
   } catch (error: any) {
-    console.error('File upload error:', error);
+    
     return {
       error: 'Upload error',
       message: error.message || 'Failed to upload file',

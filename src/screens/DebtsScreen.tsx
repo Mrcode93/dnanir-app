@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
-  FlatList,
   RefreshControl,
   Text,
   TouchableOpacity,
@@ -12,6 +11,7 @@ import {
   Pressable,
   Platform,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Searchbar } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -63,7 +63,7 @@ export const DebtsScreen = ({ navigation, route }: any) => {
       }
       setInstallmentsMap(installments);
     } catch (error) {
-      console.error('Error loading debts:', error);
+      
     }
   };
 
@@ -136,20 +136,25 @@ export const DebtsScreen = ({ navigation, route }: any) => {
         setDebtToDelete(null);
         alertService.toastSuccess('تم حذف الدين بنجاح');
       } catch (error) {
-        console.error('Error deleting debt:', error);
+        
         alertService.error('خطأ', 'حدث خطأ أثناء حذف الدين');
       }
     }
   };
 
   const handleDebtPress = (debt: Debt) => {
-    navigation.navigate('Debts', {
-      screen: 'DebtDetails',
-      params: { debtId: debt.id }
-    });
+    navigation.navigate('DebtDetails', { debtId: debt.id });
   };
 
   const handleEdit = (debt: Debt) => {
+    if (debt.isPaid) {
+      alertService.show({
+        title: 'تنبيه',
+        message: 'لا يمكن تعديل الدين بعد سداده بالكامل.',
+        type: 'info',
+      });
+      return;
+    }
     navigation.navigate('AddDebt', { debt });
   };
 
@@ -175,11 +180,11 @@ export const DebtsScreen = ({ navigation, route }: any) => {
       const message = isOwedToMe
         ? (amount === debtToPay.remainingAmount ? 'تم تسجيل التسديد بالكامل وتمت إضافته لرصيدك' : `تم تسجيل تسديد ${formatCurrency(amount)} وتمت إضافته لرصيدك`)
         : (amount === debtToPay.remainingAmount ? 'تم دفع الدين بالكامل بنجاح' : `تم دفع ${formatCurrency(amount)} بنجاح`);
-      alertService.success('نجح', message);
+      alertService.toastSuccess(message);
       setShowPayModal(false);
       setDebtToPay(null);
     } catch (error) {
-      console.error('Error paying debt:', error);
+      
       alertService.error('خطأ', debtToPay.direction === 'owed_to_me' ? 'حدث خطأ أثناء تسجيل التسديد' : 'حدث خطأ أثناء دفع الدين');
       throw error;
     }
@@ -189,9 +194,9 @@ export const DebtsScreen = ({ navigation, route }: any) => {
     try {
       await payInstallment(installment.id);
       await loadDebts();
-      alertService.success('نجح', 'تم دفع القسط بنجاح');
+      alertService.toastSuccess('تم دفع القسط بنجاح');
     } catch (error) {
-      console.error('Error paying installment:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء دفع القسط');
     }
   };
@@ -263,8 +268,10 @@ export const DebtsScreen = ({ navigation, route }: any) => {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      <FlatList
+      <FlashList
         data={filteredDebts}
+        // @ts-ignore
+        estimatedItemSize={150}
         ListHeaderComponent={
           <View style={styles.header}>
 

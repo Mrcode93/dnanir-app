@@ -87,13 +87,13 @@ export const aiApiService = {
   ): Promise<{ success: boolean; data?: ReceiptOCRResponse; error?: string }> {
     try {
       // Read image file and convert to base64 using legacy API
-      // console.log('📸 Reading image file:', imageUri);
+      // 
 
       const base64 = await FileSystem.readAsStringAsync(imageUri, {
         encoding: FileSystem.EncodingType.Base64,
       });
 
-      // console.log('✅ Image converted to base64, length:', base64.length);
+      // 
 
       const request: ReceiptOCRRequest = {
         imageBase64: base64,
@@ -118,7 +118,7 @@ export const aiApiService = {
       };
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to process receipt image';
-      console.error('Receipt OCR error:', error);
+      
       return {
         success: false,
         error: errorMessage,

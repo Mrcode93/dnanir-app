@@ -1,10 +1,11 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getWidgetBalanceData, getWidgetMonthlySummary, getWidgetQuickAddData, WidgetBalanceData, WidgetMonthlySummary, WidgetQuickAddData } from './widgetService';
+import DefaultPreference from 'react-native-default-preference';
+import WidgetCenter from 'react-native-widget-center';
+import { getWidgetBalanceData } from './widgetService';
+import { getCustomCategories, addExpense, addIncome } from '../database/database';
+import { processSmartText } from './smartTransactionService';
+import { ExpenseCategory, IncomeSource } from '../types';
 
-const WIDGET_DATA_KEY = '@dnanir_widget_data';
-const WIDGET_BALANCE_KEY = '@dnanir_widget_balance';
-const WIDGET_MONTHLY_SUMMARY_KEY = '@dnanir_widget_monthly_summary';
-const WIDGET_QUICK_ADD_KEY = '@dnanir_widget_quick_add';
+const APP_GROUP = 'group.com.mrcodeiq.dinar';
 
 /**
  * Save widget data to shared storage (for native widgets to access)
@@ -12,83 +13,57 @@ const WIDGET_QUICK_ADD_KEY = '@dnanir_widget_quick_add';
 export const saveWidgetData = async (): Promise<void> => {
   try {
     const balanceData = await getWidgetBalanceData();
-    const monthlySummary = await getWidgetMonthlySummary();
-    const quickAddData = await getWidgetQuickAddData();
     
-    // Save to AsyncStorage (will be accessible via native modules)
-    await AsyncStorage.setItem(WIDGET_BALANCE_KEY, JSON.stringify(balanceData));
-    await AsyncStorage.setItem(WIDGET_MONTHLY_SUMMARY_KEY, JSON.stringify(monthlySummary));
-    await AsyncStorage.setItem(WIDGET_QUICK_ADD_KEY, JSON.stringify(quickAddData));
+    // Set the App Group for shared UserDefaults
+    // This allows the iOS Widget to read the data
+    await DefaultPreference.setName(APP_GROUP);
     
-    // Also save combined data
-    const widgetData = {
-      balance: balanceData,
-      monthlySummary: monthlySummary,
-      quickAdd: quickAddData,
-      updatedAt: new Date().toISOString(),
-    };
-    await AsyncStorage.setItem(WIDGET_DATA_KEY, JSON.stringify(widgetData));
+    // Save to shared UserDefaults (as strings for simplicity)
+    await DefaultPreference.set('widget_balance', `${balanceData.balance.toLocaleString()}`);
+    await DefaultPreference.set('widget_income', `${balanceData.totalIncome.toLocaleString()}`);
+    await DefaultPreference.set('widget_expenses', `${balanceData.totalExpenses.toLocaleString()}`);
     
-    // Trigger native widget update
+    // Save raw values for math/formatting in Swift
+    await DefaultPreference.set('widget_balance_raw', `${balanceData.balance}`);
+    await DefaultPreference.set('widget_income_raw', `${balanceData.totalIncome}`);
+    await DefaultPreference.set('widget_expenses_raw', `${balanceData.totalExpenses}`);
+    
+    await DefaultPreference.set('widget_currency', balanceData.currency);
+    const themeJson = await DefaultPreference.get('widget_theme_mode'); // Just to check if we can read
     try {
-      const { NativeModules } = require('react-native');
-      if (NativeModules.WidgetModule) {
-        // Update native widgets with data
-        NativeModules.WidgetModule.updateWidgetData({
-          balance: balanceData,
-          monthlySummary: monthlySummary,
-          quickAdd: quickAddData,
-        }).then(() => {
-          NativeModules.WidgetModule.updateWidgets();
-        }).catch((error: any) => {
-          console.log('Error updating widget data:', error);
-        });
-      }
-    } catch (error) {
-      // Native module not available, continue
-      console.log('Widget native module not available');
+      const { getAppSettings } = await import('../database/database');
+      const settings = await getAppSettings();
+      await DefaultPreference.set('widget_theme_mode', settings?.themeMode || 'system');
+    } catch (e) {}
+
+    const privacyMode = await import('@react-native-async-storage/async-storage').then(m => m.default.getItem('privacy_mode'));
+    await DefaultPreference.set('privacy_mode', privacyMode || 'false');
+    await DefaultPreference.set('widget_updated_at', new Date().toISOString());
+
+    // Save Categories
+    try {
+      const expenseCategories = await getCustomCategories('expense');
+      const incomeCategories = await getCustomCategories('income');
+      
+      // We only need names and icons for the widget picker
+      const expCats = expenseCategories.map(c => ({ name: c.name, icon: c.icon }));
+      const incCats = incomeCategories.map(c => ({ name: c.name, icon: c.icon }));
+      
+      await DefaultPreference.set('widget_expense_categories', JSON.stringify(expCats));
+      await DefaultPreference.set('widget_income_categories', JSON.stringify(incCats));
+    } catch (e) {
+      
+    }
+    
+    // Trigger native widget refresh for iOS
+    try {
+       WidgetCenter.reloadAllTimelines();
+       
+    } catch (e) {
+       
     }
   } catch (error) {
-    console.error('Error saving widget data:', error);
-  }
-};
-
-/**
- * Get widget balance data from storage
- */
-export const getStoredWidgetBalance = async (): Promise<WidgetBalanceData | null> => {
-  try {
-    const data = await AsyncStorage.getItem(WIDGET_BALANCE_KEY);
-    return data ? JSON.parse(data) : null;
-  } catch (error) {
-    console.error('Error getting stored widget balance:', error);
-    return null;
-  }
-};
-
-/**
- * Get widget monthly summary from storage
- */
-export const getStoredWidgetMonthlySummary = async (): Promise<WidgetMonthlySummary | null> => {
-  try {
-    const data = await AsyncStorage.getItem(WIDGET_MONTHLY_SUMMARY_KEY);
-    return data ? JSON.parse(data) : null;
-  } catch (error) {
-    console.error('Error getting stored widget monthly summary:', error);
-    return null;
-  }
-};
-
-/**
- * Get widget quick add data from storage
- */
-export const getStoredWidgetQuickAdd = async (): Promise<WidgetQuickAddData | null> => {
-  try {
-    const data = await AsyncStorage.getItem(WIDGET_QUICK_ADD_KEY);
-    return data ? JSON.parse(data) : null;
-  } catch (error) {
-    console.error('Error getting stored widget quick add data:', error);
-    return null;
+    
   }
 };
 
@@ -96,5 +71,69 @@ export const getStoredWidgetQuickAdd = async (): Promise<WidgetQuickAddData | nu
  * Initialize widget data (call this on app start and after data changes)
  */
 export const initializeWidgetData = async (): Promise<void> => {
+  await processPendingTransactions();
   await saveWidgetData();
+};
+
+/**
+ * Process transactions added from the widget while the app was closed
+ */
+export const processPendingTransactions = async (): Promise<void> => {
+  try {
+    await DefaultPreference.setName(APP_GROUP);
+    const pendingJson = await DefaultPreference.get('widget_pending_transactions');
+    if (!pendingJson) return;
+
+    const pending = JSON.parse(pendingJson) as string[];
+    if (pending.length === 0) return;
+
+    
+
+    for (const item of pending) {
+      const parts = item.split('|');
+      
+      if (parts[0] === 'v') {
+        // Voice/Smart entry: v|text|smart|timestamp
+        const text = parts[1];
+        try {
+          await processSmartText(text);
+        } catch (e) {
+          
+        }
+      } else {
+        // Quick entry: amount|categoryName|type|timestamp
+        const amount = parseFloat(parts[0]);
+        const categoryName = parts[1];
+        const type = parts[2];
+        const date = parts[3].split('T')[0];
+
+        if (type === 'expense') {
+          await addExpense({
+            title: categoryName, // Use category as title if direct
+            amount: amount,
+            base_amount: amount,
+            category: categoryName as ExpenseCategory,
+            date: date,
+            description: 'أضيف من الوجت',
+            currency: 'IQD'
+          });
+        } else {
+          await addIncome({
+            source: categoryName,
+            amount: amount,
+            base_amount: amount,
+            category: categoryName as IncomeSource,
+            date: date,
+            description: 'أضيف من الوجت',
+            currency: 'IQD'
+          });
+        }
+      }
+    }
+
+    // Clear the list
+    await DefaultPreference.set('widget_pending_transactions', '[]');
+  } catch (error) {
+    
+  }
 };

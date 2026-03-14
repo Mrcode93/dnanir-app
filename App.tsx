@@ -29,6 +29,7 @@ import { AlertProvider } from './src/components/AlertProvider';
 import { PrivacyProvider } from './src/context/PrivacyContext';
 import PushNotificationManager from './src/components/PushNotificationManager';
 import { VideoSplash } from './src/components/VideoSplash';
+import { initializeWidgetData } from './src/services/widgetDataService';
 
 // Prevent valid splash screen from auto-hiding
 // We call this at top level to catch it as early as possible
@@ -144,7 +145,7 @@ export default function App() {
         ],
       };
     } catch (error) {
-      console.error('LTR initialization error:', error);
+      // console.error('LTR initialization error:', error);
     }
   }, []);
 
@@ -172,7 +173,7 @@ export default function App() {
             break;
           } catch (error) {
             lastInitError = error;
-            console.error(`Database initialization attempt ${attempt} failed:`, error);
+            // console.error(`Database initialization attempt ${attempt} failed:`, error);
             if (attempt < 3) {
               await new Promise(resolve => setTimeout(resolve, attempt * 350));
             }
@@ -198,7 +199,7 @@ export default function App() {
             setThemeMode('dark');
           }
         } catch (e) {
-          console.warn('Failed to load theme setting:', e);
+          // console.warn('Failed to load theme setting:', e);
         }
 
         // Only await the auth check — it's needed to decide lock screen
@@ -214,13 +215,16 @@ export default function App() {
           await new Promise(resolve => setTimeout(resolve, remaining));
         }
       } catch (error) {
-        console.error('Failed to initialize app:', error);
+        // console.error('Failed to initialize app:', error);
         if (!cancelled) {
           setInitError('تعذر تهيئة قاعدة البيانات. يرجى إعادة المحاولة.');
         }
       } finally {
         if (!cancelled) {
-          setIsLoading(false);
+          // Initialize widget data
+        await initializeWidgetData();
+        
+        setIsLoading(false);
         }
       }
     };
@@ -252,7 +256,7 @@ export default function App() {
             lastNotificationRefreshRef.current = Date.now();
           }
         } catch (e) {
-          console.warn('Notifications init skipped:', e);
+          // console.warn('Notifications init skipped:', e);
         }
 
         if (cancelled) return;
@@ -263,7 +267,7 @@ export default function App() {
           await initializeAchievements();
           await checkAllAchievements();
         } catch (e) {
-          console.warn('Achievements init error:', e);
+          // console.warn('Achievements init error:', e);
         }
 
         if (cancelled) return;
@@ -273,12 +277,12 @@ export default function App() {
           const { initializeWidgetData } = await import('./src/services/widgetDataService');
           await initializeWidgetData();
         } catch (e) {
-          console.warn('Widget data init error:', e);
+          // console.warn('Widget data init error:', e);
         }
       };
 
       runDeferredStartup().catch((error) => {
-        console.warn('Deferred startup failed:', error);
+        // console.warn('Deferred startup failed:', error);
       });
     });
 
@@ -315,7 +319,7 @@ export default function App() {
         setIsLocked(true);
       }
     } catch (error) {
-      console.error('Error checking authentication status:', error);
+      // console.error('Error checking authentication status:', error);
       isUnlockedRef.current = true;
       setIsLocked(false);
     }
@@ -358,7 +362,7 @@ export default function App() {
           await runSmartFinancialAlerts();
         }
       } catch (error) {
-        console.error('Error refreshing notifications on focus:', error);
+        // console.error('Error refreshing notifications on focus:', error);
       }
 
       // Auto-sync when app comes to foreground (Pro only, throttled) – only if user enabled auto-sync
@@ -370,7 +374,7 @@ export default function App() {
           const lastSync = appSettings.lastAutoSyncTime || 0;
 
           if (now - lastSync >= SYNC_THROTTLE_MS) {
-            console.log('[Auto-Sync] Triggering sync (8-hour interval)');
+            // console.log('[Auto-Sync] Triggering sync (8-hour interval)');
             // Update time BEFORE sync to avoid multiple triggers if sync takes time
             await upsertAppSettings({
               ...appSettings,
@@ -378,11 +382,11 @@ export default function App() {
             });
 
             syncNewToServer().catch((err) => {
-              console.error('[Auto-Sync] Sync failed:', err);
+              // console.error('[Auto-Sync] Sync failed:', err);
             });
           } else {
             const hoursRemaining = ((SYNC_THROTTLE_MS - (now - lastSync)) / (1000 * 60 * 60)).toFixed(1);
-            console.log(`[Auto-Sync] Skipped. Next sync in ~${hoursRemaining} hours`);
+            // console.log(`[Auto-Sync] Skipped. Next sync in ~${hoursRemaining} hours`);
           }
         }
       } catch (_) { }
@@ -392,6 +396,10 @@ export default function App() {
       subscription = AppState.addEventListener('change', (nextAppState) => {
         if (appState.match(/inactive|background/) && nextAppState === 'active') {
           checkAuthOnFocus();
+          // Also process widgets
+          import('./src/services/widgetDataService').then(({ initializeWidgetData }) => {
+            initializeWidgetData().catch(() => {});
+          });
         }
         if (nextAppState.match(/inactive|background/)) {
           isUnlockedRef.current = false;

@@ -42,13 +42,13 @@ export const AISmartInsightsScreen = ({ navigation }: any) => {
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
-      console.log('[AI Insights] Starting server auth check...');
+      
       try {
         const { isAuthenticated, user } = await authApiService.checkAuth();
 
         if (cancelled) return;
 
-        console.log('[AI Insights] Auth check result:', { isAuthenticated, userId: user?.id });
+        
         if (!isAuthenticated) {
           setNeedsAuth(true);
           setAuthChecked(true);
@@ -57,7 +57,7 @@ export const AISmartInsightsScreen = ({ navigation }: any) => {
         }
         setAuthChecked(true);
       } catch (error) {
-        console.error('[AI Insights] Auth check failed:', error);
+        
         if (!cancelled) {
           // If network error, still check local storage as fallback for offline
           const token = await authStorage.getAccessToken();
@@ -133,7 +133,7 @@ export const AISmartInsightsScreen = ({ navigation }: any) => {
         try {
           await saveAiInsightsCache(result.data as unknown as Record<string, unknown>, 'full');
         } catch (cacheError) {
-          console.error('Error saving insights cache:', cacheError);
+          
           // Don't fail the whole operation if cache save fails
         }
       } else {

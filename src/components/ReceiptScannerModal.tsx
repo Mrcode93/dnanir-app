@@ -68,7 +68,7 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
       }
 
       if (uri) {
-        console.log('📷 Image picked, URI:', uri);
+        
         setImageUri(uri);
         setProcessing(true);
         setScannedData(null);
@@ -76,7 +76,7 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
 
         try {
           // استخدام OCR لتحليل الصورة تلقائياً
-          console.log('🔄 Starting receipt processing...');
+          
 
           // Check if user is authenticated for better UX
           const isAuthenticated = await authApiService.isAuthenticated();
@@ -88,7 +88,7 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
           }
 
           const data = await processReceiptImage(uri);
-          console.log('✅ Receipt processing completed, data:', data);
+          
           setScannedData(data);
 
           // إذا لم يتم استخراج بيانات كافية، نعرض خيار إدخال النص يدوياً
@@ -100,10 +100,10 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
             setShowManualInput(true);
           } else {
             // Success message is now shown in the UI, no need for alert
-            console.log('✅ Receipt data extracted successfully');
+            
           }
         } catch (error) {
-          console.error('❌ Error processing receipt:', error);
+          
           alertService.error('خطأ', 'فشل معالجة الفاتورة. يمكنك إدخال النص يدوياً.');
           setShowManualInput(true);
         } finally {
@@ -111,7 +111,7 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
         }
       }
     } catch (error) {
-      console.error('Error picking image:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء اختيار الصورة');
     }
   };
@@ -142,9 +142,9 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
       const data = parseReceiptText(manualText);
       setScannedData(data);
       setShowManualInput(false);
-      alertService.success('نجح', 'تم تحليل الفاتورة بنجاح');
+      alertService.toastSuccess('تم تحليل الفاتورة بنجاح');
     } catch (error) {
-      console.error('Error parsing text:', error);
+      
       alertService.error('خطأ', 'فشل تحليل النص');
     }
   };
@@ -169,6 +169,7 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
       transparent={false}
       onRequestClose={handleClose}
       presentationStyle="fullScreen"
+      statusBarTranslucent
     >
       <LinearGradient
         colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}

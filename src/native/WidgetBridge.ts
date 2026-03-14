@@ -17,7 +17,7 @@ export const updateWidgets = async (): Promise<void> => {
       }
     }
   } catch (error) {
-    console.error('Error updating widgets:', error);
+    
   }
 };
 

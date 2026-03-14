@@ -42,7 +42,7 @@ export const RecurringExpensesScreen = ({ navigation }: any) => {
       const expenses = await getRecurringExpenses();
       setRecurringExpenses(expenses);
     } catch (error) {
-      console.error('Error loading recurring expenses:', error);
+      
     }
   };
 
@@ -51,7 +51,7 @@ export const RecurringExpensesScreen = ({ navigation }: any) => {
       const categories = await getCustomCategories('expense');
       setCustomCategories(categories);
     } catch (error) {
-      console.error('Error loading custom categories:', error);
+      
     }
   };
 
@@ -84,7 +84,7 @@ export const RecurringExpensesScreen = ({ navigation }: any) => {
         setShowDeleteAlert(false);
         setExpenseToDelete(null);
       } catch (error) {
-        console.error('Error deleting recurring expense:', error);
+        
       }
     }
   };

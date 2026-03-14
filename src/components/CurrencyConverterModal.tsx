@@ -18,6 +18,7 @@ import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThe
 import { CURRENCIES, Currency } from '../types';
 import { convertCurrency, getOrFetchExchangeRate, formatCurrencyAmount } from '../services/currencyService';
 import { useCurrency } from '../hooks/useCurrency';
+import { CurrencyPickerModal } from './CurrencyPickerModal';
 import { alertService } from '../services/alertService';
 import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 import { usePrivacy } from '../context/PrivacyContext';
@@ -86,7 +87,7 @@ export const CurrencyConverterModal: React.FC<CurrencyConverterModalProps> = ({
       setExchangeRate(rate);
       setConvertedAmount(converted);
     } catch (error) {
-      console.error('Error converting currency:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء تحويل العملة');
     } finally {
       setLoading(false);
@@ -281,71 +282,6 @@ export const CurrencyConverterModal: React.FC<CurrencyConverterModalProps> = ({
   );
 };
 
-interface CurrencyPickerModalProps {
-  visible: boolean;
-  selectedCurrency: string;
-  onSelect: (code: string) => void;
-  onClose: () => void;
-}
-
-const CurrencyPickerModal: React.FC<CurrencyPickerModalProps> = ({
-  visible,
-  selectedCurrency,
-  onSelect,
-  onClose,
-}) => {
-  const { theme } = useAppTheme();
-  const styles = useThemedStyles(createStyles);
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={onClose}
-    >
-      <TouchableOpacity
-        style={styles.pickerBackdrop}
-        activeOpacity={1}
-        onPress={onClose}
-      >
-        <View style={styles.pickerContainer}>
-          <LinearGradient
-            colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-            style={styles.pickerGradient}
-          >
-            <View style={styles.pickerHeader}>
-              <Text style={styles.pickerTitle}>اختر العملة</Text>
-              <TouchableOpacity onPress={onClose} style={styles.pickerCloseButton}>
-                <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={styles.pickerScrollView}>
-              {CURRENCIES.map((currency) => (
-                <TouchableOpacity
-                  key={currency.code}
-                  onPress={() => onSelect(currency.code)}
-                  style={[
-                    styles.pickerItem,
-                    selectedCurrency === currency.code && styles.pickerItemSelected,
-                  ]}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.pickerItemContent}>
-                    <Text style={styles.pickerItemCode}>{currency.code}</Text>
-                    <Text style={styles.pickerItemName}>{currency.name}</Text>
-                  </View>
-                  {selectedCurrency === currency.code && (
-                    <Ionicons name="checkmark-circle" size={24} color={theme.colors.primary} />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </LinearGradient>
-        </View>
-      </TouchableOpacity>
-    </Modal>
-  );
-};
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
   modalOverlay: {

@@ -128,6 +128,7 @@ export const MonthFilter: React.FC<MonthFilterProps> = ({
         transparent={true}
         animationType="slide"
         onRequestClose={() => setShowMonthPicker(false)}
+        statusBarTranslucent
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -227,7 +228,6 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: theme.colors.surfaceLight,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    minWidth: 155,
     overflow: 'hidden',
   },
   filterButtonContent: {

@@ -80,7 +80,7 @@ export const CalendarScreen = ({ navigation, route }: any) => {
             income.forEach(i => dates.add(i.date));
             setMonthActivity(dates);
         } catch (error) {
-            console.error('Error fetching month activity:', error);
+            
         }
     }, [currentMonth]);
 
@@ -103,7 +103,7 @@ export const CalendarScreen = ({ navigation, route }: any) => {
             setTransactions([...taggedExpenses, ...taggedIncome]);
             setCustomCategories(categories);
         } catch (error) {
-            console.error('Error fetching transactions for calendar:', error);
+            
         } finally {
             setLoading(false);
         }

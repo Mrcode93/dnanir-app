@@ -8,6 +8,7 @@ import {
     Animated,
     Pressable,
     ScrollView,
+    Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -50,6 +51,7 @@ export const GoalDetailsModal: React.FC<GoalDetailsModalProps> = ({
     const [showConfirmAlert, setShowConfirmAlert] = useState(false);
     const [convertedCurrent, setConvertedCurrent] = useState<number | null>(null);
     const [convertedTarget, setConvertedTarget] = useState<number | null>(null);
+    const modalBottomPadding = insets.bottom + (Platform.OS === 'android' ? 12 : 14);
 
     useEffect(() => {
         if (visible) {
@@ -141,8 +143,8 @@ export const GoalDetailsModal: React.FC<GoalDetailsModalProps> = ({
                         { transform: [{ translateY }] },
                     ]}
                 >
-                    <Pressable onPress={(e) => e.stopPropagation()}>
-                        <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+                    <Pressable onPress={(e) => e.stopPropagation()} style={{ maxHeight: '100%' }}>
+                        <View style={[styles.modalContent, { paddingBottom: modalBottomPadding, maxHeight: '100%' }]}>
                             {/* Drag Handle */}
                             <View style={styles.dragHandle} />
 
@@ -355,12 +357,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     modalContainer: {
         maxHeight: '90%',
         width: '100%',
+        backgroundColor: 'transparent',
     },
     modalContent: {
         backgroundColor: theme.colors.surfaceCard,
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,
         overflow: 'hidden',
+        flexShrink: 1,
     },
     dragHandle: {
         width: 40,
@@ -450,6 +454,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         borderRadius: 6,
     },
     detailsScroll: {
+        flexGrow: 0,
         flexShrink: 1,
     },
     detailsScrollContent: {
@@ -465,10 +470,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     detailCard: {
         width: '48%',
         flexGrow: 1,
-        backgroundColor: theme.colors.surface,
+        backgroundColor: theme.colors.surfaceLight,
         borderRadius: 16,
         padding: 14,
         alignItems: isRTL ? 'flex-end' : 'flex-start',
+        borderWidth: 1,
+        borderColor: theme.colors.border + '20',
         ...getPlatformShadow('xs'),
     },
     detailIconBg: {
@@ -500,10 +507,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         marginTop: 2,
     },
     infoSection: {
-        backgroundColor: theme.colors.surface,
+        backgroundColor: theme.colors.surfaceLight,
         borderRadius: 16,
         padding: 16,
         marginBottom: 12,
+        borderWidth: 1,
+        borderColor: theme.colors.border + '20',
         ...getPlatformShadow('xs'),
     },
     infoHeader: {
@@ -526,9 +535,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         textAlign: isRTL ? 'right' : 'left',
     },
     mainActions: {
-        marginTop: 4,
+        marginTop: 12,
         paddingHorizontal: 16,
-        paddingBottom: 12,
+        paddingBottom: 8,
         gap: 10,
     },
     addAmountBtn: {
@@ -580,7 +589,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         justifyContent: 'center',
         paddingVertical: 12,
         borderRadius: 16,
-        backgroundColor: theme.colors.surface,
+        backgroundColor: theme.colors.surfaceLight,
+        borderWidth: 1,
+        borderColor: theme.colors.border + '30',
         ...getPlatformShadow('xs'),
         gap: 8,
     },

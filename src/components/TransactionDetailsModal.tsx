@@ -9,6 +9,7 @@ import {
     Pressable,
     ScrollView,
     Share,
+    Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,6 +22,7 @@ import { convertCurrency, formatCurrencyAmount } from '../services/currencyServi
 import { CustomCategory } from '../database/database';
 import { usePrivacy } from '../context/PrivacyContext';
 import { ConfirmAlert } from './ConfirmAlert';
+import { resolveIoniconName } from '../utils/icon-utils';
 
 interface TransactionDetailsModalProps {
     visible: boolean;
@@ -99,7 +101,11 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
 
             const customCat = customCategories.find(c => c.name === category);
             if (customCat) {
-                return { icon: customCat.icon, colors: [customCat.color, customCat.color], label: customCat.name };
+                return {
+                    icon: resolveIoniconName(customCat.icon, 'ellipse'),
+                    colors: [customCat.color, customCat.color],
+                    label: customCat.name
+                };
             }
 
             const defaultKey = Object.keys(EXPENSE_CATEGORIES).find(
@@ -131,7 +137,11 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
                 const categorySrc = income.category;
                 const customCat = customCategories.find(c => c.name === categorySrc);
                 if (customCat) {
-                    return { icon: customCat.icon, colors: [customCat.color, customCat.color], label: customCat.name };
+                    return {
+                        icon: resolveIoniconName(customCat.icon, 'ellipse'),
+                        colors: [customCat.color, customCat.color],
+                        label: customCat.name
+                    };
                 }
 
                 const sourceIcons: Record<string, string> = {
@@ -153,7 +163,11 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
 
             const customCat = customCategories.find(c => c.name === source);
             if (customCat) {
-                return { icon: customCat.icon, colors: [customCat.color, customCat.color], label: customCat.name };
+                return {
+                    icon: resolveIoniconName(customCat.icon, 'ellipse'),
+                    colors: [customCat.color, customCat.color],
+                    label: customCat.name
+                };
             }
 
             return { icon: 'trending-up', colors: ['#10B981', '#059669'], label: source };
@@ -161,6 +175,7 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
     };
 
     const categoryInfo = getCategoryInfo();
+    const categoryIcon = resolveIoniconName(categoryInfo.icon, 'ellipse');
     const title = isExpense ? (expense?.title || '') : (income?.source || '');
     const description = isExpense ? (expense?.description || '') : (income?.description || '');
     const date = new Date(item.date);
@@ -230,7 +245,7 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
                                 end={{ x: 1, y: 1 }}
                             >
                                 <View style={styles.heroIconContainer}>
-                                    <Ionicons name={categoryInfo.icon as any} size={32} color="#FFFFFF" />
+                                    <Ionicons name={categoryIcon} size={32} color="#FFFFFF" />
                                 </View>
                                 <View style={styles.heroInfo}>
                                     <Text style={styles.heroTypeLabel}>
@@ -277,7 +292,7 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
                                     {/* Category */}
                                     <View style={styles.detailCard}>
                                         <View style={[styles.detailIconBg, { backgroundColor: categoryInfo.colors[0] + '15' }]}>
-                                            <Ionicons name={categoryInfo.icon as any} size={20} color={categoryInfo.colors[0]} />
+                                            <Ionicons name={categoryIcon} size={20} color={categoryInfo.colors[0]} />
                                         </View>
                                         <Text style={styles.detailLabel}>
                                             {isExpense ? 'الفئة' : 'المصدر'}
@@ -342,15 +357,15 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
                                         </View>
                                     </View>
                                 ) : null}
-
-                                {/* Transaction ID */}
-                                <View style={styles.idSection}>
-                                    <Text style={styles.idText}>رقم المعاملة: #{item.id}</Text>
-                                </View>
                             </ScrollView>
 
                             {/* Action Buttons */}
-                            <View style={styles.actionsRow}>
+                            <View
+                                style={[
+                                    styles.actionsRow,
+                                    { paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? 20 : 8) }
+                                ]}
+                            >
                                 <TouchableOpacity
                                     style={styles.actionBtn}
                                     onPress={handleShare}
@@ -607,17 +622,6 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         fontFamily: theme.typography.fontFamily,
         fontWeight: getPlatformFontWeight('600'),
         textAlign: isRTL ? 'right' : 'left',
-    },
-
-    // ID
-    idSection: {
-        alignItems: 'center',
-        paddingVertical: 8,
-    },
-    idText: {
-        fontSize: 11,
-        color: theme.colors.textMuted,
-        fontFamily: theme.typography.fontFamily,
     },
 
     // Actions

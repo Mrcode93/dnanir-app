@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
@@ -17,6 +17,7 @@ interface BalanceCardProps {
   onMonthChange?: (year: number, month: number) => void;
   showFilter?: boolean;
   availableMonths?: Array<{ year: number; month: number }>;
+  onCurrencyPress?: () => void;
 }
 
 const BalanceCardComponent: React.FC<BalanceCardProps> = ({
@@ -26,10 +27,11 @@ const BalanceCardComponent: React.FC<BalanceCardProps> = ({
   onMonthChange,
   showFilter = true,
   availableMonths,
+  onCurrencyPress,
 }) => {
   const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency, currencyCode } = useCurrency();
   const { isPrivacyEnabled } = usePrivacy();
   const isPositive = balance >= 0;
 
@@ -102,16 +104,32 @@ const BalanceCardComponent: React.FC<BalanceCardProps> = ({
             <Text style={styles.greeting}>مرحباً، {userName}</Text>
           )}
 
-          <View style={styles.balanceRow}>
-            <Text style={styles.balanceLabel}>الرصيد الكلي</Text>
-            <View style={styles.amountContainer}>
-              <Text style={styles.balanceAmount}>
-                {isPrivacyEnabled ? '****' : formattedBalance}
-              </Text>
-              {!isPositive && (
-                <Ionicons name="alert-circle" size={20} color="#FCA5A5" style={styles.warningIcon} />
-              )}
+          <View style={styles.balanceContentRow}>
+            <View style={styles.balanceRow}>
+              <Text style={styles.balanceLabel}>الرصيد الكلي</Text>
+              <View style={styles.amountContainer}>
+                <Text style={styles.balanceAmount}>
+                  {isPrivacyEnabled ? '****' : formattedBalance}
+                </Text>
+                {!isPositive && (
+                  <Ionicons name="alert-circle" size={20} color="#FCA5A5" style={styles.warningIcon} />
+                )}
+              </View>
             </View>
+
+            {onCurrencyPress && (
+              <TouchableOpacity
+                onPress={onCurrencyPress}
+                style={styles.currencyButtonWrapper}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.currencyProfileBtn, { backgroundColor: 'rgba(255, 255, 255, 0.15)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)' }]}>
+                  <Text style={[styles.currencyBtnText, { color: '#FFFFFF', fontWeight: 'bold' }]}>
+                    {currencyCode}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
 
           {selectedMonth && (selectedMonth.year !== 0 || selectedMonth.month !== 0) && (
@@ -269,8 +287,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: theme.spacing.xs,
     textAlign: isRTL ? 'right' : 'left',
   },
-  balanceRow: {
+  balanceContentRow: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 8,
+  },
+  balanceRow: {
     alignItems: isRTL ? 'flex-end' : 'flex-start',
   },
   balanceLabel: {
@@ -278,6 +301,19 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.7)',
     fontFamily: theme.typography.fontFamily,
     marginBottom: 4,
+  },
+  currencyButtonWrapper: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  currencyProfileBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  currencyBtnText: {
+    fontSize: 14,
+    fontFamily: theme.typography.fontFamily,
   },
   amountContainer: {
     flexDirection: isRTL ? 'row-reverse' : 'row',

@@ -84,7 +84,7 @@ const DashboardHeaderRight = ({ navigation }: { navigation: any }) => {
     const result = await syncNewToServer();
     setSyncing(false);
     if (result.success) {
-      alertService.success('تمت المزامنة', result.count > 0 ? `تم رفع ${result.count} عنصر` : 'لا توجد بيانات جديدة');
+      alertService.toastSuccess(result.count > 0 ? `تم رفع ${result.count} عنصر` : 'لا توجد بيانات جديدة');
     } else {
       if (result.code !== 'NOT_AUTHENTICATED' && result.code !== 'NOT_PRO') {
         alertService.error('فشل المزامنة', result.error);
@@ -199,14 +199,6 @@ const SettingsScreenStack = () => {
           headerTitle: 'الإعدادات',
         }}
       />
-      <Stack.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={({ navigation }) => ({
-          headerTitle: 'الحساب والملف الشخصي',
-          headerLeft: () => <HeaderLeft navigation={navigation} />,
-        })}
-      />
     </Stack.Navigator>
   );
 };
@@ -264,7 +256,7 @@ const TransactionsTabs = () => {
   const { theme } = useAppTheme();
   return (
     <TopTab.Navigator
-      initialRouteName="ExpensesList"
+      initialRouteName="IncomeList"
       screenOptions={{
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.textMuted,
@@ -292,25 +284,6 @@ const TransactionsStack = () => {
           ...getCommonStackOptions(theme),
         })}
       />
-      <Stack.Screen
-        name="ManageCategories"
-        component={ManageCategoriesScreen}
-        options={({ navigation }) => ({
-          headerShown: true,
-          headerTitle: 'إدارة الفئات',
-          headerLeft: () => <HeaderBackWithLabel navigation={navigation} label="العودة" />,
-          headerBackTitleVisible: false,
-          headerBackTitle: '',
-        })}
-      />
-      <Stack.Screen
-        name="AddCategory"
-        component={AddCategoryScreen}
-        options={{
-          headerShown: false,
-          ...TransitionPresets.ModalSlideFromBottomIOS,
-        }}
-      />
     </Stack.Navigator>
   );
 };
@@ -335,9 +308,9 @@ const InsightsStack = () => {
                     authStorage.getAccessToken(),
                     authStorage.getUser(),
                   ]);
-                  console.log('[AI Insights] Insights tab button:', { hasToken: !!token, hasUser: !!user });
+                  
                   if (!token || !user) {
-                    console.log('[AI Insights] No auth -> showing login alert');
+                    
                     alertService.show({
                       title: 'تسجيل الدخول',
                       message: 'يجب تسجيل الدخول أو إنشاء حساب لاستخدام التحليل الذكي.',
@@ -350,7 +323,7 @@ const InsightsStack = () => {
                   }
                   navigation.getParent()?.navigate('AISmartInsights');
                 } catch (e) {
-                  console.error('AI header button error:', e);
+                  
                   alertService.error('خطأ', 'حدث خطأ. تأكد من تسجيل الدخول وحاول مرة أخرى.');
                 }
               }}
@@ -361,14 +334,6 @@ const InsightsStack = () => {
             </TouchableOpacity>
           ),
         })}
-      />
-      <Stack.Screen
-        name="AdvancedReports"
-        component={AdvancedReportsScreen}
-        options={{
-          headerTitle: 'التقارير المتطورة',
-          headerShown: true,
-        }}
       />
     </Stack.Navigator>
   );
@@ -462,14 +427,6 @@ const DebtsStack = () => {
           headerBackTitle: '',
         })}
       />
-      <Stack.Screen
-        name="AddDebt"
-        component={AddDebtScreen}
-        options={{
-          headerShown: false,
-          presentation: 'modal',
-        }}
-      />
     </Stack.Navigator>
   );
 };
@@ -538,14 +495,6 @@ const BillsStack = () => {
           headerTitle: 'تفاصيل الفاتورة',
           ...getCommonStackOptions(theme),
         })}
-      />
-      <Stack.Screen
-        name="AddBill"
-        component={AddBillScreen}
-        options={{
-          headerShown: false,
-          presentation: 'card',
-        }}
       />
     </Stack.Navigator>
   );
@@ -717,6 +666,29 @@ const MainTabs = () => {
   );
 };
 
+import { SmartAddActionScreen } from '../screens/SmartAddActionScreen';
+
+const linking = {
+  prefixes: ['dnanir://', 'exp://', 'https://dnanir.app'],
+  config: {
+    screens: {
+      Main: {
+        path: '',
+        screens: {
+          Dashboard: 'dashboard',
+          Transactions: 'transactions',
+          Insights: 'insights',
+          Settings: 'settings',
+        },
+      },
+      AddExpense: 'add-expense',
+      AddIncome: 'add-income',
+      SmartAddAction: 'smart-add',
+      Auth: 'auth',
+    },
+  },
+};
+
 export const AppNavigator = () => {
   const { theme } = useAppTheme();
   const [isLoadingOnboarding, setIsLoadingOnboarding] = useState(true);
@@ -739,6 +711,7 @@ export const AppNavigator = () => {
 
   return (
     <NavigationContainer
+      linking={linking}
       direction={isRTL ? 'ltr' : 'rtl'}
       onReady={() => {
       }}
@@ -775,6 +748,54 @@ export const AppNavigator = () => {
             headerShown: false,
             ...TransitionPresets.ModalSlideFromBottomIOS,
           }}
+        />
+        <Stack.Screen
+          name="SmartAddAction"
+          component={SmartAddActionScreen}
+          options={{
+            headerShown: false,
+            presentation: 'transparentModal' as const,
+            cardStyle: { backgroundColor: 'transparent' },
+          }}
+        />
+
+        <Stack.Screen
+          name="ManageCategories"
+          component={ManageCategoriesScreen}
+          options={{
+            headerShown: false,
+            presentation: 'modal',
+            ...TransitionPresets.ModalSlideFromBottomIOS,
+          }}
+        />
+        <Stack.Screen
+          name="AddCategory"
+          component={AddCategoryScreen}
+          options={{
+            headerShown: false,
+            presentation: 'modal',
+            ...TransitionPresets.ModalSlideFromBottomIOS,
+          }}
+        />
+        <Stack.Screen
+          name="AdvancedReports"
+          component={AdvancedReportsScreen}
+          options={({ navigation }) => ({
+            headerTitle: 'التقارير المتطورة',
+            headerShown: true,
+            headerLeft: () => <HeaderLeft navigation={navigation} />,
+            ...getCommonStackOptions(theme),
+          })}
+        />
+        <Stack.Screen
+          name="Profile"
+          component={ProfileScreen}
+          options={({ navigation }) => ({
+            headerTitle: 'الملف الشخصي',
+            headerShown: true,
+            headerLeft: () => <HeaderLeft navigation={navigation} />,
+            ...getCommonStackOptions(theme),
+          })}
         />
 
         {/* Moved screens to root to hide tab bar */}
@@ -829,6 +850,25 @@ export const AppNavigator = () => {
           component={AddSavingsScreen}
           options={{
             headerShown: false,
+            presentation: 'modal',
+            ...TransitionPresets.ModalSlideFromBottomIOS,
+          }}
+        />
+        <Stack.Screen
+          name="AddBill"
+          component={AddBillScreen}
+          options={{
+            headerShown: false,
+            presentation: 'modal',
+            ...TransitionPresets.ModalSlideFromBottomIOS,
+          }}
+        />
+        <Stack.Screen
+          name="AddDebt"
+          component={AddDebtScreen}
+          options={{
+            headerShown: false,
+            presentation: 'modal',
             ...TransitionPresets.ModalSlideFromBottomIOS,
           }}
         />
@@ -838,7 +878,8 @@ export const AppNavigator = () => {
           component={AddGoalScreen}
           options={{
             headerShown: false,
-            presentation: 'card',
+            presentation: 'modal',
+            ...TransitionPresets.ModalSlideFromBottomIOS,
           }}
         />
         <Stack.Screen
@@ -879,7 +920,8 @@ export const AppNavigator = () => {
           component={AddBudgetScreen}
           options={{
             headerShown: false,
-            presentation: 'card',
+            presentation: 'modal',
+            ...TransitionPresets.ModalSlideFromBottomIOS,
           }}
         />
         <Stack.Screen

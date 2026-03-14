@@ -32,7 +32,7 @@ class ApiClient {
     try {
       return await authStorage.getAccessToken();
     } catch (error) {
-      console.error('Error getting access token:', error);
+      
       return null;
     }
   }
@@ -44,7 +44,7 @@ class ApiClient {
     try {
       await authStorage.setAccessToken(token);
     } catch (error) {
-      console.error('Error storing access token:', error);
+      
     }
   }
 
@@ -55,7 +55,7 @@ class ApiClient {
     try {
       return await authStorage.getRefreshToken();
     } catch (error) {
-      console.error('Error getting refresh token:', error);
+      
       return null;
     }
   }
@@ -67,7 +67,7 @@ class ApiClient {
     try {
       await authStorage.setRefreshToken(token);
     } catch (error) {
-      console.error('Error storing refresh token:', error);
+      
     }
   }
 
@@ -78,7 +78,7 @@ class ApiClient {
     try {
       await authStorage.clearTokens();
     } catch (error) {
-      console.error('Error clearing tokens:', error);
+      
     }
   }
 
@@ -141,35 +141,14 @@ class ApiClient {
    * Log request details
    */
   private logRequest(method: string, url: string, body?: unknown, headers?: HeadersInit) {
-    if (this.enableLogging) {
-      const safeBody = this.sanitizeBody(body);
-      const safeHeaders = this.sanitizeHeaders(headers);
-      console.log('🌐 API Request:', {
-        method,
-        url,
-        body: safeBody ? JSON.stringify(safeBody, null, 2) : undefined,
-        headers: safeHeaders,
-        timestamp: new Date().toISOString(),
-      });
-    }
+    // Logging disabled
   }
 
   /**
    * Log response details
    */
   private logResponse(method: string, url: string, response: ApiResponse<unknown>, duration: number) {
-    if (this.enableLogging) {
-      const safeData = response.data ? this.sanitizeBody(response.data) : undefined;
-      console.log('✅ API Response:', {
-        method,
-        url,
-        status: response.success ? 'SUCCESS' : 'FAILED',
-        data: safeData ? JSON.stringify(safeData, null, 2) : undefined,
-        error: response.error,
-        duration: `${duration}ms`,
-        timestamp: new Date().toISOString(),
-      });
-    }
+    // Logging disabled
   }
 
   /**
@@ -266,7 +245,7 @@ class ApiClient {
 
       return false;
     } catch (error) {
-      console.error('Token refresh failed:', error);
+      
       return false;
     } finally {
       this.isRefreshing = false;
@@ -322,11 +301,7 @@ class ApiClient {
       const duration = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : 'خطأ في الاتصال بالشبكة';
       const errorName = error instanceof Error ? error.name : '';
-      console.log('⚠️ GET request error:', {
-        endpoint,
-        error: errorMessage,
-        duration: `${duration}ms`,
-      });
+      
       if (errorName === 'AbortError') {
         return {
           success: false,
@@ -385,11 +360,7 @@ class ApiClient {
       const duration = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : 'خطأ في الاتصال بالشبكة';
       const errorName = error instanceof Error ? error.name : '';
-      console.log('⚠️ POST request error:', {
-        endpoint,
-        error: errorMessage,
-        duration: `${duration}ms`,
-      });
+      
       if (errorName === 'AbortError') {
         return {
           success: false,
@@ -429,7 +400,7 @@ class ApiClient {
       cleanup();
       const errorMessage = error instanceof Error ? error.message : 'Network error';
       const errorName = error instanceof Error ? error.name : '';
-      console.log('⚠️ PUT request error:', endpoint, errorMessage);
+      
       if (errorName === 'AbortError') {
         return {
           success: false,
@@ -464,7 +435,7 @@ class ApiClient {
       cleanup();
       const errorMessage = error instanceof Error ? error.message : 'Network error';
       const errorName = error instanceof Error ? error.name : '';
-      console.log('⚠️ DELETE request error:', endpoint, errorMessage);
+      
       if (errorName === 'AbortError') {
         return {
           success: false,
@@ -514,12 +485,12 @@ class ApiClient {
       error?: string;
     };
   }> {
-    console.log('🧪 Testing API Connection...');
-    console.log('📍 API Base URL:', this.baseURL);
+    
+    
 
     try {
       // Test 1: Health check
-      console.log('1️⃣ Testing health endpoint...');
+      
       const healthResult = await this.healthCheck();
 
       if (!healthResult) {
@@ -533,13 +504,13 @@ class ApiClient {
         };
       }
 
-      console.log('✅ Health check passed');
+      
 
       // Test 2: Check authentication status
-      console.log('2️⃣ Checking authentication...');
+      
       const token = await this.getAccessToken();
       const isAuth = !!token;
-      console.log('Auth status:', isAuth ? '✅ Authenticated' : '❌ Not authenticated');
+      
 
       return {
         success: true,
@@ -554,7 +525,7 @@ class ApiClient {
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Connection test failed';
       const errorString = error instanceof Error ? error.toString() : String(error);
-      console.error('❌ Connection test failed:', error);
+      
       return {
         success: false,
         message: errorMessage,

@@ -140,7 +140,7 @@ export const payInstallment = async (
       });
     }
   } catch (error) {
-    console.error(isOwedToMe ? 'Error adding income for installment repayment:' : 'Error adding expense for installment payment:', error);
+    
   }
 };
 
@@ -160,6 +160,34 @@ export const payDebt = async (debtId: number, amount?: number): Promise<void> =>
     remainingAmount: Math.max(0, debt.remainingAmount - paidAmount),
     isPaid: debt.remainingAmount - paidAmount <= 0,
   });
+
+  // Update installments if they exist
+  const installments = await getDebtInstallments(debtId);
+  if (installments.length > 0) {
+    let remainingToDistribute = paidAmount;
+    const unpaidInstallments = installments
+      .filter(i => !i.isPaid)
+      .sort((a, b) => a.installmentNumber - b.installmentNumber);
+
+    for (const inst of unpaidInstallments) {
+      if (remainingToDistribute <= 0) break;
+
+      if (remainingToDistribute >= inst.amount) {
+        // Pay this installment fully
+        await updateDebtInstallment(inst.id, {
+          isPaid: true,
+          paidDate,
+        });
+        remainingToDistribute -= inst.amount;
+      } else {
+        // Partial payment of this installment - reduce current amount
+        await updateDebtInstallment(inst.id, {
+          amount: inst.amount - remainingToDistribute,
+        });
+        remainingToDistribute = 0;
+      }
+    }
+  }
 
   // Record payment in history
   await addDebtPayment({
@@ -193,7 +221,7 @@ export const payDebt = async (debtId: number, amount?: number): Promise<void> =>
       });
     }
   } catch (error) {
-    console.error(isOwedToMe ? 'Error adding income for debt repayment:' : 'Error adding expense for debt payment:', error);
+    
   }
 };
 

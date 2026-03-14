@@ -53,7 +53,7 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
         setPayments(paymentsData);
       }
     } catch (error) {
-      console.error('Error loading debt data:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء تحميل بيانات الدين');
     }
   };
@@ -86,10 +86,10 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
       const message = isOwedToMe
         ? (amount === debt.remainingAmount ? 'تم تسجيل التسديد بالكامل وتمت إضافته لرصيدك' : `تم تسجيل تسديد ${formatCurrency(amount)} وتمت إضافته لرصيدك`)
         : (amount === debt.remainingAmount ? 'تم دفع الدين بالكامل بنجاح' : `تم دفع ${formatCurrency(amount)} بنجاح`);
-      alertService.success('نجح', message);
+      alertService.toastSuccess(message);
       setShowPayModal(false);
     } catch (error) {
-      console.error('Error paying debt:', error);
+      
       alertService.error('خطأ', debt.direction === 'owed_to_me' ? 'حدث خطأ أثناء تسجيل التسديد' : 'حدث خطأ أثناء دفع الدين');
       throw error;
     }
@@ -101,16 +101,24 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
       await payInstallment(installment.id);
       await loadDebtData();
       const isOwedToMe = debt.direction === 'owed_to_me';
-      alertService.success('نجح', isOwedToMe ? 'تم تسجيل تسديد القسط وإضافته لرصيدك' : 'تم دفع القسط بنجاح');
+      alertService.toastSuccess(isOwedToMe ? 'تم تسجيل تسديد القسط وإضافته لرصيدك' : 'تم دفع القسط بنجاح');
     } catch (error) {
-      console.error('Error paying installment:', error);
+      
       alertService.error('خطأ', debt.direction === 'owed_to_me' ? 'حدث خطأ أثناء تسجيل تسديد القسط' : 'حدث خطأ أثناء دفع القسط');
     }
   };
 
   const handleEdit = () => {
     if (debt) {
-      navigation.replace('AddDebt', { debt });
+      if (debt.isPaid) {
+        alertService.show({
+          title: 'تنبيه',
+          message: 'لا يمكن تعديل الدين بعد سداده بالكامل.',
+          type: 'info',
+        });
+        return;
+      }
+      navigation.navigate('AddDebt', { debt });
     }
   };
 
@@ -123,10 +131,10 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
     try {
       await deleteDebt(debt.id);
       setShowDeleteAlert(false);
-      alertService.success('نجح', 'تم حذف الدين بنجاح');
+      alertService.toastSuccess('تم حذف الدين بنجاح');
       navigation.goBack();
     } catch (error) {
-      console.error('Error deleting debt:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء حذف الدين');
     }
   };
@@ -521,14 +529,16 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
           )}
 
           <View style={styles.secondaryActions}>
-            <TouchableOpacity
-              style={styles.editButton}
-              onPress={handleEdit}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="pencil" size={20} color={theme.colors.primary} />
-              <Text style={styles.editButtonText}>تعديل</Text>
-            </TouchableOpacity>
+            {!debt.isPaid && (
+              <TouchableOpacity
+                style={styles.editButton}
+                onPress={handleEdit}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="pencil" size={20} color={theme.colors.primary} />
+                <Text style={styles.editButtonText}>تعديل</Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={[styles.deleteButton, debt.isPaid && styles.deleteButtonPaid]}

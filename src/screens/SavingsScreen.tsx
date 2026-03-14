@@ -14,12 +14,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
 import { useAppTheme, useThemedStyles } from '../utils/theme-context';
 import { AddSavingsTransactionModal } from '../components/AddSavingsTransactionModal';
+import { SavingsTransferModal } from '../components/SavingsTransferModal';
 
 import { SavingsCard } from '../components/SavingsCard';
 import {
   getSavings,
   deleteSavings,
   addSavingsTransaction,
+  transferBetweenSavings,
 } from '../database/database';
 import { Savings } from '../types';
 import { useCurrency } from '../hooks/useCurrency';
@@ -37,6 +39,8 @@ export const SavingsScreen = ({ navigation }: any) => {
   const [totalSavings, setTotalSavings] = useState(0);
   const [selectedSavings, setSelectedSavings] = useState<Savings | null>(null);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [loading, setLoading] = useState(false);
 
 
   const loadSavings = useCallback(async () => {
@@ -47,7 +51,7 @@ export const SavingsScreen = ({ navigation }: any) => {
       const total = data.reduce((sum, item) => sum + item.currentAmount, 0);
       setTotalSavings(total);
     } catch (error) {
-      console.error('Error loading savings:', error);
+      
     }
   }, []);
 
@@ -77,6 +81,11 @@ export const SavingsScreen = ({ navigation }: any) => {
     setShowTransactionModal(true);
   };
 
+  const handleTransferPress = (savings: Savings) => {
+    setSelectedSavings(savings);
+    setShowTransferModal(true);
+  };
+
   const handleTransactionConfirm = async (amount: number, type: 'deposit' | 'withdrawal') => {
     if (!selectedSavings) return;
     try {
@@ -90,6 +99,22 @@ export const SavingsScreen = ({ navigation }: any) => {
       alertService.toastSuccess(type === 'deposit' ? 'تمت إضافة المبلغ بنجاح' : 'تم سحب المبلغ بنجاح');
     } catch (error) {
       alertService.toastError('حدث خطأ أثناء العملية');
+      throw error;
+    }
+  };
+
+  const handleTransferConfirm = async (fromId: number, toId: number, amount: number) => {
+    try {
+      await transferBetweenSavings(
+        fromId,
+        toId,
+        amount,
+        new Date().toISOString().split('T')[0]
+      );
+      loadSavings();
+      alertService.toastSuccess('تم تحويل المبلغ بنجاح');
+    } catch (error) {
+      alertService.toastError('حدث خطأ أثناء عملية التحويل');
       throw error;
     }
   };
@@ -148,16 +173,16 @@ export const SavingsScreen = ({ navigation }: any) => {
               onPress={handleSavingsPress}
               onAddAmount={handleAddAmount}
               onEdit={(s) => navigation.navigate('AddSavings', { savings: s })}
-              onDelete={async (s) => {
-                alertService.confirm(
-                  'حذف الحصالة',
-                  'هل أنت متأكد من حذف هذه الحصالة؟ سيتم حذف جميع سجلات التحويل الخاصة بها.',
-                  async () => {
-                    await deleteSavings(s.id);
-                    loadSavings();
-                  }
-                );
+               onDelete={async (s) => {
+                try {
+                  await deleteSavings(s.id);
+                  loadSavings();
+                  alertService.toastSuccess('تم حذف الحصالة بنجاح');
+                } catch (error) {
+                  alertService.toastError('حدث خطأ أثناء حذف الحصالة');
+                }
               }}
+              onTransfer={handleTransferPress}
             />
           ))
         ) : (
@@ -192,6 +217,14 @@ export const SavingsScreen = ({ navigation }: any) => {
         savings={selectedSavings}
         onClose={() => setShowTransactionModal(false)}
         onConfirm={handleTransactionConfirm}
+      />
+
+      <SavingsTransferModal
+        visible={showTransferModal}
+        fromSavings={selectedSavings}
+        allSavings={savingsList}
+        onClose={() => setShowTransferModal(false)}
+        onTransfer={handleTransferConfirm}
       />
     </SafeAreaView>
 

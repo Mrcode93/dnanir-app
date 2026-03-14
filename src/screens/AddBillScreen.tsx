@@ -114,7 +114,7 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
         setShowImagePicker(false);
       }
     } catch (error) {
-      console.error('Error picking image:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء اختيار الصورة');
     }
   };
@@ -172,17 +172,17 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
 
       if (bill) {
         await updateBill(bill.id, billData);
-        alertService.success('نجح', 'تم تحديث الفاتورة بنجاح');
+        alertService.toastSuccess('تم تحديث الفاتورة بنجاح');
       } else {
         const billId = await addBill(billData);
         // Schedule reminder for new bills
         await scheduleBillReminder(billId);
-        alertService.success('نجح', 'تم إضافة الفاتورة بنجاح');
+        alertService.toastSuccess('تم إضافة الفاتورة بنجاح');
       }
 
       navigation.goBack();
     } catch (error) {
-      console.error('Error saving bill:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء حفظ الفاتورة');
     } finally {
       setLoading(false);

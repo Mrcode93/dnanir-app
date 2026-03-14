@@ -244,7 +244,7 @@ export const parseMultipleTransactions = (fullText: string): ParsedTransaction[]
         });
     }
 
-    console.log('  Found', amountMatches.length, 'amount(s):', amountMatches.map(a => `${a.rawAmount} @${a.startIndex}`));
+    // console.log('  Found', amountMatches.length, 'amount(s):', amountMatches.map(a => `${a.rawAmount} @${a.startIndex}`));
 
     if (amountMatches.length === 0) {
         // No numeric amounts found, try single parse (might catch word-based numbers)
@@ -279,7 +279,7 @@ export const parseMultipleTransactions = (fullText: string): ParsedTransaction[]
 
         if (!region) continue;
 
-        console.log(`  Region[${i}]: "${region}" → amount=${current.rawAmount}`);
+        
 
         // Parse the region for category/type/title
         const parsed = parseTransactionText(region);

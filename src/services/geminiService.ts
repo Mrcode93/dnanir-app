@@ -32,7 +32,7 @@ export const parseWithGemini = async (text: string): Promise<GeminiTransaction[]
     let categories: { key: string; name: string }[] = [];
     try {
         const customCategories = await getCustomCategories();
-        console.log(`[Gemini] Loaded ${customCategories.length} custom categories`);
+        
 
         // Build categories list (built-in + custom)
         categories = [
@@ -42,7 +42,7 @@ export const parseWithGemini = async (text: string): Promise<GeminiTransaction[]
             ...customCategories.map(c => ({ key: c.name, name: c.name })),
         ];
     } catch (e) {
-        console.log('[Gemini] Could not load custom categories, using built-in only');
+        
         categories = [
             ...BUILTIN_EXPENSE_CATEGORIES.map(key => ({ key, name: CATEGORY_DISPLAY_NAMES[key] || key })),
             ...BUILTIN_INCOME_CATEGORIES.map(key => ({ key, name: CATEGORY_DISPLAY_NAMES[key] || key })),
@@ -50,7 +50,7 @@ export const parseWithGemini = async (text: string): Promise<GeminiTransaction[]
     }
 
     try {
-        console.log('[Gemini] Sending request to server...');
+        
 
         const response = await apiClient.post<{
             success?: boolean;
@@ -62,20 +62,16 @@ export const parseWithGemini = async (text: string): Promise<GeminiTransaction[]
         const result = response.data as any;
 
         if (result?.success && Array.isArray(result.data) && result.data.length > 0) {
-            console.log(`[Gemini] ✅ Server returned ${result.data.length} valid transactions`);
-            result.data.forEach((t: GeminiTransaction, i: number) =>
-                console.log(`  [${i}]: "${t.title}" - ${t.amount} IQD (${t.type}/${t.category})`)
-            );
             return result.data;
         }
 
         if (result?.message) {
-            console.log(`[Gemini] Server message: ${result.message}`);
+            
         }
 
         return null;
     } catch (error: any) {
-        console.error('[Gemini] Server request failed:', error.message);
+        
         return null;
     }
 };

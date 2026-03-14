@@ -1,19 +1,11 @@
 import React, { useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
-import Constants from 'expo-constants';
 import { pushNotificationService } from '../services/pushNotificationService';
 import { getCurrentUser } from '../services/serverAuthService';
 import { authEventService } from '../services/authEventService';
 
 const PushNotificationManager = () => {
     useEffect(() => {
-        const isExpoGo =
-            Constants.appOwnership === 'expo' || Constants.executionEnvironment === 'storeClient';
-
-        if (isExpoGo) {
-            return;
-        }
-
         const registerPush = async () => {
             try {
                 // Get current user if logged in
@@ -27,7 +19,7 @@ const PushNotificationManager = () => {
                     await pushNotificationService.sendTokenToServer(pushToken, user?.id);
                 }
             } catch (error) {
-                // console.log('[push] registration failed', error);
+                // 
             }
         };
 
@@ -36,7 +28,7 @@ const PushNotificationManager = () => {
 
         // Listen for auth changes to re-register/update user link
         const unsubscribeAuth = authEventService.subscribe(() => {
-            // console.log('[PushManager] Auth changed, refreshing token linkage...');
+            // 
             registerPush();
         });
 

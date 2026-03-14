@@ -53,7 +53,7 @@ export const isBiometricAvailable = async (): Promise<boolean> => {
     const enrolled = await LocalAuthentication.isEnrolledAsync();
     return enrolled;
   } catch (error) {
-    console.error('Error checking biometric availability:', error);
+    
     return false;
   }
 };
@@ -73,7 +73,7 @@ export const getBiometricType = async (): Promise<string> => {
     }
     return 'Biometric';
   } catch (error) {
-    console.error('Error getting biometric type:', error);
+    
     return 'Biometric';
   }
 };
@@ -98,7 +98,7 @@ export const authenticateWithBiometric = async (): Promise<boolean> => {
 
     return result.success;
   } catch (error) {
-    console.error('Error authenticating with biometric:', error);
+    
     return false;
   }
 };
@@ -116,7 +116,7 @@ export const authenticateWithDevice = async (reason: string = 'يرجى التح
 
     return result.success;
   } catch (error) {
-    console.error('Error authenticating with device:', error);
+    
     return false;
   }
 };
@@ -139,7 +139,7 @@ export const setupPassword = async (password: string): Promise<boolean> => {
 
     return true;
   } catch (error) {
-    console.error('Error setting up password:', error);
+    
     return false;
   }
 };
@@ -182,7 +182,7 @@ export const verifyPassword = async (password: string): Promise<boolean> => {
 
     return legacyMatch;
   } catch (error) {
-    console.error('Error verifying password:', error);
+    
     return false;
   }
 };
@@ -216,7 +216,7 @@ export const setupBiometric = async (): Promise<boolean> => {
 
     return true;
   } catch (error) {
-    console.error('Error setting up biometric:', error);
+    
     return false;
   }
 };
@@ -234,7 +234,7 @@ export const disablePassword = async (): Promise<void> => {
       biometricsEnabled: currentSettings?.biometricsEnabled || false,
     });
   } catch (error) {
-    console.error('Error disabling password:', error);
+    
   }
 };
 
@@ -251,7 +251,7 @@ export const disableBiometric = async (): Promise<void> => {
       biometricsEnabled: false,
     });
   } catch (error) {
-    console.error('Error disabling biometric:', error);
+    
   }
 };
 
@@ -280,7 +280,7 @@ export const disableAuthentication = async (): Promise<void> => {
       throw new Error('Failed to disable authentication - database update did not persist');
     }
   } catch (error) {
-    console.error('Error disabling authentication:', error);
+    
     throw error;
   }
 };
@@ -297,7 +297,7 @@ export const isAuthenticationEnabled = async (): Promise<boolean> => {
     return settings?.authMethod !== undefined && settings?.authMethod !== 'none';
     */
   } catch (error) {
-    console.error('Error checking authentication status:', error);
+    
     return false;
   }
 };
@@ -332,7 +332,7 @@ export const getAuthenticationMethod = async (): Promise<'none' | 'password' | '
     }
     return 'none';
   } catch (error) {
-    console.error('Error getting authentication method:', error);
+    
     return 'none';
   }
 };
@@ -345,7 +345,7 @@ export const isPasswordEnabled = async (): Promise<boolean> => {
     const settings = await getUserSettings();
     return !!(settings?.passwordHash);
   } catch (error) {
-    console.error('Error checking password status:', error);
+    
     return false;
   }
 };
@@ -364,7 +364,7 @@ export const isBiometricEnabled = async (): Promise<boolean> => {
     const settings = await getUserSettings();
     return !!(settings?.biometricsEnabled);
   } catch (error) {
-    console.error('Error checking biometric status:', error);
+    
     return false;
   }
 };

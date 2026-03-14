@@ -24,7 +24,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
 import { useAppTheme, useThemedStyles } from '../utils/theme-context';
 import { isRTL } from '../utils/rtl';
-import { getUserSettings, getAppSettings, upsertAppSettings, getNotificationSettings, upsertNotificationSettings, upsertUserSettings } from '../database/database';
+import { getUserSettings, getAppSettings, upsertAppSettings, getNotificationSettings, upsertNotificationSettings, upsertUserSettings, recalculateAllBaseAmounts } from '../database/database';
 import { initializeNotifications, requestPermissions, scheduleDailyReminder, sendExpenseReminder, cancelNotification, rescheduleAllNotifications, sendTestNotification, verifyScheduledNotifications } from '../services/notificationService';
 import { generateMonthlyReport, generateFullReport, sharePDF } from '../services/pdfService';
 import { AuthSettingsModal } from '../components/AuthSettingsModal';
@@ -46,9 +46,10 @@ import { convertArabicToEnglish } from '../utils/numbers';
 import Constants from 'expo-constants';
 import * as Clipboard from 'expo-clipboard';
 import { notifyCurrencyChanged } from '../services/currencyEvents';
+import { convertCurrency } from '../services/currencyService';
 
 export const SettingsScreen = ({ navigation }: any) => {
-  const { theme, themeMode, setThemeMode } = useAppTheme();
+  const { theme, themeMode, setThemeMode, isDark } = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const [userName, setUserName] = useState<string>('');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -125,7 +126,7 @@ export const SettingsScreen = ({ navigation }: any) => {
 
   const checkAuthStatus = async (userFromServer?: any) => {
     // if (__DEV__) {
-    //   console.log('🔄 Checking Auth Status...', { hasUserFromServer: !!userFromServer });
+    //   
     // }
     try {
       if (userFromServer) {
@@ -138,7 +139,7 @@ export const SettingsScreen = ({ navigation }: any) => {
 
       const status = await authApiService.checkAuth();
       // if (__DEV__) {
-      //   console.log('✅ Auth API Status:', status);
+      //   
       // }
 
       setIsAuthenticated(status.isAuthenticated);
@@ -151,7 +152,7 @@ export const SettingsScreen = ({ navigation }: any) => {
         setUserData(null);
       }
     } catch (error) {
-      console.error('❌ Error checking auth status:', error);
+      
       setIsAuthenticated(false);
     }
   };
@@ -161,7 +162,7 @@ export const SettingsScreen = ({ navigation }: any) => {
       await authApiService.logout();
       setIsAuthenticated(false);
       setUserPhone('');
-      alertService.success('نجح', 'تم تسجيل الخروج بنجاح');
+      alertService.toastSuccess('تم تسجيل الخروج بنجاح');
     } catch (error) {
       alertService.error('خطأ', 'فشل تسجيل الخروج');
     }
@@ -506,18 +507,18 @@ export const SettingsScreen = ({ navigation }: any) => {
       // Reload from DB so state matches persisted value (handles focus race)
       await loadSettings();
 
-      alertService.success('نجح', `تم حفظ وقت التذكير اليومي: ${timeString}`);
+      alertService.toastSuccess(`تم حفظ وقت التذكير اليومي: ${timeString}`);
 
       if (dailyReminder) {
         try {
           await scheduleDailyReminder();
         } catch (error) {
-          console.error('Error scheduling daily reminder:', error);
+          
           alertService.error('خطأ', 'تم حفظ الوقت لكن فشل جدولة التذكير');
         }
       }
     } catch (error) {
-      console.error('Error saving daily reminder time:', error);
+      
       alertService.error('خطأ', 'فشل حفظ وقت التذكير اليومي');
     }
   };
@@ -562,7 +563,7 @@ export const SettingsScreen = ({ navigation }: any) => {
     if (expenseReminder) {
       try {
         await sendExpenseReminder();
-        alertService.success('نجح', `تم تعيين وقت تذكير المصاريف إلى ${timeString}`);
+        alertService.toastSuccess(`تم تعيين وقت تذكير المصاريف إلى ${timeString}`);
       } catch (error) {
         alertService.error('خطأ', 'فشل جدولة تذكير المصاريف');
       }
@@ -707,9 +708,19 @@ export const SettingsScreen = ({ navigation }: any) => {
         language: 'ar',
       };
       await upsertAppSettings({ ...settingsToSave, currency: currency.name, themeMode: settingsToSave.themeMode });
+
+      // Recalculate all base amounts for existing records based on the new target currency
+      try {
+        
+        await recalculateAllBaseAmounts(currencyCode, convertCurrency);
+      } catch (error) {
+        
+        // We continue anyway so the currency change takes effect, even if historical normalization fails
+      }
+
       notifyCurrencyChanged();
       setShowCurrencyPicker(false);
-      alertService.success('نجح', `تم تغيير العملة إلى ${currency.name}`);
+      alertService.toastSuccess(`تم تغيير العملة إلى ${currency.name}`);
 
       // Reload exchange rate for new currency
       if (currencyCode !== 'USD') {
@@ -735,7 +746,7 @@ export const SettingsScreen = ({ navigation }: any) => {
       await sharePDF(uri);
       setShowExportModal(false);
     } catch (error) {
-      console.error('Error exporting PDF:', error);
+      
       alertService.error('خطأ', 'فشل تصدير التقرير');
     } finally {
       setExportingPDF(false);
@@ -769,7 +780,7 @@ export const SettingsScreen = ({ navigation }: any) => {
       });
 
       setShowExchangeRateModal(false);
-      alertService.success('نجح', 'تم حفظ سعر الصرف بنجاح');
+      alertService.toastSuccess('تم حفظ سعر الصرف بنجاح');
     } catch (error) {
       alertService.error('خطأ', 'حدث خطأ أثناء حفظ سعر الصرف');
     }
@@ -788,7 +799,7 @@ export const SettingsScreen = ({ navigation }: any) => {
         alertService.warning('تنبيه', 'لا يمكن فتح تطبيق البريد الإلكتروني');
       }
     } catch (error) {
-      console.error('Error opening email:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء فتح البريد الإلكتروني');
     }
   };
@@ -811,7 +822,7 @@ export const SettingsScreen = ({ navigation }: any) => {
         }
       }
     } catch (error) {
-      console.error('Error opening WhatsApp:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء فتح WhatsApp');
     }
   };
@@ -824,7 +835,7 @@ export const SettingsScreen = ({ navigation }: any) => {
         setReferralInfo(result.data);
       }
     } catch (err) {
-      console.error('Error loading referral info:', err);
+      
     } finally {
       setLoadingReferral(false);
     }
@@ -839,7 +850,7 @@ export const SettingsScreen = ({ navigation }: any) => {
         message,
       });
     } catch (error) {
-      console.error('Error sharing referral:', error);
+      
     }
   };
 
@@ -857,17 +868,17 @@ export const SettingsScreen = ({ navigation }: any) => {
         try {
           await deleteSyncDataFromServer();
         } catch (serverError) {
-          console.error('Error deleting server data:', serverError);
+          
           // We don't block local success because local data is already gone
         }
 
         setDeletingAll(false);
-        alertService.success('تم الحذف', 'تم حذف جميع بيانات التطبيق بنجاح (محلياً ومن السيرفر)');
+        alertService.toastSuccess('تم حذف جميع بيانات التطبيق بنجاح (محلياً ومن السيرفر)');
         await loadSettings();
       }
     } catch (error) {
       setDeletingAll(false);
-      console.error('Error deleting all data:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء مسح البيانات');
     }
   };
@@ -966,8 +977,11 @@ export const SettingsScreen = ({ navigation }: any) => {
                         language: 'ar',
                       };
                       await upsertAppSettings({ ...settingsToSave, themeMode: 'light', darkModeEnabled: false });
+                      // Sync to widget
+                      const { saveWidgetData } = await import('../services/widgetDataService');
+                      await saveWidgetData();
                     } catch (e) {
-                      console.warn('Failed to save theme setting:', e);
+                      
                     }
                   }}
                 >
@@ -991,8 +1005,11 @@ export const SettingsScreen = ({ navigation }: any) => {
                         language: 'ar',
                       };
                       await upsertAppSettings({ ...settingsToSave, themeMode: 'dark', darkModeEnabled: true });
+                      // Sync to widget
+                      const { saveWidgetData } = await import('../services/widgetDataService');
+                      await saveWidgetData();
                     } catch (e) {
-                      console.warn('Failed to save theme setting:', e);
+                      
                     }
                   }}
                 >
@@ -1016,8 +1033,11 @@ export const SettingsScreen = ({ navigation }: any) => {
                         language: 'ar',
                       };
                       await upsertAppSettings({ ...settingsToSave, themeMode: 'system' });
+                      // Sync to widget
+                      const { saveWidgetData } = await import('../services/widgetDataService');
+                      await saveWidgetData();
                     } catch (e) {
-                      console.warn('Failed to save theme setting:', e);
+                      
                     }
                   }}
                 >
@@ -1045,7 +1065,7 @@ export const SettingsScreen = ({ navigation }: any) => {
                 const result = await createLocalBackup();
                 setBackupLoading(false);
                 if (result.success) {
-                  alertService.success('تم', 'تم إنشاء النسخة الاحتياطية. يمكنك حفظ الملف في التخزين أو.');
+                  alertService.toastSuccess('تم إنشاء النسخة الاحتياطية بنجاح. يمكنك حفظ الملف في التخزين أو مشاركته.');
                 } else {
                   alertService.error('خطأ', result.error);
                 }
@@ -1076,7 +1096,7 @@ export const SettingsScreen = ({ navigation }: any) => {
                 const result = await pickBackupFileAndRestore();
                 setBackupLoading(false);
                 if (result.success) {
-                  alertService.success('تم', 'تم استعادة النسخة الاحتياطية من الملف.');
+                  alertService.toastSuccess('تم استعادة النسخة الاحتياطية من الملف.');
                   loadSettings();
                 } else if (result.error !== 'لم يتم اختيار ملف') {
                   alertService.error('خطأ', result.error);
@@ -1135,7 +1155,7 @@ export const SettingsScreen = ({ navigation }: any) => {
                   const result = await getFullFromServer();
                   setRestoreServerLoading(false);
                   if (result.success) {
-                    alertService.success('تم', 'تم استعادة البيانات من السيرفر.');
+                    alertService.toastSuccess('تم استعادة البيانات من السيرفر.');
                     loadSettings();
                   } else {
                     alertService.error('فشل الاستعادة', result.error);
@@ -1390,26 +1410,22 @@ export const SettingsScreen = ({ navigation }: any) => {
             <TouchableOpacity
               onPress={() => setShowExportModal(true)}
               disabled={exportingPDF}
-              style={styles.exportButton}
+              style={[
+                styles.exportButton,
+                { backgroundColor: isDark ? '#1E3A5F' : theme.colors.primary }
+              ]}
               activeOpacity={0.8}
             >
-              <LinearGradient
-                colors={theme.gradients.primary as any}
-                style={styles.exportButtonGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                {exportingPDF ? (
-                  <ActivityIndicator color={theme.colors.textInverse} />
-                ) : (
-                  <>
-                    <Ionicons name="document-text" size={20} color={theme.colors.textInverse} />
-                    <Text style={styles.exportButtonText}>
-                      تصدير البيانات
-                    </Text>
-                  </>
-                )}
-              </LinearGradient>
+              {exportingPDF ? (
+                <ActivityIndicator color={theme.colors.textInverse} />
+              ) : (
+                <>
+                  <Ionicons name="document-text" size={20} color={'#FFFFFF'} />
+                  <Text style={styles.exportButtonText}>
+                    تصدير البيانات
+                  </Text>
+                </>
+              )}
             </TouchableOpacity>
 
             <View style={{ height: 12 }} />
@@ -1695,14 +1711,14 @@ export const SettingsScreen = ({ navigation }: any) => {
                           setUserData(result.user);
                         } else if (!result.success) {
                           // If server update fails, we still keep local for now but log it
-                          console.error('Failed to sync name to server:', result.error);
+                          
                         }
                       }
 
                       setShowNameModal(false);
-                      alertService.success('نجح', 'تم تحديث الاسم بنجاح');
+                      alertService.toastSuccess('تم تحديث الاسم بنجاح');
                     } catch (error) {
-                      console.error('Error saving name:', error);
+                      
                       alertService.error('خطأ', 'فشل تحديث الاسم');
                     }
                   }}
@@ -2431,9 +2447,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     marginTop: 8,
-    ...getPlatformShadow('md'),
-  },
-  exportButtonGradient: {
+    ...getPlatformShadow('sm'),
     flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',

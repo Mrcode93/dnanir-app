@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
-  FlatList,
   RefreshControl,
   Text,
   TouchableOpacity,
@@ -11,6 +10,7 @@ import {
   Pressable,
   Platform,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Searchbar } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -47,7 +47,7 @@ export const BillsScreen = ({ navigation, route }: any) => {
       const allBills = await getBills();
       setBills(allBills);
     } catch (error) {
-      console.error('Error loading bills:', error);
+      
     }
   };
 
@@ -103,7 +103,7 @@ export const BillsScreen = ({ navigation, route }: any) => {
         setBillToDelete(null);
         alertService.toastSuccess('تم حذف الفاتورة بنجاح');
       } catch (error) {
-        console.error('Error deleting bill:', error);
+        
         alertService.error('خطأ', 'حدث خطأ أثناء حذف الفاتورة');
       }
     }
@@ -117,30 +117,25 @@ export const BillsScreen = ({ navigation, route }: any) => {
   };
 
   const handleEdit = (bill: Bill) => {
-    navigation.navigate('Bills', {
-      screen: 'AddBill',
-      params: { bill }
-    });
+    navigation.navigate('AddBill', { bill });
   };
 
   const handleAdd = () => {
-    navigation.navigate('Bills', {
-      screen: 'AddBill'
-    });
+    navigation.navigate('AddBill');
   };
 
   const handleTogglePaid = async (bill: Bill) => {
     try {
       if (bill.isPaid) {
         await markBillAsUnpaid(bill.id);
-        alertService.success('نجح', 'تم تحديث حالة الفاتورة');
+        alertService.toastSuccess('تم تحديث حالة الفاتورة');
       } else {
         await markBillAsPaid(bill.id);
-        alertService.success('نجح', 'تم دفع الفاتورة بنجاح');
+        alertService.toastSuccess('تم دفع الفاتورة بنجاح');
       }
       await loadBills();
     } catch (error) {
-      console.error('Error toggling bill status:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء تحديث حالة الفاتورة');
     }
   };
@@ -247,8 +242,10 @@ export const BillsScreen = ({ navigation, route }: any) => {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      <FlatList
+      <FlashList
         data={filteredBills}
+        // @ts-ignore
+        estimatedItemSize={120}
         ListHeaderComponent={
           <>
             {/* Search + Filter */}

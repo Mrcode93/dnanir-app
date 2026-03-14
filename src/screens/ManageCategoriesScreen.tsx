@@ -75,7 +75,7 @@ export const ManageCategoriesScreen: React.FC<ManageCategoriesScreenProps> = ({
         try {
           await deleteCustomCategory(categoryId);
           await loadCategories();
-          alertService.success('نجح', 'تم حذف الفئة بنجاح');
+          alertService.toastSuccess('تم حذف الفئة بنجاح');
         } catch (error) {
           alertService.error('خطأ', 'حدث خطأ أثناء حذف الفئة');
         }
@@ -111,8 +111,14 @@ export const ManageCategoriesScreen: React.FC<ManageCategoriesScreenProps> = ({
           colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
           style={styles.gradient}
         >
-
-
+          <View style={styles.header}>
+            <Text style={styles.title}>
+              {type === 'income' ? 'إدارة مصادر الدخل' : 'إدارة فئات المصاريف'}
+            </Text>
+            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+              <Ionicons name="close" size={28} color={theme.colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
           {/* Content */}
           <ScrollView
             style={styles.scrollView}

@@ -304,7 +304,7 @@ export const generateMonthlyReport = async (month?: number, year?: number): Prom
     const { uri } = await Print.printToFileAsync({ html });
     return uri;
   } catch (error) {
-    console.error('Error generating PDF:', error);
+    
     throw error;
   }
 };
@@ -312,7 +312,7 @@ export const generateMonthlyReport = async (month?: number, year?: number): Prom
 export const sharePDF = async (uri: string) => {
   try {
     if (!(await Sharing.isAvailableAsync())) {
-      console.warn('Sharing is not available on this device');
+      
       return;
     }
     await Sharing.shareAsync(uri, {
@@ -321,7 +321,7 @@ export const sharePDF = async (uri: string) => {
       UTI: 'com.adobe.pdf',
     });
   } catch (error) {
-    console.error('Error sharing PDF:', error);
+    
   }
 };
 
@@ -522,7 +522,7 @@ export const generateAdvancedPDFReport = async (reportData: AdvancedReportData):
     const { uri } = await Print.printToFileAsync({ html });
     return uri;
   } catch (error) {
-    console.error('Error generating advanced PDF:', error);
+    
     throw error;
   }
 };
@@ -595,7 +595,7 @@ export const generateFullReport = async (): Promise<string> => {
     const { uri } = await Print.printToFileAsync({ html });
     return uri;
   } catch (error) {
-    console.error('Error generating full PDF:', error);
+    
     throw error;
   }
 };

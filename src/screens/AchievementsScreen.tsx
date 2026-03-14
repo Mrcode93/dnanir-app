@@ -55,7 +55,7 @@ export const AchievementsScreen = ({ navigation }: any) => {
       setUnlockedCount(unlocked);
       setTotalCount(total);
     } catch (error) {
-      console.error('Error loading achievements:', error);
+      
     }
   };
 
@@ -75,7 +75,7 @@ export const AchievementsScreen = ({ navigation }: any) => {
     try {
       await shareAchievement(achievement);
     } catch (error) {
-      console.error('Error sharing achievement:', error);
+      
     }
   };
 
@@ -83,7 +83,7 @@ export const AchievementsScreen = ({ navigation }: any) => {
     try {
       await shareAchievements(achievements);
     } catch (error) {
-      console.error('Error sharing achievements:', error);
+      
     }
   };
 

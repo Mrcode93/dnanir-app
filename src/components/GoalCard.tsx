@@ -78,7 +78,7 @@ const GoalCardComponent: React.FC<GoalCardProps> = ({
           setConvertedCurrentAmount(convertedCurrent);
           setConvertedRemaining(convertedRem);
         } catch (error) {
-          console.error('Error converting currency:', error);
+          
           setConvertedTargetAmount(null);
           setConvertedCurrentAmount(null);
           setConvertedRemaining(null);
@@ -113,14 +113,14 @@ const GoalCardComponent: React.FC<GoalCardProps> = ({
           try {
             remainingInPrimaryCurrency = await convertCurrency(remaining, goalCurrency, currencyCode);
           } catch (error) {
-            console.error('Error converting remaining amount for time calculation:', error);
+            
           }
         }
 
         const timeEstimate = calculateTimeToReachGoal(remainingInPrimaryCurrency, avgSavings);
         setEstimatedTime(timeEstimate);
       } catch (error) {
-        console.error('Error calculating estimated time:', error);
+        
         setEstimatedTime(null);
         setAverageMonthlySavings(null);
       }

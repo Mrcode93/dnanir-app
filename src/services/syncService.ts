@@ -162,10 +162,7 @@ export async function syncFullToServer(): Promise<FullSyncResult> {
     }
 
     const payload = await exportFullData();
-    if (__DEV__) {
-      const keys = Object.keys(payload).filter(k => Array.isArray((payload as any)[k])).map(k => `${k}:${(payload as any)[k].length}`);
-      console.log('[sync] POST full payload keys:', keys);
-    }
+    
     const response = await apiClient.post<{
       success?: boolean;
       data?: { exportedAt?: string };
@@ -184,10 +181,9 @@ export async function syncFullToServer(): Promise<FullSyncResult> {
 
     await markAllExpensesAndIncomeSynced();
     const exportedAt = response.data?.data?.exportedAt || (payload.exportedAt as string) || new Date().toISOString();
-    if (__DEV__) console.log('[sync] POST full success', exportedAt);
+    
     return { success: true, exportedAt };
   } catch (err: any) {
-    if (__DEV__) console.error('[sync] syncFullToServer error:', err?.message ?? err);
     const message = err?.message || err?.error || 'فشل في رفع النسخة الاحتياطية';
     return { success: false, error: message, code: 'NETWORK' };
   }
@@ -256,10 +252,8 @@ export async function syncNewToServer(): Promise<NewSyncResult> {
       if (byType('savings_transaction').length) await markSavingsTransactionsSynced(byType('savings_transaction'));
     }
 
-    if (__DEV__) console.log('[sync] incremental done, syncedCount:', syncedCount);
     return { success: true, count: syncedCount };
   } catch (err: any) {
-    if (__DEV__) console.error('[sync] syncNewToServer error:', err?.message ?? err);
     const message = err?.message || err?.error || 'فشل في مزامنة البيانات';
     return { success: false, error: message, code: 'NETWORK' };
   }
@@ -272,7 +266,7 @@ export type RestoreFromServerResult =
 /**
  * Restore full data from server (Pro only). Replaces local data with server snapshot.
  */
-export async function getFullFromServer(): Promise<RestoreFromServerResult> {
+export async function getFullFromServer(): Promise<Exclude<RestoreFromServerResult, { success: true }> | { success: true }> {
   try {
     const token = await apiClient.getAccessToken();
     if (!token) {
@@ -292,37 +286,20 @@ export async function getFullFromServer(): Promise<RestoreFromServerResult> {
       API_ENDPOINTS.SYNC.FULL
     );
 
-    if (__DEV__) {
-      console.log('[sync] GET full response:', {
-        success: response.success,
-        hasData: !!response.data,
-        hasDataData: !!(response as any).data?.data,
-        dataKeys: response.data && typeof response.data === 'object' ? Object.keys(response.data) : [],
-      });
-    }
-
     if (!response.success || !response.data?.data) {
       const msg =
         (response as any).message ||
         (response as any).error ||
         'لا توجد نسخة احتياطية على السيرفر';
-      if (__DEV__) console.warn('[sync] GET full failed:', msg);
       return { success: false, error: msg, code: response.success === false ? 'NO_BACKUP' : 'NETWORK' };
     }
 
     const payload = response.data.data as Record<string, unknown>;
-    const counts = {
-      expenses: (payload.expenses as any[])?.length ?? 0,
-      income: (payload.income as any[])?.length ?? 0,
-    };
-    if (__DEV__) console.log('[sync] GET full importing:', counts);
 
     const { importFullData } = await import('../database/database');
     await importFullData(payload);
-    if (__DEV__) console.log('[sync] GET full import done');
     return { success: true };
   } catch (err: any) {
-    if (__DEV__) console.error('[sync] GET full error:', err?.message ?? err);
     const message = err?.message || err?.error || 'فشل في استعادة البيانات';
     return { success: false, error: message, code: 'NETWORK' };
   }
@@ -347,7 +324,6 @@ export async function deleteSyncDataFromServer(): Promise<{ success: boolean; er
 
     return { success: true };
   } catch (err: any) {
-    console.error('[sync] deleteSyncDataFromServer error:', err);
     return { success: false, error: 'فشل في حذف البيانات من السيرفر' };
   }
 }

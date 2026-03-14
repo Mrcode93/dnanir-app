@@ -111,6 +111,7 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
       transparent={true}
       animationType="fade"
       onRequestClose={onClose}
+      statusBarTranslucent
     >
       <Pressable style={styles.overlay} onPress={onClose}>
         <KeyboardAvoidingView

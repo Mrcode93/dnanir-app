@@ -56,7 +56,7 @@ export const BillDetailsScreen = ({ navigation, route }: any) => {
         setPayments(paymentsData);
       }
     } catch (error) {
-      console.error('Error loading bill data:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء تحميل بيانات الفاتورة');
     }
   };
@@ -80,14 +80,14 @@ export const BillDetailsScreen = ({ navigation, route }: any) => {
     try {
       if (bill.isPaid) {
         await markBillAsUnpaid(bill.id);
-        alertService.success('نجح', 'تم تحديث حالة الفاتورة');
+        alertService.toastSuccess('تم تحديث حالة الفاتورة');
       } else {
         await markBillAsPaid(bill.id);
-        alertService.success('نجح', 'تم دفع الفاتورة بنجاح');
+        alertService.toastSuccess('تم دفع الفاتورة بنجاح');
       }
       await loadBillData();
     } catch (error) {
-      console.error('Error toggling bill status:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء تحديث حالة الفاتورة');
     }
   };
@@ -106,10 +106,10 @@ export const BillDetailsScreen = ({ navigation, route }: any) => {
     if (!bill) return;
     try {
       await deleteBill(bill.id);
-      alertService.success('نجح', 'تم حذف الفاتورة بنجاح');
+      alertService.toastSuccess('تم حذف الفاتورة بنجاح');
       navigation.goBack();
     } catch (error) {
-      console.error('Error deleting bill:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء حذف الفاتورة');
     }
   };

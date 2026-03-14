@@ -7,12 +7,12 @@ import { ExpenseCategory, IncomeSource } from '../types';
  */
 export const generateMockData = async (): Promise<void> => {
   try {
-    console.log('🗑️ Clearing existing data...');
+    
     await clearExpenses();
     await clearIncome();
-    console.log('✅ Data cleared');
+    
 
-    console.log('📝 Generating mockup data...');
+    
 
     // November 2025 data
     await generateNovember2025Data();
@@ -23,9 +23,9 @@ export const generateMockData = async (): Promise<void> => {
     // January 2026 data (until day 12)
     await generateJanuary2026Data();
 
-    console.log('✅ Mockup data generated successfully!');
+    
   } catch (error) {
-    console.error('❌ Error generating mockup data:', error);
+    
     throw error;
   }
 };
@@ -91,7 +91,7 @@ const generateNovember2025Data = async () => {
     await addIncome({ ...inc, source: inc.source as IncomeSource });
   }
 
-  console.log(`✅ November 2025: ${expenses.length} expenses, ${income.length} income entries`);
+  
 };
 
 const generateDecember2025Data = async () => {
@@ -158,7 +158,7 @@ const generateDecember2025Data = async () => {
     await addIncome({ ...inc, source: inc.source as IncomeSource });
   }
 
-  console.log(`✅ December 2025: ${expenses.length} expenses, ${income.length} income entries`);
+  
 };
 
 const generateJanuary2026Data = async () => {
@@ -210,5 +210,5 @@ const generateJanuary2026Data = async () => {
     await addIncome({ ...inc, source: inc.source as IncomeSource });
   }
 
-  console.log(`✅ January 2026 (until day 12): ${expenses.length} expenses, ${income.length} income entries`);
+  // console.log(`✅ January 2026 (until day 12): ${expenses.length} expenses, ${income.length} income entries`);
 };

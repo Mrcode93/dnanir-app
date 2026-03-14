@@ -93,7 +93,7 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
       const categories = await getCustomCategories('expense');
       setCustomCategories(categories);
     } catch (error) {
-      console.error('Error loading custom categories:', error);
+      
     }
   };
 
@@ -156,7 +156,7 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
       onClose();
       resetForm();
     } catch (error) {
-      console.error('Error saving recurring expense:', error);
+      
       alertService.error('خطأ', 'حدث خطأ أثناء حفظ المصروف المتكرر');
     } finally {
       setLoading(false);
