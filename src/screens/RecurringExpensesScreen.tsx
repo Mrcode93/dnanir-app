@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,15 +8,14 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { FAB } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
-import { 
-  getRecurringExpenses, 
-  deleteRecurringExpense, 
-  RecurringExpense 
+import {
+  getRecurringExpenses,
+  deleteRecurringExpense,
+  RecurringExpense
 } from '../database/database';
 import { useCurrency } from '../hooks/useCurrency';
 import { getNextOccurrenceDate } from '../services/recurringExpenseService';
@@ -24,6 +23,7 @@ import { AddRecurringExpenseModal } from '../components/AddRecurringExpenseModal
 import { ConfirmAlert } from '../components/ConfirmAlert';
 import { EXPENSE_CATEGORIES } from '../types';
 import { getCustomCategories } from '../database/database';
+import { ScreenContainer } from '../design-system';
 
 export const RecurringExpensesScreen = ({ navigation }: any) => {
   const { theme } = useAppTheme();
@@ -37,23 +37,23 @@ export const RecurringExpensesScreen = ({ navigation }: any) => {
   const [expenseToDelete, setExpenseToDelete] = useState<RecurringExpense | null>(null);
   const [customCategories, setCustomCategories] = useState<any[]>([]);
 
-  const loadRecurringExpenses = async () => {
+  const loadRecurringExpenses = useCallback(async () => {
     try {
       const expenses = await getRecurringExpenses();
       setRecurringExpenses(expenses);
     } catch (error) {
-      
-    }
-  };
 
-  const loadCustomCategories = async () => {
+    }
+  }, []);
+
+  const loadCustomCategories = useCallback(async () => {
     try {
       const categories = await getCustomCategories('expense');
       setCustomCategories(categories);
     } catch (error) {
-      
+
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadRecurringExpenses();
@@ -84,7 +84,7 @@ export const RecurringExpensesScreen = ({ navigation }: any) => {
         setShowDeleteAlert(false);
         setExpenseToDelete(null);
       } catch (error) {
-        
+
       }
     }
   };
@@ -106,9 +106,9 @@ export const RecurringExpensesScreen = ({ navigation }: any) => {
   };
 
   const getCategoryName = (category: string) => {
-    return EXPENSE_CATEGORIES[category as keyof typeof EXPENSE_CATEGORIES] || 
-           customCategories.find(c => c.name === category)?.name || 
-           category;
+    return EXPENSE_CATEGORIES[category as keyof typeof EXPENSE_CATEGORIES] ||
+      customCategories.find(c => c.name === category)?.name ||
+      category;
   };
 
   const getRecurrenceText = (expense: RecurringExpense) => {
@@ -118,14 +118,14 @@ export const RecurringExpensesScreen = ({ navigation }: any) => {
       monthly: 'شهري',
       yearly: 'سنوي',
     };
-    
+
     if (expense.recurrenceValue === 1) {
       return `كل ${types[expense.recurrenceType]}`;
     }
     return `كل ${expense.recurrenceValue} ${types[expense.recurrenceType]}`;
   };
 
-  const renderRecurringExpense = ({ item }: { item: RecurringExpense }) => {
+  const renderRecurringExpense = useCallback(({ item }: { item: RecurringExpense }) => {
     const nextOccurrence = getNextOccurrenceDate(item);
     const nextDate = nextOccurrence ? new Date(nextOccurrence).toLocaleDateString('ar-IQ-u-nu-latn') : 'انتهى';
 
@@ -144,7 +144,7 @@ export const RecurringExpensesScreen = ({ navigation }: any) => {
               <Text style={styles.expenseAmount}>{formatCurrency(item.amount)}</Text>
             </View>
           </View>
-          
+
           <View style={styles.cardDetails}>
             <View style={styles.detailRow}>
               <Ionicons name="repeat" size={16} color={theme.colors.textSecondary} />
@@ -160,7 +160,7 @@ export const RecurringExpensesScreen = ({ navigation }: any) => {
               </View>
             )}
           </View>
-          
+
           <View style={styles.cardActions}>
             <TouchableOpacity
               style={styles.actionButton}
@@ -180,10 +180,10 @@ export const RecurringExpensesScreen = ({ navigation }: any) => {
         </View>
       </LinearGradient>
     );
-  };
+  }, [theme, styles, formatCurrency, getCategoryName, getRecurrenceText, handleEdit, handleDelete]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <ScreenContainer edges={['top', 'bottom']}>
       {recurringExpenses.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="repeat-outline" size={80} color={theme.colors.textSecondary} />
@@ -206,20 +206,20 @@ export const RecurringExpensesScreen = ({ navigation }: any) => {
           }
         />
       )}
-      
+
       <FAB
         icon="plus"
         style={styles.fab}
         onPress={handleAdd}
         color={theme.colors.textInverse}
       />
-      
+
       <AddRecurringExpenseModal
         visible={showAddModal}
         onClose={handleModalClose}
         editingExpense={editingExpense}
       />
-      
+
       <ConfirmAlert
         visible={showDeleteAlert}
         onCancel={() => {
@@ -233,15 +233,11 @@ export const RecurringExpensesScreen = ({ navigation }: any) => {
         cancelText="إلغاء"
         type="danger"
       />
-    </SafeAreaView>
+    </ScreenContainer>
   );
 };
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
   listContent: {
     padding: theme.spacing.md,
   },

@@ -10,10 +10,10 @@ import {
     ActivityIndicator,
     ScrollView,
     Dimensions,
-    StatusBar,
     Image,
     Modal,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
@@ -26,11 +26,18 @@ import { COUNTRIES } from '../constants/countries';
 
 const { width } = Dimensions.get('window');
 
-export const AuthScreen = ({ navigation, route }: any) => {
-    const { theme } = useAppTheme();
+interface AuthModalProps {
+    visible: boolean;
+    isLogin?: boolean;
+    onSuccess?: (user?: any) => void;
+    onClose: () => void;
+}
+
+export const AuthScreen = ({ visible, isLogin: isLoginProp = true, onSuccess, onClose }: AuthModalProps) => {
+    const { theme, isDark } = useAppTheme();
     const styles = useThemedStyles(createStyles);
     const otpInputRef = React.useRef<TextInput>(null);
-    const [isLogin, setIsLogin] = useState(route?.params?.isLogin !== false);
+    const [isLogin, setIsLogin] = useState(isLoginProp);
     const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
     const [name, setName] = useState('');
@@ -43,8 +50,29 @@ export const AuthScreen = ({ navigation, route }: any) => {
     const [verifyingOtp, setVerifyingOtp] = useState(false);
     const [countryPickerVisible, setCountryPickerVisible] = useState(false);
     const [isForgotMode, setIsForgotMode] = useState(false);
+    const [forgotStep, setForgotStep] = useState<'phone' | 'otp' | 'reset'>('phone');
+    const [forgotOtp, setForgotOtp] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [resendCountdown, setResendCountdown] = useState(0);
     const resendTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    // Reset form state every time the modal opens
+    useEffect(() => {
+        if (visible) {
+            setIsLogin(isLoginProp);
+            setPhone('');
+            setPassword('');
+            setName('');
+            setReferralCode('');
+            setOtpCode('');
+            setOtpVisible(false);
+            setIsForgotMode(false);
+            setForgotStep('phone');
+            setForgotOtp('');
+            setConfirmPassword('');
+        }
+    }, [visible]);
 
     // Start countdown when OTP modal opens
     useEffect(() => {
@@ -86,23 +114,43 @@ export const AuthScreen = ({ navigation, route }: any) => {
         c.code.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const onSuccess = route?.params?.onSuccess;
 
     const handleSubmit = async () => {
+        // ── Forgot password: step 1 — send OTP ──
+        if (isForgotMode && forgotStep === 'phone') {
+            if (!phone.trim()) {
+                alertService.warning('تنبيه', 'يرجى إدخال رقم الهاتف');
+                return;
+            }
+            handleForgotSendOtp();
+            return;
+        }
+
+        // ── Forgot password: step 2 — verify OTP ──
+        if (isForgotMode && forgotStep === 'otp') {
+            handleForgotVerifyOtp();
+            return;
+        }
+
+        // ── Forgot password: step 3 — reset password ──
+        if (isForgotMode && forgotStep === 'reset') {
+            handleForgotReset();
+            return;
+        }
+
+        // ── Login ──
         if (!phone.trim()) {
             alertService.warning('تنبيه', 'يرجى إدخال رقم الهاتف');
             return;
         }
-
         if (!password.trim() || password.length < 6) {
             alertService.warning('تنبيه', 'يرجى إدخال كلمة مرور صحيحة (6 أحرف على الأقل)');
             return;
         }
-
-        if (isLogin && !isForgotMode) {
+        if (isLogin) {
             handleLogin();
         } else {
-            if (!isForgotMode && !name.trim()) {
+            if (!name.trim()) {
                 alertService.warning('تنبيه', 'يرجى إدخال الاسم');
                 return;
             }
@@ -122,13 +170,72 @@ export const AuthScreen = ({ navigation, route }: any) => {
             if (result.success) {
                 alertService.toastSuccess('تم تسجيل الدخول بنجاح');
                 onSuccess?.(result.user);
-                navigation.goBack();
+                onClose();
             } else {
                 alertService.error('خطأ', result.error || 'فشل تسجيل الدخول');
             }
         } catch (error) {
             
             alertService.error('خطأ', 'حدث خطأ أثناء تسجيل الدخول');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleForgotSendOtp = async () => {
+        setLoading(true);
+        try {
+            const fullPhone = getFullPhone();
+            const result = await authApiService.sendOtp(fullPhone, country, 'reset_password');
+            if (result.success) {
+                setForgotStep('otp');
+                setResendCountdown(60);
+                alertService.toastSuccess('تم إرسال رمز التحقق');
+            } else {
+                alertService.error('خطأ', result.error || 'فشل إرسال رمز التحقق');
+            }
+        } catch {
+            alertService.error('خطأ', 'حدث خطأ أثناء إرسال رمز التحقق');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleForgotVerifyOtp = () => {
+        if (forgotOtp.length !== 6) {
+            alertService.warning('تنبيه', 'يرجى إدخال رمز التحقق المكون من 6 أرقام');
+            return;
+        }
+        setForgotStep('reset');
+    };
+
+    const handleForgotReset = async () => {
+        if (!password.trim() || password.length < 6) {
+            alertService.warning('تنبيه', 'كلمة المرور يجب أن تكون 6 أحرف على الأقل');
+            return;
+        }
+        if (password.trim() !== confirmPassword.trim()) {
+            alertService.warning('تنبيه', 'كلمتا المرور غير متطابقتين');
+            return;
+        }
+        setLoading(true);
+        try {
+            const fullPhone = getFullPhone();
+            // Re-use the verified OTP code — server validates it again (not expired)
+            const result = await authApiService.resetPassword(fullPhone, forgotOtp, password.trim());
+            if (result.success) {
+                alertService.toastSuccess('تم تغيير كلمة المرور بنجاح، يمكنك الآن تسجيل الدخول');
+                setIsForgotMode(false);
+                setForgotStep('phone');
+                setForgotOtp('');
+                setPassword('');
+                setConfirmPassword('');
+                setIsLogin(true);
+            } else {
+                alertService.error('خطأ', result.error || 'فشل إعادة تعيين كلمة المرور');
+            }
+        } catch {
+            alertService.error('خطأ', 'حدث خطأ أثناء إعادة التعيين');
         } finally {
             setLoading(false);
         }
@@ -174,7 +281,8 @@ export const AuthScreen = ({ navigation, route }: any) => {
             const result = await authApiService.sendOtp(fullPhone, country, purpose);
             if (result.success) {
                 setResendCountdown(60);
-                setOtpCode('');
+                if (isForgotMode) setForgotOtp('');
+                else setOtpCode('');
                 alertService.toastSuccess('تم إعادة إرسال رمز التحقق');
             } else {
                 alertService.error('خطأ', result.error || 'فشل إعادة إرسال رمز التحقق');
@@ -245,7 +353,7 @@ export const AuthScreen = ({ navigation, route }: any) => {
                         setOtpVisible(false);
                         alertService.toastSuccess('تم إنشاء الحساب بنجاح');
                         onSuccess?.(registerResult.user);
-                        navigation.goBack();
+                        onClose();
                     } else {
                         alertService.error('خطأ', registerResult.error || 'فشل إنشاء الحساب');
                     }
@@ -262,8 +370,15 @@ export const AuthScreen = ({ navigation, route }: any) => {
     };
 
     return (
+        <Modal
+            visible={visible}
+            animationType="slide"
+            presentationStyle="fullScreen"
+            onRequestClose={onClose}
+            statusBarTranslucent
+        >
         <View style={styles.container}>
-            <StatusBar barStyle={theme.colors.background === '#F8F9FA' ? 'dark-content' : 'light-content'} />
+            <StatusBar style={isDark ? 'light' : 'dark'} />
             <SafeAreaView style={styles.safeArea} edges={['top']}>
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -272,7 +387,7 @@ export const AuthScreen = ({ navigation, route }: any) => {
                 >
                     <View style={styles.header}>
                         <TouchableOpacity
-                            onPress={() => navigation.goBack()}
+                            onPress={() => onClose()}
                             style={styles.backButton}
                             activeOpacity={0.7}
                         >
@@ -299,32 +414,27 @@ export const AuthScreen = ({ navigation, route }: any) => {
 
                         <View style={styles.titleBlock}>
                             <Text style={styles.screenTitle}>
-                                {isForgotMode ? 'نسيت كلمة المرور' : (isLogin ? 'تسجيل الدخول' : 'إنشاء حساب')}
+                                {isForgotMode
+                                    ? (forgotStep === 'phone' ? 'نسيت كلمة المرور' : forgotStep === 'otp' ? 'رمز التحقق' : 'كلمة مرور جديدة')
+                                    : (isLogin ? 'تسجيل الدخول' : 'إنشاء حساب')}
                             </Text>
                             {isForgotMode && (
                                 <Text style={styles.screenSubtitle}>
-                                    أدخل رقم هاتفك وكلمة المرور الجديدة لإعادة التعيين
+                                    {forgotStep === 'phone'
+                                        ? 'أدخل رقم هاتفك لاستعادة حسابك'
+                                        : forgotStep === 'otp'
+                                            ? `أدخل الرمز المرسل إلى ${phone}`
+                                            : 'أنشئ كلمة مرور قوية جديدة'}
                                 </Text>
                             )}
                         </View>
 
                         <View style={styles.formContainer}>
-                            {!isLogin && !isForgotMode && (
-                                <TextInput
-                                    value={name}
-                                    onChangeText={(v) => setName(convertArabicToEnglishSimple(v))}
-                                    placeholder="الاسم الكامل"
-                                    placeholderTextColor={theme.colors.textMuted}
-                                    style={styles.input}
-                                    autoCapitalize="words"
-                                    textAlign={isRTL ? 'right' : 'left'}
-                                />
-                            )}
 
-                            <View style={styles.phoneContainer}>
-
-                                <View style={styles.phoneInputWrapper}>
-                                    {true && (
+                            {/* ── Forgot: Step 1 — Phone ── */}
+                            {isForgotMode && forgotStep === 'phone' && (
+                                <View style={styles.phoneContainer}>
+                                    <View style={styles.phoneInputWrapper}>
                                         <TouchableOpacity
                                             activeOpacity={0.7}
                                             onPress={() => setCountryPickerVisible(true)}
@@ -335,61 +445,164 @@ export const AuthScreen = ({ navigation, route }: any) => {
                                             </Text>
                                             <Ionicons name="chevron-down" size={12} color={theme.colors.textSecondary} style={{ marginLeft: 4 }} />
                                         </TouchableOpacity>
-                                    )}
-                                    <TextInput
-                                        value={phone}
-                                        onChangeText={(v) => setPhone(convertArabicToEnglish(v))}
-                                        placeholder="رقم الهاتف"
-                                        placeholderTextColor={theme.colors.textMuted}
-                                        style={styles.flexInput}
-                                        keyboardType="phone-pad"
-                                        textAlign="left"
-                                    />
+                                        <TextInput
+                                            value={phone}
+                                            onChangeText={(v) => setPhone(convertArabicToEnglish(v))}
+                                            placeholder="رقم الهاتف"
+                                            placeholderTextColor={theme.colors.textMuted}
+                                            style={styles.flexInput}
+                                            keyboardType="phone-pad"
+                                            textAlign="left"
+                                            autoFocus
+                                        />
+                                    </View>
                                 </View>
-                            </View>
-
-                            {!isLogin && !isForgotMode && (
-                                <TextInput
-                                    value={referralCode}
-                                    onChangeText={(v) => setReferralCode(convertArabicToEnglishSimple(v))}
-                                    placeholder="كود الإحالة (اختياري)"
-                                    placeholderTextColor={theme.colors.textMuted}
-                                    style={[styles.input, { fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', letterSpacing: 2 }]}
-                                    autoCapitalize="characters"
-                                    autoCorrect={false}
-                                    textAlign={isRTL ? 'right' : 'left'}
-                                />
                             )}
 
-                            <View style={styles.passwordWrapper}>
-                                <TextInput
-                                    value={password}
-                                    onChangeText={(v) => setPassword(convertArabicToEnglishSimple(v))}
-                                    placeholder={isForgotMode ? "كلمة المرور الجديدة" : "كلمة المرور"}
-                                    placeholderTextColor={theme.colors.textMuted}
-                                    style={styles.passwordInput}
-                                    secureTextEntry={!showPassword}
-                                    textAlign={isRTL ? 'right' : 'left'}
-                                />
-                                <TouchableOpacity
-                                    onPress={() => setShowPassword(!showPassword)}
-                                    style={styles.eyeButton}
-                                >
-                                    <Ionicons
-                                        name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                                        size={20}
-                                        color={theme.colors.textMuted}
-                                    />
-                                </TouchableOpacity>
-                            </View>
+                            {/* ── Forgot: Step 2 — OTP ── */}
+                            {isForgotMode && forgotStep === 'otp' && (
+                                <View>
+                                    <View style={styles.singleOtpInputContainer}>
+                                        <TextInput
+                                            value={forgotOtp}
+                                            onChangeText={(v) => setForgotOtp(convertArabicToEnglish(v))}
+                                            placeholder="000000"
+                                            placeholderTextColor={theme.colors.textMuted + '50'}
+                                            style={styles.singleOtpInput}
+                                            keyboardType="number-pad"
+                                            maxLength={6}
+                                            autoFocus
+                                            selectionColor={theme.colors.primary}
+                                        />
+                                    </View>
+                                    <TouchableOpacity
+                                        onPress={handleResendOtp}
+                                        disabled={resendCountdown > 0 || loading}
+                                        style={styles.resendOtpButton}
+                                    >
+                                        <Text style={[
+                                            styles.resendOtpText,
+                                            resendCountdown > 0 && { color: theme.colors.textMuted }
+                                        ]}>
+                                            {resendCountdown > 0
+                                                ? `إعادة الإرسال بعد ${resendCountdown} ثانية`
+                                                : 'إعادة إرسال الرمز'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
 
-                            {isLogin && !isForgotMode && (
-                                <TouchableOpacity
-                                    onPress={() => setIsForgotMode(true)}
-                                    style={styles.forgotButton}
-                                >
-                                    <Text style={styles.forgotText}>نسيت كلمة المرور؟</Text>
-                                </TouchableOpacity>
+                            {/* ── Forgot: Step 3 — New Password ── */}
+                            {isForgotMode && forgotStep === 'reset' && (
+                                <View>
+                                    <View style={styles.passwordWrapper}>
+                                        <TextInput
+                                            value={password}
+                                            onChangeText={(v) => setPassword(convertArabicToEnglishSimple(v))}
+                                            placeholder="كلمة المرور الجديدة"
+                                            placeholderTextColor={theme.colors.textMuted}
+                                            style={styles.passwordInput}
+                                            secureTextEntry={!showPassword}
+                                            textAlign={isRTL ? 'right' : 'left'}
+                                            autoFocus
+                                        />
+                                        <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
+                                            <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={theme.colors.textMuted} />
+                                        </TouchableOpacity>
+                                    </View>
+                                    <View style={styles.passwordWrapper}>
+                                        <TextInput
+                                            value={confirmPassword}
+                                            onChangeText={(v) => setConfirmPassword(convertArabicToEnglishSimple(v))}
+                                            placeholder="تأكيد كلمة المرور"
+                                            placeholderTextColor={theme.colors.textMuted}
+                                            style={styles.passwordInput}
+                                            secureTextEntry={!showConfirmPassword}
+                                            textAlign={isRTL ? 'right' : 'left'}
+                                        />
+                                        <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeButton}>
+                                            <Ionicons name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={theme.colors.textMuted} />
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            )}
+
+                            {/* ── Login / Register fields ── */}
+                            {!isForgotMode && (
+                                <>
+                                    {!isLogin && (
+                                        <TextInput
+                                            value={name}
+                                            onChangeText={(v) => setName(convertArabicToEnglishSimple(v))}
+                                            placeholder="الاسم الكامل"
+                                            placeholderTextColor={theme.colors.textMuted}
+                                            style={styles.input}
+                                            autoCapitalize="words"
+                                            textAlign={isRTL ? 'right' : 'left'}
+                                        />
+                                    )}
+
+                                    <View style={styles.phoneContainer}>
+                                        <View style={styles.phoneInputWrapper}>
+                                            <TouchableOpacity
+                                                activeOpacity={0.7}
+                                                onPress={() => setCountryPickerVisible(true)}
+                                                style={[styles.dialCodeBox, { borderRightWidth: 1 }]}
+                                            >
+                                                <Text style={styles.dialCodeText}>
+                                                    {countries.find(c => c.code === country)?.dial}
+                                                </Text>
+                                                <Ionicons name="chevron-down" size={12} color={theme.colors.textSecondary} style={{ marginLeft: 4 }} />
+                                            </TouchableOpacity>
+                                            <TextInput
+                                                value={phone}
+                                                onChangeText={(v) => setPhone(convertArabicToEnglish(v))}
+                                                placeholder="رقم الهاتف"
+                                                placeholderTextColor={theme.colors.textMuted}
+                                                style={styles.flexInput}
+                                                keyboardType="phone-pad"
+                                                textAlign="left"
+                                            />
+                                        </View>
+                                    </View>
+
+                                    {!isLogin && (
+                                        <TextInput
+                                            value={referralCode}
+                                            onChangeText={(v) => setReferralCode(convertArabicToEnglishSimple(v))}
+                                            placeholder="كود الإحالة (اختياري)"
+                                            placeholderTextColor={theme.colors.textMuted}
+                                            style={[styles.input, { fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', letterSpacing: 2 }]}
+                                            autoCapitalize="characters"
+                                            autoCorrect={false}
+                                            textAlign={isRTL ? 'right' : 'left'}
+                                        />
+                                    )}
+
+                                    <View style={styles.passwordWrapper}>
+                                        <TextInput
+                                            value={password}
+                                            onChangeText={(v) => setPassword(convertArabicToEnglishSimple(v))}
+                                            placeholder="كلمة المرور"
+                                            placeholderTextColor={theme.colors.textMuted}
+                                            style={styles.passwordInput}
+                                            secureTextEntry={!showPassword}
+                                            textAlign={isRTL ? 'right' : 'left'}
+                                        />
+                                        <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
+                                            <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={theme.colors.textMuted} />
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    {isLogin && (
+                                        <TouchableOpacity
+                                            onPress={() => setIsForgotMode(true)}
+                                            style={styles.forgotButton}
+                                        >
+                                            <Text style={styles.forgotText}>نسيت كلمة المرور؟</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                </>
                             )}
 
                             <TouchableOpacity
@@ -402,7 +615,9 @@ export const AuthScreen = ({ navigation, route }: any) => {
                                     <ActivityIndicator color={theme.colors.textInverse} />
                                 ) : (
                                     <Text style={styles.submitButtonText}>
-                                        {isForgotMode ? 'تغيير كلمة المرور' : (isLogin ? 'تسجيل الدخول' : 'إنشاء الحساب')}
+                                        {isForgotMode
+                                            ? (forgotStep === 'phone' ? 'إرسال رمز التحقق' : forgotStep === 'otp' ? 'تحقق من الرمز' : 'تغيير كلمة المرور')
+                                            : (isLogin ? 'تسجيل الدخول' : 'إنشاء الحساب')}
                                     </Text>
                                 )}
                             </TouchableOpacity>
@@ -415,6 +630,10 @@ export const AuthScreen = ({ navigation, route }: any) => {
                                     onPress={() => {
                                         if (isForgotMode) {
                                             setIsForgotMode(false);
+                                            setForgotStep('phone');
+                                            setForgotOtp('');
+                                            setPassword('');
+                                            setConfirmPassword('');
                                             setIsLogin(true);
                                         } else {
                                             setIsLogin(!isLogin);
@@ -438,7 +657,10 @@ export const AuthScreen = ({ navigation, route }: any) => {
                         onRequestClose={() => setOtpVisible(false)}
                         onShow={() => setTimeout(() => otpInputRef.current?.focus(), 150)}
                     >
-                        <View style={styles.otpModalOverlay}>
+                        <KeyboardAvoidingView
+                            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                            style={styles.otpModalOverlay}
+                        >
                             <View style={styles.otpModalContainer}>
                                 <Text style={styles.otpTitle}>رمز التحقق</Text>
                                 <Text style={styles.otpSubtitle}>أدخل الرمز المكون من 6 أرقام المرسل إلى {phone}</Text>
@@ -494,7 +716,7 @@ export const AuthScreen = ({ navigation, route }: any) => {
                                     <Text style={styles.cancelOtpText}>إلغاء</Text>
                                 </TouchableOpacity>
                             </View>
-                        </View>
+                        </KeyboardAvoidingView>
                     </Modal>
 
                     {/* Country Picker Modal */}
@@ -556,6 +778,7 @@ export const AuthScreen = ({ navigation, route }: any) => {
                 </KeyboardAvoidingView>
             </SafeAreaView>
         </View>
+        </Modal>
     );
 };
 
@@ -646,12 +869,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         backgroundColor: theme.colors.surfaceCard,
         borderWidth: 1,
         borderColor: theme.colors.border,
-        borderRadius: 14,
+        borderRadius: theme.borderRadius.xl,
         overflow: 'hidden',
     },
     dialCodeText: {
-        fontSize: 16,
-        fontWeight: '600',
+        fontSize: theme.typography.sizes.md,
+        fontWeight: getPlatformFontWeight('600'),
         color: theme.colors.textSecondary,
     },
     passwordWrapper: {
@@ -660,7 +883,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         backgroundColor: theme.colors.surfaceCard,
         borderWidth: 1,
         borderColor: theme.colors.border,
-        borderRadius: 14,
+        borderRadius: theme.borderRadius.xl,
         paddingHorizontal: 18,
         marginBottom: 14,
     },
@@ -679,14 +902,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     },
     submitButton: {
         marginTop: 6,
-        borderRadius: 14,
-        height: 54,
+        borderRadius: theme.borderRadius.xl,
+        height: 52,
         backgroundColor: theme.colors.primary,
         justifyContent: 'center',
         alignItems: 'center',
     },
     submitButtonText: {
-        fontSize: 17,
+        fontSize: theme.typography.sizes.md,
         fontWeight: getPlatformFontWeight('700'),
         color: theme.colors.textInverse,
         fontFamily: theme.typography.fontFamily,
@@ -757,11 +980,11 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         width: '80%',
         height: 60,
         backgroundColor: theme.colors.surfaceLight,
-        borderRadius: 16,
+        borderRadius: theme.borderRadius.xl,
         borderWidth: 1.5,
         borderColor: theme.colors.primary,
         fontSize: 28,
-        fontWeight: '700',
+        fontWeight: getPlatformFontWeight('700'),
         letterSpacing: 10,
         textAlign: 'center',
         padding: 0,
@@ -773,15 +996,15 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         width: '100%',
         height: 52,
         backgroundColor: theme.colors.primary,
-        borderRadius: 14,
+        borderRadius: theme.borderRadius.xl,
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 12,
     },
     verifyButtonText: {
         color: theme.colors.textInverse,
-        fontSize: 16,
-        fontWeight: '700',
+        fontSize: theme.typography.sizes.md,
+        fontWeight: getPlatformFontWeight('700'),
         fontFamily: theme.typography.fontFamily,
     },
     resendOtpButton: {
@@ -790,8 +1013,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     },
     resendOtpText: {
         color: theme.colors.primary,
-        fontSize: 14,
-        fontWeight: '600',
+        fontSize: theme.typography.sizes.sm,
+        fontWeight: getPlatformFontWeight('600'),
         fontFamily: theme.typography.fontFamily,
         textAlign: 'center',
     },
@@ -810,8 +1033,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     },
     pickerContainer: {
         backgroundColor: theme.colors.surfaceCard,
-        borderTopLeftRadius: 28,
-        borderTopRightRadius: 28,
+        borderTopLeftRadius: theme.borderRadius.xxl,
+        borderTopRightRadius: theme.borderRadius.xxl,
         maxHeight: '70%',
         paddingBottom: 40,
     },
@@ -824,8 +1047,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         borderBottomColor: theme.colors.borderLight,
     },
     pickerTitle: {
-        fontSize: 18,
-        fontWeight: '700',
+        fontSize: theme.typography.sizes.lg,
+        fontWeight: getPlatformFontWeight('700'),
         color: theme.colors.textPrimary,
         fontFamily: theme.typography.fontFamily,
     },

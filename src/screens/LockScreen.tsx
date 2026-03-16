@@ -101,7 +101,7 @@ export const LockScreen: React.FC<LockScreenProps> = ({ onUnlock }) => {
               </TouchableOpacity>
             )}
 
-            {authMethod === 'password' && biometricType && RNPlatform.OS !== 'android' && (
+            {authMethod === 'password' && biometricType && (
               <TouchableOpacity
                 onPress={handleBiometricAuth}
                 style={styles.biometricFallback}

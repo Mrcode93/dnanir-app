@@ -4,16 +4,11 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Modal,
   TouchableOpacity,
-  Animated,
-  KeyboardAvoidingView,
   Platform,
-  Pressable,
   Alert,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TextInput, IconButton } from 'react-native-paper';
+import { TextInput } from 'react-native-paper';
 import { CustomDatePicker } from './CustomDatePicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +17,7 @@ import type { AppTheme } from '../utils/theme';
 import { Expense, ExpenseCategory, EXPENSE_CATEGORIES, CURRENCIES } from '../types';
 import { addExpense, updateExpense, ExpenseShortcut, getCustomCategories, CustomCategory } from '../database/database';
 import { ManageShortcutsModal } from './ManageShortcutsModal';
+import { CurrencyPickerModal } from './CurrencyPickerModal';
 import { alertService } from '../services/alertService';
 import { formatDateLocal } from '../utils/date';
 import { useCurrency } from '../hooks/useCurrency';
@@ -32,6 +28,7 @@ import { ReceiptData } from '../services/receiptOCRService';
 import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 import { getSmartExpenseShortcuts } from '../services/smartShortcutsService';
 import { resolveIoniconName, toOutlineIoniconName } from '../utils/icon-utils';
+import { AppBottomSheet, AppButton } from '../design-system';
 
 interface AddExpenseModalProps {
   visible: boolean;
@@ -48,7 +45,6 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
 }) => {
   const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
-  const insets = useSafeAreaInsets();
   const { currencyCode, formatCurrency } = useCurrency();
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
@@ -60,25 +56,12 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [showReceiptScanner, setShowReceiptScanner] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [slideAnim] = useState(new Animated.Value(0));
   const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
   const [shortcuts, setShortcuts] = useState<ExpenseShortcut[]>([]);
   const [showShortcuts, setShowShortcuts] = useState(true);
   const [showManageShortcuts, setShowManageShortcuts] = useState(false);
   const [categories, setCategories] = useState<CustomCategory[]>([]);
 
-  useEffect(() => {
-    if (visible) {
-      Animated.spring(slideAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        tension: 50,
-        friction: 7,
-      }).start();
-    } else {
-      slideAnim.setValue(0);
-    }
-  }, [visible]);
 
   useEffect(() => {
     setCurrency(currencyCode);
@@ -295,74 +278,20 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
     };
   };
 
-  const translateY = slideAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [600, 0],
-  });
 
   return (
-    <Modal
+    <AppBottomSheet
       visible={visible}
-      animationType="fade"
-      transparent={true}
-      onRequestClose={handleClose}
-      statusBarTranslucent
+      onClose={handleClose}
+      title={expense ? 'تعديل المصروف' : 'مصروف جديد'}
+      maxHeight="98%"
     >
-      <KeyboardAvoidingView
-        behavior="padding"
-        style={styles.keyboardView}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        <TouchableOpacity
-          style={styles.overlay}
-          activeOpacity={1}
-          onPress={handleClose}
-        >
-          <Animated.View
-            style={[
-              styles.modalContainer,
-              {
-                transform: [{ translateY }],
-              },
-            ]}
-          >
-            <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
-              <LinearGradient
-                colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-                style={[styles.modalGradient, { paddingBottom: insets.bottom }]}
-              >
-                {/* Header */}
-                <View style={styles.header}>
-                  <View style={styles.headerLeft}>
-                    <View style={[styles.iconBadge, { backgroundColor: getCategoryInfo(category).color + '20' }]}>
-                      <Ionicons
-                        name={getCategoryInfo(category).icon as any}
-                        size={24}
-                        color={getCategoryInfo(category).color}
-                      />
-                    </View>
-                    <View style={styles.headerText}>
-                      <Text style={styles.title}>
-                        {expense ? 'تعديل المصروف' : 'مصروف جديد'}
-                      </Text>
-                      <Text style={styles.subtitle}>أضف تفاصيل المصروف</Text>
-                    </View>
-                  </View>
-                  <IconButton
-                    icon="close"
-                    size={24}
-                    onPress={handleClose}
-                    iconColor={theme.colors.textSecondary}
-                    style={styles.closeButton}
-                  />
-                </View>
-
-                <ScrollView
-                  style={styles.scrollView}
-                  contentContainerStyle={styles.scrollContent}
-                  showsVerticalScrollIndicator={false}
-                  keyboardShouldPersistTaps="handled"
-                >
                   {/* Shortcuts Section - Only show when adding new expense */}
                   {!expense && (
                     <View style={styles.shortcutsSection}>
@@ -514,43 +443,33 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                   {/* Currency Selection */}
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>العملة</Text>
-                    <TouchableOpacity
+                    <AppButton
+                      label={`${CURRENCIES.find(c => c.code === currency)?.symbol} ${CURRENCIES.find(c => c.code === currency)?.name}`}
                       onPress={() => setShowCurrencyPicker(true)}
+                      variant="primary"
+                      leftIcon="cash"
+                      rightIcon={isRTL ? "chevron-back" : "chevron-forward"}
                       style={styles.currencyButton}
-                      activeOpacity={0.7}
-                    >
-                      <LinearGradient
-                        colors={theme.gradients.primary as any}
-                        style={styles.currencyButtonGradient}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                      >
-                        <Ionicons name="cash" size={20} color="#FFFFFF" />
-                        <Text style={styles.currencyButtonText}>
-                          {CURRENCIES.find(c => c.code === currency)?.symbol} {CURRENCIES.find(c => c.code === currency)?.name}
-                        </Text>
-                        <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color="#FFFFFF" />
-                      </LinearGradient>
-                    </TouchableOpacity>
+                      labelStyle={styles.currencyButtonText}
+                    />
                   </View>
 
                   {/* Date Picker */}
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>التاريخ</Text>
-                    <TouchableOpacity
+                    <AppButton
+                      label={date.toLocaleDateString('ar-IQ-u-nu-latn', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
                       onPress={() => setShowDatePicker(true)}
+                      variant="secondary"
+                      leftIcon="calendar-outline"
+                      rightIcon="chevron-forward"
                       style={styles.dateButton}
-                    >
-                      <Ionicons name="calendar-outline" size={20} color={theme.colors.primary} />
-                      <Text style={styles.dateButtonText}>
-                        {date.toLocaleDateString('ar-IQ-u-nu-latn', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                        })}
-                      </Text>
-                      <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
-                    </TouchableOpacity>
+                      labelStyle={styles.dateButtonText}
+                    />
                     {showDatePicker && (
                       <CustomDatePicker
                         value={date}
@@ -575,45 +494,24 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                     >
                       {categories.map((cat) => {
                         const isSelected = category === cat.name;
-                        const selectedIcon = resolveIoniconName(cat.icon, 'ellipse');
-                        const unselectedIcon = toOutlineIoniconName(cat.icon, 'ellipse-outline');
-                        // Parse color gradient from hex color
-                        const color1 = cat.color;
-                        const color2 = cat.color; // Use same color or create darker shade
-                        const colors = [color1, color2];
-
+                        const icon = isSelected ? resolveIoniconName(cat.icon, 'ellipse') : toOutlineIoniconName(cat.icon, 'ellipse-outline');
+                        
                         return (
-                          <TouchableOpacity
+                          <AppButton
                             key={cat.id}
+                            label={cat.name}
                             onPress={() => setCategory(cat.name)}
-                            style={styles.categoryOption}
-                            activeOpacity={0.7}
-                          >
-                            {isSelected ? (
-                              <LinearGradient
-                                colors={colors as any}
-                                style={styles.categoryGradient}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                              >
-                                <Ionicons
-                                  name={selectedIcon}
-                                  size={20}
-                                  color="#FFFFFF"
-                                />
-                                <Text style={styles.categoryTextActive}>{cat.name}</Text>
-                              </LinearGradient>
-                            ) : (
-                              <View style={styles.categoryDefault}>
-                                <Ionicons
-                                  name={unselectedIcon}
-                                  size={20}
-                                  color={theme.colors.textSecondary}
-                                />
-                                <Text style={styles.categoryText}>{cat.name}</Text>
-                              </View>
-                            )}
-                          </TouchableOpacity>
+                            variant={isSelected ? 'primary' : 'secondary'}
+                            leftIcon={icon as any}
+                            style={[
+                              styles.categoryOption,
+                              isSelected && { backgroundColor: cat.color },
+                            ]}
+                            labelStyle={[
+                              styles.categoryText,
+                              isSelected && styles.categoryTextActive
+                            ]}
+                          />
                         );
                       })}
                     </ScrollView>
@@ -639,131 +537,47 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                   </View>
                 </ScrollView>
 
-                {/* Actions */}
-                <View style={styles.actions}>
-                  <TouchableOpacity
-                    onPress={handleClose}
-                    style={styles.cancelButton}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.cancelButtonContent}>
-                      <Ionicons name="close-outline" size={18} color={theme.colors.textSecondary} />
-                      <Text style={styles.cancelButtonText}>إلغاء</Text>
-                    </View>
-                  </TouchableOpacity>
-                  {!expense && (
-                    <TouchableOpacity
-                      onPress={() => setShowManageShortcuts(true)}
-                      style={styles.addShortcutActionButton}
-                      activeOpacity={0.8}
-                    >
-                      <LinearGradient
-                        colors={[theme.colors.primary + '15', theme.colors.primary + '25'] as any}
-                        style={styles.addShortcutActionGradient}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                      >
-                        <Ionicons name="flash" size={20} color={theme.colors.primary} />
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  )}
-                  <TouchableOpacity
-                    onPress={handleSave}
-                    disabled={loading}
-                    style={styles.saveButton}
-                    activeOpacity={0.8}
-                  >
-                    <LinearGradient
-                      colors={getCategoryInfo(category).colors as any}
-                      style={styles.saveButtonGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                    >
-                      {loading ? (
-                        <>
-                          <Ionicons name="hourglass-outline" size={18} color="#FFFFFF" />
-                          <Text style={styles.saveButtonText}>جاري الحفظ...</Text>
-                        </>
-                      ) : (
-                        <>
-                          <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
-                          <Text style={styles.saveButtonText}>
-                            {expense ? 'تحديث' : 'حفظ'}
-                          </Text>
-                        </>
-                      )}
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
-          </Animated.View>
-        </TouchableOpacity>
-      </KeyboardAvoidingView>
-
-      {/* Currency Picker Modal */}
-      <Modal
-        visible={showCurrencyPicker}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowCurrencyPicker(false)}
-      >
-        <Pressable
-          style={styles.currencyModalOverlay}
-          onPress={() => setShowCurrencyPicker(false)}
-        >
-          <Pressable
-            style={styles.currencyModalContainer}
-            onPress={(e) => e.stopPropagation()}
+      {/* Actions */}
+      <View style={styles.actions}>
+        <AppButton
+          label="إلغاء"
+          onPress={handleClose}
+          variant="secondary"
+          style={styles.cancelButton}
+        />
+        {!expense && (
+          <TouchableOpacity
+            onPress={() => setShowManageShortcuts(true)}
+            style={styles.addShortcutActionButton}
+            activeOpacity={0.8}
           >
             <LinearGradient
-              colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-              style={styles.currencyModalGradient}
+              colors={[theme.colors.primary + '15', theme.colors.primary + '25'] as any}
+              style={styles.addShortcutActionGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
             >
-              <View style={styles.currencyModalHeader}>
-                <Text style={styles.currencyModalTitle}>اختر العملة</Text>
-                <TouchableOpacity
-                  onPress={() => setShowCurrencyPicker(false)}
-                  style={styles.currencyModalCloseButton}
-                >
-                  <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
-                </TouchableOpacity>
-              </View>
-              <ScrollView
-                style={styles.currencyModalScrollView}
-                contentContainerStyle={styles.currencyModalScrollContent}
-                showsVerticalScrollIndicator={true}
-                nestedScrollEnabled={true}
-              >
-                {CURRENCIES.map((curr) => (
-                  <TouchableOpacity
-                    key={curr.code}
-                    style={[
-                      styles.currencyOption,
-                      currency === curr.code && styles.currencyOptionSelected,
-                    ]}
-                    onPress={() => {
-                      setCurrency(curr.code);
-                      setShowCurrencyPicker(false);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[
-                      styles.currencyOptionText,
-                      currency === curr.code && styles.currencyOptionTextSelected,
-                    ]}>
-                      {curr.symbol} {curr.name}
-                    </Text>
-                    {currency === curr.code && (
-                      <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              <Ionicons name="flash" size={20} color={theme.colors.primary} />
             </LinearGradient>
-          </Pressable>
-        </Pressable>
-      </Modal>
+          </TouchableOpacity>
+        )}
+        <AppButton
+          label={expense ? 'تحديث' : 'حفظ'}
+          onPress={handleSave}
+          variant="primary"
+          loading={loading}
+          leftIcon="checkmark-circle"
+          style={styles.saveButton}
+        />
+      </View>
+
+      {/* Currency Picker */}
+      <CurrencyPickerModal
+        visible={showCurrencyPicker}
+        selectedCurrency={currency}
+        onSelect={(code) => { setCurrency(code); setShowCurrencyPicker(false); }}
+        onClose={() => setShowCurrencyPicker(false)}
+      />
 
       {/* Receipt Scanner Modal */}
       <ReceiptScannerModal
@@ -779,74 +593,11 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
         onClose={() => { setShowManageShortcuts(false); loadShortcuts(); }}
         onShortcutUsed={(s) => { handleShortcutPress(s as ExpenseShortcut); }}
       />
-    </Modal>
+    </AppBottomSheet>
   );
 };
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-  keyboardView: {
-    flex: 1,
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'flex-end',
-  },
-  modalContainer: {
-    maxHeight: '98%',
-    width: '100%',
-    backgroundColor: theme.colors.surfaceCard,
-    borderTopLeftRadius: theme.borderRadius.xl,
-    borderTopRightRadius: theme.borderRadius.xl,
-    overflow: 'hidden',
-    direction: 'rtl',
-  },
-  modalGradient: {
-    width: '100%',
-    minHeight: 600,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    flexShrink: 0,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  iconBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: theme.borderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: theme.spacing.md,
-  },
-  headerText: {
-    flex: 1,
-  },
-  title: {
-    fontSize: theme.typography.sizes.xl,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-    marginBottom: 2,
-    writingDirection: 'rtl',
-  },
-  subtitle: {
-    fontSize: theme.typography.sizes.sm,
-    color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
-    writingDirection: 'rtl',
-  },
-  closeButton: {
-    margin: 0,
-  },
   scrollView: {
     flexGrow: 0,
   },
@@ -949,26 +700,6 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.surfaceLight,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-  },
-  cancelButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  cancelButtonText: {
-    fontSize: theme.typography.sizes.sm,
-    fontWeight: getPlatformFontWeight('600'),
-    color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
-    writingDirection: 'rtl',
   },
   addShortcutActionButton: {
     width: 44,
@@ -985,31 +716,6 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   saveButton: {
     flex: 2,
-    height: 44,
-    borderRadius: theme.borderRadius.md,
-    overflow: 'hidden',
-    ...getPlatformShadow('md'),
-  },
-  saveButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: '100%',
-    gap: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.md,
-  },
-  saveButtonIconContainer: {
-    width: 20,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  saveButtonText: {
-    fontSize: theme.typography.sizes.sm,
-    fontWeight: getPlatformFontWeight('700'),
-    color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
-    writingDirection: 'rtl',
   },
   currencyButton: {
     borderRadius: theme.borderRadius.md,
@@ -1039,8 +745,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   currencyModalContainer: {
     maxHeight: '70%',
-    borderTopLeftRadius: theme.borderRadius.xl,
-    borderTopRightRadius: theme.borderRadius.xl,
+    borderTopLeftRadius: theme.borderRadius.xxl,
+    borderTopRightRadius: theme.borderRadius.xxl,
     overflow: 'hidden',
     zIndex: 1000,
     direction: 'ltr',
@@ -1080,7 +786,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     maxHeight: 200,
   },
   currencyOption: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: theme.spacing.sm,

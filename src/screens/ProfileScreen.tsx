@@ -17,6 +17,7 @@ import {
   Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenContainer } from '../design-system';
 import { List, Switch, Button } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -31,6 +32,7 @@ import { AuthSettingsModal } from '../components/AuthSettingsModal';
 import { ConfirmAlert } from '../components/ConfirmAlert';
 import { CURRENCIES, Currency } from '../types';
 import { alertService } from '../services/alertService';
+import { authModalService } from '../services/authModalService';
 import { getExchangeRate, upsertExchangeRate } from '../database/database';
 import * as Notifications from 'expo-notifications';
 import { authApiService } from '../services/authApiService';
@@ -937,7 +939,7 @@ export const ProfileScreen = ({ navigation }: any) => {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+    <ScreenContainer scrollable={false} edges={['left', 'right']}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -1064,9 +1066,7 @@ export const ProfileScreen = ({ navigation }: any) => {
                   <TouchableOpacity
                     style={styles.loginBtnHeader}
                     onPress={() => {
-                      navigation.navigate('Auth', {
-                        onSuccess: (user: any) => checkAuthStatus(user)
-                      });
+                      authModalService.show({ onSuccess: (user: any) => checkAuthStatus(user) });
                     }}
                   >
                     <Text style={styles.loginBtnHeaderText}>دخول / تسجيل</Text>
@@ -1104,9 +1104,7 @@ export const ProfileScreen = ({ navigation }: any) => {
 
                 {!isAuthenticated && (
                   <TouchableOpacity
-                    onPress={() => navigation.navigate('Auth', {
-                      onSuccess: (user: any) => checkAuthStatus(user)
-                    })}
+                    onPress={() => authModalService.show({ onSuccess: (user: any) => checkAuthStatus(user) })}
                     style={styles.premiumRow}
                     activeOpacity={0.7}
                   >
@@ -1482,15 +1480,11 @@ export const ProfileScreen = ({ navigation }: any) => {
       </Modal>
 
 
-    </SafeAreaView >
+    </ScreenContainer>
   );
 };
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
   scrollView: {
     flex: 1,
   },
@@ -1605,11 +1599,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   profileCardPro: {
     borderColor: 'rgba(212, 175, 55, 0.6)',
     borderWidth: 1.5,
-    shadowColor: '#D4AF37',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 8,
+    ...(Platform.OS === 'ios'
+      ? { shadowColor: '#D4AF37', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 12 }
+      : { elevation: 8 }),
   },
   proCrownBanner: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -2687,9 +2679,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   timePickerModalContent: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: theme.borderRadius.xl,
-    borderTopRightRadius: theme.borderRadius.xl,
-    paddingBottom: Platform.OS === 'ios' ? 40 : theme.spacing.lg,
+    borderTopLeftRadius: theme.borderRadius.xxl,
+    borderTopRightRadius: theme.borderRadius.xxl,
+    paddingBottom: theme.spacing.xxl,
     maxHeight: '50%',
     ...getPlatformShadow('lg'),
     direction: 'rtl' as const,
@@ -2790,8 +2782,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   referralCard: {
     backgroundColor: theme.colors.surfaceCard,
     borderRadius: 24,
-    padding: Platform.OS === 'android' ? 12 : 20,
-    marginTop: Platform.OS === 'android' ? 6 : 12,
+    padding: 20,
+    marginTop: 12,
     borderWidth: 1,
     borderColor: theme.colors.borderLight,
     ...getPlatformShadow('sm'),
@@ -2799,13 +2791,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   referralHero: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
-    gap: Platform.OS === 'android' ? 10 : 16,
-    marginBottom: Platform.OS === 'android' ? 12 : 20,
+    gap: 16,
+    marginBottom: 20,
   },
   referralIconBox: {
-    width: Platform.OS === 'android' ? 48 : 60,
-    height: Platform.OS === 'android' ? 48 : 60,
-    borderRadius: Platform.OS === 'android' ? 16 : 20,
+    width: 56,
+    height: 56,
+    borderRadius: 18,
     backgroundColor: '#F59E0B15',
     justifyContent: 'center',
     alignItems: 'center',
@@ -2814,49 +2806,49 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     flex: 1,
   },
   referralTitleText: {
-    fontSize: Platform.OS === 'android' ? 15 : 16,
+    fontSize: 16,
     fontWeight: getPlatformFontWeight('800'),
     color: '#1E293B',
     fontFamily: theme.typography.fontFamily,
-    marginBottom: Platform.OS === 'android' ? 2 : 4,
+    marginBottom: 4,
     textAlign: 'left',
   },
   referralSubtitleText: {
-    fontSize: Platform.OS === 'android' ? 12 : 13,
+    fontSize: 13,
     color: '#64748B',
     fontFamily: theme.typography.fontFamily,
-    lineHeight: Platform.OS === 'android' ? 16 : 18,
+    lineHeight: 18,
     textAlign: 'left',
   },
   referralCodeBox: {
     backgroundColor: theme.colors.surfaceLight,
     borderRadius: 20,
-    padding: Platform.OS === 'android' ? 10 : 16,
+    padding: 16,
     borderWidth: 1,
     borderColor: theme.colors.borderLight,
   },
   codeContainer: {
-    marginBottom: Platform.OS === 'android' ? 12 : 16,
+    marginBottom: 16,
   },
   codeLabel: {
     fontSize: 12,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    marginBottom: Platform.OS === 'android' ? 6 : 8,
+    marginBottom: 8,
     textAlign: 'center',
   },
   codeRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: Platform.OS === 'android' ? 8 : 12,
+    gap: 12,
   },
   codeValue: {
-    fontSize: Platform.OS === 'android' ? 20 : 24,
+    fontSize: 24,
     fontWeight: getPlatformFontWeight('900'),
     color: theme.colors.primary,
-    fontFamily: Platform.OS === 'android' ? 'monospace' : (Platform.OS === 'ios' ? 'Courier' : 'monospace'),
-    letterSpacing: Platform.OS === 'android' ? 2 : 4,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    letterSpacing: 4,
   },
   copyButton: {
     width: 40,
@@ -2871,8 +2863,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
-    marginBottom: Platform.OS === 'android' ? 8 : 20,
-    paddingTop: Platform.OS === 'android' ? 8 : 12,
+    marginBottom: 20,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: theme.colors.borderLight,
   },
@@ -2889,9 +2881,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   shareCodeButton: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
-    height: Platform.OS === 'android' ? 44 : 52,
+    height: 52,
     backgroundColor: theme.colors.primary,
-    borderRadius: Platform.OS === 'android' ? 12 : 14,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 10,
@@ -2904,9 +2896,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   promoCodeButton: {
-    marginTop: Platform.OS === 'android' ? 6 : 12,
-    height: Platform.OS === 'android' ? 44 : 54,
-    borderRadius: Platform.OS === 'android' ? 12 : 16,
+    marginTop: 12,
+    height: 54,
+    borderRadius: 16,
     overflow: 'hidden',
     ...getPlatformShadow('md'),
   },
@@ -2925,11 +2917,11 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
   },
   referralEntryButton: {
-    marginTop: Platform.OS === 'android' ? 6 : 12,
+    marginTop: 12,
     flexDirection: isRTL ? 'row' : 'row-reverse',
-    height: Platform.OS === 'android' ? 44 : 52,
+    height: 52,
     backgroundColor: theme.colors.surfaceLight,
-    borderRadius: Platform.OS === 'android' ? 12 : 14,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 10,

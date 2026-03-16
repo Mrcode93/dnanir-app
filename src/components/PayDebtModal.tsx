@@ -3,12 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
-  Modal,
   TouchableOpacity,
-  TextInput,
-  Pressable,
-  KeyboardAvoidingView,
-  Platform,
   Keyboard,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,6 +14,7 @@ import { useCurrency } from '../hooks/useCurrency';
 import { isRTL } from '../utils/rtl';
 import { alertService } from '../services/alertService';
 import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
+import { AppBottomSheet, AppButton, AppInput } from '../design-system';
 
 interface PayDebtModalProps {
   visible: boolean;
@@ -87,7 +83,7 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
       setPaymentType('all');
       onClose();
     } catch (error) {
-      
+
     } finally {
       setLoading(false);
     }
@@ -103,257 +99,115 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
 
   const isOwedToMe = debt.direction === 'owed_to_me';
   const modalTitle = isOwedToMe ? 'تسديد (استلام مبلغ)' : 'دفع الدين';
-  const modalSubtitle = isOwedToMe ? 'سجّل المبلغ المستلم وسيُضاف لرصيدك' : 'اختر طريقة الدفع';
   const debtLabel = isOwedToMe ? 'المدين' : 'الدائن';
   const amountLabel = isOwedToMe ? 'المبلغ المستلم' : 'المبلغ المدفوع';
-  const confirmButtonLabel = loading
-    ? 'جاري المعالجة...'
-    : isOwedToMe
-      ? 'تأكيد التسديد'
-      : paymentType === 'all'
-        ? 'تأكيد الدفع'
-        : 'دفع';
+  const confirmButtonLabel = isOwedToMe
+    ? 'تأكيد التسديد'
+    : paymentType === 'all'
+      ? 'تأكيد الدفع'
+      : 'دفع';
 
   return (
-    <Modal
+    <AppBottomSheet
       visible={visible}
-      transparent={true}
-      animationType="fade"
-      onRequestClose={handleClose}
-      statusBarTranslucent
+      onClose={handleClose}
+      title={modalTitle}
+      avoidKeyboard
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
-        <Pressable
-          style={styles.overlay}
+      {/* Debt Info */}
+      <View style={styles.debtInfo}>
+        <View style={styles.debtInfoRow}>
+          <Text style={styles.debtInfoLabel}>{debtLabel}</Text>
+          <Text style={styles.debtInfoValue} numberOfLines={1}>{debt.debtorName}</Text>
+        </View>
+        <View style={styles.debtInfoRow}>
+          <Text style={styles.debtInfoLabel}>المبلغ المتبقي</Text>
+          <Text style={[styles.debtInfoValue, styles.remainingAmount]}>
+            {formatCurrency(debt.remainingAmount)}
+          </Text>
+        </View>
+      </View>
+
+      {/* Payment method section label */}
+      <Text style={styles.sectionLabel}>طريقة الدفع</Text>
+      <View style={styles.paymentTypeContainer}>
+        <AppButton
+          label="دفع الكامل"
+          onPress={handlePayAll}
+          variant={paymentType === 'all' ? 'success' : 'secondary'}
+          leftIcon={paymentType === 'all' ? 'checkmark-circle' : 'checkmark-circle-outline'}
+          style={styles.paymentTypeButton}
+        />
+
+        <AppButton
+          label="دفع جزئي"
+          onPress={handlePayPartial}
+          variant={paymentType === 'partial' ? 'primary' : 'secondary'}
+          leftIcon={paymentType === 'partial' ? 'cash' : 'cash-outline'}
+          style={styles.paymentTypeButton}
+        />
+      </View>
+
+      {/* Amount Input - Only show for partial payment */}
+      {paymentType === 'partial' && (
+        <View style={styles.amountContainer}>
+          <Text style={styles.amountLabel}>{amountLabel}</Text>
+          <AppInput
+            value={amount}
+            onChangeText={(val) => {
+              const cleaned = convertArabicToEnglish(val);
+              setAmount(formatNumberWithCommas(cleaned));
+            }}
+            placeholder="0.00"
+            keyboardType="numeric"
+            rightAction={
+              <Text style={styles.currencyText}>
+                {debt.currency || currencyCode}
+              </Text>
+            }
+          />
+          {amount && !isNaN(Number(amount.replace(/,/g, ''))) && Number(amount.replace(/,/g, '')) > 0 && (
+            <View style={styles.amountInfo}>
+              <Text style={styles.amountInfoText}>
+                المتبقي بعد الدفع:{' '}
+                <Text style={styles.amountInfoValue}>
+                  {formatCurrency(Math.max(0, debt.remainingAmount - Number(amount.replace(/,/g, ''))))}
+                </Text>
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Actions */}
+      <View style={styles.actions}>
+        <AppButton
+          label="إلغاء"
           onPress={handleClose}
-        >
-          <Pressable
-            style={styles.modalContainer}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <LinearGradient
-              colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-              style={styles.modalGradient}
-            >
-              {/* Header: title + close only */}
-              <View style={styles.header}>
-                <View style={styles.headerText}>
-                  <Text style={styles.title}>{modalTitle}</Text>
-                  <Text style={styles.subtitle}>{modalSubtitle}</Text>
-                </View>
-                <TouchableOpacity
-                  onPress={handleClose}
-                  style={styles.closeButton}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                >
-                  <Ionicons name="close" size={22} color={theme.colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
-
-              {/* Debt Info: label + value per row, clear alignment */}
-              <View style={styles.debtInfo}>
-                <View style={styles.debtInfoRow}>
-                  <Text style={styles.debtInfoLabel}>{debtLabel}</Text>
-                  <Text style={styles.debtInfoValue} numberOfLines={1}>{debt.debtorName}</Text>
-                </View>
-                <View style={styles.debtInfoRow}>
-                  <Text style={styles.debtInfoLabel}>المبلغ المتبقي</Text>
-                  <Text style={[styles.debtInfoValue, styles.remainingAmount]}>
-                    {formatCurrency(debt.remainingAmount)}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Payment method section label */}
-              <Text style={styles.sectionLabel}>طريقة الدفع</Text>
-              <View style={styles.paymentTypeContainer}>
-                <TouchableOpacity
-                  onPress={handlePayAll}
-                  style={[
-                    styles.paymentTypeButton,
-                    paymentType === 'all' && styles.paymentTypeButtonActive,
-                  ]}
-                  activeOpacity={0.7}
-                >
-                  {paymentType === 'all' ? (
-                    <LinearGradient
-                      colors={theme.gradients.success as any}
-                      style={styles.paymentTypeGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                    >
-                      <Ionicons name="checkmark-circle" size={20} color={theme.colors.textInverse} />
-                      <Text style={styles.paymentTypeTextActive}>دفع الكامل</Text>
-                    </LinearGradient>
-                  ) : (
-                    <View style={styles.paymentTypeDefault}>
-                      <Ionicons name="checkmark-circle-outline" size={20} color={theme.colors.textSecondary} />
-                      <Text style={styles.paymentTypeText}>دفع الكامل</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={handlePayPartial}
-                  style={[
-                    styles.paymentTypeButton,
-                    paymentType === 'partial' && styles.paymentTypeButtonActive,
-                  ]}
-                  activeOpacity={0.7}
-                >
-                  {paymentType === 'partial' ? (
-                    <LinearGradient
-                      colors={theme.gradients.info as any}
-                      style={styles.paymentTypeGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                    >
-                      <Ionicons name="cash" size={20} color={theme.colors.textInverse} />
-                      <Text style={styles.paymentTypeTextActive}>دفع جزئي</Text>
-                    </LinearGradient>
-                  ) : (
-                    <View style={styles.paymentTypeDefault}>
-                      <Ionicons name="cash-outline" size={20} color={theme.colors.textSecondary} />
-                      <Text style={styles.paymentTypeText}>دفع جزئي</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </View>
-
-              {/* Amount Input - Only show for partial payment */}
-              {paymentType === 'partial' && (
-                <View style={styles.amountContainer}>
-                  <Text style={styles.amountLabel}>{amountLabel}</Text>
-                  <View style={styles.amountInputWrapper}>
-                    <TextInput
-                      value={amount}
-                      onChangeText={(val) => {
-                        const cleaned = convertArabicToEnglish(val);
-                        setAmount(formatNumberWithCommas(cleaned));
-                      }}
-                      placeholder="0.00"
-                      keyboardType="numeric"
-                      style={styles.amountInput}
-                      placeholderTextColor={theme.colors.textMuted}
-                    />
-                    <Text style={styles.currencyText}>
-                      {debt.currency || currencyCode}
-                    </Text>
-                  </View>
-                  {amount && !isNaN(Number(amount.replace(/,/g, ''))) && Number(amount.replace(/,/g, '')) > 0 && (
-                    <View style={styles.amountInfo}>
-                      <Text style={styles.amountInfoText}>
-                        المتبقي بعد الدفع:{' '}
-                        <Text style={styles.amountInfoValue}>
-                          {formatCurrency(Math.max(0, debt.remainingAmount - Number(amount.replace(/,/g, ''))))}
-                        </Text>
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              )}
-
-              {/* Actions: fixed at bottom with clear separation */}
-              <View style={styles.actions}>
-                <TouchableOpacity
-                  onPress={handleClose}
-                  style={styles.cancelButton}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.cancelButtonText}>إلغاء</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handlePay}
-                  disabled={loading || (paymentType === 'partial' && (!amount || Number(amount) <= 0))}
-                  style={[
-                    styles.payButton,
-                    (loading || (paymentType === 'partial' && (!amount || Number(amount) <= 0))) && styles.payButtonDisabled,
-                  ]}
-                  activeOpacity={0.8}
-                >
-                  <LinearGradient
-                    colors={theme.gradients.success as any}
-                    style={styles.payButtonGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  >
-                    {loading ? (
-                      <>
-                        <Ionicons name="hourglass-outline" size={18} color={theme.colors.textInverse} />
-                        <Text style={styles.payButtonText}>{confirmButtonLabel}</Text>
-                      </>
-                    ) : (
-                      <>
-                        <Ionicons name="checkmark-circle" size={18} color={theme.colors.textInverse} />
-                        <Text style={styles.payButtonText}>{confirmButtonLabel}</Text>
-                      </>
-                    )}
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-            </LinearGradient>
-          </Pressable>
-        </Pressable>
-      </KeyboardAvoidingView>
-    </Modal>
+          variant="secondary"
+          style={styles.actionBtnFlex}
+        />
+        <AppButton
+          label={confirmButtonLabel}
+          onPress={handlePay}
+          variant="success"
+          loading={loading}
+          disabled={loading || (paymentType === 'partial' && (!amount || Number(amount) <= 0))}
+          style={styles.actionBtnConfirm}
+        />
+      </View>
+    </AppBottomSheet>
   );
 };
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-  keyboardView: {
-    flex: 1,
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: theme.colors.overlay,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.sm,
-  },
-  modalContainer: {
-    width: '100%',
-    maxWidth: 380,
-    borderRadius: theme.borderRadius.lg,
-    overflow: 'hidden',
-    ...getPlatformShadow('lg'),
-  },
-  modalGradient: {
-    padding: theme.spacing.sm,
-    paddingBottom: theme.spacing.md,
-  },
-  header: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: theme.spacing.sm,
-  },
-  headerText: {
-    flex: 1,
-  },
-  title: {
-    fontSize: theme.typography.sizes.lg,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-    marginBottom: 2,
-  },
-  subtitle: {
-    fontSize: theme.typography.sizes.sm,
-    color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
-  },
-  closeButton: {
-    padding: theme.spacing.xs,
-  },
   debtInfo: {
     backgroundColor: theme.colors.surfaceLight,
     borderRadius: theme.borderRadius.sm,
     padding: theme.spacing.sm,
     marginBottom: theme.spacing.sm,
     gap: 6,
+    marginHorizontal: 16,
   },
   debtInfoRow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -387,11 +241,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
     textAlign: isRTL ? 'right' : 'left',
+    marginHorizontal: 16,
   },
   paymentTypeContainer: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     gap: theme.spacing.sm,
     marginBottom: theme.spacing.sm,
+    marginHorizontal: 16,
   },
   paymentTypeButton: {
     flex: 1,
@@ -435,6 +291,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   amountContainer: {
     marginBottom: theme.spacing.sm,
+    marginHorizontal: 16,
   },
   amountLabel: {
     fontSize: theme.typography.sizes.sm,
@@ -444,30 +301,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: theme.spacing.xs,
     textAlign: isRTL ? 'right' : 'left',
   },
-  amountInputWrapper: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.surfaceLight,
-    borderRadius: theme.borderRadius.sm,
-    paddingHorizontal: theme.spacing.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  amountInput: {
-    flex: 1,
-    fontSize: theme.typography.sizes.lg,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-    paddingVertical: theme.spacing.sm,
-    textAlign: 'right',
-  },
   currencyText: {
     fontSize: theme.typography.sizes.sm,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    marginLeft: isRTL ? 0 : theme.spacing.xs,
-    marginRight: isRTL ? theme.spacing.xs : 0,
   },
   amountInfo: {
     marginTop: theme.spacing.xs,
@@ -490,45 +327,15 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     gap: theme.spacing.sm,
     marginTop: theme.spacing.sm,
     paddingTop: theme.spacing.sm,
+    paddingHorizontal: 16,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
+    paddingBottom: theme.spacing.sm,
   },
-  cancelButton: {
+  actionBtnFlex: {
     flex: 1,
-    paddingVertical: theme.spacing.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: theme.borderRadius.sm,
-    backgroundColor: theme.colors.surfaceLight,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
   },
-  cancelButtonText: {
-    fontSize: theme.typography.sizes.sm,
-    fontWeight: getPlatformFontWeight('600'),
-    color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
-  },
-  payButton: {
+  actionBtnConfirm: {
     flex: 1.4,
-    borderRadius: theme.borderRadius.sm,
-    overflow: 'hidden',
-    ...getPlatformShadow('sm'),
-  },
-  payButtonDisabled: {
-    opacity: 0.5,
-  },
-  payButtonGradient: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: theme.spacing.sm,
-    gap: theme.spacing.xs,
-  },
-  payButtonText: {
-    fontSize: theme.typography.sizes.sm,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textInverse,
-    fontFamily: theme.typography.fontFamily,
   },
 });

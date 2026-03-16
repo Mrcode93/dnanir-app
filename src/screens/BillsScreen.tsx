@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -6,13 +6,9 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
-  Modal,
-  Pressable,
-  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Searchbar } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
@@ -25,7 +21,7 @@ import {
 import { useCurrency } from '../hooks/useCurrency';
 import { ConfirmAlert } from '../components/ConfirmAlert';
 import { BILL_CATEGORIES, BillCategory } from '../types';
-import { markBillAsPaid, markBillAsUnpaid, getBillsDueInDays } from '../services/billService';
+import { markBillAsPaid, markBillAsUnpaid } from '../services/billService';
 import { isRTL } from '../utils/rtl';
 import { alertService } from '../services/alertService';
 
@@ -36,20 +32,22 @@ export const BillsScreen = ({ navigation, route }: any) => {
   const [bills, setBills] = useState<Bill[]>([]);
   const [filteredBills, setFilteredBills] = useState<Bill[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<BillCategory | 'all'>('all');
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [billToDelete, setBillToDelete] = useState<Bill | null>(null);
-  const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const loadBills = async () => {
+  const loadBills = useCallback(async () => {
     try {
+      setLoading(true);
       const allBills = await getBills();
       setBills(allBills);
     } catch (error) {
-      
+      // ignore
+    } finally {
+      setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadBills();
@@ -60,28 +58,19 @@ export const BillsScreen = ({ navigation, route }: any) => {
   }, [navigation]);
 
   useEffect(() => {
-    let filtered = bills;
-
-    if (searchQuery) {
-      filtered = filtered.filter(bill =>
-        bill.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        bill.description?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    if (selectedCategory !== 'all') {
-      filtered = filtered.filter(bill => bill.category === selectedCategory);
-    }
-
-    setFilteredBills(filtered);
-  }, [bills, searchQuery, selectedCategory]);
-
-  useEffect(() => {
     if (route?.params?.action === 'add') {
-      handleAdd();
+      navigation.navigate('AddBill');
       navigation.setParams({ action: undefined });
     }
   }, [route?.params]);
+
+  useEffect(() => {
+    let filtered = bills;
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter(bill => bill.category === selectedCategory);
+    }
+    setFilteredBills(filtered);
+  }, [bills, selectedCategory]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -103,26 +92,19 @@ export const BillsScreen = ({ navigation, route }: any) => {
         setBillToDelete(null);
         alertService.toastSuccess('تم حذف الفاتورة بنجاح');
       } catch (error) {
-        
         alertService.error('خطأ', 'حدث خطأ أثناء حذف الفاتورة');
       }
     }
   };
 
   const handleBillPress = (bill: Bill) => {
-    navigation.navigate('Bills', {
-      screen: 'BillDetails',
-      params: { billId: bill.id }
-    });
+    navigation.navigate('BillDetails', { billId: bill.id });
   };
 
   const handleEdit = (bill: Bill) => {
     navigation.navigate('AddBill', { bill });
   };
 
-  const handleAdd = () => {
-    navigation.navigate('AddBill');
-  };
 
   const handleTogglePaid = async (bill: Bill) => {
     try {
@@ -135,7 +117,6 @@ export const BillsScreen = ({ navigation, route }: any) => {
       }
       await loadBills();
     } catch (error) {
-      
       alertService.error('خطأ', 'حدث خطأ أثناء تحديث حالة الفاتورة');
     }
   };
@@ -157,217 +138,254 @@ export const BillsScreen = ({ navigation, route }: any) => {
     today.setHours(0, 0, 0, 0);
     const due = new Date(dueDate);
     due.setHours(0, 0, 0, 0);
-    const diff = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    return diff;
+    return Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   };
 
-  const totalBills = bills.filter(b => !b.isPaid).reduce((sum, b) => sum + b.amount, 0);
-  const unpaidBills = bills.filter(b => !b.isPaid).length;
-  const paidBills = bills.filter(b => b.isPaid).length;
-  const dueSoonBills = bills.filter(b => {
-    if (b.isPaid) return false;
-    const days = getDaysUntilDue(b.dueDate);
-    return days !== null && days >= 0 && days <= 7;
-  }).length;
+  const { totalBills, unpaidBills, paidBills, dueSoonBills } = useMemo(() => {
+    let total = 0;
+    let unpaid = 0;
+    let paid = 0;
+    let dueSoon = 0;
+    for (const b of bills) {
+      if (b.isPaid) {
+        paid++;
+      } else {
+        total += b.amount;
+        unpaid++;
+        const days = getDaysUntilDue(b.dueDate);
+        if (days >= 0 && days <= 7) dueSoon++;
+      }
+    }
+    return { totalBills: total, unpaidBills: unpaid, paidBills: paid, dueSoonBills: dueSoon };
+  }, [bills]);
 
-  const renderBill = ({ item }: { item: Bill }) => {
+  const renderSummaryCard = () => (
+    <View style={styles.summaryContainer}>
+      <LinearGradient
+        colors={theme.gradients.error as any}
+        style={styles.summaryCard}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <View style={styles.summaryContent}>
+          <View style={styles.summaryIconContainer}>
+            <Ionicons name="receipt" size={24} color="#FFFFFF" />
+          </View>
+          <View style={styles.summaryTextContainer}>
+            <Text style={styles.summaryLabel}>إجمالي الفواتير غير المدفوعة</Text>
+            <Text style={styles.summaryAmount}>{formatCurrency(totalBills)}</Text>
+          </View>
+        </View>
+        <View style={styles.summaryFooter}>
+          <View style={styles.summaryStatItem}>
+            <Ionicons name="close-circle-outline" size={14} color="rgba(255,255,255,0.8)" />
+            <Text style={styles.summaryStatText}>{unpaidBills} غير مدفوعة</Text>
+          </View>
+          <View style={styles.summaryStatDivider} />
+          <View style={styles.summaryStatItem}>
+            <Ionicons name="checkmark-circle-outline" size={14} color="rgba(255,255,255,0.8)" />
+            <Text style={styles.summaryStatText}>{paidBills} مدفوعة</Text>
+          </View>
+          <View style={styles.summaryStatDivider} />
+          <View style={styles.summaryStatItem}>
+            <Ionicons name="time-outline" size={14} color="rgba(255,255,255,0.8)" />
+            <Text style={styles.summaryStatText}>{dueSoonBills} قريباً</Text>
+          </View>
+        </View>
+      </LinearGradient>
+    </View>
+  );
+
+  const renderBillItem = useCallback(({ item }: { item: Bill }) => {
     const daysUntilDue = getDaysUntilDue(item.dueDate);
-    const isOverdue = daysUntilDue !== null && daysUntilDue < 0;
-    const isDueSoon = daysUntilDue !== null && daysUntilDue >= 0 && daysUntilDue <= 7;
+    const isOverdue = daysUntilDue < 0;
+    const isDueSoon = daysUntilDue >= 0 && daysUntilDue <= 7;
     const categoryInfo = getCategoryInfo(item.category);
 
     return (
-      <Pressable
-        onPress={() => handleBillPress(item)}
-        style={({ pressed }) => [styles.billCard, pressed && styles.billCardPressed]}
-      >
-        <View style={styles.billCardInner}>
-          {/* Vertical Status Indicator Pill */}
-          <View
-            style={[
-              styles.billStatusIndicator,
-              item.isPaid && styles.billStatusPaid,
-              !item.isPaid && isOverdue && styles.billStatusOverdue,
-              !item.isPaid && isDueSoon && !isOverdue && styles.billStatusDueSoon,
-            ]}
-          />
+      <View style={styles.itemWrapper}>
+        <TouchableOpacity
+          onPress={() => handleBillPress(item)}
+          activeOpacity={0.7}
+          style={styles.billCard}
+        >
+          {/* Status side bar */}
+          <View style={[
+            styles.billStatusBar,
+            item.isPaid && { backgroundColor: theme.colors.success },
+            !item.isPaid && isOverdue && { backgroundColor: theme.colors.error },
+            !item.isPaid && isDueSoon && !isOverdue && { backgroundColor: theme.colors.warning },
+            !item.isPaid && !isOverdue && !isDueSoon && { backgroundColor: theme.colors.border },
+          ]} />
 
-          <View style={styles.billCardMainContent}>
+          <View style={styles.billCardContent}>
+            {/* Top row */}
             <View style={styles.billCardTop}>
               <View style={[styles.billIconBadge, { backgroundColor: categoryInfo.color + '15' }]}>
-                <Ionicons name={categoryInfo.icon as any} size={24} color={categoryInfo.color} />
+                <Ionicons name={categoryInfo.icon as any} size={22} color={categoryInfo.color} />
               </View>
               <View style={styles.billCardCenter}>
                 <Text style={styles.billTitle} numberOfLines={1}>{item.title}</Text>
                 <Text style={styles.billCategory}>{categoryInfo.label}</Text>
               </View>
               <View style={styles.billAmountWrap}>
-                <Text style={styles.billAmount}>{formatCurrency(item.amount)}</Text>
+                <Text style={[styles.billAmount, item.isPaid && styles.billAmountPaid]}>
+                  {formatCurrency(item.amount)}
+                </Text>
+                {item.isPaid && (
+                  <View style={styles.paidBadge}>
+                    <Ionicons name="checkmark-circle" size={12} color={theme.colors.success} />
+                    <Text style={styles.paidBadgeText}>مدفوعة</Text>
+                  </View>
+                )}
               </View>
             </View>
 
+            {/* Bottom row */}
             <View style={styles.billCardFooter}>
               <View style={styles.billDateRow}>
-                <Ionicons name="calendar-outline" size={14} color={theme.colors.textMuted} />
+                <Ionicons name="calendar-outline" size={13} color={theme.colors.textMuted} />
                 <Text style={styles.billDate}>{formatDate(item.dueDate)}</Text>
               </View>
 
-              {!item.isPaid && daysUntilDue !== null && (
+              {!item.isPaid && (
                 <View style={[
                   styles.daysBadge,
-                  isOverdue && styles.daysBadgeOverdue,
-                  isDueSoon && !isOverdue && styles.daysBadgeDueSoon,
+                  isOverdue && { backgroundColor: theme.colors.error + '15' },
+                  isDueSoon && !isOverdue && { backgroundColor: theme.colors.warning + '15' },
                 ]}>
-                  <Ionicons name={isOverdue ? 'alert-circle' : 'time'} size={12} color={isOverdue ? theme.colors.error : theme.colors.warning} />
-                  <Text style={[styles.daysText, isOverdue && styles.daysTextOverdue]}>
-                    {isOverdue ? `متأخرة ${Math.abs(daysUntilDue)} يوم` : daysUntilDue === 0 ? 'اليوم' : `متبقي ${daysUntilDue} يوم`}
+                  <Text style={[
+                    styles.daysText,
+                    isOverdue && { color: theme.colors.error },
+                    isDueSoon && !isOverdue && { color: theme.colors.warning },
+                  ]}>
+                    {isOverdue
+                      ? `متأخرة ${Math.abs(daysUntilDue)} يوم`
+                      : daysUntilDue === 0 ? 'اليوم'
+                      : `${daysUntilDue} يوم`}
                   </Text>
                 </View>
               )}
 
               <View style={styles.billActions}>
-                <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleEdit(item); }} style={styles.actionBtn} hitSlop={10}>
-                  <Ionicons name="pencil" size={16} color={theme.colors.textSecondary} />
+                <TouchableOpacity
+                  onPress={(e) => { e.stopPropagation(); handleTogglePaid(item); }}
+                  style={[styles.actionBtn, item.isPaid && styles.actionBtnActive]}
+                  hitSlop={8}
+                >
+                  <Ionicons
+                    name={item.isPaid ? 'checkmark-circle' : 'ellipse-outline'}
+                    size={18}
+                    color={item.isPaid ? theme.colors.success : theme.colors.textSecondary}
+                  />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDelete(item); }} style={styles.actionBtn} hitSlop={10}>
-                  <Ionicons name="trash" size={16} color={theme.colors.error} />
+                <TouchableOpacity
+                  onPress={(e) => { e.stopPropagation(); handleEdit(item); }}
+                  style={styles.actionBtn}
+                  hitSlop={8}
+                >
+                  <Ionicons name="pencil-outline" size={16} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={(e) => { e.stopPropagation(); handleDelete(item); }}
+                  style={styles.actionBtn}
+                  hitSlop={8}
+                >
+                  <Ionicons name="trash-outline" size={16} color={theme.colors.error} />
                 </TouchableOpacity>
               </View>
             </View>
           </View>
-        </View>
-      </Pressable>
+        </TouchableOpacity>
+      </View>
     );
-  };
+  }, [theme, styles, formatCurrency]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+    <View style={styles.container}>
       <FlashList
         data={filteredBills}
         // @ts-ignore
-        estimatedItemSize={120}
+        estimatedItemSize={100}
         ListHeaderComponent={
           <>
-            {/* Search + Filter */}
-
-            {/* Summary Cards - modern compact */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.summaryScroll}
-              contentContainerStyle={styles.summaryContent}
-            >
-              <View style={[styles.summaryCard, styles.summaryCardPrimary]}>
-                <View style={styles.summaryCardIconWrap}>
-                  <Ionicons name="receipt-outline" size={18} color={theme.colors.primary} />
-                </View>
-                <Text style={styles.summaryLabel} numberOfLines={1}>إجمالي الفواتير</Text>
-                <View style={styles.summaryValueWrap}>
-                  <Text style={styles.summaryValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.65}>
-                    {formatCurrency(totalBills)}
-                  </Text>
-                </View>
-                <Text style={styles.summarySubtext} numberOfLines={1}>{unpaidBills} غير مدفوعة</Text>
-              </View>
-              <View style={styles.summaryCard}>
-                <View style={[styles.summaryCardIconWrap, styles.summaryCardIconAmber]}>
-                  <Ionicons name="time-outline" size={18} color={theme.colors.warning} />
-                </View>
-                <Text style={styles.summaryLabel} numberOfLines={1}>مستحقة قريباً</Text>
-                <View style={styles.summaryValueWrap}>
-                  <Text style={styles.summaryValue} numberOfLines={1}>{dueSoonBills}</Text>
-                </View>
-                <Text style={styles.summarySubtext} numberOfLines={1}>خلال 7 أيام</Text>
-              </View>
-              <View style={styles.summaryCard}>
-                <View style={[styles.summaryCardIconWrap, styles.summaryCardIconGreen]}>
-                  <Ionicons name="checkmark-circle-outline" size={18} color={theme.colors.success} />
-                </View>
-                <Text style={styles.summaryLabel} numberOfLines={1}>مدفوعة</Text>
-                <View style={styles.summaryValueWrap}>
-                  <Text style={styles.summaryValue} numberOfLines={1}>{paidBills}</Text>
-                </View>
-                <Text style={styles.summarySubtext} numberOfLines={1}>من {bills.length}</Text>
-              </View>
-            </ScrollView>
-
-            {/* Filter Menu */}
-            {showFilterMenu && (
-              <View style={styles.filterMenu}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {/* <View style={styles.header}>
+              <View style={styles.categoriesRow}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.categoriesContent}
+                >
                   <TouchableOpacity
-                    onPress={() => {
-                      setSelectedCategory('all');
-                      setShowFilterMenu(false);
-                    }}
-                    style={[
-                      styles.filterChip,
-                      selectedCategory === 'all' && styles.filterChipActive
-                    ]}
+                    onPress={() => setSelectedCategory('all')}
+                    style={[styles.categoryChip, selectedCategory === 'all' && styles.categoryChipActive]}
                   >
-                    <Text style={[
-                      styles.filterChipText,
-                      selectedCategory === 'all' && styles.filterChipTextActive
-                    ]}>
+                    <Text style={[styles.categoryChipText, selectedCategory === 'all' && styles.categoryChipTextActive]}>
                       الكل
                     </Text>
                   </TouchableOpacity>
-                  {Object.keys(BILL_CATEGORIES).map((cat) => (
-                    <TouchableOpacity
-                      key={cat}
-                      onPress={() => {
-                        setSelectedCategory(cat as BillCategory);
-                        setShowFilterMenu(false);
-                      }}
-                      style={[
-                        styles.filterChip,
-                        selectedCategory === cat && styles.filterChipActive
-                      ]}
-                    >
-                      <Text style={[
-                        styles.filterChipText,
-                        selectedCategory === cat && styles.filterChipTextActive
-                      ]}>
-                        {BILL_CATEGORIES[cat as BillCategory].label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                  {(Object.keys(BILL_CATEGORIES) as BillCategory[]).map((cat) => {
+                    const info = BILL_CATEGORIES[cat];
+                    const isSelected = selectedCategory === cat;
+                    return (
+                      <TouchableOpacity
+                        key={cat}
+                        onPress={() => setSelectedCategory(cat)}
+                        style={[
+                          styles.categoryChip,
+                          isSelected && { backgroundColor: info.color + '20', borderColor: info.color, borderWidth: 1 },
+                        ]}
+                      >
+                        <Ionicons
+                          name={info.icon as any}
+                          size={14}
+                          color={isSelected ? info.color : theme.colors.textSecondary}
+                          style={{ marginHorizontal: 2 }}
+                        />
+                        <Text style={[
+                          styles.categoryChipText,
+                          isSelected && { color: info.color, fontWeight: getPlatformFontWeight('700') },
+                        ]}>
+                          {info.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </ScrollView>
               </View>
-            )}
+            </View> */}
+            {renderSummaryCard()}
           </>
         }
-        renderItem={renderBill}
+        renderItem={renderBillItem}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.listContent}
-        initialNumToRender={10}
-        maxToRenderPerBatch={8}
-        windowSize={7}
-        updateCellsBatchingPeriod={50}
-        removeClippedSubviews={Platform.OS === 'android'}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
+            tintColor={theme.colors.primary}
             colors={[theme.colors.primary]}
           />
         }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="receipt-outline" size={64} color={theme.colors.textSecondary} />
-            <Text style={styles.emptyText}>لا توجد فواتير</Text>
-            <Text style={styles.emptySubtext}>
-              {selectedCategory !== 'all'
-                ? 'لا توجد نتائج'
-                : 'أضف فاتورة جديدة للبدء'}
-            </Text>
-          </View>
+          !loading ? (
+            <View style={styles.emptyContainer}>
+              <View style={styles.emptyIconContainer}>
+                <Ionicons name="receipt-outline" size={64} color={theme.colors.primary + '40'} />
+              </View>
+              <Text style={styles.emptyText}>لا توجد فواتير</Text>
+              <Text style={styles.emptySubtext}>
+                {selectedCategory !== 'all' ? 'لا توجد نتائج لهذه الفئة' : 'أضف فاتورة جديدة للبدء'}
+              </Text>
+            </View>
+          ) : null
         }
       />
 
 
 
-      {/* Modals */}
+
       <ConfirmAlert
         visible={showDeleteAlert}
         title="حذف الفاتورة"
@@ -378,7 +396,7 @@ export const BillsScreen = ({ navigation, route }: any) => {
           setBillToDelete(null);
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -386,330 +404,310 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
-    writingDirection: 'rtl',
-    direction: 'rtl',
   },
-  searchSection: {
-    backgroundColor: theme.colors.surfaceCard,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.colors.border,
-  },
-  searchRow: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  searchbar: {
-    flex: 1,
-    backgroundColor: theme.colors.surfaceLight,
-    elevation: 0,
-    shadowOpacity: 0,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  searchbarInput: {
-    fontFamily: theme.typography.fontFamily,
-    fontSize: 15,
-    color: theme.colors.textPrimary,
-    textAlign: isRTL ? 'right' : 'left',
-  },
-  filterButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: theme.colors.surfaceLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  filterButtonActive: {
-    backgroundColor: theme.colors.primary + '12',
-    borderColor: theme.colors.primary + '40',
-  },
-  summaryScroll: {
-    flexGrow: 0,
-  },
-  summaryContent: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
+  header: {
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: 20,
+    paddingTop: 0,
     paddingBottom: 20,
-    paddingEnd: 24,
-    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+    ...getPlatformShadow('xs'),
+    zIndex: 10,
   },
-  summaryCard: {
-    backgroundColor: theme.colors.surfaceCard,
-    borderRadius: 20, // More modern large radius
-    padding: 16,
-    minWidth: 145,
+  categoriesRow: {
+    marginTop: 4,
+
+  },
+  categoriesContent: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    gap: 8,
+    paddingHorizontal: 4,
+  },
+  categoryChip: {
+    flexDirection: isRTL ? 'row-reverse' : 'row-reverse',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    ...(Platform.OS === 'ios'
-      ? { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 8 }
-      : { elevation: 2 }),
+    minHeight: 32,
+    gap: 4,
   },
-  summaryCardPrimary: {
-    minWidth: 190,
-    borderLeftWidth: isRTL ? 0 : 5,
-    borderLeftColor: theme.colors.primary,
-    borderRightWidth: isRTL ? 5 : 0,
-    borderRightColor: theme.colors.primary,
-    paddingLeft: isRTL ? 16 : 20,
-    paddingRight: isRTL ? 20 : 16,
-  },
-  summaryValueWrap: {
-    minHeight: 36,
-    width: '100%',
-    justifyContent: 'center',
-    marginVertical: 4,
-  },
-  summaryCardIconWrap: {
-    width: 32, // Slightly larger icon container
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: theme.colors.primary + '18',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  summaryCardIconAmber: {
-    backgroundColor: theme.colors.warning + '20',
-  },
-  summaryCardIconGreen: {
-    backgroundColor: theme.colors.success + '20',
-  },
-  summaryLabel: {
-    fontSize: 12, // Slightly larger label
-    color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
-    marginBottom: 4,
-    textAlign: 'left',
-  },
-  summaryValue: {
-    fontSize: 17, // Larger value text
-    fontWeight: getPlatformFontWeight('800'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'left',
-  },
-  summarySubtext: {
-    fontSize: 11,
-    color: theme.colors.textMuted,
-    fontFamily: theme.typography.fontFamily,
-    marginTop: 4,
-    textAlign: 'left',
-  },
-  filterMenu: {
-    backgroundColor: theme.colors.surfaceCard,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.colors.border,
-  },
-  filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: theme.colors.surfaceLight,
-    marginRight: isRTL ? 0 : 8,
-    marginLeft: isRTL ? 8 : 0,
-  },
-  filterChipActive: {
+  categoryChipActive: {
     backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
   },
-  filterChipText: {
-    fontSize: 13,
-    color: theme.colors.textPrimary,
+  categoryChipText: {
     fontFamily: theme.typography.fontFamily,
-  },
-  filterChipTextActive: {
-    color: theme.colors.background,
+    fontSize: 13,
+    color: theme.colors.textSecondary,
     fontWeight: getPlatformFontWeight('600'),
   },
-  listContent: {
+  categoryChipTextActive: {
+    color: '#FFFFFF',
+  },
+  summaryContainer: {
+    marginBottom: 20,
+    paddingHorizontal: 20,
+    marginTop: 20,
+  },
+  summaryCard: {
+    borderRadius: 20,
     padding: 16,
-    paddingBottom: 110, // More bottom padding for FAB
+    ...getPlatformShadow('md'),
   },
-  billCard: {
-    marginBottom: 16, // More space between cards
-    borderRadius: 24, // Softer, more modern corners
-    direction: 'rtl' as const,
-    backgroundColor: theme.colors.surfaceCard,
-    // Premium shadow
-    ...(Platform.OS === 'ios'
-      ? {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.06,
-        shadowRadius: 10
-      }
-      : { elevation: 3 }),
-  },
-  billCardPressed: {
-    transform: [{ scale: 0.98 }],
-    opacity: 0.9,
-  },
-  billCardInner: {
-    padding: 16,
-    borderRadius: 24,
-    overflow: 'hidden',
-    flexDirection: 'row-reverse', // Ensure side pill is on the correct side
-    minHeight: 110,
-  },
-  // Vertical status indicator pill
-  billStatusIndicator: {
-    width: 5,
-    borderRadius: 4,
-    marginVertical: 4,
-    backgroundColor: theme.colors.border,
-  },
-  billStatusPaid: {
-    backgroundColor: theme.colors.success,
-  },
-  billStatusOverdue: {
-    backgroundColor: theme.colors.error,
-  },
-  billStatusDueSoon: {
-    backgroundColor: theme.colors.warning,
-  },
-  billCardMainContent: {
-    flex: 1,
-    paddingHorizontal: 12,
-  },
-  billCardTop: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+  summaryContent: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    marginBottom: 12,
   },
-  billIconBadge: {
-    width: 48, // Slightly larger
-    height: 48,
-    borderRadius: 15, // Smooth rounded corners
+  summaryIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.surfaceLight,
+    marginLeft: isRTL ? 16 : 0,
+    marginRight: isRTL ? 0 : 16,
+  },
+  summaryTextContainer: {
+    flex: 1,
+  },
+  summaryLabel: {
+    fontFamily: theme.typography.fontFamily,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.85)',
+    marginBottom: 2,
+    textAlign: isRTL ? 'right' : 'left',
+  },
+  summaryAmount: {
+    fontFamily: theme.typography.fontFamily,
+    fontSize: 24,
+    fontWeight: getPlatformFontWeight('800'),
+    color: '#FFFFFF',
+    textAlign: isRTL ? 'right' : 'left',
+  },
+  summaryFooter: {
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.2)',
+    paddingTop: 12,
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  summaryStatItem: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    gap: 4,
+    flex: 1,
+    justifyContent: 'center',
+  },
+  summaryStatText: {
+    fontFamily: theme.typography.fontFamily,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.9)',
+    fontWeight: getPlatformFontWeight('600'),
+  },
+  summaryStatDivider: {
+    width: 1,
+    height: 16,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+  listContent: {
+    paddingBottom: 100,
+  },
+  itemWrapper: {
+    paddingHorizontal: 20,
+  },
+  billCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 20,
+    marginBottom: 12,
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    overflow: 'hidden',
+    ...getPlatformShadow('sm'),
+  },
+  billStatusBar: {
+    width: 4,
+    borderRadius: 4,
+    margin: 12,
+    backgroundColor: theme.colors.border,
+  },
+  billCardContent: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingRight: isRTL ? 0 : 14,
+    paddingLeft: isRTL ? 14 : 0,
+  },
+  billCardTop: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  billIconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   billCardCenter: {
     flex: 1,
-    marginHorizontal: 12,
-    justifyContent: 'center',
+    marginHorizontal: 10,
   },
   billTitle: {
-    fontSize: 16,
-    fontWeight: getPlatformFontWeight('800'),
+    fontSize: 15,
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    marginBottom: 4,
-    textAlign: 'left',
+    marginBottom: 3,
+    textAlign: isRTL ? 'right' : 'left',
   },
   billCategory: {
     fontSize: 12,
     color: theme.colors.textMuted,
-    fontWeight: getPlatformFontWeight('500'),
     fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'right' : 'left',
   },
   billAmountWrap: {
-    alignItems: 'flex-end',
+    alignItems: isRTL ? 'flex-start' : 'flex-end',
   },
   billAmount: {
-    fontSize: 18,
-    fontWeight: getPlatformFontWeight('900'),
+    fontSize: 16,
+    fontWeight: getPlatformFontWeight('800'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
+  },
+  billAmountPaid: {
+    color: theme.colors.textMuted,
+    textDecorationLine: 'line-through',
+  },
+  paidBadge: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginTop: 3,
+  },
+  paidBadgeText: {
+    fontSize: 10,
+    color: theme.colors.success,
+    fontFamily: theme.typography.fontFamily,
+    fontWeight: getPlatformFontWeight('600'),
   },
   billCardFooter: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 8,
-    paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: theme.colors.border + '40', // Very subtle divider
+    borderTopColor: theme.colors.border + '40',
+    paddingTop: 10,
   },
   billDateRow: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
+    flex: 1,
   },
   billDate: {
-    fontSize: 12,
+    fontSize: 11,
     color: theme.colors.textMuted,
-    fontWeight: getPlatformFontWeight('600'),
     fontFamily: theme.typography.fontFamily,
+    fontWeight: getPlatformFontWeight('600'),
   },
   daysBadge: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-    gap: 5,
-  },
-  daysBadgeOverdue: {
-    backgroundColor: theme.colors.error + '15',
-  },
-  daysBadgeDueSoon: {
-    backgroundColor: theme.colors.warning + '15',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    marginHorizontal: 6,
   },
   daysText: {
     fontSize: 11,
-    color: theme.colors.warning,
+    color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     fontWeight: getPlatformFontWeight('700'),
   },
-  daysTextOverdue: {
-    color: theme.colors.error,
-  },
   billActions: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     gap: 4,
   },
   actionBtn: {
-    width: 34,
-    height: 34,
+    width: 32,
+    height: 32,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: theme.colors.surfaceLight,
   },
+  actionBtnActive: {
+    backgroundColor: theme.colors.success + '15',
+  },
   emptyContainer: {
-    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 20,
+  },
+  emptyIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: theme.colors.surfaceLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
   },
   emptyText: {
-    fontSize: theme.typography.sizes.lg,
-    fontWeight: getPlatformFontWeight('600'),
-    color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    marginTop: 16,
+    fontSize: 18,
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.textPrimary,
     marginBottom: 8,
   },
   emptySubtext: {
-    fontSize: theme.typography.sizes.md,
-    color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
+    fontSize: 14,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
+    maxWidth: '70%',
   },
-  addButton: {
-    position: 'absolute',
-    bottom: 20,
-    [isRTL ? 'left' : 'right']: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    overflow: 'hidden',
-    ...getPlatformShadow('lg'),
+  addModalOptions: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    gap: 16,
   },
-  addButtonGradient: {
-    width: '100%',
-    height: '100%',
+  addModalOption: {
+    flex: 1,
+    backgroundColor: theme.colors.surfaceLight,
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+    ...getPlatformShadow('sm'),
+  },
+  addModalIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 12,
+  },
+  addModalOptionTitle: {
+    fontSize: 16,
+    fontFamily: theme.typography.fontFamily,
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.textPrimary,
+    marginBottom: 4,
+  },
+  addModalOptionSubtitle: {
+    fontSize: 12,
+    fontFamily: theme.typography.fontFamily,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
   },
 });

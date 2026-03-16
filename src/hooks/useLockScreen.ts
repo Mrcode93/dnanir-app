@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Animated, Platform } from 'react-native';
 import {
   authenticateWithBiometric,
@@ -30,7 +30,7 @@ export const useLockScreen = (onUnlock: () => void): UseLockScreenReturn => {
   const [password, setPassword] = useState('');
   const [authMethod, setAuthMethod] = useState<'password' | 'biometric'>('password');
   const [biometricType, setBiometricType] = useState<string>('');
-  const [shakeAnim] = useState(new Animated.Value(0));
+  const shakeAnim = useRef(new Animated.Value(0)).current;
   const [attempts, setAttempts] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
 

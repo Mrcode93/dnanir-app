@@ -9,11 +9,9 @@ import {
   TouchableOpacity,
   InteractionManager,
   Share,
-  Modal,
-  Pressable,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenContainer, AppBottomSheet } from '../design-system';
 import { LineChart, PieChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -398,7 +396,7 @@ export const InsightsScreen = ({ navigation }: any) => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+    <ScreenContainer scrollable={false} edges={['left', 'right']}>
 
       <ScrollView
         style={styles.scrollView}
@@ -767,80 +765,69 @@ export const InsightsScreen = ({ navigation }: any) => {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* Export Options Modal */}
-      <Modal visible={showExportModal} transparent animationType="slide" onRequestClose={() => setShowExportModal(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setShowExportModal(false)}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>خيارات تصدير PDF</Text>
-              <TouchableOpacity onPress={() => setShowExportModal(false)} style={styles.modalCloseBtn}>
-                <Ionicons name="close-circle" size={24} color={theme.colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-            
-            <TouchableOpacity 
-              style={styles.exportOptionBtn}
-              onPress={() => {
-                setShowExportModal(false);
-                setTimeout(handleExportSelectedMonth, 300);
-              }}
-            >
-              <View style={[styles.exportIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
-                <Ionicons name="calendar-outline" size={24} color={theme.colors.primary} />
-              </View>
-              <View style={styles.exportOptionTextContainer}>
-                <Text style={styles.exportOptionTitle}>الشهر المحدد</Text>
-                <Text style={styles.exportOptionSubtitle}>تصدير بيانات شهر {selectedMonth.month} لسنة {selectedMonth.year}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={theme.colors.textMuted} />
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.exportOptionBtn}
-              onPress={() => {
-                setShowExportModal(false);
-                setTimeout(handleExportTwoMonths, 300);
-              }}
-            >
-              <View style={[styles.exportIconBox, { backgroundColor: theme.colors.info + '15' }]}>
-                <Ionicons name="copy-outline" size={24} color={theme.colors.info} />
-              </View>
-              <View style={styles.exportOptionTextContainer}>
-                <Text style={styles.exportOptionTitle}>شهرين معاً</Text>
-                <Text style={styles.exportOptionSubtitle}>تصدير بيانات الشهر المحدد والشهر الذي يسبقه</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={theme.colors.textMuted} />
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.exportOptionBtn}
-              onPress={() => {
-                setShowExportModal(false);
-                setTimeout(handleExportAll, 300);
-              }}
-            >
-              <View style={[styles.exportIconBox, { backgroundColor: theme.colors.success + '15' }]}>
-                <Ionicons name="infinite-outline" size={24} color={theme.colors.success} />
-              </View>
-              <View style={styles.exportOptionTextContainer}>
-                <Text style={styles.exportOptionTitle}>تصدير الكل</Text>
-                <Text style={styles.exportOptionSubtitle}>إنشاء تقرير شامل لجميع المعاملات</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={theme.colors.textMuted} />
-            </TouchableOpacity>
+      {/* Export Options Bottom Sheet */}
+      <AppBottomSheet
+        visible={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        title="خيارات تصدير PDF"
+      >
+        <TouchableOpacity
+          style={styles.exportOptionBtn}
+          onPress={() => {
+            setShowExportModal(false);
+            setTimeout(handleExportSelectedMonth, 300);
+          }}
+        >
+          <View style={[styles.exportIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+            <Ionicons name="calendar-outline" size={24} color={theme.colors.primary} />
           </View>
-        </Pressable>
-      </Modal>
+          <View style={styles.exportOptionTextContainer}>
+            <Text style={styles.exportOptionTitle}>الشهر المحدد</Text>
+            <Text style={styles.exportOptionSubtitle}>تصدير بيانات شهر {selectedMonth.month} لسنة {selectedMonth.year}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={theme.colors.textMuted} />
+        </TouchableOpacity>
 
-    </SafeAreaView >
+        <TouchableOpacity
+          style={styles.exportOptionBtn}
+          onPress={() => {
+            setShowExportModal(false);
+            setTimeout(handleExportTwoMonths, 300);
+          }}
+        >
+          <View style={[styles.exportIconBox, { backgroundColor: theme.colors.info + '15' }]}>
+            <Ionicons name="copy-outline" size={24} color={theme.colors.info} />
+          </View>
+          <View style={styles.exportOptionTextContainer}>
+            <Text style={styles.exportOptionTitle}>شهرين معاً</Text>
+            <Text style={styles.exportOptionSubtitle}>تصدير بيانات الشهر المحدد والشهر الذي يسبقه</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={theme.colors.textMuted} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.exportOptionBtn}
+          onPress={() => {
+            setShowExportModal(false);
+            setTimeout(handleExportAll, 300);
+          }}
+        >
+          <View style={[styles.exportIconBox, { backgroundColor: theme.colors.success + '15' }]}>
+            <Ionicons name="infinite-outline" size={24} color={theme.colors.success} />
+          </View>
+          <View style={styles.exportOptionTextContainer}>
+            <Text style={styles.exportOptionTitle}>تصدير الكل</Text>
+            <Text style={styles.exportOptionSubtitle}>إنشاء تقرير شامل لجميع المعاملات</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={theme.colors.textMuted} />
+        </TouchableOpacity>
+      </AppBottomSheet>
+
+    </ScreenContainer>
   );
 };
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
   scrollView: {
     flex: 1,
   },
@@ -1384,8 +1371,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   modalContent: {
     backgroundColor: theme.colors.background,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: theme.borderRadius.xxl,
+    borderTopRightRadius: theme.borderRadius.xxl,
     padding: 24,
     paddingBottom: 40,
     ...getPlatformShadow('lg'),

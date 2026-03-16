@@ -21,6 +21,7 @@ import { useCurrency } from '../hooks/useCurrency';
 import { alertService } from '../services/alertService';
 import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 import { usePrivacy } from '../context/PrivacyContext';
+import { CurrencyPickerModal } from '../components/CurrencyPickerModal';
 
 export const CurrencyConverterScreen = ({ navigation }: any) => {
   const { theme } = useAppTheme();
@@ -76,7 +77,7 @@ export const CurrencyConverterScreen = ({ navigation }: any) => {
       setExchangeRate(rate);
       setConvertedAmount(converted);
     } catch (error) {
-      
+
       alertService.error('خطأ', 'حدث خطأ أثناء تحويل العملة');
     } finally {
       setLoading(false);
@@ -238,87 +239,20 @@ export const CurrencyConverterScreen = ({ navigation }: any) => {
       </KeyboardAvoidingView>
 
       {/* Currency Picker Modals */}
-      {showFromPicker && (
-        <CurrencyPickerModal
-          visible={showFromPicker}
-          selectedCurrency={fromCurrency}
-          onSelect={(code) => selectCurrency(code, 'from')}
-          onClose={() => setShowFromPicker(false)}
-        />
-      )}
+      <CurrencyPickerModal
+        visible={showFromPicker}
+        selectedCurrency={fromCurrency}
+        onSelect={(code) => selectCurrency(code, 'from')}
+        onClose={() => setShowFromPicker(false)}
+      />
 
-      {showToPicker && (
-        <CurrencyPickerModal
-          visible={showToPicker}
-          selectedCurrency={toCurrency}
-          onSelect={(code) => selectCurrency(code, 'to')}
-          onClose={() => setShowToPicker(false)}
-        />
-      )}
+      <CurrencyPickerModal
+        visible={showToPicker}
+        selectedCurrency={toCurrency}
+        onSelect={(code) => selectCurrency(code, 'to')}
+        onClose={() => setShowToPicker(false)}
+      />
     </SafeAreaView>
-  );
-};
-
-interface CurrencyPickerModalProps {
-  visible: boolean;
-  selectedCurrency: string;
-  onSelect: (code: string) => void;
-  onClose: () => void;
-}
-
-const CurrencyPickerModal: React.FC<CurrencyPickerModalProps> = ({
-  visible,
-  selectedCurrency,
-  onSelect,
-  onClose,
-}) => {
-  const { theme } = useAppTheme();
-  const styles = useThemedStyles(createStyles);
-  return (
-    <View style={styles.pickerModalContainer} pointerEvents={visible ? 'auto' : 'none'}>
-      {visible && (
-        <TouchableOpacity
-          style={styles.pickerBackdrop}
-          activeOpacity={1}
-          onPress={onClose}
-        >
-          <View style={styles.pickerContainer}>
-            <LinearGradient
-              colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-              style={styles.pickerGradient}
-            >
-              <View style={styles.pickerHeader}>
-                <Text style={styles.pickerTitle}>اختر العملة</Text>
-                <TouchableOpacity onPress={onClose} style={styles.pickerCloseButton}>
-                  <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
-                </TouchableOpacity>
-              </View>
-              <ScrollView style={styles.pickerScrollView}>
-                {CURRENCIES.map((currency) => (
-                  <TouchableOpacity
-                    key={currency.code}
-                    onPress={() => onSelect(currency.code)}
-                    style={[
-                      styles.pickerItem,
-                      selectedCurrency === currency.code && styles.pickerItemSelected,
-                    ]}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.pickerItemContent}>
-                      <Text style={styles.pickerItemCode}>{currency.code}</Text>
-                      <Text style={styles.pickerItemName}>{currency.name}</Text>
-                    </View>
-                    {selectedCurrency === currency.code && (
-                      <Ionicons name="checkmark-circle" size={24} color={theme.colors.primary} />
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </LinearGradient>
-          </View>
-        </TouchableOpacity>
-      )}
-    </View>
   );
 };
 
@@ -503,8 +437,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   pickerContainer: {
     maxHeight: '60%',
-    borderTopLeftRadius: theme.borderRadius.xl,
-    borderTopRightRadius: theme.borderRadius.xl,
+    borderTopLeftRadius: theme.borderRadius.xxl,
+    borderTopRightRadius: theme.borderRadius.xxl,
     overflow: 'hidden',
   },
   pickerGradient: {
@@ -536,7 +470,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     maxHeight: 350,
   },
   pickerItem: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: theme.spacing.sm,

@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { AppTheme, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
+import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { isRTL } from '../utils/rtl';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
@@ -112,7 +112,7 @@ export const Toast: React.FC<ToastProps> = ({
       style={[
         styles.container,
         {
-          top: Platform.OS === 'ios' ? insets.top + 10 : insets.top + 20,
+          top: insets.top + 10,
           transform: [{ translateY }],
           opacity,
         },
@@ -179,8 +179,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   message: {
     flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: theme.typography.sizes.sm,
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'right' : 'left',

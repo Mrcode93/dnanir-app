@@ -35,9 +35,9 @@ public struct Provider: AppIntentTimelineProvider {
     }
     public func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<SimpleEntry> {
         let shared = UserDefaults(suiteName: "group.com.mrcodeiq.dinar")
-        let bal = shared?.double(forKey: "widget_balance_raw") ?? 0
-        let inc = shared?.double(forKey: "widget_income_raw") ?? 0
-        let exp = shared?.double(forKey: "widget_expenses_raw") ?? 0
+        let bal = Double(shared?.string(forKey: "widget_balance_raw") ?? "0") ?? 0
+        let inc = Double(shared?.string(forKey: "widget_income_raw") ?? "0") ?? 0
+        let exp = Double(shared?.string(forKey: "widget_expenses_raw") ?? "0") ?? 0
         let curr = shared?.string(forKey: "widget_currency") ?? "IQD"
         let priv = shared?.string(forKey: "privacy_mode") == "true"
         let theme = shared?.string(forKey: "widget_theme_mode") ?? "system"

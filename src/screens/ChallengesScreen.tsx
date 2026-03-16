@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Modal,
   Pressable,
+  InteractionManager,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -51,23 +52,26 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
   const [showMenuForChallenge, setShowMenuForChallenge] = useState<number | null>(null);
   const [editingChallenge, setEditingChallenge] = useState<Challenge | null>(null);
 
-  const loadChallenges = async () => {
+  const loadChallenges = useCallback(async () => {
     try {
-      const allChallenges = await getChallenges();
-      // Update progress for all challenges
       await updateAllChallenges();
       const updatedChallenges = await getChallenges();
       setChallenges(updatedChallenges);
     } catch (error) {
-      
+
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadChallenges();
+    const task = InteractionManager.runAfterInteractions(() => {
+      loadChallenges();
+    });
     const unsubscribe = navigation.addListener('focus', loadChallenges);
-    return unsubscribe;
-  }, [navigation]);
+    return () => {
+      task.cancel();
+      unsubscribe();
+    };
+  }, [navigation, loadChallenges]);
 
   useEffect(() => {
     if (route?.params?.action === 'add') {
@@ -226,12 +230,13 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
     return CHALLENGE_CATEGORIES[selectedCategory].label;
   };
 
-  const filteredChallenges = selectedCategory === 'all'
-    ? challenges
-    : challenges.filter(c => c.category === selectedCategory);
+  const filteredChallenges = useMemo(
+    () => selectedCategory === 'all' ? challenges : challenges.filter(c => c.category === selectedCategory),
+    [challenges, selectedCategory]
+  );
 
-  const activeChallenges = filteredChallenges.filter(c => !c.completed);
-  const completedChallenges = filteredChallenges.filter(c => c.completed);
+  const activeChallenges = useMemo(() => filteredChallenges.filter(c => !c.completed), [filteredChallenges]);
+  const completedChallenges = useMemo(() => filteredChallenges.filter(c => c.completed), [filteredChallenges]);
 
   const getProgressPercentage = (challenge: Challenge): number => {
     if (challenge.targetProgress === 0) return 0;
@@ -1020,8 +1025,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   modalContent: {
     backgroundColor: theme.colors.surfaceCard,
-    borderTopLeftRadius: theme.borderRadius.xl,
-    borderTopRightRadius: theme.borderRadius.xl,
+    borderTopLeftRadius: theme.borderRadius.xxl,
+    borderTopRightRadius: theme.borderRadius.xxl,
     maxHeight: '80%',
     ...getPlatformShadow('lg'),
   },

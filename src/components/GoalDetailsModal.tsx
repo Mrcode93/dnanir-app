@@ -3,16 +3,11 @@ import {
     View,
     Text,
     StyleSheet,
-    Modal,
-    TouchableOpacity,
-    Animated,
-    Pressable,
     ScrollView,
     Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { FinancialGoal, GOAL_CATEGORIES, CURRENCIES } from '../types';
 import { isRTL } from '../utils/rtl';
@@ -20,6 +15,7 @@ import { useCurrency } from '../hooks/useCurrency';
 import { convertCurrency, formatCurrencyAmount } from '../services/currencyService';
 import { usePrivacy } from '../context/PrivacyContext';
 import { ConfirmAlert } from './ConfirmAlert';
+import { AppBottomSheet, AppButton } from '../design-system';
 
 interface GoalDetailsModalProps {
     visible: boolean;
@@ -44,27 +40,11 @@ export const GoalDetailsModal: React.FC<GoalDetailsModalProps> = ({
 }) => {
     const { theme } = useAppTheme();
     const styles = useThemedStyles(createStyles);
-    const insets = useSafeAreaInsets();
     const { formatCurrency, currencyCode } = useCurrency();
     const { isPrivacyEnabled } = usePrivacy();
-    const [slideAnim] = useState(new Animated.Value(0));
     const [showConfirmAlert, setShowConfirmAlert] = useState(false);
     const [convertedCurrent, setConvertedCurrent] = useState<number | null>(null);
     const [convertedTarget, setConvertedTarget] = useState<number | null>(null);
-    const modalBottomPadding = insets.bottom + (Platform.OS === 'android' ? 12 : 14);
-
-    useEffect(() => {
-        if (visible) {
-            Animated.spring(slideAnim, {
-                toValue: 1,
-                useNativeDriver: true,
-                tension: 50,
-                friction: 7,
-            }).start();
-        } else {
-            slideAnim.setValue(0);
-        }
-    }, [visible]);
 
     useEffect(() => {
         const convert = async () => {
@@ -123,216 +103,168 @@ export const GoalDetailsModal: React.FC<GoalDetailsModalProps> = ({
         onClose();
     };
 
-    const translateY = slideAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [600, 0],
-    });
-
     return (
-        <Modal
-            visible={visible}
-            animationType="fade"
-            transparent={true}
-            onRequestClose={onClose}
-            statusBarTranslucent
-        >
-            <Pressable style={styles.overlay} onPress={onClose}>
-                <Animated.View
-                    style={[
-                        styles.modalContainer,
-                        { transform: [{ translateY }] },
-                    ]}
+        <>
+            <AppBottomSheet
+                visible={visible}
+                onClose={onClose}
+                maxHeight="90%"
+            >
+                {/* Hero Header */}
+                <LinearGradient
+                    colors={categoryColors as any}
+                    style={styles.heroHeader}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
                 >
-                    <Pressable onPress={(e) => e.stopPropagation()} style={{ maxHeight: '100%' }}>
-                        <View style={[styles.modalContent, { paddingBottom: modalBottomPadding, maxHeight: '100%' }]}>
-                            {/* Drag Handle */}
-                            <View style={styles.dragHandle} />
+                    <View style={styles.heroIconContainer}>
+                        <Ionicons name={categoryInfo.icon as any} size={32} color="#FFFFFF" />
+                    </View>
+                    <View style={styles.heroInfo}>
+                        <Text style={styles.heroTypeLabel}>هدف مالي</Text>
+                        <Text style={styles.heroTitle} numberOfLines={2}>{goal.title}</Text>
+                    </View>
+                </LinearGradient>
 
-                            {/* Hero Header */}
-                            <LinearGradient
-                                colors={categoryColors as any}
-                                style={styles.heroHeader}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                            >
-                                <View style={styles.heroIconContainer}>
-                                    <Ionicons name={categoryInfo.icon as any} size={32} color="#FFFFFF" />
-                                </View>
-                                <View style={styles.heroInfo}>
-                                    <Text style={styles.heroTypeLabel}>هدف مالي</Text>
-                                    <Text style={styles.heroTitle} numberOfLines={2}>{goal.title}</Text>
-                                </View>
-                                <TouchableOpacity onPress={onClose} style={styles.heroCloseBtn}>
-                                    <Ionicons name="close" size={22} color="rgba(255,255,255,0.8)" />
-                                </TouchableOpacity>
-                            </LinearGradient>
+                {/* Progress Section */}
+                <View style={styles.progressSection}>
+                    <View style={styles.progressHeader}>
+                        <Text style={styles.progressLabel}>التقدم الحالي</Text>
+                        <Text style={styles.progressPercent}>
+                            {isPrivacyEnabled ? '**%' : `${Math.round(progress)}%`}
+                        </Text>
+                    </View>
+                    <View style={styles.progressBar}>
+                        <LinearGradient
+                            colors={['#FFFFFF', '#FFFFFF']}
+                            style={[styles.progressFill, { width: `${Math.min(progress, 100)}%`, backgroundColor: categoryColors[0] }]}
+                        />
+                    </View>
+                </View>
 
-                            {/* Progress Section */}
-                            <View style={styles.progressSection}>
-                                <View style={styles.progressHeader}>
-                                    <Text style={styles.progressLabel}>التقدم الحالي</Text>
-                                    <Text style={styles.progressPercent}>
-                                        {isPrivacyEnabled ? '**%' : `${Math.round(progress)}%`}
-                                    </Text>
-                                </View>
-                                <View style={styles.progressBar}>
-                                    <LinearGradient
-                                        colors={['#FFFFFF', '#FFFFFF']}
-                                        style={[styles.progressFill, { width: `${Math.min(progress, 100)}%`, backgroundColor: categoryColors[0] }]}
-                                    />
-                                </View>
+                <ScrollView
+                    style={styles.detailsScroll}
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.detailsScrollContent}
+                >
+                    {/* Amounts Grid */}
+                    <View style={styles.detailsGrid}>
+                        {/* المحقق */}
+                        <View style={styles.detailCard}>
+                            <View style={[styles.detailIconBg, { backgroundColor: theme.colors.success + '15' }]}>
+                                <Ionicons name="cash" size={20} color={theme.colors.success} />
                             </View>
-
-                            <ScrollView
-                                style={styles.detailsScroll}
-                                showsVerticalScrollIndicator={false}
-                                contentContainerStyle={styles.detailsScrollContent}
-                            >
-                                {/* Amounts Grid */}
-                                <View style={styles.detailsGrid}>
-                                    {/* المحقق */}
-                                    <View style={styles.detailCard}>
-                                        <View style={[styles.detailIconBg, { backgroundColor: theme.colors.success + '15' }]}>
-                                            <Ionicons name="cash" size={20} color={theme.colors.success} />
-                                        </View>
-                                        <Text style={styles.detailLabel}>المحقق</Text>
-                                        <Text style={styles.detailValue} numberOfLines={1}>
-                                            {isPrivacyEnabled ? '****' : formatCurrencyAmount(goal.currentAmount, goalCurrency)}
-                                        </Text>
-                                        {convertedCurrent !== null && goalCurrency !== currencyCode && (
-                                            <Text style={styles.convertedText}>≈ {formatCurrency(convertedCurrent)}</Text>
-                                        )}
-                                    </View>
-
-                                    {/* المستهدف */}
-                                    <View style={styles.detailCard}>
-                                        <View style={[styles.detailIconBg, { backgroundColor: theme.colors.primary + '15' }]}>
-                                            <Ionicons name="flag" size={20} color={theme.colors.primary} />
-                                        </View>
-                                        <Text style={styles.detailLabel}>المستهدف</Text>
-                                        <Text style={styles.detailValue} numberOfLines={1}>
-                                            {isPrivacyEnabled ? '****' : formatCurrencyAmount(goal.targetAmount, goalCurrency)}
-                                        </Text>
-                                        {convertedTarget !== null && goalCurrency !== currencyCode && (
-                                            <Text style={styles.convertedText}>≈ {formatCurrency(convertedTarget)}</Text>
-                                        )}
-                                    </View>
-
-                                    {/* المتبقي */}
-                                    {!isCompleted && (
-                                        <View style={styles.detailCard}>
-                                            <View style={[styles.detailIconBg, { backgroundColor: theme.colors.error + '15' }]}>
-                                                <Ionicons name="time" size={20} color={theme.colors.error} />
-                                            </View>
-                                            <Text style={styles.detailLabel}>المتبقي</Text>
-                                            <Text style={[styles.detailValue, { color: theme.colors.error }]} numberOfLines={1}>
-                                                {isPrivacyEnabled ? '****' : formatCurrencyAmount(goal.targetAmount - goal.currentAmount, goalCurrency)}
-                                            </Text>
-                                        </View>
-                                    )}
-
-                                    {/* الفئة */}
-                                    <View style={styles.detailCard}>
-                                        <View style={[styles.detailIconBg, { backgroundColor: theme.colors.info + '15' }]}>
-                                            <Ionicons name={categoryInfo.icon as any} size={20} color={theme.colors.info} />
-                                        </View>
-                                        <Text style={styles.detailLabel}>الفئة</Text>
-                                        <Text style={styles.detailValue} numberOfLines={1}>{categoryInfo.label}</Text>
-                                    </View>
-                                </View>
-
-                                {/* Estimated Time */}
-                                {estimatedTime && !isCompleted && (
-                                    <View style={styles.infoSection}>
-                                        <View style={styles.infoHeader}>
-                                            <Ionicons name="hourglass-outline" size={18} color={theme.colors.primary} />
-                                            <Text style={styles.infoLabel}>الوقت المتوقع لتحقيق الهدف</Text>
-                                        </View>
-                                        <Text style={styles.infoText}>{estimatedTime}</Text>
-                                    </View>
-                                )}
-
-                                {/* Description */}
-                                {goal.description ? (
-                                    <View style={styles.infoSection}>
-                                        <View style={styles.infoHeader}>
-                                            <Ionicons name="document-text-outline" size={18} color={theme.colors.textSecondary} />
-                                            <Text style={styles.infoLabel}>ملاحظات</Text>
-                                        </View>
-                                        <Text style={styles.infoText}>{goal.description}</Text>
-                                    </View>
-                                ) : null}
-                            </ScrollView>
-
-                            {/* Action Buttons Row 1: Main Actions */}
-                            <View style={styles.mainActions}>
-                                {!isCompleted && onAddAmount && (
-                                    <TouchableOpacity
-                                        style={styles.addAmountBtn}
-                                        onPress={() => { onClose(); setTimeout(() => onAddAmount(), 300); }}
-                                        activeOpacity={0.8}
-                                    >
-                                        <LinearGradient
-                                            colors={theme.gradients.success as any}
-                                            style={styles.addAmountGradient}
-                                            start={{ x: 0, y: 0 }}
-                                            end={{ x: 1, y: 0 }}
-                                        >
-                                            <Ionicons name="add-circle" size={22} color="#FFFFFF" />
-                                            <Text style={styles.addAmountText}>إضافة مبلغ للهدف</Text>
-                                        </LinearGradient>
-                                    </TouchableOpacity>
-                                )}
-
-                                {onPlan && (
-                                    <TouchableOpacity
-                                        style={styles.aiPlanBtn}
-                                        onPress={() => { onClose(); setTimeout(() => onPlan(), 300); }}
-                                        activeOpacity={0.8}
-                                    >
-                                        <LinearGradient
-                                            colors={theme.gradients.primary as any}
-                                            style={styles.aiPlanGradient}
-                                            start={{ x: 0, y: 0 }}
-                                            end={{ x: 1, y: 0 }}
-                                        >
-                                            <Ionicons name="sparkles" size={20} color="#FFFFFF" />
-                                            <Text style={styles.aiPlanText}>خطة الذكاء الاصطناعي</Text>
-                                        </LinearGradient>
-                                    </TouchableOpacity>
-                                )}
-                            </View>
-
-                            {/* Action Buttons Row 2: Secondary Actions */}
-                            <View style={styles.secondaryActions}>
-                                {onEdit && (
-                                    <TouchableOpacity
-                                        style={styles.secondaryActionBtn}
-                                        onPress={() => { onClose(); setTimeout(() => onEdit(), 300); }}
-                                        activeOpacity={0.7}
-                                    >
-                                        <View style={[styles.secondaryActionIcon, { backgroundColor: theme.colors.primary + '15' }]}>
-                                            <Ionicons name="create-outline" size={20} color={theme.colors.primary} />
-                                        </View>
-                                        <Text style={[styles.secondaryActionText, { color: theme.colors.primary }]}>تعديل</Text>
-                                    </TouchableOpacity>
-                                )}
-
-                                <TouchableOpacity
-                                    style={styles.secondaryActionBtn}
-                                    onPress={handleDelete}
-                                    activeOpacity={0.7}
-                                >
-                                    <View style={[styles.secondaryActionIcon, { backgroundColor: theme.colors.error + '15' }]}>
-                                        <Ionicons name="trash-outline" size={20} color={theme.colors.error} />
-                                    </View>
-                                    <Text style={[styles.secondaryActionText, { color: theme.colors.error }]}>حذف</Text>
-                                </TouchableOpacity>
-                            </View>
+                            <Text style={styles.detailLabel}>المحقق</Text>
+                            <Text style={styles.detailValue} numberOfLines={1}>
+                                {isPrivacyEnabled ? '****' : formatCurrencyAmount(goal.currentAmount, goalCurrency)}
+                            </Text>
+                            {convertedCurrent !== null && goalCurrency !== currencyCode && (
+                                <Text style={styles.convertedText}>≈ {formatCurrency(convertedCurrent)}</Text>
+                            )}
                         </View>
-                    </Pressable>
-                </Animated.View>
-            </Pressable>
+
+                        {/* المستهدف */}
+                        <View style={styles.detailCard}>
+                            <View style={[styles.detailIconBg, { backgroundColor: theme.colors.primary + '15' }]}>
+                                <Ionicons name="flag" size={20} color={theme.colors.primary} />
+                            </View>
+                            <Text style={styles.detailLabel}>المستهدف</Text>
+                            <Text style={styles.detailValue} numberOfLines={1}>
+                                {isPrivacyEnabled ? '****' : formatCurrencyAmount(goal.targetAmount, goalCurrency)}
+                            </Text>
+                            {convertedTarget !== null && goalCurrency !== currencyCode && (
+                                <Text style={styles.convertedText}>≈ {formatCurrency(convertedTarget)}</Text>
+                            )}
+                        </View>
+
+                        {/* المتبقي */}
+                        {!isCompleted && (
+                            <View style={styles.detailCard}>
+                                <View style={[styles.detailIconBg, { backgroundColor: theme.colors.error + '15' }]}>
+                                    <Ionicons name="time" size={20} color={theme.colors.error} />
+                                </View>
+                                <Text style={styles.detailLabel}>المتبقي</Text>
+                                <Text style={[styles.detailValue, { color: theme.colors.error }]} numberOfLines={1}>
+                                    {isPrivacyEnabled ? '****' : formatCurrencyAmount(goal.targetAmount - goal.currentAmount, goalCurrency)}
+                                </Text>
+                            </View>
+                        )}
+
+                        {/* الفئة */}
+                        <View style={styles.detailCard}>
+                            <View style={[styles.detailIconBg, { backgroundColor: theme.colors.info + '15' }]}>
+                                <Ionicons name={categoryInfo.icon as any} size={20} color={theme.colors.info} />
+                            </View>
+                            <Text style={styles.detailLabel}>الفئة</Text>
+                            <Text style={styles.detailValue} numberOfLines={1}>{categoryInfo.label}</Text>
+                        </View>
+                    </View>
+
+                    {/* Estimated Time */}
+                    {estimatedTime && !isCompleted && (
+                        <View style={styles.infoSection}>
+                            <View style={styles.infoHeader}>
+                                <Ionicons name="hourglass-outline" size={18} color={theme.colors.primary} />
+                                <Text style={styles.infoLabel}>الوقت المتوقع لتحقيق الهدف</Text>
+                            </View>
+                            <Text style={styles.infoText}>{estimatedTime}</Text>
+                        </View>
+                    )}
+
+                    {/* Description */}
+                    {goal.description ? (
+                        <View style={styles.infoSection}>
+                            <View style={styles.infoHeader}>
+                                <Ionicons name="document-text-outline" size={18} color={theme.colors.textSecondary} />
+                                <Text style={styles.infoLabel}>ملاحظات</Text>
+                            </View>
+                            <Text style={styles.infoText}>{goal.description}</Text>
+                        </View>
+                    ) : null}
+                </ScrollView>
+
+                {/* Action Buttons Row 1: Main Actions */}
+                <View style={styles.mainActions}>
+                    {!isCompleted && onAddAmount && (
+                        <AppButton
+                            label="إضافة مبلغ للهدف"
+                            onPress={() => { onClose(); setTimeout(() => onAddAmount(), 300); }}
+                            variant="success"
+                            leftIcon="add-circle"
+                        />
+                    )}
+
+                    {onPlan && (
+                        <AppButton
+                            label="خطة الذكاء الاصطناعي"
+                            onPress={() => { onClose(); setTimeout(() => onPlan(), 300); }}
+                            variant="primary"
+                            leftIcon="sparkles"
+                        />
+                    )}
+                </View>
+
+                {/* Action Buttons Row 2: Secondary Actions */}
+                <View style={styles.secondaryActions}>
+                    {onEdit && (
+                        <AppButton
+                            label="تعديل"
+                            onPress={() => { onClose(); setTimeout(() => onEdit(), 300); }}
+                            variant="secondary"
+                            leftIcon="create-outline"
+                            style={styles.actionBtnFlex}
+                        />
+                    )}
+
+                    <AppButton
+                        label="حذف"
+                        onPress={handleDelete}
+                        variant="danger"
+                        leftIcon="trash-outline"
+                        style={styles.actionBtnFlex}
+                    />
+                </View>
+            </AppBottomSheet>
 
             <ConfirmAlert
                 visible={showConfirmAlert}
@@ -344,38 +276,11 @@ export const GoalDetailsModal: React.FC<GoalDetailsModalProps> = ({
                 onCancel={() => setShowConfirmAlert(false)}
                 type="danger"
             />
-        </Modal>
+        </>
     );
 };
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-    overlay: {
-        flex: 1,
-        backgroundColor: theme.colors.overlay,
-        justifyContent: 'flex-end',
-    },
-    modalContainer: {
-        maxHeight: '90%',
-        width: '100%',
-        backgroundColor: 'transparent',
-    },
-    modalContent: {
-        backgroundColor: theme.colors.surfaceCard,
-        borderTopLeftRadius: 28,
-        borderTopRightRadius: 28,
-        overflow: 'hidden',
-        flexShrink: 1,
-    },
-    dragHandle: {
-        width: 40,
-        height: 4,
-        backgroundColor: theme.colors.border,
-        borderRadius: 2,
-        alignSelf: 'center',
-        marginTop: 12,
-        marginBottom: 8,
-        opacity: 0.5,
-    },
     heroHeader: {
         flexDirection: isRTL ? 'row-reverse' : 'row',
         alignItems: 'center',
@@ -412,14 +317,6 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         color: '#FFFFFF',
         fontFamily: theme.typography.fontFamily,
         textAlign: isRTL ? 'right' : 'left',
-    },
-    heroCloseBtn: {
-        width: 36,
-        height: 36,
-        borderRadius: 12,
-        backgroundColor: 'rgba(255,255,255,0.15)',
-        alignItems: 'center',
-        justifyContent: 'center',
     },
     progressSection: {
         paddingHorizontal: 20,
@@ -540,71 +437,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         paddingBottom: 8,
         gap: 10,
     },
-    addAmountBtn: {
-        borderRadius: 16,
-        overflow: 'hidden',
-        ...getPlatformShadow('sm'),
-    },
-    addAmountGradient: {
-        flexDirection: isRTL ? 'row-reverse' : 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 14,
-        gap: 8,
-    },
-    addAmountText: {
-        fontSize: 16,
-        fontWeight: getPlatformFontWeight('700'),
-        color: '#FFFFFF',
-        fontFamily: theme.typography.fontFamily,
-    },
-    aiPlanBtn: {
-        borderRadius: 16,
-        overflow: 'hidden',
-        ...getPlatformShadow('sm'),
-    },
-    aiPlanGradient: {
-        flexDirection: isRTL ? 'row-reverse' : 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 14,
-        gap: 8,
-    },
-    aiPlanText: {
-        fontSize: 16,
-        fontWeight: getPlatformFontWeight('700'),
-        color: '#FFFFFF',
-        fontFamily: theme.typography.fontFamily,
-    },
     secondaryActions: {
         flexDirection: isRTL ? 'row-reverse' : 'row',
         paddingHorizontal: 16,
         paddingBottom: 8,
         gap: 12,
     },
-    secondaryActionBtn: {
+    actionBtnFlex: {
         flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 12,
-        borderRadius: 16,
-        backgroundColor: theme.colors.surfaceLight,
-        borderWidth: 1,
-        borderColor: theme.colors.border + '30',
-        ...getPlatformShadow('xs'),
-        gap: 8,
-    },
-    secondaryActionIcon: {
-        width: 32,
-        height: 32,
-        borderRadius: 10,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    secondaryActionText: {
-        fontSize: 14,
-        fontWeight: getPlatformFontWeight('700'),
-        fontFamily: theme.typography.fontFamily,
     },
 });

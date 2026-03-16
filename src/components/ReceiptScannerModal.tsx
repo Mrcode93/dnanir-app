@@ -13,6 +13,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { isRTL } from '../utils/rtl';
@@ -42,6 +43,7 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
 }) => {
   const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
+  const insets = useSafeAreaInsets();
   const { isPrivacyEnabled } = usePrivacy();
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
@@ -173,7 +175,7 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
     >
       <LinearGradient
         colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-        style={styles.modalContainer}
+        style={[styles.modalContainer, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 20 }]}
       >
         {/* Header */}
         <View style={styles.header}>
@@ -493,8 +495,6 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
 const createStyles = (theme: AppTheme) => StyleSheet.create({
   modalContainer: {
     flex: 1,
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
   },
   header: {
     flexDirection: isRTL ? 'row-reverse' : 'row',

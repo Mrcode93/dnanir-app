@@ -1,23 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
-  Modal,
   Text,
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Animated,
-  Pressable,
-  KeyboardAvoidingView,
-  Platform,
   Keyboard,
   Switch,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Budget, getCustomCategories, addBudget, updateBudget } from '../database/database';
 import { EXPENSE_CATEGORIES, CURRENCIES } from '../types';
 import { useCurrency } from '../hooks/useCurrency';
@@ -25,6 +19,8 @@ import { isRTL } from '../utils/rtl';
 import { convertCurrency } from '../services/currencyService';
 import { alertService } from '../services/alertService';
 import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
+import { AppBottomSheet, AppButton } from '../design-system';
+import { CurrencyPickerModal } from './CurrencyPickerModal';
 
 interface AddBudgetModalProps {
   visible: boolean;
@@ -60,8 +56,6 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [customCategories, setCustomCategories] = useState<any[]>([]);
   const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
-  const slideAnim = useRef(new Animated.Value(0)).current;
-  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     loadCustomCategories();
@@ -101,18 +95,6 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
         setSelectedCategory('');
         setCurrency(currencyCode);
       }
-      Animated.spring(slideAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        tension: 50,
-        friction: 7,
-      }).start();
-    } else {
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
     }
   }, [visible, budget, currencyCode]);
 
@@ -121,7 +103,7 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
       const categories = await getCustomCategories('expense');
       setCustomCategories(categories);
     } catch (error) {
-      
+
     }
   };
 
@@ -172,7 +154,7 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
       onSave();
       onClose();
     } catch (error) {
-      
+
       alertService.error('خطأ', 'حدث خطأ أثناء حفظ الميزانية');
     }
   };
@@ -195,294 +177,110 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
   ];
 
   return (
-    <Modal
+    <AppBottomSheet
       visible={visible}
-      transparent={true}
-      animationType="slide"
-      onRequestClose={onClose}
+      onClose={onClose}
+      title={budget ? 'تعديل الميزانية' : 'إضافة ميزانية جديدة'}
+      maxHeight="90%"
     >
-      <View style={styles.container}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardView}
-        >
-          <Animated.View
-            style={[
-              styles.modalContainer,
-              {
-                paddingBottom: insets.bottom,
-                opacity: slideAnim,
-                transform: [
-                  {
-                    translateY: slideAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [100, 0],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            {/* Header */}
-            <View style={styles.header}>
-              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
-              </TouchableOpacity>
-              <View style={styles.headerTitleContainer}>
-                <Text style={styles.headerTitle}>
-                  {budget ? 'تعديل الميزانية' : 'إضافة ميزانية جديدة'}
-                </Text>
-                <Text style={styles.headerSubtitle}>حدد ميزانيتك الشهرية</Text>
-              </View>
-              <View style={{ width: 40 }} />
-            </View>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Amount Card */}
+        <View style={styles.amountCard}>
+          <Text style={styles.amountLabel}>المبلغ الشهري</Text>
+          <View style={styles.amountInputRow}>
+            <TextInput
+              style={styles.amountInput}
+              value={amount}
+              onChangeText={(val) => {
+                const cleaned = convertArabicToEnglish(val);
+                setAmount(formatNumberWithCommas(cleaned));
+              }}
+              placeholder="0"
+              placeholderTextColor={theme.colors.textMuted}
+              keyboardType="numeric"
+              autoFocus
+            />
+            <AppButton
+              label={CURRENCIES.find(c => c.code === currency)?.symbol || ''}
+              onPress={() => setShowCurrencyPicker(true)}
+              variant="secondary"
+              rightIcon="chevron-down"
+              style={styles.currencyButton}
+              labelStyle={styles.currencyText}
+            />
+          </View>
+          {convertedAmount !== null && currency !== currencyCode && (
+            <Text style={styles.convertedAmountText}>
+              ≈ {formatCurrency(convertedAmount)}
+            </Text>
+          )}
+        </View>
 
-            <ScrollView
-              style={styles.scrollView}
-              contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
-              {/* Amount Card */}
-              <View style={styles.amountCard}>
-                <Text style={styles.amountLabel}>المبلغ الشهري</Text>
-                <View style={styles.amountInputRow}>
-                  <TextInput
-                    style={styles.amountInput}
-                    value={amount}
-                    onChangeText={(val) => {
-                      const cleaned = convertArabicToEnglish(val);
-                      setAmount(formatNumberWithCommas(cleaned));
-                    }}
-                    placeholder="0"
-                    placeholderTextColor={theme.colors.textMuted}
-                    keyboardType="numeric"
-                    autoFocus
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowCurrencyPicker(true)}
-                    style={styles.currencyButton}
-                  >
-                    <Text style={styles.currencyText}>
-                      {CURRENCIES.find(c => c.code === currency)?.symbol}
-                    </Text>
-                    <Ionicons name="chevron-down" size={16} color={theme.colors.primary} />
-                  </TouchableOpacity>
-                </View>
-                {convertedAmount !== null && currency !== currencyCode && (
-                  <Text style={styles.convertedAmountText}>
-                    ≈ {formatCurrency(convertedAmount)}
-                  </Text>
-                )}
-              </View>
+        {/* Category Selection */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>اختر الفئة</Text>
+          <View style={styles.categoriesGrid}>
+            {allCategories.map((category) => {
+              const isSelected = selectedCategory === category;
+              const customCat = customCategories.find(c => c.name === category);
+              const categoryColor = customCat?.color || theme.colors.primary;
 
-              {/* Category Selection */}
-              <View style={styles.section}>
-                <Text style={styles.sectionLabel}>اختر الفئة</Text>
-                <View style={styles.categoriesGrid}>
-                  {allCategories.map((category) => {
-                    const isSelected = selectedCategory === category;
-                    const customCat = customCategories.find(c => c.name === category);
-                    const categoryColor = customCat?.color || theme.colors.primary;
+              return (
+                <AppButton
+                  key={category}
+                  label={getCategoryName(category)}
+                  onPress={() => setSelectedCategory(category)}
+                  variant={isSelected ? 'primary' : 'secondary'}
+                  leftIcon={isSelected ? (getCategoryIcon(category) as any) : (`${getCategoryIcon(category)}-outline` as any)}
+                  style={[
+                    styles.categoryCard,
+                    isSelected && { backgroundColor: categoryColor }
+                  ]}
+                  labelStyle={[
+                    styles.categoryCardLabel,
+                    isSelected && styles.categoryCardLabelActive
+                  ]}
+                />
+              );
+            })}
+          </View>
+        </View>
+      </ScrollView>
 
-                    return (
-                      <TouchableOpacity
-                        key={category}
-                        onPress={() => setSelectedCategory(category)}
-                        activeOpacity={0.7}
-                        style={[
-                          styles.categoryCard,
-                          isSelected && { borderColor: categoryColor, borderWidth: 2 }
-                        ]}
-                      >
-                        <LinearGradient
-                          colors={isSelected
-                            ? [categoryColor, categoryColor + 'DD'] as any
-                            : [theme.colors.surfaceLight, theme.colors.surfaceLight] as any
-                          }
-                          style={styles.categoryCardGradient}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 1 }}
-                        >
-                          <View style={[
-                            styles.categoryIconContainer,
-                            { backgroundColor: isSelected ? 'rgba(255,255,255,0.2)' : theme.colors.surface }
-                          ]}>
-                            <Ionicons
-                              name={getCategoryIcon(category) as any}
-                              size={22}
-                              color={isSelected ? theme.colors.background : categoryColor}
-                            />
-                          </View>
-                          <Text style={[
-                            styles.categoryCardLabel,
-                            isSelected && styles.categoryCardLabelActive
-                          ]} numberOfLines={1}>
-                            {getCategoryName(category)}
-                          </Text>
-                          {isSelected && (
-                            <Ionicons name="checkmark-circle" size={18} color={theme.colors.background} style={styles.checkIcon} />
-                          )}
-                        </LinearGradient>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-            </ScrollView>
-
-            {/* Actions */}
-            <View style={styles.actions}>
-              <TouchableOpacity
-                onPress={onClose}
-                style={styles.cancelButton}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.cancelButtonText}>إلغاء</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleSave}
-                style={styles.saveButton}
-                activeOpacity={0.7}
-                disabled={!amount || !selectedCategory}
-              >
-                <LinearGradient
-                  colors={
-                    amount && selectedCategory
-                      ? (theme.gradients.primary as any)
-                      : [theme.colors.textMuted, theme.colors.border]
-                  }
-                  style={styles.saveButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  <Ionicons name="checkmark" size={20} color="#FFFFFF" />
-                  <Text style={styles.saveButtonText}>
-                    {budget ? 'تحديث' : 'حفظ الميزانية'}
-                  </Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
-        </KeyboardAvoidingView>
+      {/* Actions */}
+      <View style={styles.actions}>
+        <AppButton
+          label="إلغاء"
+          onPress={onClose}
+          variant="secondary"
+          style={styles.cancelButton}
+        />
+        <AppButton
+          label={budget ? 'تحديث' : 'حفظ الميزانية'}
+          onPress={handleSave}
+          variant="primary"
+          disabled={!amount || !selectedCategory}
+          leftIcon="checkmark"
+          style={styles.saveButton}
+        />
       </View>
 
-      {/* Currency Picker Modal */}
-      <Modal
+      <CurrencyPickerModal
         visible={showCurrencyPicker}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowCurrencyPicker(false)}
-      >
-        <Pressable
-          style={styles.currencyModalOverlay}
-          onPress={() => setShowCurrencyPicker(false)}
-        >
-          <Pressable
-            style={styles.currencyModalContainer}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <View style={styles.currencyModalHeader}>
-              <Text style={styles.currencyModalTitle}>اختر العملة</Text>
-              <TouchableOpacity
-                onPress={() => setShowCurrencyPicker(false)}
-                style={styles.currencyModalCloseButton}
-              >
-                <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView
-              style={styles.currencyModalScrollView}
-              contentContainerStyle={styles.currencyModalScrollContent}
-              showsVerticalScrollIndicator={true}
-            >
-              {CURRENCIES.map((curr) => {
-                const isSelected = currency === curr.code;
-                return (
-                  <TouchableOpacity
-                    key={curr.code}
-                    style={[
-                      styles.currencyOption,
-                      isSelected && styles.currencyOptionSelected,
-                    ]}
-                    onPress={() => {
-                      setCurrency(curr.code);
-                      setShowCurrencyPicker(false);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.currencyOptionContent}>
-                      <Text style={styles.currencySymbol}>{curr.symbol}</Text>
-                      <Text style={[
-                        styles.currencyOptionText,
-                        isSelected && styles.currencyOptionTextSelected,
-                      ]}>
-                        {curr.name}
-                      </Text>
-                    </View>
-                    {isSelected && (
-                      <Ionicons name="checkmark-circle" size={22} color={theme.colors.primary} />
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
-    </Modal>
+        selectedCurrency={currency}
+        onSelect={(code) => { setCurrency(code); setShowCurrencyPicker(false); }}
+        onClose={() => setShowCurrencyPicker(false)}
+      />
+    </AppBottomSheet>
   );
 };
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.overlay,
-    justifyContent: 'flex-end',
-  },
-  keyboardView: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  modalContainer: {
-    backgroundColor: theme.colors.surfaceCard,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '90%',
-    ...getPlatformShadow('lg'),
-  },
-  header: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: theme.colors.surfaceLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: theme.typography.sizes.lg,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-  },
-  headerSubtitle: {
-    fontSize: theme.typography.sizes.sm,
-    color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
-    marginTop: 2,
-  },
   scrollView: {
     flex: 1,
   },
@@ -601,38 +399,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: 14,
-    alignItems: 'center',
-    backgroundColor: theme.colors.surfaceLight,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  cancelButtonText: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('600'),
-    color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
   },
   saveButton: {
     flex: 2,
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  saveButtonGradient: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing.sm,
-  },
-  saveButtonText: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.background,
-    fontFamily: theme.typography.fontFamily,
   },
 
   // Currency Modal Styles
@@ -697,11 +466,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     width: 40,
     textAlign: 'center',
+    ...(isRTL ? { marginLeft: theme.spacing.md } : { marginRight: theme.spacing.md }),
   },
   currencyOptionText: {
     fontSize: theme.typography.sizes.md,
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'right' : 'left',
   },
   currencyOptionTextSelected: {
     fontWeight: getPlatformFontWeight('700'),

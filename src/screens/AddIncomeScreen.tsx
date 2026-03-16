@@ -5,17 +5,13 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
-  Modal,
   StatusBar,
   Keyboard,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextInput } from 'react-native-paper';
 import { CustomDatePicker } from '../components/CustomDatePicker';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { Income, IncomeSource, INCOME_SOURCES, CURRENCIES } from '../types';
@@ -27,6 +23,7 @@ import {
   CustomCategory
 } from '../database/database';
 import { ManageShortcutsModal } from '../components/ManageShortcutsModal';
+import { CurrencyPickerModal } from '../components/CurrencyPickerModal';
 import { alertService } from '../services/alertService';
 import { useCurrency } from '../hooks/useCurrency';
 import { isRTL } from '../utils/rtl';
@@ -35,6 +32,7 @@ import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers
 import { formatDateLocal } from '../utils/date';
 import { getSmartIncomeShortcuts } from '../services/smartShortcutsService';
 import { resolveIoniconName, toOutlineIoniconName } from '../utils/icon-utils';
+import { ScreenContainer, AppHeader, AppButton, AppBottomSheet } from '../design-system';
 
 interface AddIncomeScreenProps {
   navigation: any;
@@ -46,7 +44,6 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
   route,
 }) => {
   const { theme, isDark } = useAppTheme();
-  const insets = useSafeAreaInsets();
   const styles = useThemedStyles(createStyles);
   const { currencyCode, formatCurrency, loading: currencyLoading } = useCurrency();
   const income = route?.params?.income as Income | undefined;
@@ -76,23 +73,7 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
 
-  useEffect(() => {
-    const keyboardWillShowListener = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      () => setKeyboardVisible(true)
-    );
-    const keyboardWillHideListener = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => setKeyboardVisible(false)
-    );
-
-    return () => {
-      keyboardWillHideListener.remove();
-      keyboardWillShowListener.remove();
-    };
-  }, []);
   const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
 
   // Data State
@@ -262,183 +243,177 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
 
   const currentSourceInfo = getSourceInfo(incomeSource);
 
+  const saveFooter = (
+    <AppButton
+      label={income ? 'تحديث الدخل' : 'حفظ الدخل'}
+      onPress={handleSave}
+      variant="primary"
+      size="lg"
+      loading={loading}
+      disabled={loading}
+      style={{ backgroundColor: currentSourceInfo.color || theme.colors.success }}
+    />
+  );
+
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <ScreenContainer
+      scrollable
+      footer={saveFooter}
+      edges={['top']}
+      scrollPadBottom={16}
+    >
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-      <KeyboardAvoidingView
-        behavior="padding"
-        style={styles.flex1}
-        keyboardVerticalOffset={0}
-      >
-        <View style={styles.flex1}>
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity onPress={handleClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
+
+      {/* Header */}
+      <AppHeader
+        title={income ? 'تعديل دخل' : 'دخل جديد'}
+        backIcon="close"
+        onBack={handleClose}
+      />
+
+      {/* Amount Section */}
+      <View style={styles.amountSection}>
+        <Text style={styles.currencySymbol}>{CURRENCIES.find(c => c.code === currency)?.symbol}</Text>
+        <TextInput
+          ref={amountInputRef}
+          value={amount}
+          onChangeText={(v) => {
+            const cleaned = convertArabicToEnglish(v);
+            setAmount(formatNumberWithCommas(cleaned));
+          }}
+          placeholder="0"
+          placeholderTextColor={theme.colors.textMuted + '80'}
+          style={styles.amountInput}
+          keyboardType="decimal-pad"
+          selectionColor={theme.colors.success}
+          underlineColor="transparent"
+          activeUnderlineColor="transparent"
+        />
+      </View>
+      <View style={{ height: 24, justifyContent: 'center' }}>
+        {convertedAmount !== null && (
+          <Text style={styles.convertedText}>≈ {formatCurrency(convertedAmount)}</Text>
+        )}
+      </View>
+
+      <TouchableOpacity onPress={() => setShowCurrencyPicker(true)} style={styles.currencyPill}>
+        <Text style={styles.currencyPillText}>{currency}</Text>
+        <Ionicons name="chevron-down" size={14} color={theme.colors.textSecondary} />
+      </TouchableOpacity>
+
+      {/* Shortcuts (Mini) */}
+      {!income && (
+        <View style={styles.shortcutsRow}>
+          <View style={styles.shortcutsSectionHeader}>
+            <Text style={styles.shortcutsSectionTitle}>اختصارات سريعة</Text>
+            <TouchableOpacity style={styles.addShortcutButton} onPress={() => setShowManageShortcuts(true)}>
+              <Ionicons name="settings-outline" size={16} color={theme.colors.success} />
+              <Text style={styles.addShortcutButtonText}>إدارة</Text>
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>{income ? 'تعديل دخل' : 'دخل جديد'}</Text>
-            <View style={{ width: 40 }} />
           </View>
-
-          <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-
-            {/* Amount Section */}
-            <View style={styles.amountSection}>
-              <Text style={styles.currencySymbol}>{CURRENCIES.find(c => c.code === currency)?.symbol}</Text>
-              <TextInput
-                ref={amountInputRef}
-                value={amount}
-                onChangeText={(v) => {
-                  const cleaned = convertArabicToEnglish(v);
-                  setAmount(formatNumberWithCommas(cleaned));
-                }}
-                placeholder="0"
-                placeholderTextColor={theme.colors.textMuted + '80'}
-                style={styles.amountInput}
-                keyboardType="decimal-pad"
-                selectionColor={theme.colors.success}
-                underlineColor="transparent"
-                activeUnderlineColor="transparent"
-              />
-            </View>
-            <View style={{ height: 24, justifyContent: 'center' }}>
-              {convertedAmount !== null && (
-                <Text style={styles.convertedText}>≈ {formatCurrency(convertedAmount)}</Text>
-              )}
-            </View>
-
-            <TouchableOpacity onPress={() => setShowCurrencyPicker(true)} style={styles.currencyPill}>
-              <Text style={styles.currencyPillText}>{currency}</Text>
-              <Ionicons name="chevron-down" size={14} color={theme.colors.textSecondary} />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shortcutsContent}>
+            <TouchableOpacity style={styles.addShortcutMini} onPress={() => setShowManageShortcuts(true)}>
+              <Ionicons name="add" size={24} color="#10B981" />
             </TouchableOpacity>
-
-            {/* Shortcuts (Mini) */}
-            {!income && (
-              <View style={styles.shortcutsRow}>
-                <View style={styles.shortcutsSectionHeader}>
-                  <Text style={styles.shortcutsSectionTitle}>اختصارات سريعة</Text>
-                  <TouchableOpacity style={styles.addShortcutButton} onPress={() => setShowManageShortcuts(true)}>
-                    <Ionicons name="settings-outline" size={16} color={theme.colors.success} />
-                    <Text style={styles.addShortcutButtonText}>إدارة</Text>
-                  </TouchableOpacity>
+            {shortcuts.map(s => (
+              <TouchableOpacity
+                key={s.id}
+                style={styles.shortcutChip}
+                onPress={() => handleShortcutUsed(s)}
+              >
+                <View style={styles.shortcutChipIconContainer}>
+                  <Ionicons name="add" size={18} color="#10B981" />
                 </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shortcutsContent}>
-                  <TouchableOpacity style={styles.addShortcutMini} onPress={() => setShowManageShortcuts(true)}>
-                    <Ionicons name="add" size={24} color="#10B981" />
-                  </TouchableOpacity>
-                  {shortcuts.map(s => (
-                    <TouchableOpacity
-                      key={s.id}
-                      style={styles.shortcutChip}
-                      onPress={() => handleShortcutUsed(s)}
-                    >
-                      <View style={styles.shortcutChipIconContainer}>
-                        <Ionicons name="add" size={18} color="#10B981" />
-                      </View>
-                      <Text style={styles.shortcutChipText}>{s.source}</Text>
-                      <Text style={styles.shortcutChipAmount}>{s.amount} د.ع</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-
-            {/* Form Card */}
-            <View style={styles.card}>
-              {/* Source Categories */}
-              <View style={styles.section}>
-                <Text style={styles.sectionLabel}>المصدر</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesList}>
-                  {categories.map(cat => {
-                    const isSelected = incomeSource === cat.name;
-                    const iconName = isSelected
-                      ? resolveIoniconName(cat.icon, 'wallet-outline')
-                      : toOutlineIoniconName(cat.icon, 'wallet-outline');
-                    return (
-                      <TouchableOpacity
-                        key={cat.id}
-                        style={[styles.catItem, isSelected && { borderColor: cat.color }]}
-                        onPress={() => {
-                          setIncomeSource(cat.name);
-                        }}
-                      >
-                        <View style={[styles.catIcon, { backgroundColor: isSelected ? cat.color : theme.colors.surfaceLight }]}>
-                          <Ionicons
-                            name={iconName}
-                            size={20}
-                            color={isSelected ? theme.colors.background : theme.colors.textSecondary}
-                          />
-                        </View>
-                        <Text style={[styles.catName, isSelected && { color: cat.color, fontWeight: '700' }]} numberOfLines={1}>{cat.name}</Text>
-                      </TouchableOpacity>
-                    )
-                  })}
-                </ScrollView>
-              </View>
-
-              {/* Source Name Input */}
-              <View style={styles.fieldRow}>
-                <View style={styles.fieldIcon}>
-                  <Ionicons name="wallet-outline" size={20} color={theme.colors.textSecondary} />
-                </View>
-                <TextInput
-                  placeholder="مصدر الدخل (مثال: مكافأة)"
-                  value={source}
-                  onChangeText={setSource}
-                  style={styles.fieldInput}
-                  underlineColor="transparent"
-                  activeUnderlineColor="transparent"
-                  placeholderTextColor={theme.colors.textMuted}
-                />
-              </View>
-
-              <View style={styles.divider} />
-
-              {/* Date Picker */}
-              <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.fieldRow}>
-                <View style={styles.fieldIcon}>
-                  <Ionicons name="calendar-outline" size={20} color={theme.colors.textSecondary} />
-                </View>
-                <Text style={styles.fieldText}>
-                  {date.toLocaleDateString('ar-IQ-u-nu-latn', {
-                    weekday: 'short', year: 'numeric', month: 'long', day: 'numeric'
-                  })}
-                </Text>
+                <Text style={styles.shortcutChipText}>{s.source}</Text>
+                <Text style={styles.shortcutChipAmount}>{s.amount} د.ع</Text>
               </TouchableOpacity>
-
-              <View style={styles.divider} />
-
-              {/* Description */}
-              <View style={styles.fieldRow}>
-                <View style={styles.fieldIcon}>
-                  <Ionicons name="document-text-outline" size={20} color={theme.colors.textSecondary} />
-                </View>
-                <TextInput
-                  placeholder="ملاحظات إضافية..."
-                  value={description}
-                  onChangeText={setDescription}
-                  style={[styles.fieldInput]}
-                  underlineColor="transparent"
-                  activeUnderlineColor="transparent"
-                  placeholderTextColor={theme.colors.textMuted}
-                  multiline
-                />
-              </View>
-            </View>
+            ))}
           </ScrollView>
-
-          {/* Footer containing Button - NOT absolute */}
-          <View style={[styles.footerContainer, { paddingBottom: isKeyboardVisible ? 8 : Math.max(insets.bottom, 16) }]}>
-            <TouchableOpacity
-              style={[styles.saveBtn, { backgroundColor: currentSourceInfo.color || theme.colors.success }]}
-              onPress={handleSave}
-              disabled={loading}
-            >
-              {loading ? <Text style={styles.saveBtnText}>...</Text> : <Text style={styles.saveBtnText}>حفظ الدخل</Text>}
-            </TouchableOpacity>
-          </View>
         </View>
-      </KeyboardAvoidingView>
+      )}
+
+      {/* Form Card */}
+      <View style={styles.card}>
+        {/* Source Categories */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>المصدر</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesList}>
+            {categories.map(cat => {
+              const isSelected = incomeSource === cat.name;
+              const iconName = isSelected
+                ? resolveIoniconName(cat.icon, 'wallet-outline')
+                : toOutlineIoniconName(cat.icon, 'wallet-outline');
+              return (
+                <TouchableOpacity
+                  key={cat.id}
+                  style={[styles.catItem, isSelected && { borderColor: cat.color }]}
+                  onPress={() => {
+                    setIncomeSource(cat.name);
+                  }}
+                >
+                  <View style={[styles.catIcon, { backgroundColor: isSelected ? cat.color : theme.colors.surfaceLight }]}>
+                    <Ionicons
+                      name={iconName}
+                      size={20}
+                      color={isSelected ? theme.colors.background : theme.colors.textSecondary}
+                    />
+                  </View>
+                  <Text style={[styles.catName, isSelected && { color: cat.color, fontWeight: '700' }]} numberOfLines={1}>{cat.name}</Text>
+                </TouchableOpacity>
+              )
+            })}
+          </ScrollView>
+        </View>
+
+        {/* Source Name Input */}
+        <View style={styles.fieldRow}>
+          <View style={styles.fieldIcon}>
+            <Ionicons name="wallet-outline" size={20} color={theme.colors.textSecondary} />
+          </View>
+          <TextInput
+            placeholder="مصدر الدخل (مثال: مكافأة)"
+            value={source}
+            onChangeText={setSource}
+            style={styles.fieldInput}
+            underlineColor="transparent"
+            activeUnderlineColor="transparent"
+            placeholderTextColor={theme.colors.textMuted}
+          />
+        </View>
+
+        <View style={styles.divider} />
+
+        {/* Date Picker */}
+        <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.fieldRow}>
+          <View style={styles.fieldIcon}>
+            <Ionicons name="calendar-outline" size={20} color={theme.colors.textSecondary} />
+          </View>
+          <Text style={styles.fieldText}>
+            {date.toLocaleDateString('ar-IQ-u-nu-latn', {
+              weekday: 'short', year: 'numeric', month: 'long', day: 'numeric'
+            })}
+          </Text>
+        </TouchableOpacity>
+
+        <View style={styles.divider} />
+
+        {/* Description */}
+        <View style={styles.fieldRow}>
+          <View style={styles.fieldIcon}>
+            <Ionicons name="document-text-outline" size={20} color={theme.colors.textSecondary} />
+          </View>
+          <TextInput
+            placeholder="ملاحظات إضافية..."
+            value={description}
+            onChangeText={setDescription}
+            style={[styles.fieldInput]}
+            underlineColor="transparent"
+            activeUnderlineColor="transparent"
+            placeholderTextColor={theme.colors.textMuted}
+            multiline
+          />
+        </View>
+      </View>
 
       {/* Modals */}
       {showDatePicker && (
@@ -452,22 +427,13 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
         />
       )}
 
-      {/* Currency Modal */}
-      <Modal visible={showCurrencyPicker} transparent animationType="slide" onRequestClose={() => setShowCurrencyPicker(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setShowCurrencyPicker(false)}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>اختر العملة</Text>
-            <ScrollView>
-              {CURRENCIES.map(c => (
-                <TouchableOpacity key={c.code} style={styles.modalItem} onPress={() => { setCurrency(c.code); setShowCurrencyPicker(false); }}>
-                  <Text style={[styles.modalItemText, currency === c.code && { color: theme.colors.success, fontWeight: 'bold' }]}>{c.name} ({c.symbol})</Text>
-                  {currency === c.code && <Ionicons name="checkmark" size={20} color={theme.colors.success} />}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </Pressable>
-      </Modal>
+      {/* Currency Picker */}
+      <CurrencyPickerModal
+        visible={showCurrencyPicker}
+        selectedCurrency={currency}
+        onSelect={(code) => { setCurrency(code); setShowCurrencyPicker(false); }}
+        onClose={() => setShowCurrencyPicker(false)}
+      />
 
       {/* Manage Shortcuts Modal */}
       <ManageShortcutsModal
@@ -476,38 +442,11 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
         onShortcutUsed={handleShortcutUsed}
       />
 
-    </SafeAreaView>
+    </ScreenContainer>
   );
 };
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-  flex1: { flex: 1 },
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  header: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingTop: Platform.OS === 'android' ? 16 : 12,
-    paddingBottom: Platform.OS === 'android' ? 12 : 12,
-  },
-  closeBtn: {
-    padding: 8,
-    borderRadius: 12,
-    backgroundColor: theme.colors.surface,
-  },
-  headerTitle: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-  },
-  scrollContent: {
-    paddingBottom: 80,
-  },
   amountSection: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -717,52 +656,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginVertical: theme.spacing.md,
     marginLeft: 44,
   },
-  footerContainer: {
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.background,
-    // No absolute positioning prevents keyboard overlap
-  },
-  saveBtn: {
-    height: 52,
-    borderRadius: theme.borderRadius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  saveBtnText: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.background,
-    fontFamily: theme.typography.fontFamily,
-  },
   // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: theme.colors.overlay,
-    justifyContent: 'flex-end',
-  },
-  modalOverlayCentered: {
-    flex: 1,
-    backgroundColor: theme.colors.overlay,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: theme.colors.surfaceCard,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 16,
-    maxHeight: '60%',
-  },
-  modalTitle: {
-    fontSize: theme.typography.sizes.lg,
-    fontWeight: getPlatformFontWeight('700'),
-    marginBottom: theme.spacing.md,
-    textAlign: 'center',
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-  },
   modalItem: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     paddingVertical: 12,
     borderBottomWidth: 1,
@@ -773,41 +669,4 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
-  alertBox: {
-    backgroundColor: theme.colors.surface,
-    width: '85%',
-    borderRadius: 18,
-    padding: 16,
-    ...getPlatformShadow('lg'),
-  },
-  alertTitle: {
-    fontSize: 18,
-    fontWeight: getPlatformFontWeight('bold'),
-    marginBottom: 12,
-    textAlign: 'center',
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-  },
-  alertMsg: {
-    textAlign: 'center',
-    color: theme.colors.textSecondary,
-    marginBottom: 16,
-    fontFamily: theme.typography.fontFamily,
-  },
-  alertActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  alertBtn: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: theme.colors.surfaceLight,
-    alignItems: 'center',
-  },
-  alertBtnText: {
-    fontWeight: getPlatformFontWeight('600'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-  }
 });

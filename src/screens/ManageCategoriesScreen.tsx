@@ -5,11 +5,7 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
 import { useAppTheme, useThemedStyles } from '../utils/theme-context';
@@ -22,6 +18,7 @@ import {
 } from '../database/database';
 import { INCOME_SOURCES, EXPENSE_CATEGORIES } from '../types';
 import { alertService } from '../services/alertService';
+import { ScreenContainer, AppHeader, AppButton } from '../design-system';
 
 interface ManageCategoriesScreenProps {
   navigation: any;
@@ -101,163 +98,104 @@ export const ManageCategoriesScreen: React.FC<ManageCategoriesScreenProps> = ({
     }
   };
 
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
-        <LinearGradient
-          colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-          style={styles.gradient}
-        >
-          <View style={styles.header}>
-            <Text style={styles.title}>
-              {type === 'income' ? 'إدارة مصادر الدخل' : 'إدارة فئات المصاريف'}
-            </Text>
-            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-              <Ionicons name="close" size={28} color={theme.colors.textPrimary} />
-            </TouchableOpacity>
-          </View>
-          {/* Content */}
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={true}
-          >
-            <View style={styles.categoriesSection}>
-              <Text style={styles.sectionTitle}>
-                {type === 'income' ? 'جميع المصادر' : 'جميع الفئات'}
-              </Text>
-              {categories.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                  <Ionicons name="folder-outline" size={64} color={theme.colors.textMuted} />
-                  <Text style={styles.emptyText}>
-                    {type === 'income' ? 'لا توجد مصادر' : 'لا توجد فئات'}
-                  </Text>
-                  <Text style={styles.emptySubtext}>
-                    {type === 'income'
-                      ? 'أضف مصادر دخل جديدة لتسهيل تصنيف دخلك'
-                      : 'أضف فئات جديدة لتسهيل تصنيف مصاريفك'}
-                  </Text>
-                </View>
-              ) : (
-                categories.map((category) => {
-                  const isDefault = isDefaultCategory(category.name);
-                  return (
-                    <View key={category.id} style={styles.categoryItem}>
-                      <View style={styles.categoryItemLeft}>
-                        <View
-                          style={[
-                            styles.categoryIconContainer,
-                            { backgroundColor: category.color + '20' },
-                          ]}
-                        >
-                          <Ionicons
-                            name={category.icon as any}
-                            size={24}
-                            color={category.color}
-                          />
-                        </View>
-                        <View style={styles.categoryInfo}>
-                          <Text style={styles.categoryName}>{category.name}</Text>
-                          <Text style={styles.categoryType}>
-                            {isDefault
-                              ? type === 'income'
-                                ? 'مصدر افتراضي'
-                                : 'فئة افتراضية'
-                              : type === 'income'
-                                ? 'مصدر مخصص'
-                                : 'فئة مخصصة'}
-                          </Text>
-                        </View>
-                      </View>
-                      <View style={styles.categoryActions}>
-                        <TouchableOpacity
-                          onPress={() => handleEdit(category)}
-                          style={styles.editButton}
-                        >
-                          <Ionicons name="create-outline" size={20} color={theme.colors.primary} />
-                        </TouchableOpacity>
-                        {!isDefault && (
-                          <TouchableOpacity
-                            onPress={() => handleDelete(category.id, category.name)}
-                            style={styles.deleteButton}
-                          >
-                            <Ionicons name="trash-outline" size={20} color={theme.colors.error} />
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                    </View>
-                  );
-                })
-              )}
-            </View>
-          </ScrollView>
+  const addFooter = (
+    <AppButton
+      label={type === 'income' ? 'إضافة مصدر جديد' : 'إضافة فئة جديدة'}
+      onPress={handleAdd}
+      variant="success"
+      size="lg"
+      leftIcon="add-circle"
+    />
+  );
 
-          {/* Footer */}
-          <View style={styles.footer}>
-            <TouchableOpacity
-              onPress={handleAdd}
-              style={styles.addButton}
-              activeOpacity={0.8}
-            >
-              <LinearGradient
-                colors={['#10B981', '#059669'] as any}
-                style={styles.addButtonGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <Ionicons name="add-circle" size={20} color={theme.colors.textInverse} />
-                <Text style={styles.addButtonText}>
-                  {type === 'income' ? 'إضافة مصدر جديد' : 'إضافة فئة جديدة'}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
+  return (
+    <ScreenContainer
+      scrollable
+      footer={addFooter}
+      edges={['top']}
+      style={{ backgroundColor: theme.colors.surfaceCard, direction: 'ltr', writingDirection: 'rtl' } as any}
+    >
+      {/* Header */}
+      <AppHeader
+        title={type === 'income' ? 'إدارة مصادر الدخل' : 'إدارة فئات المصاريف'}
+        backIcon="close"
+        onBack={handleClose}
+      />
+
+      {/* Content */}
+      <View style={styles.categoriesSection}>
+        <Text style={styles.sectionTitle}>
+          {type === 'income' ? 'جميع المصادر' : 'جميع الفئات'}
+        </Text>
+        {categories.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="folder-outline" size={64} color={theme.colors.textMuted} />
+            <Text style={styles.emptyText}>
+              {type === 'income' ? 'لا توجد مصادر' : 'لا توجد فئات'}
+            </Text>
+            <Text style={styles.emptySubtext}>
+              {type === 'income'
+                ? 'أضف مصادر دخل جديدة لتسهيل تصنيف دخلك'
+                : 'أضف فئات جديدة لتسهيل تصنيف مصاريفك'}
+            </Text>
           </View>
-        </LinearGradient>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        ) : (
+          categories.map((category) => {
+            const isDefault = isDefaultCategory(category.name);
+            return (
+              <View key={category.id} style={styles.categoryItem}>
+                <View style={styles.categoryItemLeft}>
+                  <View
+                    style={[
+                      styles.categoryIconContainer,
+                      { backgroundColor: category.color + '20' },
+                    ]}
+                  >
+                    <Ionicons
+                      name={category.icon as any}
+                      size={24}
+                      color={category.color}
+                    />
+                  </View>
+                  <View style={styles.categoryInfo}>
+                    <Text style={styles.categoryName}>{category.name}</Text>
+                    <Text style={styles.categoryType}>
+                      {isDefault
+                        ? type === 'income'
+                          ? 'مصدر افتراضي'
+                          : 'فئة افتراضية'
+                        : type === 'income'
+                          ? 'مصدر مخصص'
+                          : 'فئة مخصصة'}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.categoryActions}>
+                  <TouchableOpacity
+                    onPress={() => handleEdit(category)}
+                    style={styles.editButton}
+                  >
+                    <Ionicons name="create-outline" size={20} color={theme.colors.primary} />
+                  </TouchableOpacity>
+                  {!isDefault && (
+                    <TouchableOpacity
+                      onPress={() => handleDelete(category.id, category.name)}
+                      style={styles.deleteButton}
+                    >
+                      <Ionicons name="trash-outline" size={20} color={theme.colors.error} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            );
+          })
+        )}
+      </View>
+    </ScreenContainer>
   );
 };
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    direction: 'ltr',
-    writingDirection: 'rtl',
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  gradient: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  title: {
-    fontSize: theme.typography.sizes.xl,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-  },
-  closeButton: {
-    padding: theme.spacing.xs,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: theme.spacing.md,
-    paddingBottom: theme.spacing.lg,
-  },
   categoriesSection: {
     marginBottom: theme.spacing.lg,
   },
@@ -350,27 +288,5 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  footer: {
-    padding: theme.spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-  },
-  addButton: {
-    borderRadius: theme.borderRadius.md,
-    overflow: 'hidden',
-  },
-  addButtonGradient: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    gap: theme.spacing.sm,
-  },
-  addButtonText: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textInverse,
-    fontFamily: theme.typography.fontFamily,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
+  InteractionManager,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -44,26 +45,32 @@ export const AchievementsScreen = ({ navigation }: any) => {
   const [unlockedCount, setUnlockedCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
 
-  const loadAchievements = async () => {
+  const loadAchievements = useCallback(async () => {
     try {
       await checkAllAchievements(); // Update progress
-      const allAchievements = await getAchievements();
+      const [allAchievements, unlocked, total] = await Promise.all([
+        getAchievements(),
+        getUnlockedAchievementsCount(),
+        getTotalAchievementsCount(),
+      ]);
       setAchievements(allAchievements);
-
-      const unlocked = await getUnlockedAchievementsCount();
-      const total = await getTotalAchievementsCount();
       setUnlockedCount(unlocked);
       setTotalCount(total);
     } catch (error) {
-      
+
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadAchievements();
+    const task = InteractionManager.runAfterInteractions(() => {
+      loadAchievements();
+    });
     const unsubscribe = navigation.addListener('focus', loadAchievements);
-    return unsubscribe;
-  }, [navigation]);
+    return () => {
+      task.cancel();
+      unsubscribe();
+    };
+  }, [navigation, loadAchievements]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -75,7 +82,7 @@ export const AchievementsScreen = ({ navigation }: any) => {
     try {
       await shareAchievement(achievement);
     } catch (error) {
-      
+
     }
   };
 
@@ -83,16 +90,17 @@ export const AchievementsScreen = ({ navigation }: any) => {
     try {
       await shareAchievements(achievements);
     } catch (error) {
-      
+
     }
   };
 
-  const filteredAchievements = selectedCategory === 'all'
-    ? achievements
-    : achievements.filter(a => a.category === selectedCategory);
+  const filteredAchievements = useMemo(
+    () => selectedCategory === 'all' ? achievements : achievements.filter(a => a.category === selectedCategory),
+    [achievements, selectedCategory]
+  );
 
-  const unlockedAchievements = filteredAchievements.filter(a => a.isUnlocked);
-  const lockedAchievements = filteredAchievements.filter(a => !a.isUnlocked);
+  const unlockedAchievements = useMemo(() => filteredAchievements.filter(a => a.isUnlocked), [filteredAchievements]);
+  const lockedAchievements = useMemo(() => filteredAchievements.filter(a => !a.isUnlocked), [filteredAchievements]);
 
   const getProgressPercentage = (achievement: Achievement): number => {
     if (achievement.targetProgress === 0) return 0;
@@ -177,7 +185,7 @@ export const AchievementsScreen = ({ navigation }: any) => {
   const progressPercentage = totalCount > 0 ? (unlockedCount / totalCount) * 100 : 0;
 
   return (
-    <SafeAreaView style={styles.container} edges={[]}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -199,7 +207,7 @@ export const AchievementsScreen = ({ navigation }: any) => {
             <View style={styles.headerContent}>
               <View style={styles.headerLeft}>
                 <View style={styles.headerIconContainer}>
-                  <Ionicons name="trophy" size={32} color={theme.colors.textPrimary} />
+                  <Ionicons name="trophy" size={32} color="#FFFFFF" />
                 </View>
                 <View>
                   <Text style={styles.headerTitle}>الإنجازات</Text>
@@ -213,14 +221,14 @@ export const AchievementsScreen = ({ navigation }: any) => {
                   style={styles.shareAllButton}
                   onPress={handleShareAll}
                 >
-                  <Ionicons name="share-social" size={24} color={theme.colors.textPrimary} />
+                  <Ionicons name="share-social" size={24} color="#FFFFFF" />
                 </TouchableOpacity>
               )}
             </View>
             <View style={styles.progressContainerHeader}>
               <View style={styles.progressBarHeader}>
                 <LinearGradient
-                  colors={[theme.colors.textPrimary, theme.colors.textPrimary]}
+                  colors={['#FFFFFF', '#FFFFFF']}
                   style={[styles.progressFillHeader, { width: `${progressPercentage}%` }]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
@@ -320,6 +328,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: theme.borderRadius.xl,
     overflow: 'hidden',
     margin: theme.spacing.md,
+    marginTop: 0,
     marginBottom: theme.spacing.sm,
     ...getPlatformShadow('lg'),
   },
@@ -433,6 +442,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   scrollContent: {
     padding: theme.spacing.md,
+    paddingTop: 0,
     paddingBottom: 100,
   },
   section: {

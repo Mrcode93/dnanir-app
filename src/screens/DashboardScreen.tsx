@@ -12,9 +12,10 @@ import {
   Animated,
   Pressable,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScreenContainer } from '../design-system';
 import { useFocusEffect } from '@react-navigation/native';
-import { ActivityIndicator, StatusBar as RNStatusBar } from 'react-native';
+import { ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { PieChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -60,7 +61,9 @@ import { CircularProgress } from '../components/CircularProgress';
 import { ManageShortcutsModal } from '../components/ManageShortcutsModal';
 import { authStorage } from '../services/authStorage';
 import { authApiService } from '../services/authApiService';
+import { authEventService } from '../services/authEventService';
 import { alertService } from '../services/alertService';
+import { authModalService } from '../services/authModalService';
 import { ReferralModal } from '../components/ReferralModal';
 import { referralService } from '../services/referralService';
 import { TransactionDetailsModal } from '../components/TransactionDetailsModal';
@@ -414,6 +417,13 @@ const DashboardScreenComponent = ({ navigation }: any) => {
     };
   }, [navigation, loadDataSafe]);
 
+  useEffect(() => {
+    const unsubscribeAuth = authEventService.subscribe(() => {
+      setSecondaryData(prev => ({ ...prev, userName: '' }));
+    });
+    return unsubscribeAuth;
+  }, []);
+
   const getCategoryName = useCallback((category: string) => {
     return EXPENSE_CATEGORIES[category as keyof typeof EXPENSE_CATEGORIES] ||
       secondaryData.customCategories.find(c => c.name === category)?.name ||
@@ -506,7 +516,7 @@ const DashboardScreenComponent = ({ navigation }: any) => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+    <ScreenContainer scrollable={false} edges={['left', 'right']}>
       <StatusBar style="light" animated={true} />
       {/* Modern Pro Header - Sticky outside ScrollView */}
       <View style={styles.headerContainer}>
@@ -819,7 +829,7 @@ const DashboardScreenComponent = ({ navigation }: any) => {
                   confirmText: 'تسجيل الدخول',
                   cancelText: 'إلغاء',
                   showCancel: true,
-                  onConfirm: () => navigation.navigate('Auth')
+                  onConfirm: () => authModalService.show()
                 });
                 return;
               }
@@ -827,7 +837,7 @@ const DashboardScreenComponent = ({ navigation }: any) => {
             } catch (e) {
               const token = await authStorage.getAccessToken();
               if (token) navigation.navigate('AISmartInsights');
-              else navigation.navigate('Auth');
+              else authModalService.show();
             }
           }}
           activeOpacity={0.9}
@@ -956,8 +966,8 @@ const DashboardScreenComponent = ({ navigation }: any) => {
                 backgroundColor: theme.colors.surfaceCard,
                 borderTopLeftRadius: 30,
                 borderTopRightRadius: 30,
-                padding: 25,
-                paddingBottom: Math.max(insets.bottom, 25),
+                padding: theme.spacing.lg,
+                paddingBottom: Math.max(insets.bottom, theme.spacing.lg),
                 transform: [{
                   translateY: todayModalAnim.interpolate({
                     inputRange: [0, 1],
@@ -1104,8 +1114,8 @@ const DashboardScreenComponent = ({ navigation }: any) => {
                   >
                     <View style={styles.challengePreviewHeader}>
                       <View style={styles.challengePreviewContent}>
-                        <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                          <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 12 }}>
+                        <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: theme.spacing.sm }}>
+                          <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: theme.spacing.sm }}>
                             <View style={[styles.challengePreviewIconContainer, { backgroundColor: theme.colors.primary + '15' }]}>
                               <Ionicons name={challenge.icon as any || 'star'} size={24} color={theme.colors.primary} />
                             </View>
@@ -1202,17 +1212,13 @@ const DashboardScreenComponent = ({ navigation }: any) => {
         onSelect={handleCurrencyChange}
         onClose={() => setShowCurrencyPickerModal(false)}
       />
-    </SafeAreaView>
+    </ScreenContainer>
   );
 };
 
 export const DashboardScreen = React.memo(DashboardScreenComponent);
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
   fab: {
     position: 'absolute',
     bottom: 30, // Slightly higher
@@ -1221,11 +1227,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     width: 68, // Slightly larger
     height: 68,
     borderRadius: 34,
-    elevation: 8,
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
+    ...getPlatformShadow('lg'),
     zIndex: 1000,
   },
   fabGradient: {
@@ -1246,7 +1248,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   headerButtons: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: theme.spacing.sm,
   },
   topInfo: {
     paddingTop: theme.spacing.md,
@@ -1314,14 +1316,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: '#003459',
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
-    paddingBottom: Platform.OS === 'ios' ? 12 : 6,
+    paddingBottom: Platform.OS === 'ios' ? theme.spacing.sm : theme.spacing.xs,
     ...getPlatformShadow('xl'),
   },
   headerContent: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: theme.spacing.screenH,
   },
   headerTitle: {
     flex: 1,
@@ -1403,7 +1405,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: theme.spacing.xs,
   },
   actionLabel: {
-    fontSize: 12,
+    fontSize: theme.typography.sizes.xs,
     fontWeight: getPlatformFontWeight('300'),
     color: theme.colors.textPrimary,
     textAlign: 'center',
@@ -1429,9 +1431,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   shortcutsHeaderButtonNew: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    gap: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
     borderRadius: 12,
     backgroundColor: theme.colors.surfaceLight,
     borderWidth: 1,
@@ -1459,8 +1461,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   shortcutChip: {
     minWidth: 120,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.sm,
     borderRadius: 20,
     borderWidth: 1.2,
     alignItems: 'center',
@@ -1476,29 +1478,29 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderColor: 'rgba(16, 185, 129, 0.2)',
   },
   shortcutChipLabel: {
-    fontSize: 14,
+    fontSize: theme.typography.sizes.sm,
     fontWeight: getPlatformFontWeight('500'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    marginTop: 8,
+    marginTop: theme.spacing.sm,
   },
   shortcutChipAmount: {
     fontSize: 13,
     fontWeight: getPlatformFontWeight('400'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    marginTop: 4,
+    marginTop: theme.spacing.xs,
   },
   shortcutsEmptyHint: {
     alignItems: 'center',
     padding: theme.spacing.xl,
-    paddingVertical: 32,
+    paddingVertical: theme.spacing.xl,
     backgroundColor: 'transparent',
     borderRadius: 32,
     borderWidth: 2,
     borderColor: 'rgba(148, 163, 184, 0.15)',
     borderStyle: 'dashed',
-    gap: 16,
+    gap: theme.spacing.md,
   },
   shortcutsEmptyHintText: {
     fontSize: 15,
@@ -1507,7 +1509,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
     lineHeight: 24,
-    paddingHorizontal: 20,
+    paddingHorizontal: theme.spacing.screenH,
   },
   smartInsightsRow: {
     marginHorizontal: theme.spacing.sm,
@@ -1552,8 +1554,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   smartInsightsBadge: {
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
@@ -1588,7 +1590,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    gap: 8,
+    gap: theme.spacing.sm,
     zIndex: 1,
   },
   smartInsightsActionText: {
@@ -1600,10 +1602,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   modalStatRow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    paddingVertical: 15,
+    paddingVertical: theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border + '50',
-    gap: 15,
+    gap: theme.spacing.md,
   },
   modalStatIcon: {
     width: 48,
@@ -1627,7 +1629,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   modalCloseButton: {
     backgroundColor: theme.colors.primary,
-    paddingVertical: 14,
+    paddingVertical: theme.spacing.md,
     borderRadius: 16,
     alignItems: 'center',
   },
@@ -1698,7 +1700,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 4,
     overflow: 'hidden',
-    marginBottom: 8,
+    marginBottom: theme.spacing.sm,
   },
   progressFill: {
     height: '100%',
@@ -1736,7 +1738,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   transactionList: {
     backgroundColor: theme.colors.surfaceCard,
     borderRadius: 32,
-    padding: 16,
+    padding: theme.spacing.md,
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.03)',
     ...getPlatformShadow('md'),
@@ -1744,7 +1746,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
-    padding: 20,
+    padding: theme.spacing.screenH,
     color: theme.colors.textMuted,
     fontStyle: 'italic',
     fontFamily: theme.typography.fontFamily,
@@ -1790,7 +1792,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     marginBottom: theme.spacing.md,
-    gap: 12,
+    gap: theme.spacing.sm,
   },
   goalCardTitle: {
     fontSize: 17,
@@ -1819,7 +1821,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     flexDirection: isRTL ? 'row-reverse' : 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: theme.spacing.md,
     marginTop: theme.spacing.xs,
   },
   summaryGridItem: {
@@ -1922,12 +1924,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   statusCardGradient: {
     padding: theme.spacing.xl,
-    paddingVertical: 24,
+    paddingVertical: theme.spacing.lg,
   },
   statusCardHeader: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: theme.spacing.md,
     zIndex: 2,
   },
   statusCardIconContainer: {
@@ -1964,8 +1966,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   statusProgressBadge: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
@@ -2056,8 +2058,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   challengePreviewProgressContainer: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    gap: 16,
-    marginTop: 8,
+    gap: theme.spacing.md,
+    marginTop: theme.spacing.sm,
   },
   challengePreviewProgressBar: {
     flex: 1,
@@ -2095,7 +2097,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   sectionDivider: {
     height: 1,
     backgroundColor: theme.colors.border,
-    marginHorizontal: 24,
+    marginHorizontal: theme.spacing.lg,
     opacity: 1,
     marginBottom: theme.spacing.lg,
     width: '100%',

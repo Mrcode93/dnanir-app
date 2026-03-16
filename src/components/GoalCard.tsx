@@ -68,44 +68,53 @@ const GoalCardComponent: React.FC<GoalCardProps> = ({
 
   // Convert amounts if currency is different
   useEffect(() => {
+    let cancelled = false;
     const convertAmounts = async () => {
       if (goalCurrency !== currencyCode) {
         try {
           const convertedTarget = await convertCurrency(goal.targetAmount, goalCurrency, currencyCode);
           const convertedCurrent = await convertCurrency(goal.currentAmount, goalCurrency, currencyCode);
           const convertedRem = await convertCurrency(remaining, goalCurrency, currencyCode);
-          setConvertedTargetAmount(convertedTarget);
-          setConvertedCurrentAmount(convertedCurrent);
-          setConvertedRemaining(convertedRem);
+          if (!cancelled) {
+            setConvertedTargetAmount(convertedTarget);
+            setConvertedCurrentAmount(convertedCurrent);
+            setConvertedRemaining(convertedRem);
+          }
         } catch (error) {
-          
+          if (!cancelled) {
+            setConvertedTargetAmount(null);
+            setConvertedCurrentAmount(null);
+            setConvertedRemaining(null);
+          }
+        }
+      } else {
+        if (!cancelled) {
           setConvertedTargetAmount(null);
           setConvertedCurrentAmount(null);
           setConvertedRemaining(null);
         }
-      } else {
-        setConvertedTargetAmount(null);
-        setConvertedCurrentAmount(null);
-        setConvertedRemaining(null);
       }
     };
 
     convertAmounts();
+    return () => { cancelled = true; };
   }, [goal.targetAmount, goal.currentAmount, remaining, goalCurrency, currencyCode]);
 
   // Calculate estimated time to reach goal
   useEffect(() => {
+    let cancelled = false;
     const calculateTime = async () => {
       if (isCompleted || remaining <= 0) {
-        setEstimatedTime({ months: 0, days: 0, formatted: 'مكتمل' });
-        setAverageMonthlySavings(null);
+        if (!cancelled) {
+          setEstimatedTime({ months: 0, days: 0, formatted: 'مكتمل' });
+          setAverageMonthlySavings(null);
+        }
         return;
       }
 
       try {
         // Reuse precomputed savings when provided by parent screen.
         const avgSavings = averageMonthlySavingsHint ?? await calculateAverageMonthlySavings(6);
-        setAverageMonthlySavings(avgSavings);
 
         // Convert remaining amount to primary currency if needed
         let remainingInPrimaryCurrency = remaining;
@@ -113,20 +122,25 @@ const GoalCardComponent: React.FC<GoalCardProps> = ({
           try {
             remainingInPrimaryCurrency = await convertCurrency(remaining, goalCurrency, currencyCode);
           } catch (error) {
-            
+            // ignore conversion error, use original
           }
         }
 
         const timeEstimate = calculateTimeToReachGoal(remainingInPrimaryCurrency, avgSavings);
-        setEstimatedTime(timeEstimate);
+        if (!cancelled) {
+          setAverageMonthlySavings(avgSavings);
+          setEstimatedTime(timeEstimate);
+        }
       } catch (error) {
-        
-        setEstimatedTime(null);
-        setAverageMonthlySavings(null);
+        if (!cancelled) {
+          setEstimatedTime(null);
+          setAverageMonthlySavings(null);
+        }
       }
     };
 
     calculateTime();
+    return () => { cancelled = true; };
   }, [goal.id, remaining, isCompleted, goalCurrency, currencyCode, averageMonthlySavingsHint]);
 
   // Calculate days remaining if target date exists

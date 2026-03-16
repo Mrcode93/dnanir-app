@@ -1,16 +1,13 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Modal,
-  TouchableOpacity,
-  Animated,
-  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { isRTL } from '../utils/rtl';
+import { AppButton, AppDialog } from '../design-system';
 
 export type AlertType = 'success' | 'error' | 'warning' | 'info';
 
@@ -39,39 +36,6 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
 }) => {
   const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (visible) {
-      Animated.parallel([
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          useNativeDriver: true,
-          tension: 60,
-          friction: 8,
-        }),
-        Animated.timing(opacityAnim, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(scaleAnim, {
-          toValue: 0.9,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacityAnim, {
-          toValue: 0,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [visible]);
 
   const getTypeStyle = () => {
     switch (type) {
@@ -107,114 +71,57 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
 
   if (!visible) return null;
 
+  const confirmVariant = type === 'error' || type === 'warning' ? 'danger' : type === 'success' ? 'success' : 'primary';
+
   return (
-    <Modal
+    <AppDialog
       visible={visible}
-      transparent={true}
-      animationType="none"
-      onRequestClose={handleCancel}
-      statusBarTranslucent={true}
+      onClose={handleCancel}
+      title={title}
     >
-      <View style={styles.overlay}>
-        <Animated.View
-          style={[
-            styles.overlayAnimated,
-            {
-              opacity: opacityAnim,
-            },
-          ]}
-        />
-        <Animated.View
-          style={[
-            styles.alertContainer,
-            {
-              transform: [{ scale: scaleAnim }],
-              opacity: opacityAnim,
-            },
-          ]}
-        >
-          <View style={styles.alertContent}>
-            {/* Icon Section */}
-            <View style={[styles.iconContainer, { backgroundColor: typeStyle.bg }]}>
-              <Ionicons name={typeStyle.name as any} size={32} color={typeStyle.icon} />
-            </View>
+      <View style={styles.alertContent}>
+        {/* Icon Section */}
+        <View style={[styles.iconContainer, { backgroundColor: typeStyle.bg }]}>
+          <Ionicons name={typeStyle.name as any} size={32} color={typeStyle.icon} />
+        </View>
 
-            {/* Title */}
-            <Text style={styles.title}>{title}</Text>
+        {/* Message */}
+        <Text style={styles.message}>{message}</Text>
 
-            {/* Message */}
-            <Text style={styles.message}>{message}</Text>
-
-            {/* Actions */}
-            <View style={styles.actions}>
-              {showCancel && (
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={handleCancel}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.cancelButtonText}>{cancelText}</Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                style={[
-                  styles.confirmButton,
-                  { backgroundColor: typeStyle.icon },
-                  showCancel ? {} : { width: '100%' },
-                ]}
-                onPress={handleConfirm}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.confirmButtonText}>{confirmText}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Animated.View>
+        {/* Actions */}
+        <View style={styles.actions}>
+          {showCancel && (
+            <AppButton
+              label={cancelText}
+              onPress={handleCancel}
+              variant="secondary"
+              style={styles.actionBtnFlex}
+            />
+          )}
+          <AppButton
+            label={confirmText}
+            onPress={handleConfirm}
+            variant={confirmVariant}
+            style={showCancel ? styles.actionBtnFlex : styles.actionBtnFull}
+          />
+        </View>
       </View>
-    </Modal>
+    </AppDialog>
   );
 };
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-    backgroundColor: 'transparent',
-    zIndex: 99999,
-  },
-  overlayAnimated: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: theme.colors.overlay,
-  },
-  alertContainer: {
-    width: '100%',
-    maxWidth: 340,
-    borderRadius: theme.borderRadius.xl,
-    overflow: 'hidden',
-    backgroundColor: theme.colors.surface,
-    ...getPlatformShadow('xl'),
-  },
   alertContent: {
-    padding: 24,
     alignItems: 'center',
+    paddingTop: 8,
   },
   iconContainer: {
     width: 64,
     height: 64,
-    borderRadius: theme.borderRadius.lg, // Squircle-like
+    borderRadius: theme.borderRadius.lg,
     marginBottom: theme.spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  title: {
-    fontSize: theme.typography.sizes.lg,
-    fontWeight: '700',
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.xs,
-    textAlign: 'center',
   },
   message: {
     fontSize: theme.typography.sizes.sm,
@@ -229,32 +136,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     width: '100%',
     gap: 12,
   },
-  cancelButton: {
+  actionBtnFlex: {
     flex: 1,
-    paddingVertical: theme.spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: theme.borderRadius.lg,
-    backgroundColor: theme.colors.surfaceLight,
   },
-  cancelButtonText: {
-    fontSize: theme.typography.sizes.sm,
-    fontWeight: '600',
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-  },
-  confirmButton: {
-    flex: 1,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.borderRadius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...getPlatformShadow('sm'),
-  },
-  confirmButtonText: {
-    fontSize: theme.typography.sizes.sm,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
+  actionBtnFull: {
+    width: '100%',
   },
 });

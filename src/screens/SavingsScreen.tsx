@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenContainer } from '../design-system';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
@@ -121,7 +121,7 @@ export const SavingsScreen = ({ navigation }: any) => {
 
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+    <ScreenContainer scrollable={false} edges={['bottom', 'left', 'right']}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -201,16 +201,6 @@ export const SavingsScreen = ({ navigation }: any) => {
         )}
       </ScrollView>
 
-      {/* FAB for adding new savings */}
-      {savingsList.length > 0 && (
-        <TouchableOpacity
-          style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-          onPress={handleAddSavings}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="add" size={30} color="#FFFFFF" />
-        </TouchableOpacity>
-      )}
 
       <AddSavingsTransactionModal
         visible={showTransactionModal}
@@ -226,16 +216,11 @@ export const SavingsScreen = ({ navigation }: any) => {
         onClose={() => setShowTransferModal(false)}
         onTransfer={handleTransferConfirm}
       />
-    </SafeAreaView>
-
+    </ScreenContainer>
   );
 };
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
   scrollView: {
     flex: 1,
   },
@@ -359,16 +344,5 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...getPlatformShadow('lg'),
   },
 });

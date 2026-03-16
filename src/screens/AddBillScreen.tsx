@@ -1,22 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  KeyboardAvoidingView,
   Platform,
-  Pressable,
   Switch,
   Image,
-  Alert,
   Keyboard,
+  StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { TextInput, IconButton } from 'react-native-paper';
+import { TextInput } from 'react-native-paper';
 import { CustomDatePicker } from '../components/CustomDatePicker';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
@@ -28,20 +24,19 @@ import { isRTL } from '../utils/rtl';
 import { useCurrency } from '../hooks/useCurrency';
 import { requestImagePermissions, pickImageFromLibrary, takePhotoWithCamera } from '../services/receiptOCRService';
 import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
+import { ScreenContainer, AppHeader, AppButton, AppBottomSheet } from '../design-system';
 
 interface AddBillScreenProps {
   navigation: any;
   route: any;
 }
 
-export const AddBillScreen: React.FC<AddBillScreenProps> = ({
-  navigation,
-  route,
-}) => {
-  const { theme } = useAppTheme();
+export const AddBillScreen: React.FC<AddBillScreenProps> = ({ navigation, route }) => {
+  const { theme, isDark } = useAppTheme();
   const styles = useThemedStyles(createStyles);
-  const { currencyCode, currency } = useCurrency();
+  const { currencyCode, currency: currencyObj } = useCurrency();
   const bill = route?.params?.bill as Bill | undefined;
+
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<BillCategory>('utilities');
@@ -83,54 +78,44 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
     setImageUri(null);
   };
 
+  const handleClose = useCallback(() => {
+    Keyboard.dismiss();
+    navigation.goBack();
+  }, [navigation]);
+
   const handlePickImage = async (source: 'camera' | 'library') => {
     try {
       const hasPermission = await requestImagePermissions();
       if (!hasPermission) {
-        alertService.warning(
-          'إذن مطلوب',
-          'يرجى السماح بالوصول إلى الكاميرا والمكتبة من إعدادات التطبيق'
-        );
+        alertService.warning('إذن مطلوب', 'يرجى السماح بالوصول إلى الكاميرا والمكتبة من إعدادات التطبيق');
         return;
       }
-
       let uri: string | null = null;
       if (source === 'camera') {
         uri = await takePhotoWithCamera();
       } else {
         uri = await pickImageFromLibrary();
       }
-
       if (uri) {
-        // Save image to app's document directory
         const fileName = `bill_${Date.now()}.jpg`;
         const documentDir = FileSystem.documentDirectory || '';
         const fileUri = `${documentDir}${fileName}`;
-        await FileSystem.copyAsync({
-          from: uri,
-          to: fileUri,
-        });
+        await FileSystem.copyAsync({ from: uri, to: fileUri });
         setImageUri(fileUri);
         setShowImagePicker(false);
       }
     } catch (error) {
-      
       alertService.error('خطأ', 'حدث خطأ أثناء اختيار الصورة');
     }
   };
 
   const handleRemoveImage = () => {
-    alertService.confirm(
-      'حذف الصورة',
-      'هل تريد حذف هذه الصورة؟',
-      () => {
-        if (imageUri) {
-          // Delete file if it exists
-          FileSystem.deleteAsync(imageUri, { idempotent: true }).catch(() => { });
-        }
-        setImageUri(null);
+    alertService.confirm('حذف الصورة', 'هل تريد حذف هذه الصورة؟', () => {
+      if (imageUri) {
+        FileSystem.deleteAsync(imageUri, { idempotent: true }).catch(() => { });
       }
-    );
+      setImageUri(null);
+    });
   };
 
   const handleSave = async () => {
@@ -138,22 +123,13 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
       alertService.warning('تنبيه', 'يرجى إدخال عنوان الفاتورة');
       return;
     }
-
     Keyboard.dismiss();
-
     const cleanAmount = amount.replace(/,/g, '');
     if (!cleanAmount.trim() || isNaN(Number(cleanAmount)) || Number(cleanAmount) <= 0) {
       alertService.warning('تنبيه', 'يرجى إدخال مبلغ صحيح');
       return;
     }
-
-    if (!reminderDaysBefore.trim() || isNaN(Number(reminderDaysBefore)) || Number(reminderDaysBefore) < 0) {
-      alertService.warning('تنبيه', 'يرجى إدخال عدد أيام التذكير صحيح');
-      return;
-    }
-
     setLoading(true);
-
     try {
       const billData = {
         title: title.trim(),
@@ -169,609 +145,492 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
         reminderDaysBefore: Number(reminderDaysBefore),
         image_path: imageUri || undefined,
       };
-
       if (bill) {
         await updateBill(bill.id, billData);
         alertService.toastSuccess('تم تحديث الفاتورة بنجاح');
       } else {
         const billId = await addBill(billData);
-        // Schedule reminder for new bills
         await scheduleBillReminder(billId);
         alertService.toastSuccess('تم إضافة الفاتورة بنجاح');
       }
-
-      navigation.goBack();
+      handleClose();
     } catch (error) {
-      
       alertService.error('خطأ', 'حدث خطأ أثناء حفظ الفاتورة');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleClose = () => {
-    navigation.goBack();
+  const categoryInfo = BILL_CATEGORIES[category];
+
+  const recurrenceLabels: Record<string, string> = {
+    monthly: 'شهري',
+    weekly: 'أسبوعي',
+    quarterly: 'ربع سنوي',
+    yearly: 'سنوي',
   };
 
-  const getCategoryInfo = (cat: BillCategory) => {
-    return BILL_CATEGORIES[cat];
-  };
-
-  const categoryIcons: Record<BillCategory, string> = {
-    utilities: 'flash',
-    rent: 'home',
-    insurance: 'shield',
-    internet: 'wifi',
-    phone: 'call',
-    subscription: 'card',
-    loan: 'document',
-    other: 'ellipse',
-  };
-
-  const categoryColors: Record<BillCategory, string[]> = {
-    utilities: theme.gradients.error,
-    rent: theme.gradients.goalBlue,
-    insurance: theme.gradients.success,
-    internet: theme.gradients.goalPurple,
-    phone: theme.gradients.goalOrange,
-    subscription: theme.gradients.goalPink,
-    loan: theme.gradients.goalTeal,
-    other: [theme.colors.textSecondary, theme.colors.textMuted],
-  };
+  const saveFooter = (
+    <AppButton
+      label={loading ? 'جاري الحفظ...' : bill ? 'تحديث الفاتورة' : 'حفظ الفاتورة'}
+      onPress={handleSave}
+      variant="primary"
+      size="lg"
+      loading={loading}
+      disabled={loading}
+      rightIcon="checkmark-circle"
+      style={{ backgroundColor: categoryInfo.color }}
+    />
+  );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
-        <LinearGradient
-          colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-          style={styles.gradient}
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <View style={[styles.iconBadge, { backgroundColor: categoryColors[category][0] + '20' }]}>
-                <Ionicons
-                  name={categoryIcons[category] as any}
-                  size={24}
-                  color={categoryColors[category][0]}
-                />
-              </View>
-              <View style={styles.headerText}>
-                <Text style={styles.title}>
-                  {bill ? 'تعديل الفاتورة' : 'فاتورة جديدة'}
-                </Text>
-                <Text style={styles.subtitle}>أضف تفاصيل الفاتورة</Text>
-              </View>
-            </View>
-            <IconButton
-              icon="close"
-              size={24}
-              onPress={handleClose}
-              iconColor={theme.colors.textSecondary}
-              style={styles.closeButton}
+    <ScreenContainer
+      scrollable
+      footer={saveFooter}
+      edges={['top']}
+      style={{ backgroundColor: theme.colors.background }}
+    >
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+
+      {/* Header */}
+      <AppHeader
+        title={bill ? 'تعديل فاتورة' : 'فاتورة جديدة'}
+        backIcon="close"
+        onBack={handleClose}
+      />
+
+      {/* Amount Section */}
+      <View style={styles.amountSection}>
+        <Text style={styles.currencySymbol}>{currencyObj?.symbol || currencyCode}</Text>
+        <TextInput
+          value={amount}
+          onChangeText={(v) => {
+            const cleaned = convertArabicToEnglish(v);
+            setAmount(formatNumberWithCommas(cleaned));
+          }}
+          placeholder="0"
+          placeholderTextColor={theme.colors.textMuted + '80'}
+          style={styles.amountInput}
+          keyboardType="decimal-pad"
+          selectionColor={categoryInfo.color}
+          underlineColor="transparent"
+          activeUnderlineColor="transparent"
+        />
+      </View>
+
+      {/* Category hint */}
+      <View style={styles.categoryHint}>
+        <View style={[styles.categoryHintBadge, { backgroundColor: categoryInfo.color + '15' }]}>
+          <Ionicons name={categoryInfo.icon as any} size={14} color={categoryInfo.color} />
+          <Text style={[styles.categoryHintText, { color: categoryInfo.color }]}>{categoryInfo.label}</Text>
+        </View>
+      </View>
+
+      {/* Main Form Card */}
+      <View style={styles.card}>
+
+        {/* Category selection */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>الفئة</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesList}>
+            {(Object.keys(BILL_CATEGORIES) as BillCategory[]).map((cat) => {
+              const info = BILL_CATEGORIES[cat];
+              const isSelected = category === cat;
+              return (
+                <TouchableOpacity
+                  key={cat}
+                  style={[styles.catItem, isSelected && { borderColor: info.color }]}
+                  onPress={() => setCategory(cat)}
+                >
+                  <View style={[styles.catIcon, { backgroundColor: isSelected ? info.color : theme.colors.surfaceLight }]}>
+                    <Ionicons
+                      name={isSelected ? info.icon as any : `${info.icon}-outline` as any}
+                      size={20}
+                      color={isSelected ? '#FFFFFF' : theme.colors.textSecondary}
+                    />
+                  </View>
+                  <Text style={[styles.catName, isSelected && { color: info.color, fontWeight: getPlatformFontWeight('700') }]} numberOfLines={1}>
+                    {info.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        <View style={styles.divider} />
+
+        {/* Title */}
+        <View style={styles.fieldRow}>
+          <View style={styles.fieldIcon}>
+            <Ionicons name="receipt-outline" size={20} color={theme.colors.textSecondary} />
+          </View>
+          <TextInput
+            placeholder="عنوان الفاتورة (مثال: فاتورة الكهرباء)"
+            value={title}
+            onChangeText={setTitle}
+            style={styles.fieldInput}
+            underlineColor="transparent"
+            activeUnderlineColor="transparent"
+            placeholderTextColor={theme.colors.textMuted}
+          />
+        </View>
+
+        <View style={styles.divider} />
+
+        {/* Due Date */}
+        <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.fieldRow}>
+          <View style={styles.fieldIcon}>
+            <Ionicons name="calendar-outline" size={20} color={theme.colors.textSecondary} />
+          </View>
+          <Text style={styles.fieldText}>
+            تاريخ الاستحقاق: {dueDate.toLocaleDateString('ar-IQ-u-nu-latn', {
+              year: 'numeric', month: 'long', day: 'numeric',
+            })}
+          </Text>
+        </TouchableOpacity>
+
+        <View style={styles.divider} />
+
+        {/* Recurrence */}
+        <View style={styles.fieldRow}>
+          <View style={styles.fieldIcon}>
+            <Ionicons name="repeat-outline" size={20} color={theme.colors.textSecondary} />
+          </View>
+          <View style={styles.fieldToggleRow}>
+            <Text style={styles.fieldText}>فاتورة متكررة</Text>
+            <Switch
+              value={hasRecurrence}
+              onValueChange={setHasRecurrence}
+              trackColor={{ false: theme.colors.border, true: categoryInfo.color + '80' }}
+              thumbColor={hasRecurrence ? categoryInfo.color : theme.colors.surfaceCard}
             />
           </View>
+        </View>
 
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {/* Title */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>عنوان الفاتورة *</Text>
-              <TextInput
-                value={title}
-                onChangeText={setTitle}
-                placeholder="مثال: فاتورة الكهرباء"
-                mode="outlined"
-                style={styles.input}
-                contentStyle={styles.inputContent}
-                outlineColor={theme.colors.border}
-                activeOutlineColor={theme.colors.primary}
-              />
-            </View>
-
-            {/* Amount */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>المبلغ *</Text>
-              <TextInput
-                value={amount}
-                onChangeText={(val) => {
-                  const cleaned = convertArabicToEnglish(val);
-                  setAmount(formatNumberWithCommas(cleaned));
-                }}
-                placeholder="0"
-                mode="outlined"
-                keyboardType="numeric"
-                style={styles.input}
-                contentStyle={styles.inputContent}
-                outlineColor={theme.colors.border}
-                activeOutlineColor={theme.colors.primary}
-                right={
-                  <TextInput.Affix text={currency?.symbol || currencyCode} />
-                }
-              />
-            </View>
-
-            {/* Category */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>الفئة *</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
-                {Object.keys(BILL_CATEGORIES).map((cat) => {
-                  const billCat = cat as BillCategory;
-                  const isSelected = category === billCat;
-                  return (
-                    <Pressable
-                      key={billCat}
-                      onPress={() => setCategory(billCat)}
-                      style={[
-                        styles.categoryChip,
-                        isSelected && styles.categoryChipSelected,
-                        isSelected && { backgroundColor: categoryColors[billCat][0] },
-                      ]}
-                    >
-                      <Ionicons
-                        name={categoryIcons[billCat] as any}
-                        size={20}
-                        color={isSelected ? theme.colors.background : categoryColors[billCat][0]}
-                      />
-                      <Text
-                        style={[
-                          styles.categoryChipText,
-                          isSelected && styles.categoryChipTextSelected,
-                        ]}
-                      >
-                        {getCategoryInfo(billCat).label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-            </View>
-
-            {/* Due Date */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>تاريخ الاستحقاق *</Text>
-              <Pressable
-                onPress={() => setShowDatePicker(true)}
-                style={styles.dateButton}
+        {hasRecurrence && (
+          <View style={styles.recurrenceChips}>
+            {(['monthly', 'weekly', 'quarterly', 'yearly'] as const).map((type) => (
+              <TouchableOpacity
+                key={type}
+                onPress={() => setRecurrenceType(type)}
+                style={[styles.freqChip, recurrenceType === type && { backgroundColor: categoryInfo.color }]}
               >
-                <Ionicons name="calendar" size={20} color={theme.colors.primary} />
-                <Text style={styles.dateButtonText}>
-                  {dueDate.toLocaleDateString('ar-IQ-u-nu-latn', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                  })}
+                <Text style={[styles.freqChipText, recurrenceType === type && { color: '#FFFFFF' }]}>
+                  {recurrenceLabels[type]}
                 </Text>
-              </Pressable>
-              {showDatePicker && (
-                <CustomDatePicker
-                  value={dueDate}
-                  onChange={(event, selectedDate) => {
-                    if (selectedDate) {
-                      setDueDate(selectedDate);
-                    }
-                    if (Platform.OS === 'android') setShowDatePicker(false);
-                  }}
-                  onClose={() => setShowDatePicker(false)}
-                />
-              )}
-            </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
-            {/* Recurrence */}
-            <View style={styles.inputGroup}>
-              <View style={styles.switchRow}>
-                <Text style={styles.label}>فاتورة متكررة</Text>
-                <Switch
-                  value={hasRecurrence}
-                  onValueChange={setHasRecurrence}
-                  trackColor={{ false: '#767577', true: theme.colors.primary }}
-                  thumbColor={hasRecurrence ? '#FFFFFF' : '#f4f3f4'}
-                />
+        <View style={styles.divider} />
+
+        {/* Reminder Days */}
+        <View style={styles.fieldRow}>
+          <View style={styles.fieldIcon}>
+            <Ionicons name="notifications-outline" size={20} color={theme.colors.textSecondary} />
+          </View>
+          <Text style={[styles.fieldText, { flex: 0, marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]}>تذكير قبل</Text>
+          <TextInput
+            value={reminderDaysBefore}
+            onChangeText={(v) => setReminderDaysBefore(convertArabicToEnglish(v))}
+            keyboardType="numeric"
+            style={styles.miniInput}
+            underlineColor="transparent"
+            activeUnderlineColor="transparent"
+          />
+          <Text style={[styles.fieldText, { flex: 0 }]}>أيام</Text>
+        </View>
+
+        <View style={styles.divider} />
+
+        {/* Notes */}
+        <View style={styles.fieldRow}>
+          <View style={styles.fieldIcon}>
+            <Ionicons name="document-text-outline" size={20} color={theme.colors.textSecondary} />
+          </View>
+          <TextInput
+            placeholder="ملاحظات إضافية..."
+            value={description}
+            onChangeText={setDescription}
+            style={styles.fieldInput}
+            underlineColor="transparent"
+            activeUnderlineColor="transparent"
+            placeholderTextColor={theme.colors.textMuted}
+            multiline
+          />
+        </View>
+
+        {/* Bill Image */}
+        {imageUri ? (
+          <>
+            <View style={styles.divider} />
+            <View style={styles.imageContainer}>
+              <Image source={{ uri: imageUri }} style={styles.billImage} />
+              <TouchableOpacity onPress={handleRemoveImage} style={styles.removeImageBtn}>
+                <Ionicons name="close-circle" size={26} color={theme.colors.error} />
+              </TouchableOpacity>
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={styles.divider} />
+            <TouchableOpacity onPress={() => setShowImagePicker(true)} style={styles.fieldRow}>
+              <View style={styles.fieldIcon}>
+                <Ionicons name="camera-outline" size={20} color={theme.colors.textSecondary} />
               </View>
-              {hasRecurrence && (
-                <Pressable
-                  onPress={() => {
-                    const types: ('monthly' | 'yearly' | 'quarterly' | 'weekly')[] = ['monthly', 'weekly', 'quarterly', 'yearly'];
-                    const currentIndex = types.indexOf(recurrenceType);
-                    const nextIndex = (currentIndex + 1) % types.length;
-                    setRecurrenceType(types[nextIndex]);
-                  }}
-                  style={styles.recurrenceButton}
-                >
-                  <Text style={styles.recurrenceButtonText}>
-                    {recurrenceType === 'monthly' ? 'شهري' :
-                      recurrenceType === 'weekly' ? 'أسبوعي' :
-                        recurrenceType === 'quarterly' ? 'ربع سنوي' : 'سنوي'}
-                  </Text>
-                  <Ionicons name="chevron-down" size={20} color={theme.colors.textSecondary} />
-                </Pressable>
-              )}
-            </View>
-
-            {/* Reminder Days */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>التذكير قبل (أيام)</Text>
-              <TextInput
-                value={reminderDaysBefore}
-                onChangeText={(val) => setReminderDaysBefore(convertArabicToEnglish(val))}
-                placeholder="3"
-                mode="outlined"
-                keyboardType="numeric"
-                style={styles.input}
-                contentStyle={styles.inputContent}
-                outlineColor={theme.colors.border}
-                activeOutlineColor={theme.colors.primary}
-              />
-            </View>
-
-            {/* Description */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>ملاحظات</Text>
-              <TextInput
-                value={description}
-                onChangeText={setDescription}
-                placeholder="ملاحظات إضافية..."
-                mode="outlined"
-                multiline
-                numberOfLines={3}
-                style={styles.input}
-                contentStyle={styles.inputContent}
-                outlineColor={theme.colors.border}
-                activeOutlineColor={theme.colors.primary}
-              />
-            </View>
-
-            {/* Bill Image */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>صورة الفاتورة</Text>
-              {imageUri ? (
-                <View style={styles.imageContainer}>
-                  <Image source={{ uri: imageUri }} style={styles.billImage} />
-                  <TouchableOpacity
-                    onPress={handleRemoveImage}
-                    style={styles.removeImageButton}
-                  >
-                    <Ionicons name="close-circle" size={24} color={theme.colors.error} />
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <View style={styles.imagePickerContainer}>
-                  <TouchableOpacity
-                    onPress={() => setShowImagePicker(true)}
-                    style={styles.imagePickerButton}
-                  >
-                    <Ionicons name="camera" size={32} color={theme.colors.primary} />
-                    <Text style={styles.imagePickerText}>إضافة صورة الفاتورة</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-
-            {/* Image Picker Options Modal */}
-            {showImagePicker && (
-              <View style={styles.imagePickerModal}>
-                <View style={styles.imagePickerModalContent}>
-                  <Text style={styles.imagePickerModalTitle}>اختر مصدر الصورة</Text>
-                  <View style={styles.imagePickerOptions}>
-                    <TouchableOpacity
-                      onPress={() => handlePickImage('camera')}
-                      style={styles.imagePickerOption}
-                    >
-                      <Ionicons name="camera" size={32} color={theme.colors.primary} />
-                      <Text style={styles.imagePickerOptionText}>التقاط صورة</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => handlePickImage('library')}
-                      style={styles.imagePickerOption}
-                    >
-                      <Ionicons name="images" size={32} color={theme.colors.primary} />
-                      <Text style={styles.imagePickerOptionText}>من المكتبة</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => setShowImagePicker(false)}
-                    style={styles.imagePickerCancelButton}
-                  >
-                    <Text style={styles.imagePickerCancelText}>إلغاء</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-
-            {/* Save Button */}
-            <TouchableOpacity
-              onPress={handleSave}
-              disabled={loading}
-              style={[styles.saveButton, loading && styles.saveButtonDisabled]}
-            >
-              <LinearGradient
-                colors={[theme.colors.primary, theme.colors.primaryDark]}
-                style={styles.saveButtonGradient}
-              >
-                {loading ? (
-                  <Text style={styles.saveButtonText}>جاري الحفظ...</Text>
-                ) : (
-                  <>
-                    <Ionicons name="checkmark" size={20} color={theme.colors.background} />
-                    <Text style={styles.saveButtonText}>
-                      {bill ? 'تحديث' : 'حفظ'}
-                    </Text>
-                  </>
-                )}
-              </LinearGradient>
+              <Text style={[styles.fieldText, { color: theme.colors.textSecondary }]}>إضافة صورة الفاتورة</Text>
+              <Ionicons name="chevron-forward" size={18} color={theme.colors.textMuted} />
             </TouchableOpacity>
-          </ScrollView>
-        </LinearGradient>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+          </>
+        )}
+      </View>
+
+      {/* Date Picker */}
+      {showDatePicker && (
+        <CustomDatePicker
+          value={dueDate}
+          onChange={(_, selectedDate) => {
+            if (selectedDate) setDueDate(selectedDate);
+            if (Platform.OS === 'android') setShowDatePicker(false);
+          }}
+          onClose={() => setShowDatePicker(false)}
+        />
+      )}
+
+      {/* Image Picker Bottom Sheet */}
+      <AppBottomSheet
+        visible={showImagePicker}
+        onClose={() => setShowImagePicker(false)}
+        title="اختر مصدر الصورة"
+      >
+        <View style={styles.imagePickerOptions}>
+          <TouchableOpacity style={styles.imagePickerOption} onPress={() => handlePickImage('camera')}>
+            <View style={[styles.imagePickerIconBadge, { backgroundColor: theme.colors.primary + '15' }]}>
+              <Ionicons name="camera-outline" size={28} color={theme.colors.primary} />
+            </View>
+            <Text style={styles.imagePickerOptionTitle}>التقاط صورة</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.imagePickerOption} onPress={() => handlePickImage('library')}>
+            <View style={[styles.imagePickerIconBadge, { backgroundColor: '#10B981' + '15' }]}>
+              <Ionicons name="images-outline" size={28} color="#10B981" />
+            </View>
+            <Text style={styles.imagePickerOptionTitle}>من المكتبة</Text>
+          </TouchableOpacity>
+        </View>
+      </AppBottomSheet>
+    </ScreenContainer>
   );
 };
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    direction: 'rtl',
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  gradient: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingTop: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  iconBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 18,
-    alignItems: 'center',
+  amountSection: {
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     justifyContent: 'center',
-    marginRight: 12,
-    marginLeft: 0,
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 4,
   },
-  headerText: {
-    flex: 1,
-  },
-  title: {
-    fontSize: theme.typography.sizes.lg,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-  },
-  subtitle: {
-    fontSize: theme.typography.sizes.sm,
+  currencySymbol: {
+    fontSize: 20,
     color: theme.colors.textSecondary,
+    marginHorizontal: 8,
     fontFamily: theme.typography.fontFamily,
-    marginTop: 4,
-  },
-  closeButton: {
-    margin: 0,
-  },
-  scrollView: {
-    flex: 1,
-    direction: 'rtl',
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 28,
-  },
-  inputGroup: {
-    marginBottom: 12,
-  },
-  label: {
-    fontSize: theme.typography.sizes.sm,
     fontWeight: getPlatformFontWeight('600'),
+  },
+  amountInput: {
+    fontSize: 48,
+    fontWeight: getPlatformFontWeight('800'),
     color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-    marginBottom: 8,
-    writingDirection: 'rtl',
+    backgroundColor: 'transparent',
+    textAlign: 'center',
+    minWidth: 120,
+    padding: 0,
+    height: 70,
   },
-  input: {
-    backgroundColor: theme.colors.surfaceLight,
+  categoryHint: {
+    alignItems: 'center',
+    marginBottom: 24,
   },
-  inputContent: {
-    fontFamily: theme.typography.fontFamily,
-    fontSize: theme.typography.sizes.md,
-    color: theme.colors.textPrimary,
-    textAlign: 'right',
-  },
-  categoryScroll: {
-    marginTop: 8,
-  },
-  categoryChip: {
+  categoryHintBadge: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: theme.colors.surfaceLight,
-    marginRight: isRTL ? 0 : 8,
-    marginLeft: isRTL ? 8 : 0,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
   },
-  categoryChipSelected: {
-    borderColor: 'transparent',
-  },
-  categoryChipText: {
-    fontSize: theme.typography.sizes.sm,
-    color: theme.colors.textPrimary,
+  categoryHintText: {
+    fontSize: 13,
     fontFamily: theme.typography.fontFamily,
-    marginLeft: isRTL ? 0 : 8,
-    marginRight: isRTL ? 8 : 0,
-  },
-  categoryChipTextSelected: {
-    color: theme.colors.background,
     fontWeight: getPlatformFontWeight('600'),
   },
-  dateButton: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 8,
-    backgroundColor: theme.colors.surfaceLight,
-    padding: 12,
-    gap: 8,
-  },
-  dateButtonText: {
-    fontSize: theme.typography.sizes.md,
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-    flex: 1,
-  },
-  switchRow: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  recurrenceButton: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 8,
-    backgroundColor: theme.colors.surfaceLight,
-    padding: 12,
-    marginTop: 8,
-  },
-  recurrenceButtonText: {
-    fontSize: theme.typography.sizes.md,
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-  },
-  saveButton: {
-    marginTop: 12,
-    borderRadius: 12,
-    overflow: 'hidden',
+  card: {
+    backgroundColor: theme.colors.surface,
+    marginHorizontal: 20,
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 40,
     ...getPlatformShadow('md'),
   },
-  saveButtonDisabled: {
-    opacity: 0.6,
+  section: {
+    marginBottom: 16,
   },
-  saveButtonGradient: {
+  sectionLabel: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+    marginBottom: 12,
+    textAlign: isRTL ? 'right' : 'left',
+    fontWeight: getPlatformFontWeight('600'),
+  },
+  categoriesList: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
+    gap: 10,
+  },
+  catItem: {
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 2,
+    padding: 4,
+    borderColor: 'transparent',
+    borderRadius: 16,
+  },
+  catIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    gap: 8,
+    ...getPlatformShadow('xs'),
   },
-  saveButtonText: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.background,
+  catName: {
+    fontSize: 11,
+    color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
+    width: 60,
+    textAlign: 'center',
+    fontWeight: getPlatformFontWeight('600'),
+  },
+  divider: {
+    height: 1,
+    backgroundColor: theme.colors.border,
+    marginVertical: 14,
+    opacity: 0.5,
+  },
+  fieldRow: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 52,
+  },
+  fieldIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: theme.colors.surfaceLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fieldInput: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    fontSize: 16,
+    color: theme.colors.textPrimary,
+    textAlign: isRTL ? 'right' : 'left',
+    fontFamily: theme.typography.fontFamily,
+    height: 50,
+    padding: 0,
+  },
+  fieldText: {
+    flex: 1,
+    fontSize: 15,
+    color: theme.colors.textPrimary,
+    textAlign: isRTL ? 'right' : 'left',
+    fontFamily: theme.typography.fontFamily,
+  },
+  fieldToggleRow: {
+    flex: 1,
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  recurrenceChips: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    gap: 8,
+    marginTop: 12,
+    marginBottom: 4,
+    flexWrap: 'wrap',
+    paddingLeft: isRTL ? 0 : 56,
+    paddingRight: isRTL ? 56 : 0,
+  },
+  freqChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: theme.colors.surfaceLight,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  freqChipText: {
+    fontSize: 13,
+    fontFamily: theme.typography.fontFamily,
+    color: theme.colors.textSecondary,
+    fontWeight: getPlatformFontWeight('600'),
+  },
+  miniInput: {
+    width: 56,
+    height: 40,
+    backgroundColor: theme.colors.surfaceLight,
+    borderRadius: 10,
+    textAlign: 'center',
+    fontSize: 16,
+    padding: 0,
   },
   imageContainer: {
     position: 'relative',
-    marginTop: 8,
+    borderRadius: 16,
+    overflow: 'hidden',
   },
   billImage: {
     width: '100%',
-    height: 200,
-    borderRadius: 12,
+    height: 180,
+    borderRadius: 16,
     resizeMode: 'cover',
   },
-  removeImageButton: {
+  removeImageBtn: {
     position: 'absolute',
     top: 8,
     right: 8,
-    backgroundColor: theme.colors.background + 'E6',
-    borderRadius: 12,
-    padding: 4,
-  },
-  imagePickerContainer: {
-    marginTop: 8,
-  },
-  imagePickerButton: {
-    borderWidth: 2,
-    borderColor: theme.colors.border,
-    borderStyle: 'dashed',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.surfaceLight,
-  },
-  imagePickerText: {
-    fontSize: theme.typography.sizes.md,
-    color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
-    marginTop: 8,
-  },
-  imagePickerModal: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: theme.colors.overlay,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-  },
-  imagePickerModalContent: {
-    backgroundColor: theme.colors.surfaceCard,
-    borderRadius: 16,
-    padding: 16,
-    width: '80%',
-    maxWidth: 400,
-  },
-  imagePickerModalTitle: {
-    fontSize: theme.typography.sizes.lg,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-    marginBottom: 12,
-    textAlign: 'center',
+    backgroundColor: theme.colors.background + 'CC',
+    borderRadius: 13,
   },
   imagePickerOptions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 12,
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    gap: 16,
   },
   imagePickerOption: {
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
+    flex: 1,
     backgroundColor: theme.colors.surfaceLight,
-    minWidth: 100,
-  },
-  imagePickerOptionText: {
-    fontSize: theme.typography.sizes.sm,
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-    marginTop: 8,
-  },
-  imagePickerCancelButton: {
-    padding: 12,
+    borderRadius: 20,
+    padding: 20,
     alignItems: 'center',
   },
-  imagePickerCancelText: {
-    fontSize: theme.typography.sizes.md,
-    color: theme.colors.textSecondary,
+  imagePickerIconBadge: {
+    width: 60,
+    height: 60,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  imagePickerOptionTitle: {
+    fontSize: 15,
     fontFamily: theme.typography.fontFamily,
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.textPrimary,
   },
 });

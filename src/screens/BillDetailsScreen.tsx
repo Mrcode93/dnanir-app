@@ -12,7 +12,7 @@ import {
   Pressable,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenContainer, AppHeader } from '../design-system';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -137,11 +137,11 @@ export const BillDetailsScreen = ({ navigation, route }: any) => {
 
   if (!bill) {
     return (
-      <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+      <ScreenContainer scrollable={false}>
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>جاري التحميل...</Text>
         </View>
-      </SafeAreaView>
+      </ScreenContainer>
     );
   }
 
@@ -152,7 +152,16 @@ export const BillDetailsScreen = ({ navigation, route }: any) => {
   const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+    <ScreenContainer scrollable={false} edges={['top', 'left', 'right', 'bottom']}>
+      <AppHeader
+        title={bill.title}
+        onBack={() => navigation.goBack()}
+        action={
+          <TouchableOpacity onPress={handleEdit} activeOpacity={0.7}>
+            <Ionicons name="pencil" size={22} color={theme.colors.primary} />
+          </TouchableOpacity>
+        }
+      />
 
       <ScrollView
         style={styles.scrollView}
@@ -389,15 +398,11 @@ export const BillDetailsScreen = ({ navigation, route }: any) => {
           </View>
         </Pressable>
       </Modal>
-    </SafeAreaView>
+    </ScreenContainer>
   );
 };
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',

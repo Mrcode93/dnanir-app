@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { NavigationContainer, useFocusEffect, useNavigation } from '@react-navigation/native';
+import { NavigationContainer, useFocusEffect } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator, TransitionPresets } from '@react-navigation/stack';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
@@ -36,7 +36,7 @@ import { BillDetailsScreen } from '../screens/BillDetailsScreen';
 import { AddBudgetScreen } from '../screens/AddBudgetScreen';
 import { AddGoalScreen } from '../screens/AddGoalScreen';
 import { GoalPlanScreen } from '../screens/GoalPlanScreen';
-import { AuthScreen } from '../screens/AuthScreen';
+import { authModalService } from '../services/authModalService';
 import { AddDebtScreen } from '../screens/AddDebtScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { usePrivacy } from '../context/PrivacyContext';
@@ -47,7 +47,6 @@ import { alertService } from '../services/alertService';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 
 import { CalendarScreen } from '../screens/CalendarScreen';
-import { SmartAddModal } from '../components/SmartAddModal';
 import { SavingsScreen } from '../screens/SavingsScreen';
 import { AddSavingsScreen } from '../screens/AddSavingsScreen';
 
@@ -135,14 +134,14 @@ const DashboardHeaderRight = ({ navigation }: { navigation: any }) => {
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
-const getCommonStackOptions = (theme: AppTheme) => ({
+const getCommonStackOptions = (theme: AppTheme, topInset: number = Platform.OS === 'ios' ? 44 : 24) => ({
   ...TransitionPresets.SlideFromRightIOS,
   headerStyle: {
     backgroundColor: theme.colors.background,
     elevation: 0,
     shadowOpacity: 0,
     borderBottomWidth: 0,
-    height: Platform.OS === 'ios' ? 120 : 95,
+    height: topInset + 70,
   },
   headerBackground: () => (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
@@ -182,12 +181,13 @@ const getCommonStackOptions = (theme: AppTheme) => ({
 
 const SettingsScreenStack = () => {
   const { theme } = useAppTheme();
+  const { top } = useSafeAreaInsets();
   return (
     <Stack.Navigator
       screenOptions={{
-        ...getCommonStackOptions(theme),
+        ...getCommonStackOptions(theme, top),
         headerTitleStyle: {
-          ...getCommonStackOptions(theme).headerTitleStyle,
+          ...getCommonStackOptions(theme, top).headerTitleStyle,
           fontSize: 18,
         }
       }}
@@ -273,15 +273,16 @@ const TransactionsTabs = () => {
 
 const TransactionsStack = () => {
   const { theme } = useAppTheme();
+  const { top } = useSafeAreaInsets();
   return (
-    <Stack.Navigator screenOptions={getCommonStackOptions(theme)}>
+    <Stack.Navigator screenOptions={getCommonStackOptions(theme, top)}>
       <Stack.Screen
         name="TransactionsTabs"
         component={TransactionsTabs}
         options={({ navigation }) => ({
           headerShown: true,
           headerTitle: 'المعاملات المالية',
-          ...getCommonStackOptions(theme),
+          ...getCommonStackOptions(theme, top),
         })}
       />
     </Stack.Navigator>
@@ -291,9 +292,10 @@ const TransactionsStack = () => {
 
 const InsightsStack = () => {
   const { theme } = useAppTheme();
+  const { top } = useSafeAreaInsets();
   return (
     <Stack.Navigator
-      screenOptions={getCommonStackOptions(theme)}
+      screenOptions={getCommonStackOptions(theme, top)}
     >
       <Stack.Screen
         name="InsightsMain"
@@ -317,7 +319,7 @@ const InsightsStack = () => {
                       confirmText: 'تسجيل الدخول',
                       cancelText: 'إلغاء',
                       showCancel: true,
-                      onConfirm: () => navigation.getParent()?.navigate('Auth'),
+                      onConfirm: () => authModalService.show(),
                     });
                     return;
                   }
@@ -342,8 +344,9 @@ const InsightsStack = () => {
 
 const DebtsStack = () => {
   const { theme } = useAppTheme();
+  const { top } = useSafeAreaInsets();
   return (
-    <Stack.Navigator screenOptions={{ ...getCommonStackOptions(theme) }}>
+    <Stack.Navigator screenOptions={{ ...getCommonStackOptions(theme, top) }}>
       <Stack.Screen
         name="DebtsList"
         component={DebtsScreen}
@@ -352,7 +355,7 @@ const DebtsStack = () => {
           headerLeft: () => <HeaderLeft navigation={navigation} />,
           headerTitle: () => (
             <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
-              <Ionicons name="document-text" size={24} color="#FFFFFF" />
+            
               <Text style={{
                 fontFamily: theme.typography.fontFamily,
                 fontSize: theme.typography.sizes.lg,
@@ -371,6 +374,7 @@ const DebtsStack = () => {
           headerStyle: {
             backgroundColor: '#003459',
             borderBottomWidth: 0,
+            height: top + 70,
           },
           headerTintColor: '#FFFFFF',
           headerBackTitleVisible: false,
@@ -421,6 +425,7 @@ const DebtsStack = () => {
           headerStyle: {
             backgroundColor: '#003459',
             borderBottomWidth: 0,
+            height: top + 70,
           },
           headerTintColor: '#FFFFFF',
           headerBackTitleVisible: false,
@@ -433,9 +438,9 @@ const DebtsStack = () => {
 
 const BillsStack = () => {
   const { theme } = useAppTheme();
-
+  const { top } = useSafeAreaInsets();
   return (
-    <Stack.Navigator screenOptions={{ ...getCommonStackOptions(theme) }}>
+    <Stack.Navigator screenOptions={{ ...getCommonStackOptions(theme, top) }}>
       <Stack.Screen
         name="BillsList"
         component={BillsScreen}
@@ -444,7 +449,7 @@ const BillsStack = () => {
           headerLeft: () => <HeaderLeft navigation={navigation} />,
           headerTitle: () => (
             <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
-              <Ionicons name="receipt" size={24} color="#FFFFFF" />
+             
               <Text style={{
                 fontFamily: theme.typography.fontFamily,
                 fontSize: theme.typography.sizes.lg,
@@ -463,6 +468,7 @@ const BillsStack = () => {
           headerStyle: {
             backgroundColor: '#003459',
             borderBottomWidth: 0,
+            height: top + 70,
           },
           headerTintColor: '#FFFFFF',
           headerBackTitleVisible: false,
@@ -493,7 +499,7 @@ const BillsStack = () => {
           headerShown: true,
           headerLeft: () => <HeaderLeft navigation={navigation} />,
           headerTitle: 'تفاصيل الفاتورة',
-          ...getCommonStackOptions(theme),
+          ...getCommonStackOptions(theme, top),
         })}
       />
     </Stack.Navigator>
@@ -502,10 +508,10 @@ const BillsStack = () => {
 
 const DashboardStack = () => {
   const { theme } = useAppTheme();
-
+  const { top } = useSafeAreaInsets();
   return (
     <Stack.Navigator
-      screenOptions={getCommonStackOptions(theme)}
+      screenOptions={getCommonStackOptions(theme, top)}
     >
       <Stack.Screen
         name="DashboardMain"
@@ -518,16 +524,14 @@ const DashboardStack = () => {
   );
 };
 
+const EmptyComponent = () => null;
+
 const MainTabs = () => {
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<any>();
-  const [showSmartAdd, setShowSmartAdd] = useState(false);
-
-  const minBottomInset = Platform.OS === 'android' ? 28 : 10;
+  const minBottomInset = 10;
   const tabBottomPadding = Math.max(insets.bottom, minBottomInset);
-  const tabBaseHeight = Platform.OS === 'android' ? 64 : 68;
-  const EmptyComponent = () => null;
+  const tabBaseHeight = 68;
 
   return (
     <>
@@ -585,6 +589,12 @@ const MainTabs = () => {
         <Tab.Screen
           name="SmartAdd"
           component={EmptyComponent}
+          listeners={({ navigation }) => ({
+            tabPress: (e) => {
+              e.preventDefault();
+              navigation.navigate('SmartAddAction');
+            },
+          })}
           options={{
             title: '', // No title
             tabBarIcon: () => (
@@ -628,12 +638,6 @@ const MainTabs = () => {
               </View>
             ),
           }}
-          listeners={{
-            tabPress: (e) => {
-              e.preventDefault();
-              setShowSmartAdd(true);
-            },
-          }}
         />
         <Tab.Screen
           name="Transactions"
@@ -656,12 +660,6 @@ const MainTabs = () => {
           }}
         />
       </Tab.Navigator>
-      <SmartAddModal
-        visible={showSmartAdd}
-        onClose={() => setShowSmartAdd(false)}
-        onSuccess={() => { }}
-        navigation={navigation}
-      />
     </>
   );
 };
@@ -684,13 +682,13 @@ const linking = {
       AddExpense: 'add-expense',
       AddIncome: 'add-income',
       SmartAddAction: 'smart-add',
-      Auth: 'auth',
     },
   },
 };
 
 export const AppNavigator = () => {
   const { theme } = useAppTheme();
+  const { top } = useSafeAreaInsets();
   const [isLoadingOnboarding, setIsLoadingOnboarding] = useState(true);
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false);
 
@@ -724,15 +722,6 @@ export const AppNavigator = () => {
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         )}
         <Stack.Screen name="Main" component={MainTabs} />
-        <Stack.Screen
-          name="Auth"
-          component={AuthScreen}
-          options={{
-            gestureEnabled: true,
-            presentation: 'transparentModal',
-            cardStyle: { backgroundColor: 'transparent' },
-          }}
-        />
         <Stack.Screen
           name="AddExpense"
           component={AddExpenseScreen}
@@ -784,7 +773,7 @@ export const AppNavigator = () => {
             headerTitle: 'التقارير المتطورة',
             headerShown: true,
             headerLeft: () => <HeaderLeft navigation={navigation} />,
-            ...getCommonStackOptions(theme),
+            ...getCommonStackOptions(theme, top),
           })}
         />
         <Stack.Screen
@@ -794,7 +783,7 @@ export const AppNavigator = () => {
             headerTitle: 'الملف الشخصي',
             headerShown: true,
             headerLeft: () => <HeaderLeft navigation={navigation} />,
-            ...getCommonStackOptions(theme),
+            ...getCommonStackOptions(theme, top),
           })}
         />
 
@@ -818,7 +807,7 @@ export const AppNavigator = () => {
                 <Ionicons name="add-circle" size={28} color="#FFFFFF" />
               </TouchableOpacity>
             ),
-            ...getCommonStackOptions(theme),
+            ...getCommonStackOptions(theme, top),
           })}
         />
 
@@ -841,7 +830,7 @@ export const AppNavigator = () => {
                 <Ionicons name="add-circle" size={28} color="#FFFFFF" />
               </TouchableOpacity>
             ),
-            ...getCommonStackOptions(theme),
+            ...getCommonStackOptions(theme, top),
           })}
         />
 
@@ -889,7 +878,7 @@ export const AppNavigator = () => {
             headerShown: true,
             headerLeft: () => <HeaderLeft navigation={navigation} />,
             headerTitle: 'خطة الهدف',
-            ...getCommonStackOptions(theme),
+            ...getCommonStackOptions(theme, top),
           })}
         />
         <Stack.Screen
@@ -912,7 +901,7 @@ export const AppNavigator = () => {
                 <Ionicons name="add-circle" size={32} color="#FFFFFF" />
               </TouchableOpacity>
             ),
-            ...getCommonStackOptions(theme),
+            ...getCommonStackOptions(theme, top),
           })}
         />
         <Stack.Screen
@@ -931,7 +920,7 @@ export const AppNavigator = () => {
             headerShown: true,
             headerLeft: () => <HeaderLeft navigation={navigation} />,
             headerTitle: 'محول العملات',
-            ...getCommonStackOptions(theme),
+            ...getCommonStackOptions(theme, top),
           })}
         />
         <Stack.Screen
@@ -948,7 +937,7 @@ export const AppNavigator = () => {
             headerShown: true,
             headerLeft: () => <HeaderLeft navigation={navigation} />,
             headerTitle: 'الإنجازات',
-            ...getCommonStackOptions(theme),
+            ...getCommonStackOptions(theme, top),
           })}
         />
         <Stack.Screen
@@ -977,7 +966,7 @@ export const AppNavigator = () => {
                 <Ionicons name="add-circle" size={28} color="#FFFFFF" />
               </TouchableOpacity>
             ),
-            ...getCommonStackOptions(theme),
+            ...getCommonStackOptions(theme, top),
           })}
         />
         <Stack.Screen
@@ -987,7 +976,7 @@ export const AppNavigator = () => {
             headerShown: true,
             headerLeft: () => <HeaderLeft navigation={navigation} />,
             headerTitle: 'الإشعارات',
-            ...getCommonStackOptions(theme),
+            ...getCommonStackOptions(theme, top),
           })}
         />
         <Stack.Screen
@@ -997,7 +986,7 @@ export const AppNavigator = () => {
             headerShown: true,
             headerLeft: () => <HeaderLeft navigation={navigation} />,
             headerTitle: 'التحليلات الذكية',
-            ...getCommonStackOptions(theme),
+            ...getCommonStackOptions(theme, top),
           })}
         />
 
@@ -1020,7 +1009,7 @@ export const AppNavigator = () => {
                 <Ionicons name="calendar-outline" size={24} color={theme.colors.primary} />
               </TouchableOpacity>
             ),
-            ...getCommonStackOptions(theme),
+            ...getCommonStackOptions(theme, top),
           })}
         />
       </Stack.Navigator>

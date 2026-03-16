@@ -7,14 +7,11 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
-  Modal,
-  Animated,
-  Pressable,
   Platform,
   ActivityIndicator,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AppBottomSheet } from '../design-system';
 import { Searchbar } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -51,8 +48,6 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
   const styles = useThemedStyles(createStyles);
   const { formatCurrency } = useCurrency();
   const { isPrivacyEnabled } = usePrivacy();
-  const insets = useSafeAreaInsets();
-
   // Data State
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [totalAmount, setTotalAmount] = useState(0);
@@ -85,26 +80,8 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [showDetails, setShowDetails] = useState(false);
 
-  // Animations
-  const addModalAnim = useRef(new Animated.Value(0)).current;
+  // Refs
   const initialFocusPassedRef = useRef(false);
-
-  // Animate Modal
-  useEffect(() => {
-    if (showAddModal) {
-      Animated.spring(addModalAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        damping: 15,
-      }).start();
-    } else {
-      Animated.timing(addModalAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [showAddModal]);
 
   const fetchExpenses = useCallback(async (reset: boolean = false) => {
     try {
@@ -476,61 +453,38 @@ export const ExpensesScreen = ({ navigation, route }: any) => {
         </TouchableOpacity>
       </View>
 
-      {/* Add Options Modal */}
-      <Modal
+      {/* Add Options Bottom Sheet */}
+      <AppBottomSheet
         visible={showAddModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowAddModal(false)}
+        onClose={() => setShowAddModal(false)}
+        title="إضافة مصروف جديد"
       >
-        <Pressable
-          style={styles.addModalOverlay}
-          onPress={() => setShowAddModal(false)}
-        >
-          <Animated.View
-            style={[
-              styles.addModalContainer,
-              {
-                transform: [{
-                  translateY: addModalAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [300, 0],
-                  }),
-                }],
-              },
-            ]}
+        <View style={styles.addModalOptions}>
+          <TouchableOpacity
+            style={styles.addModalOption}
+            onPress={() => handleAddOption('manual')}
+            activeOpacity={0.7}
           >
-            <View style={styles.addModalHandle} />
-            <Text style={styles.addModalTitle}>إضافة مصروف جديد</Text>
-
-            <View style={styles.addModalOptions}>
-              <TouchableOpacity
-                style={styles.addModalOption}
-                onPress={() => handleAddOption('manual')}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.addModalIconContainer, { backgroundColor: theme.colors.primary + '15' }]}>
-                  <Ionicons name="create-outline" size={28} color={theme.colors.primary} />
-                </View>
-                <Text style={styles.addModalOptionTitle}>إدخال يدوي</Text>
-                <Text style={styles.addModalOptionSubtitle}>أدخل التفاصيل بنفسك</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.addModalOption}
-                onPress={() => handleAddOption('voice')}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.addModalIconContainer, { backgroundColor: '#10B981' + '15' }]}>
-                  <Ionicons name="mic-outline" size={28} color="#10B981" />
-                </View>
-                <Text style={styles.addModalOptionTitle}>إدخال صوتي</Text>
-                <Text style={styles.addModalOptionSubtitle}>تحدث وسنسجل لك</Text>
-              </TouchableOpacity>
+            <View style={[styles.addModalIconContainer, { backgroundColor: theme.colors.primary + '15' }]}>
+              <Ionicons name="create-outline" size={28} color={theme.colors.primary} />
             </View>
-          </Animated.View>
-        </Pressable>
-      </Modal>
+            <Text style={styles.addModalOptionTitle}>إدخال يدوي</Text>
+            <Text style={styles.addModalOptionSubtitle}>أدخل التفاصيل بنفسك</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.addModalOption}
+            onPress={() => handleAddOption('voice')}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.addModalIconContainer, { backgroundColor: '#10B981' + '15' }]}>
+              <Ionicons name="mic-outline" size={28} color="#10B981" />
+            </View>
+            <Text style={styles.addModalOptionTitle}>إدخال صوتي</Text>
+            <Text style={styles.addModalOptionSubtitle}>تحدث وسنسجل لك</Text>
+          </TouchableOpacity>
+        </View>
+      </AppBottomSheet>
 
       {/* Smart Add Modal */}
       <SmartAddModal
@@ -823,8 +777,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   addModalContainer: {
     backgroundColor: theme.colors.surfaceCard,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: theme.borderRadius.xxl,
+    borderTopRightRadius: theme.borderRadius.xxl,
     paddingBottom: 40,
     paddingTop: 12,
   },
@@ -917,8 +871,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   pickerModalContent: {
     backgroundColor: theme.colors.surfaceCard,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: theme.borderRadius.xxl,
+    borderTopRightRadius: theme.borderRadius.xxl,
     paddingBottom: 20,
     ...getPlatformShadow('xl'),
   },

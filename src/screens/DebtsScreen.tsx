@@ -1,19 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   StyleSheet,
   RefreshControl,
   Text,
   TouchableOpacity,
-  ScrollView,
-  Modal,
   Animated,
-  Pressable,
-  Platform,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Searchbar } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
@@ -40,7 +34,7 @@ export const DebtsScreen = ({ navigation, route }: any) => {
   const [debts, setDebts] = useState<Debt[]>([]);
   const [filteredDebts, setFilteredDebts] = useState<Debt[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<'debt' | 'installment' | 'advance' | 'all'>('all');
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [debtToDelete, setDebtToDelete] = useState<Debt | null>(null);
@@ -50,22 +44,24 @@ export const DebtsScreen = ({ navigation, route }: any) => {
   const [debtToPay, setDebtToPay] = useState<Debt | null>(null);
   const filterMenuAnim = useRef(new Animated.Value(0)).current;
 
-  const loadDebts = async () => {
+  const loadDebts = useCallback(async () => {
     try {
       const allDebts = await getDebts();
       setDebts(allDebts);
 
-      // Load installments for each debt
+      // Load all installments in parallel instead of serially
+      const installmentArrays = await Promise.all(
+        allDebts.map(debt => getDebtInstallments(debt.id))
+      );
       const installments: Record<number, DebtInstallment[]> = {};
-      for (const debt of allDebts) {
-        const debtInstallments = await getDebtInstallments(debt.id);
-        installments[debt.id] = debtInstallments;
-      }
+      allDebts.forEach((debt, i) => {
+        installments[debt.id] = installmentArrays[i];
+      });
       setInstallmentsMap(installments);
     } catch (error) {
-      
+
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadDebts();
@@ -91,6 +87,21 @@ export const DebtsScreen = ({ navigation, route }: any) => {
 
     setFilteredDebts(filtered);
   }, [debts, searchQuery, selectedType]);
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 16 }}>
+          <TouchableOpacity
+            style={{ padding: 8 }}
+            onPress={() => navigation.navigate('AddDebt')}
+          >
+            <Ionicons name="add-circle" size={26} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      ),
+    });
+  }, [navigation]);
 
   useEffect(() => {
     if (route?.params?.action === 'add') {
@@ -136,7 +147,7 @@ export const DebtsScreen = ({ navigation, route }: any) => {
         setDebtToDelete(null);
         alertService.toastSuccess('تم حذف الدين بنجاح');
       } catch (error) {
-        
+
         alertService.error('خطأ', 'حدث خطأ أثناء حذف الدين');
       }
     }
@@ -158,13 +169,6 @@ export const DebtsScreen = ({ navigation, route }: any) => {
     navigation.navigate('AddDebt', { debt });
   };
 
-  const handleAdd = () => {
-    navigation.navigate('AddDebt');
-  };
-
-  const handleModalClose = () => {
-    loadDebts();
-  };
 
   const handlePayDebt = (debt: Debt) => {
     setDebtToPay(debt);
@@ -184,7 +188,7 @@ export const DebtsScreen = ({ navigation, route }: any) => {
       setShowPayModal(false);
       setDebtToPay(null);
     } catch (error) {
-      
+
       alertService.error('خطأ', debtToPay.direction === 'owed_to_me' ? 'حدث خطأ أثناء تسجيل التسديد' : 'حدث خطأ أثناء دفع الدين');
       throw error;
     }
@@ -196,7 +200,7 @@ export const DebtsScreen = ({ navigation, route }: any) => {
       await loadDebts();
       alertService.toastSuccess('تم دفع القسط بنجاح');
     } catch (error) {
-      
+
       alertService.error('خطأ', 'حدث خطأ أثناء دفع القسط');
     }
   };
@@ -242,16 +246,60 @@ export const DebtsScreen = ({ navigation, route }: any) => {
     return diff;
   };
 
-  const totalDebts = debts.filter(d => !d.isPaid).reduce((sum, d) => sum + d.remainingAmount, 0);
-  const activeDebts = debts.filter(d => !d.isPaid).length;
-  const paidDebts = debts.filter(d => d.isPaid).length;
+  const { totalDebts, activeDebts, paidDebts } = useMemo(() => {
+    let total = 0;
+    let active = 0;
+    let paid = 0;
+    for (const d of debts) {
+      if (d.isPaid) {
+        paid++;
+      } else {
+        total += d.remainingAmount;
+        active++;
+      }
+    }
+    return { totalDebts: total, activeDebts: active, paidDebts: paid };
+  }, [debts]);
 
-  const renderDebt = ({ item }: { item: Debt }) => {
+  const renderListHeader = () => (
+    <View style={styles.summaryContainer}>
+      <LinearGradient
+        colors={theme.gradients.info as any}
+        style={styles.summaryCard}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <View style={styles.summaryTop}>
+          <View style={styles.summaryIconBox}>
+            <Ionicons name="card" size={22} color="#FFFFFF" />
+          </View>
+          <Text style={styles.summaryCardTitle}>ملخص الالتزامات</Text>
+        </View>
+        <View style={styles.summaryMain}>
+          <Text style={styles.summaryValue}>{formatCurrency(totalDebts)}</Text>
+          <Text style={styles.summaryLabel}>إجمالي الديون النشطة</Text>
+        </View>
+        <View style={styles.summaryStats}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{activeDebts}</Text>
+            <Text style={styles.statLabel}>نشطة</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{paidDebts}</Text>
+            <Text style={styles.statLabel}>مدفوعة</Text>
+          </View>
+        </View>
+      </LinearGradient>
+    </View>
+  );
+
+  const renderDebt = useCallback(({ item }: { item: Debt }) => {
     const installments = installmentsMap[item.id] || [];
     const unpaidInstallments = installments.filter(inst => !inst.isPaid);
 
     return (
-      <View style={{ paddingHorizontal: theme.spacing.md, marginBottom: theme.spacing.sm }}>
+      <View style={styles.itemWrapper}>
         <DebtItem
           item={item}
           onPress={() => handleDebtPress(item)}
@@ -264,115 +312,71 @@ export const DebtsScreen = ({ navigation, route }: any) => {
         />
       </View>
     );
-  };
+  }, [theme, styles, formatCurrency, installmentsMap, handleDebtPress, handleEdit, handleDelete, handlePayDebt]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+    <View style={styles.container}>
+      {/* <View style={styles.headerFilterSection}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterContent}
+        >
+          {(['all', 'debt', 'installment', 'advance'] as const).map((type) => {
+            const isSelected = selectedType === type;
+            return (
+              <TouchableOpacity
+                key={type}
+                onPress={() => handleTypeSelect(type)}
+                style={[
+                  styles.filterChip,
+                  isSelected && styles.filterChipActive
+                ]}
+              >
+                <Text style={[
+                  styles.filterChipText,
+                  isSelected && styles.filterChipTextActive
+                ]}>
+                  {type === 'all' ? 'الكل' : getDebtTypeName(type)}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View> */}
+
       <FlashList
         data={filteredDebts}
         // @ts-ignore
         estimatedItemSize={150}
-        ListHeaderComponent={
-          <View style={styles.header}>
-
-            {/* Filter Buttons Row */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.filterRow}
-              contentContainerStyle={styles.filterRowContent}
-            >
-              {(['all', 'debt', 'installment', 'advance'] as const).map((type) => {
-                const isSelected = selectedType === type;
-                return (
-                  <TouchableOpacity
-                    key={type}
-                    onPress={() => handleTypeSelect(type)}
-                    style={styles.filterButton}
-                    activeOpacity={0.7}
-                  >
-                    {isSelected ? (
-                      <LinearGradient
-                        colors={type === 'all'
-                          ? (theme.gradients.primary as any)
-                          : (typeColors[type] as any)}
-                        style={styles.filterButtonGradient}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                      >
-                        <Ionicons
-                          name={type === 'all'
-                            ? 'apps'
-                            : (typeIcons[type] as any)}
-                          size={16}
-                          color="#FFFFFF"
-                        />
-                        <Text style={styles.filterButtonTextActive}>
-                          {type === 'all' ? 'الكل' : getDebtTypeName(type)}
-                        </Text>
-                      </LinearGradient>
-                    ) : (
-                      <View style={styles.filterButtonDefault}>
-                        <Ionicons
-                          name={type === 'all'
-                            ? 'apps-outline'
-                            : (typeIcons[type] as any)}
-                          size={16}
-                          color={theme.colors.textSecondary}
-                        />
-                        <Text style={styles.filterButtonText}>
-                          {type === 'all' ? 'الكل' : getDebtTypeName(type)}
-                        </Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-
-            {/* Summary Cards */}
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryCard}>
-                <Text style={styles.summaryLabel}>ديون مستحقة</Text>
-                <Text style={styles.summaryAmount}>{formatCurrency(totalDebts)}</Text>
-              </View>
-              <View style={styles.summaryCard}>
-                <Text style={styles.summaryLabel}>ديون نشطة</Text>
-                <Text style={[styles.summaryAmount, { color: theme.colors.warning }]}>{activeDebts}</Text>
-              </View>
-              <View style={styles.summaryCard}>
-                <Text style={styles.summaryLabel}>ديون مدفوعة</Text>
-                <Text style={[styles.summaryAmount, { color: theme.colors.success }]}>{paidDebts}</Text>
-              </View>
-            </View>
-          </View>
-        }
+        ListHeaderComponent={renderListHeader()}
         renderItem={renderDebt}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.listContent}
-        initialNumToRender={10}
-        maxToRenderPerBatch={8}
-        windowSize={7}
-        updateCellsBatchingPeriod={50}
-        removeClippedSubviews={Platform.OS === 'android'}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.colors.primary}
+          />
         }
-        showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="card-outline" size={80} color={theme.colors.textSecondary} />
+            <View style={styles.emptyIconContainer}>
+              <Ionicons name="card-outline" size={64} color={theme.colors.primary + '40'} />
+            </View>
             <Text style={styles.emptyText}>
-              {selectedType !== 'all' ? 'لا توجد نتائج' : 'لا توجد ديون مستحقة عليك'}
+              {selectedType !== 'all' ? 'لا توجد نتائج' : 'لا توجد ديون مسجلة'}
             </Text>
             <Text style={styles.emptySubtext}>
               {selectedType !== 'all'
-                ? 'جرب تغيير الفلتر'
-                : 'أضف دين مستحق عليك أو قسط لتتبعه'}
+                ? 'جرب تغيير الفلتر للحصول على نتائج'
+                : 'أضف أول دين أو قسط أو سلفة لتتبعها هنا'}
             </Text>
           </View>
         }
       />
+
 
       <ConfirmAlert
         visible={showDeleteAlert}
@@ -399,7 +403,7 @@ export const DebtsScreen = ({ navigation, route }: any) => {
         }}
         onPay={handlePayDebtConfirm}
       />
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -407,210 +411,202 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
-
   },
-  header: {
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.md,
-    backgroundColor: theme.colors.surfaceCard,
+  headerActionBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: theme.colors.surfaceLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerFilterSection: {
+    paddingVertical: 12,
+    backgroundColor: theme.colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    marginBottom: theme.spacing.md,
+    borderBottomColor: theme.colors.border + '50',
   },
-  headerTitleRow: {
+  filterContent: {
+    paddingHorizontal: 20,
+    gap: 10,
     flexDirection: isRTL ? 'row-reverse' : 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.md,
   },
-  pageTitle: {
-    fontSize: theme.typography.sizes.xxl,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.xs,
-  },
-  pageSubtitle: {
-    fontSize: theme.typography.sizes.sm,
-    color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
-  },
-  searchFilterRow: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    gap: theme.spacing.sm,
-    marginBottom: theme.spacing.md,
-  },
-  searchContainer: {
-    marginBottom: theme.spacing.sm,
-  },
-  searchBar: {
+  filterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 14,
     backgroundColor: theme.colors.surfaceLight,
-    elevation: 0,
-    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
-  searchInput: {
-    fontFamily: theme.typography.fontFamily,
-    textAlign: isRTL ? 'right' : 'left',
+  filterChipActive: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
   },
-  filterRow: {
-    paddingHorizontal: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
-    direction: 'rtl' as const,
-  },
-  filterRowContent: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
-    gap: theme.spacing.xs,
-  },
-  filterButton: {
-    borderRadius: theme.borderRadius.md,
-    overflow: 'hidden',
-    ...getPlatformShadow('sm'),
-  },
-  filterButtonGradient: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-    gap: theme.spacing.xs,
-  },
-  filterButtonDefault: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
-    alignItems: 'center',
-    backgroundColor: theme.colors.surfaceLight,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-    gap: theme.spacing.xs,
-    borderRadius: theme.borderRadius.md,
-  },
-  filterButtonText: {
-    fontSize: theme.typography.sizes.xs,
+  filterChipText: {
+    fontSize: 13,
     fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
   },
-  filterButtonTextActive: {
-    fontSize: theme.typography.sizes.xs,
+  filterChipTextActive: {
+    color: '#FFFFFF',
+  },
+  summaryContainer: {
+    padding: 20,
+  },
+  headerEditBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: theme.colors.primary + '15',
+  },
+  headerEditText: {
+    color: theme.colors.primary,
+    fontSize: 14,
+    fontWeight: getPlatformFontWeight('700'),
+    fontFamily: theme.typography.fontFamily,
+  },
+  summaryCard: {
+    borderRadius: 24,
+    padding: 20,
+    ...getPlatformShadow('md'),
+  },
+  summaryTop: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 16,
+  },
+  summaryIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  summaryCardTitle: {
+    fontSize: 14,
     fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
-  summaryRow: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
-    gap: 4,
-    paddingHorizontal: 2,
-  },
-  summaryCard: {
-    flex: 1,
-    backgroundColor: theme.colors.surfaceLight,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.sm,
+  summaryMain: {
     alignItems: 'center',
-    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  summaryValue: {
+    fontSize: 28,
+    fontWeight: getPlatformFontWeight('900'),
+    color: '#FFFFFF',
+    fontFamily: theme.typography.fontFamily,
   },
   summaryLabel: {
     fontSize: 12,
-    color: theme.colors.textSecondary,
+    color: 'rgba(255,255,255,0.8)',
     fontFamily: theme.typography.fontFamily,
-    marginBottom: 4,
-    textAlign: 'center',
+    marginTop: 2,
   },
-  summaryAmount: {
-    fontSize: 15,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-  },
-  listContent: {
-    paddingBottom: theme.spacing.xl,
-    paddingTop: 0,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.xl,
-  },
-  emptyText: {
-    fontSize: theme.typography.sizes.xl,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    marginTop: theme.spacing.lg,
-    fontFamily: theme.typography.fontFamily,
-    textAlign: isRTL ? 'right' : 'left',
-  },
-  emptySubtext: {
-    fontSize: theme.typography.sizes.md,
-    color: theme.colors.textSecondary,
-    marginTop: theme.spacing.sm,
-    textAlign: isRTL ? 'right' : 'left',
-    fontFamily: theme.typography.fontFamily,
-  },
-  filterMenuOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  filterMenuContainer: {
-    backgroundColor: theme.colors.surfaceCard,
-    borderTopLeftRadius: theme.borderRadius.xl,
-    borderTopRightRadius: theme.borderRadius.xl,
-    maxHeight: '70%',
-  },
-  filterMenuHeader: {
+  summaryStats: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: theme.spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.2)',
+    paddingTop: 16,
   },
-  filterMenuTitle: {
-    fontSize: theme.typography.sizes.xl,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-  },
-  filterMenuCloseButton: {
-    padding: theme.spacing.xs,
-  },
-  filterMenuScroll: {
-    maxHeight: 400,
-  },
-  filterMenuContent: {
-    padding: theme.spacing.md,
-  },
-  filterMenuItem: {
-    marginBottom: theme.spacing.sm,
-    borderRadius: theme.borderRadius.md,
-    overflow: 'hidden',
-  },
-  filterMenuItemActive: {
-    ...getPlatformShadow('md'),
-  },
-  filterMenuItemGradient: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    padding: theme.spacing.md,
-    gap: theme.spacing.sm,
-  },
-  filterMenuItemDefault: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.surfaceLight,
-    gap: theme.spacing.sm,
-  },
-  filterMenuItemText: {
+  statItem: {
     flex: 1,
-    fontSize: theme.typography.sizes.md,
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
+    alignItems: 'center',
   },
-  filterMenuItemTextActive: {
-    flex: 1,
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('600'),
+  statValue: {
+    fontSize: 16,
+    fontWeight: getPlatformFontWeight('800'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
+  statLabel: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.7)',
+    fontFamily: theme.typography.fontFamily,
+  },
+  statDivider: {
+    width: 1,
+    height: '100%',
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+  listContent: {
+    paddingBottom: 100,
+  },
+  itemWrapper: {
+    paddingHorizontal: 20,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 20,
+  },
+  emptyIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: theme.colors.surfaceLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  emptyText: {
+    fontFamily: theme.typography.fontFamily,
+    fontSize: 18,
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.textPrimary,
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontFamily: theme.typography.fontFamily,
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+    maxWidth: '70%',
+  },
+  addModalOptions: {
+    padding: 20,
+    gap: 16,
+  },
+  addModalOption: {
+    flexDirection: isRTL ? 'row' : 'row-reverse',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: theme.colors.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    ...getPlatformShadow('xs'),
+  },
+  addModalIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: isRTL ? 16 : 0,
+    marginRight: isRTL ? 0 : 16,
+  },
+  addModalOptionTextContainer: {
+    flex: 1,
+    alignItems: isRTL ? 'flex-end' : 'flex-start',
+  },
+  addModalOptionTitle: {
+    fontSize: 16,
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
+    marginBottom: 4,
+  },
+  addModalOptionSubtitle: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+  },
 });
+

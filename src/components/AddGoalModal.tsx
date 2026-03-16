@@ -4,26 +4,23 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Modal,
   TouchableOpacity,
-  Animated,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
   Keyboard,
+  Platform,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TextInput, IconButton } from 'react-native-paper';
+import { TextInput } from 'react-native-paper';
 import { CustomDatePicker } from './CustomDatePicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { isRTL } from '../utils/rtl';
+import { AppBottomSheet, AppButton } from '../design-system';
 import { FinancialGoal, GoalCategory, GOAL_CATEGORIES, CURRENCIES } from '../types';
 import { useCurrency } from '../hooks/useCurrency';
 import { alertService } from '../services/alertService';
 import { convertCurrency, formatCurrencyAmount } from '../services/currencyService';
 import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
+import { CurrencyPickerModal } from './CurrencyPickerModal';
 
 interface AddGoalModalProps {
   visible: boolean;
@@ -40,7 +37,6 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
 }) => {
   const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
-  const insets = useSafeAreaInsets();
   const { currencyCode, formatCurrency } = useCurrency();
   const [title, setTitle] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
@@ -53,22 +49,9 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
   const [currency, setCurrency] = useState<string>(currencyCode);
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [slideAnim] = useState(new Animated.Value(0));
   const [convertedTargetAmount, setConvertedTargetAmount] = useState<number | null>(null);
   const [convertedCurrentAmount, setConvertedCurrentAmount] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (visible) {
-      Animated.spring(slideAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        tension: 50,
-        friction: 7,
-      }).start();
-    } else {
-      slideAnim.setValue(0);
-    }
-  }, [visible]);
 
   useEffect(() => {
     setCurrency(currencyCode);
@@ -211,73 +194,20 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
 
   const selectedCurrencyData = CURRENCIES.find(c => c.code === currency);
 
-  const translateY = slideAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [600, 0],
-  });
 
   return (
-    <Modal
+    <AppBottomSheet
       visible={visible}
-      animationType="fade"
-      transparent={true}
-      onRequestClose={handleClose}
-      statusBarTranslucent
+      onClose={handleClose}
+      title={editingGoal ? 'تعديل الهدف' : 'هدف جديد'}
+      maxHeight="98%"
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        <TouchableOpacity
-          style={styles.overlay}
-          activeOpacity={1}
-          onPress={handleClose}
-        >
-          <Animated.View
-            style={[
-              styles.modalContainer,
-              {
-                transform: [{ translateY }],
-              },
-            ]}
-          >
-            <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
-              <LinearGradient
-                colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-                style={[styles.modalGradient, { paddingBottom: insets.bottom }]}
-              >
-                {/* Header */}
-                <View style={styles.header}>
-                  <View style={styles.headerLeft}>
-                    <View style={[styles.iconBadge, { backgroundColor: categoryColors[category][0] + '20' }]}>
-                      <Ionicons
-                        name={categoryIcons[category] as any}
-                        size={24}
-                        color={categoryColors[category][0]}
-                      />
-                    </View>
-                    <View style={styles.headerText}>
-                      <Text style={styles.title}>
-                        {editingGoal ? 'تعديل الهدف' : 'هدف جديد'}
-                      </Text>
-                      <Text style={styles.subtitle}>أضف تفاصيل هدفك المالي</Text>
-                    </View>
-                  </View>
-                  <IconButton
-                    icon="close"
-                    size={24}
-                    onPress={handleClose}
-                    iconColor={theme.colors.textSecondary}
-                    style={styles.closeButton}
-                  />
-                </View>
-
-                <ScrollView
-                  style={styles.scrollView}
-                  contentContainerStyle={styles.scrollContent}
-                  showsVerticalScrollIndicator={false}
-                  keyboardShouldPersistTaps="handled"
-                >
                   {/* Title Input */}
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>عنوان الهدف</Text>
@@ -365,24 +295,15 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
                   {/* Currency Selection */}
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>العملة</Text>
-                    <TouchableOpacity
+                    <AppButton
+                      label={`${selectedCurrencyData?.symbol} ${selectedCurrencyData?.name}`}
                       onPress={() => setShowCurrencyPicker(true)}
+                      variant="primary"
+                      leftIcon="cash"
+                      rightIcon={isRTL ? "chevron-back" : "chevron-forward"}
                       style={styles.currencyButton}
-                      activeOpacity={0.7}
-                    >
-                      <LinearGradient
-                        colors={theme.gradients.primary as any}
-                        style={styles.currencyButtonGradient}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                      >
-                        <Ionicons name="cash" size={20} color="#FFFFFF" />
-                        <Text style={styles.currencyButtonText}>
-                          {selectedCurrencyData?.symbol} {selectedCurrencyData?.name}
-                        </Text>
-                        <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color="#FFFFFF" />
-                      </LinearGradient>
-                    </TouchableOpacity>
+                      labelStyle={styles.currencyButtonText}
+                    />
                   </View>
 
                   {/* Category Selection */}
@@ -392,37 +313,22 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
                       {categories.map(([catKey, catInfo]) => {
                         const isSelected = category === catKey;
                         return (
-                          <TouchableOpacity
+                          <AppButton
                             key={catKey}
+                            label={catInfo.label}
                             onPress={() => setCategory(catKey)}
-                            style={styles.categoryOption}
-                            activeOpacity={0.8}
-                          >
-                            {isSelected ? (
-                              <LinearGradient
-                                colors={categoryColors[catKey] as any}
-                                style={styles.categoryGradient}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                              >
-                                <Ionicons
-                                  name={categoryIcons[catKey] as any}
-                                  size={28}
-                                  color="#FFFFFF"
-                                />
-                                <Text style={styles.categoryTextActive}>{catInfo.label}</Text>
-                              </LinearGradient>
-                            ) : (
-                              <View style={styles.categoryDefault}>
-                                <Ionicons
-                                  name={`${categoryIcons[catKey]}-outline` as any}
-                                  size={28}
-                                  color={theme.colors.textSecondary}
-                                />
-                                <Text style={styles.categoryText}>{catInfo.label}</Text>
-                              </View>
-                            )}
-                          </TouchableOpacity>
+                            variant={isSelected ? 'primary' : 'secondary'}
+                            leftIcon={isSelected ? (categoryIcons[catKey] as any) : (`${categoryIcons[catKey]}-outline` as any)}
+                            style={[
+                              styles.categoryOption,
+                              isSelected && { backgroundColor: categoryColors[catKey][0] }
+                            ]}
+                            labelStyle={[
+                              styles.categoryText,
+                              isSelected && styles.categoryTextActive
+                            ]}
+                            size="lg"
+                          />
                         );
                       })}
                     </View>
@@ -431,34 +337,27 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
                   {/* Date Picker */}
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>تاريخ الهدف (اختياري)</Text>
-                    <TouchableOpacity
+                    <AppButton
+                      label={targetDate
+                        ? targetDate.toLocaleDateString('ar-IQ-u-nu-latn', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        })
+                        : 'اختر التاريخ'}
                       onPress={() => setShowDatePicker(true)}
+                      variant="secondary"
+                      leftIcon="calendar-outline"
+                      rightIcon={targetDate ? "close-circle" : (isRTL ? "chevron-back" : "chevron-forward")}
                       style={styles.dateButton}
-                    >
-                      <Ionicons name="calendar-outline" size={20} color={theme.colors.primary} />
-                      <Text style={styles.dateButtonText}>
-                        {targetDate
-                          ? targetDate.toLocaleDateString('ar-IQ-u-nu-latn', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                          })
-                          : 'اختر التاريخ'}
-                      </Text>
-                      {targetDate ? (
-                        <TouchableOpacity
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            setTargetDate(null);
-                          }}
-                          style={styles.removeDateButton}
-                        >
-                          <Ionicons name="close-circle" size={20} color={theme.colors.error} />
-                        </TouchableOpacity>
-                      ) : (
-                        <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
-                      )}
-                    </TouchableOpacity>
+                      labelStyle={styles.dateButtonText}
+                    />
+                    {targetDate && (
+                      <TouchableOpacity
+                        onPress={() => setTargetDate(null)}
+                        style={{ position: 'absolute', left: 10, top: 40, zIndex: 10 }}
+                      />
+                    )}
                     {showDatePicker && (
                       <CustomDatePicker
                         value={targetDate || new Date()}
@@ -510,180 +409,37 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
                       </TouchableOpacity>
                     </View>
                   )}
-                </ScrollView>
+      </ScrollView>
 
-                {/* Actions */}
-                <View style={styles.actions}>
-                  <TouchableOpacity
-                    onPress={handleClose}
-                    style={styles.cancelButton}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.cancelButtonText}>إلغاء</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={handleSave}
-                    disabled={loading}
-                    style={styles.saveButton}
-                    activeOpacity={0.8}
-                  >
-                    <LinearGradient
-                      colors={categoryColors[category] as any}
-                      style={styles.saveButtonGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                    >
-                      {loading ? (
-                        <Text style={styles.saveButtonText}>جاري الحفظ...</Text>
-                      ) : (
-                        <>
-                          <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-                          <Text style={styles.saveButtonText}>
-                            {editingGoal ? 'تحديث' : 'حفظ'}
-                          </Text>
-                        </>
-                      )}
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
-          </Animated.View>
-        </TouchableOpacity>
-      </KeyboardAvoidingView>
+      {/* Actions */}
+      <View style={styles.actions}>
+        <AppButton
+          label="إلغاء"
+          onPress={handleClose}
+          variant="secondary"
+          style={styles.cancelButton}
+        />
+        <AppButton
+          label={editingGoal ? 'تحديث' : 'حفظ'}
+          onPress={handleSave}
+          variant="primary"
+          loading={loading}
+          leftIcon="checkmark-circle"
+          style={styles.saveButton}
+        />
+      </View>
 
-      {/* Currency Picker Modal */}
-      <Modal
+      <CurrencyPickerModal
         visible={showCurrencyPicker}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowCurrencyPicker(false)}
-        statusBarTranslucent
-      >
-        <Pressable
-          style={styles.currencyModalOverlay}
-          onPress={() => setShowCurrencyPicker(false)}
-        >
-          <Pressable
-            style={styles.currencyModalContainer}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <LinearGradient
-              colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-              style={styles.currencyModalGradient}
-            >
-              <View style={styles.currencyModalHeader}>
-                <Text style={styles.currencyModalTitle}>اختر العملة</Text>
-                <TouchableOpacity
-                  onPress={() => setShowCurrencyPicker(false)}
-                  style={styles.currencyModalCloseButton}
-                >
-                  <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
-                </TouchableOpacity>
-              </View>
-              <ScrollView
-                style={styles.currencyModalScrollView}
-                contentContainerStyle={styles.currencyModalScrollContent}
-                showsVerticalScrollIndicator={true}
-                nestedScrollEnabled={true}
-              >
-                {CURRENCIES.map((curr) => (
-                  <TouchableOpacity
-                    key={curr.code}
-                    style={[
-                      styles.currencyOption,
-                      currency === curr.code && styles.currencyOptionSelected,
-                    ]}
-                    onPress={() => {
-                      setCurrency(curr.code);
-                      setShowCurrencyPicker(false);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[
-                      styles.currencyOptionText,
-                      currency === curr.code && styles.currencyOptionTextSelected,
-                    ]}>
-                      {curr.symbol} {curr.name}
-                    </Text>
-                    {currency === curr.code && (
-                      <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </LinearGradient>
-          </Pressable>
-        </Pressable>
-      </Modal>
-    </Modal>
+        selectedCurrency={currency}
+        onSelect={(code) => { setCurrency(code); setShowCurrencyPicker(false); }}
+        onClose={() => setShowCurrencyPicker(false)}
+      />
+    </AppBottomSheet>
   );
 };
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-  keyboardView: {
-    flex: 1,
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'flex-end',
-  },
-  modalContainer: {
-    maxHeight: '98%',
-    width: '100%',
-    backgroundColor: theme.colors.surfaceCard,
-    borderTopLeftRadius: theme.borderRadius.xl,
-    borderTopRightRadius: theme.borderRadius.xl,
-    overflow: 'hidden',
-    direction: 'rtl',
-  },
-  modalGradient: {
-    width: '100%',
-    minHeight: 600,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    flexShrink: 0,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  iconBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: theme.borderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: theme.spacing.md,
-  },
-  headerText: {
-    flex: 1,
-  },
-  title: {
-    fontSize: theme.typography.sizes.xl,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-    marginBottom: 2,
-    writingDirection: 'rtl',
-  },
-  subtitle: {
-    fontSize: theme.typography.sizes.sm,
-    color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
-    writingDirection: 'rtl',
-  },
-  closeButton: {
-    margin: 0,
-  },
   scrollView: {
     maxHeight: 500,
   },
@@ -812,36 +568,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    paddingVertical: theme.spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.surfaceLight,
-  },
-  cancelButtonText: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('600'),
-    color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
   },
   saveButton: {
     flex: 2,
-    borderRadius: theme.borderRadius.md,
-    overflow: 'hidden',
-    ...getPlatformShadow('md'),
-  },
-  saveButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: theme.spacing.md,
-    gap: theme.spacing.xs,
-  },
-  saveButtonText: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('700'),
-    color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
   },
   currencyButton: {
     borderRadius: theme.borderRadius.md,
@@ -871,8 +600,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   currencyModalContainer: {
     maxHeight: '70%',
-    borderTopLeftRadius: theme.borderRadius.xl,
-    borderTopRightRadius: theme.borderRadius.xl,
+    borderTopLeftRadius: theme.borderRadius.xxl,
+    borderTopRightRadius: theme.borderRadius.xxl,
     overflow: 'hidden',
     zIndex: 1000,
   },
@@ -904,7 +633,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     padding: theme.spacing.md,
   },
   currencyOption: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: theme.spacing.sm,

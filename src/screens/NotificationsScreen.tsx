@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Platform } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScreenContainer } from '../design-system';
 import { Ionicons } from '@expo/vector-icons';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
 import { useAppTheme, useThemedStyles } from '../utils/theme-context';
@@ -22,7 +22,6 @@ interface NotificationItem {
 export const NotificationsScreen = ({ navigation }: any) => {
     const { theme } = useAppTheme();
     const styles = useThemedStyles(createStyles);
-    const insets = useSafeAreaInsets();
     const [notifications, setNotifications] = useState<NotificationItem[]>([]);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -147,30 +146,26 @@ export const NotificationsScreen = ({ navigation }: any) => {
 
 
     return (
-        <SafeAreaView style={styles.container} edges={['bottom']}>
+        <ScreenContainer scrollable={false} edges={['bottom']}>
             <FlashList
                 data={notifications}
                 renderItem={renderItem}
                 keyExtractor={item => item.id}
                 estimatedItemSize={100}
-                contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 20 }]}
+                contentContainerStyle={styles.listContent}
                 initialNumToRender={10}
                 maxToRenderPerBatch={8}
                 windowSize={7}
                 updateCellsBatchingPeriod={50}
                 removeClippedSubviews={Platform.OS === 'android'}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-                ListFooterComponent={<View style={{ height: insets.bottom + 20 }} />}
+                ListFooterComponent={<View style={{ height: 20 }} />}
             />
-        </SafeAreaView>
+        </ScreenContainer>
     );
 };
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: theme.colors.background,
-    },
     header: {
         flexDirection: isRTL ? 'row-reverse' : 'row',
         alignItems: 'center',

@@ -6,15 +6,14 @@ import {
     Modal,
     TouchableOpacity,
     ScrollView,
-    TextInput,
     Pressable,
-    KeyboardAvoidingView,
     Platform,
     Dimensions,
+    KeyboardAvoidingView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { AppTheme, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
+import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { isRTL } from '../utils/rtl';
 import { alertService } from '../services/alertService';
 import { useCurrency } from '../hooks/useCurrency';
@@ -33,6 +32,8 @@ import {
     CustomCategory,
     getCustomCategories,
 } from '../database/database';
+import { AppButton, AppInput } from '../design-system';
+
 
 type ShortcutType = 'expense' | 'income';
 
@@ -50,8 +51,8 @@ export const ManageShortcutsModal: React.FC<ManageShortcutsModalProps> = ({
     onShortcutUsed,
 }) => {
     const { theme } = useAppTheme();
-    const styles = useThemedStyles(createStyles);
     const insets = useSafeAreaInsets();
+    const styles = useThemedStyles((t) => createStyles(t, insets));
     const { currencyCode, formatCurrency } = useCurrency();
 
     // Data
@@ -97,7 +98,7 @@ export const ManageShortcutsModal: React.FC<ManageShortcutsModalProps> = ({
             ));
             setCategories(allCats);
         } catch (error) {
-            
+
         } finally {
             setIsLoading(false);
         }
@@ -274,10 +275,13 @@ export const ManageShortcutsModal: React.FC<ManageShortcutsModalProps> = ({
                         <Text style={styles.emptySubtitle}>
                             أضف اختصارات لإضافة المصاريف أو الدخل المتكرر بضغطة واحدة
                         </Text>
-                        <TouchableOpacity style={styles.emptyAddBtn} onPress={openAddForm}>
-                            <Ionicons name="add" size={20} color="#FFF" />
-                            <Text style={styles.emptyAddBtnText}>إضافة اختصار</Text>
-                        </TouchableOpacity>
+                        <AppButton
+                            label="إضافة اختصار"
+                            onPress={openAddForm}
+                            variant="primary"
+                            leftIcon="add"
+                            style={styles.emptyAddBtn}
+                        />
                     </View>
                 ) : (
                     shortcuts.map((shortcut: any) => {
@@ -340,11 +344,7 @@ export const ManageShortcutsModal: React.FC<ManageShortcutsModalProps> = ({
     );
 
     const renderForm = () => (
-        <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={{ flex: 1 }}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20}
-        >
+        <>
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => { setMode('list'); resetForm(); }} style={styles.headerCloseBtn}>
@@ -356,7 +356,7 @@ export const ManageShortcutsModal: React.FC<ManageShortcutsModalProps> = ({
                 <View style={{ width: 40 }} />
             </View>
 
-            <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
+            <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                 {/* Type Selection */}
                 <View style={styles.formGroup}>
                     <Text style={styles.formLabel}>نوع المعاملة</Text>
@@ -407,35 +407,27 @@ export const ManageShortcutsModal: React.FC<ManageShortcutsModalProps> = ({
                     <Text style={styles.formLabel}>
                         {formType === 'expense' ? 'عنوان المصروف' : 'مصدر الدخل'}
                     </Text>
-                    <View style={styles.formInputRow}>
-                        <Ionicons name="text-outline" size={20} color={theme.colors.textMuted} />
-                        <TextInput
-                            style={styles.formInput}
-                            value={formTitle}
-                            onChangeText={setFormTitle}
-                            placeholder={formType === 'expense' ? 'مثال: قهوة يومية' : 'مثال: راتب شهري'}
-                            placeholderTextColor={theme.colors.textMuted}
-                        />
-                    </View>
+                    <AppInput
+                        value={formTitle}
+                        onChangeText={setFormTitle}
+                        placeholder={formType === 'expense' ? 'مثال: قهوة يومية' : 'مثال: راتب شهري'}
+                        icon="text-outline"
+                    />
                 </View>
 
                 {/* Amount */}
                 <View style={styles.formGroup}>
                     <Text style={styles.formLabel}>المبلغ</Text>
-                    <View style={styles.formInputRow}>
-                        <Ionicons name="cash-outline" size={20} color={theme.colors.textMuted} />
-                        <TextInput
-                            style={styles.formInput}
-                            value={formAmount}
-                            onChangeText={(t) => {
-                                const cleaned = convertArabicToEnglish(t);
-                                setFormAmount(formatNumberWithCommas(cleaned));
-                            }}
-                            placeholder="0"
-                            placeholderTextColor={theme.colors.textMuted}
-                            keyboardType="decimal-pad"
-                        />
-                    </View>
+                    <AppInput
+                        value={formAmount}
+                        onChangeText={(t) => {
+                            const cleaned = convertArabicToEnglish(t);
+                            setFormAmount(formatNumberWithCommas(cleaned));
+                        }}
+                        placeholder="0"
+                        keyboardType="decimal-pad"
+                        icon="cash-outline"
+                    />
                 </View>
 
                 {/* Category */}
@@ -466,43 +458,44 @@ export const ManageShortcutsModal: React.FC<ManageShortcutsModalProps> = ({
                 {/* Description */}
                 <View style={styles.formGroup}>
                     <Text style={styles.formLabel}>ملاحظات (اختياري)</Text>
-                    <View style={styles.formInputRow}>
-                        <Ionicons name="document-text-outline" size={20} color={theme.colors.textMuted} />
-                        <TextInput
-                            style={styles.formInput}
-                            value={formDescription}
-                            onChangeText={setFormDescription}
-                            placeholder="ملاحظات إضافية..."
-                            placeholderTextColor={theme.colors.textMuted}
-                            multiline
-                        />
-                    </View>
+                    <AppInput
+                        value={formDescription}
+                        onChangeText={setFormDescription}
+                        placeholder="ملاحظات إضافية..."
+                        icon="document-text-outline"
+                    />
                 </View>
             </ScrollView>
 
             {/* Save Button */}
             <View style={[styles.formFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-                <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-                    <Text style={styles.saveBtnText}>
-                        {mode === 'add' ? 'إضافة الاختصار' : 'حفظ التغييرات'}
-                    </Text>
-                </TouchableOpacity>
+                <AppButton
+                    label={mode === 'add' ? 'إضافة الاختصار' : 'حفظ التغييرات'}
+                    onPress={handleSave}
+                    variant="primary"
+                    size="lg"
+                    style={styles.saveBtn}
+                />
             </View>
-        </KeyboardAvoidingView>
+        </>
     );
 
     return (
         <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose} statusBarTranslucent={true}>
-            <View style={styles.container}>
+            <KeyboardAvoidingView
+                style={styles.container}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 35 : 0}
+            >
                 {mode === 'list' ? renderList() : renderForm()}
-            </View>
+            </KeyboardAvoidingView>
         </Modal>
     );
 };
 
 const { width } = Dimensions.get('window');
 
-const createStyles = (theme: AppTheme) =>
+const createStyles = (theme: AppTheme, insets: any) =>
     StyleSheet.create({
         container: {
             flex: 1,
@@ -516,6 +509,7 @@ const createStyles = (theme: AppTheme) =>
             justifyContent: 'space-between',
             paddingHorizontal: 16,
             paddingVertical: 14,
+            paddingTop: Platform.OS === 'android' ? Math.max(insets.top, 14) : 14,
             borderBottomWidth: 1,
             borderBottomColor: theme.colors.border,
         },
@@ -528,8 +522,8 @@ const createStyles = (theme: AppTheme) =>
             justifyContent: 'center',
         },
         headerTitle: {
-            fontSize: 18,
-            fontWeight: '700',
+            fontSize: theme.typography.sizes.lg,
+            fontWeight: getPlatformFontWeight('700'),
             fontFamily: theme.typography.fontFamily,
             color: theme.colors.textPrimary,
         },
@@ -571,14 +565,14 @@ const createStyles = (theme: AppTheme) =>
             flex: 1,
         },
         shortcutName: {
-            fontSize: 15,
-            fontWeight: '600',
+            fontSize: theme.typography.sizes.sm,
+            fontWeight: getPlatformFontWeight('600'),
             fontFamily: theme.typography.fontFamily,
             color: theme.colors.textPrimary,
             textAlign: isRTL ? 'right' : 'left',
         },
         shortcutCat: {
-            fontSize: 12,
+            fontSize: theme.typography.sizes.xs,
             fontFamily: theme.typography.fontFamily,
             color: theme.colors.textSecondary,
             marginTop: 2,
@@ -588,8 +582,8 @@ const createStyles = (theme: AppTheme) =>
             paddingHorizontal: 10,
         },
         shortcutAmount: {
-            fontSize: 15,
-            fontWeight: '700',
+            fontSize: theme.typography.sizes.sm,
+            fontWeight: getPlatformFontWeight('700'),
             fontFamily: theme.typography.fontFamily,
         },
         shortcutActions: {
@@ -615,8 +609,8 @@ const createStyles = (theme: AppTheme) =>
             paddingHorizontal: 40,
         },
         emptyTitle: {
-            fontSize: 18,
-            fontWeight: '700',
+            fontSize: theme.typography.sizes.lg,
+            fontWeight: getPlatformFontWeight('700'),
             fontFamily: theme.typography.fontFamily,
             color: theme.colors.textPrimary,
             marginTop: 16,
@@ -630,20 +624,7 @@ const createStyles = (theme: AppTheme) =>
             lineHeight: 22,
         },
         emptyAddBtn: {
-            flexDirection: isRTL ? 'row-reverse' : 'row',
-            alignItems: 'center',
-            gap: 8,
-            backgroundColor: theme.colors.primary,
-            paddingHorizontal: 24,
-            paddingVertical: 12,
-            borderRadius: 14,
             marginTop: 24,
-        },
-        emptyAddBtnText: {
-            fontSize: 15,
-            fontWeight: '600',
-            fontFamily: theme.typography.fontFamily,
-            color: '#FFF',
         },
 
         // ─── Form ───
@@ -656,31 +637,12 @@ const createStyles = (theme: AppTheme) =>
             marginBottom: 20,
         },
         formLabel: {
-            fontSize: 14,
-            fontWeight: '600',
+            fontSize: theme.typography.sizes.sm,
+            fontWeight: getPlatformFontWeight('600'),
             fontFamily: theme.typography.fontFamily,
             color: theme.colors.textSecondary,
             marginBottom: 8,
             textAlign: isRTL ? 'right' : 'left',
-        },
-        formInputRow: {
-            flexDirection: isRTL ? 'row-reverse' : 'row',
-            alignItems: 'center',
-            backgroundColor: theme.colors.surface,
-            borderRadius: 14,
-            paddingHorizontal: 14,
-            paddingVertical: Platform.OS === 'ios' ? 14 : 6,
-            gap: 10,
-            borderWidth: 1,
-            borderColor: theme.colors.border,
-        },
-        formInput: {
-            flex: 1,
-            fontSize: 15,
-            fontFamily: theme.typography.fontFamily,
-            color: theme.colors.textPrimary,
-            textAlign: isRTL ? 'right' : 'left',
-            writingDirection: isRTL ? 'rtl' : 'ltr',
         },
         catList: {
             gap: 8,
@@ -710,15 +672,6 @@ const createStyles = (theme: AppTheme) =>
             backgroundColor: theme.colors.background,
         },
         saveBtn: {
-            backgroundColor: theme.colors.primary,
-            paddingVertical: 16,
-            borderRadius: 16,
-            alignItems: 'center',
-        },
-        saveBtnText: {
-            fontSize: 16,
-            fontWeight: '700',
-            fontFamily: theme.typography.fontFamily,
-            color: '#FFF',
+            width: '100%',
         },
     });

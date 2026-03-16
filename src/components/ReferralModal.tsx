@@ -3,21 +3,13 @@ import {
     View,
     Text,
     StyleSheet,
-    Modal,
-    TextInput,
-    TouchableOpacity,
-    KeyboardAvoidingView,
-    Platform,
-    ActivityIndicator,
-    Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useAppTheme, useThemedStyles } from '../utils/theme-context';
 import { type AppTheme, getPlatformShadow, getPlatformFontWeight } from '../utils/theme-constants';
 import { referralService } from '../services/referralService';
-import { alertService } from '../services/alertService';
 import { isRTL } from '../utils/rtl';
+import { AppBottomSheet, AppButton, AppInput } from '../design-system';
 
 
 interface ReferralModalProps {
@@ -65,150 +57,77 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({ visible, onClose, 
     };
 
     return (
-        <Modal
+        <AppBottomSheet
             visible={visible}
-            transparent={true}
-            animationType="fade"
-            onRequestClose={onClose}
+            onClose={handleDismiss}
+            title="لديك كود إحالة؟"
+            avoidKeyboard
         >
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={{ flex: 1 }}
-            >
-                <View style={styles.overlay}>
-                    <View style={styles.modalContainer}>
-                        <LinearGradient
-                            colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-                            style={styles.gradient}
-                        >
-                            <TouchableOpacity style={styles.closeButton} onPress={handleDismiss}>
-                                <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
-                            </TouchableOpacity>
-
-                            <View style={styles.content}>
-                                <View
-                                    style={[styles.iconContainer, { backgroundColor: theme.colors.primary + '15' }]}
-                                >
-                                    <Ionicons name="gift" size={50} color={theme.colors.primary} />
-                                </View>
-
-                                <Text style={styles.title}>لديك كود إحالة؟</Text>
-                                <Text style={styles.subtitle}>
-                                    أدخل كود الإحالة الذي حصلت عليه من صديقك لتحصل أنت وهو على 7 أيام اشتراك "برو" مجاناً!
-                                </Text>
-
-                                <View style={styles.inputWrapper}>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="مثال: DN-A7BC12"
-                                        placeholderTextColor={theme.colors.textMuted}
-                                        value={code}
-                                        onChangeText={(text) => {
-                                            setCode(text.toUpperCase());
-                                            if (error) setError(null);
-                                        }}
-                                        autoCapitalize="characters"
-                                        autoCorrect={false}
-                                        textAlign="center"
-                                    />
-                                </View>
-
-                                {error && (
-                                    <View style={styles.errorContainer}>
-                                        <Ionicons name="alert-circle" size={16} color={theme.colors.error} />
-                                        <Text style={styles.errorText}>{error}</Text>
-                                    </View>
-                                )}
-
-                                <TouchableOpacity
-                                    style={styles.applyButton}
-                                    onPress={handleApply}
-                                    disabled={loading}
-                                    activeOpacity={0.8}
-                                >
-                                    <View
-                                        style={[styles.applyButtonGradient, { backgroundColor: theme.colors.primary }]}
-                                    >
-                                        {loading ? (
-                                            <ActivityIndicator color={theme.colors.textInverse} />
-                                        ) : (
-                                            <View style={styles.buttonContent}>
-                                                <Text style={[styles.applyButtonText, { color: theme.colors.textInverse }]}>تفعيل الكود</Text>
-                                                <Ionicons name="arrow-forward-outline" size={20} color={theme.colors.textInverse} />
-                                            </View>
-                                        )}
-                                    </View>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity onPress={handleDismiss} style={styles.skipButton}>
-                                    <Text style={styles.skipButtonText}>ليس لدي كود حالياً</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </LinearGradient>
-                    </View>
+            <View style={styles.content}>
+                <View
+                    style={[styles.iconContainer, { backgroundColor: theme.colors.primary + '15' }]}
+                >
+                    <Ionicons name="gift" size={50} color={theme.colors.primary} />
                 </View>
-            </KeyboardAvoidingView>
-        </Modal>
+
+                <Text style={styles.subtitle}>
+                    أدخل كود الإحالة الذي حصلت عليه من صديقك لتحصل أنت وهو على 7 أيام اشتراك "برو" مجاناً!
+                </Text>
+
+                <View style={styles.inputWrapper}>
+                    <AppInput
+                        value={code}
+                        onChangeText={(text) => {
+                            setCode(text.toUpperCase());
+                            if (error) setError(null);
+                        }}
+                        placeholder="مثال: DN-A7BC12"
+                        error={error || undefined}
+                    />
+                </View>
+
+                <AppButton
+                    label="تفعيل الكود"
+                    onPress={handleApply}
+                    loading={loading}
+                    variant="primary"
+                    rightIcon="arrow-forward-outline"
+                />
+
+                <AppButton
+                    label="ليس لدي كود حالياً"
+                    onPress={handleDismiss}
+                    variant="ghost"
+                    style={styles.skipButton}
+                />
+            </View>
+        </AppBottomSheet>
     );
 };
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-    overlay: {
-        flex: 1,
-        backgroundColor: theme.colors.overlay,
-        justifyContent: 'center',
-        padding: Platform.OS === 'android' ? 12 : 24,
-    },
-    keyboardView: {
-        width: '100%',
-    },
-    modalContainer: {
-        width: '100%',
-        borderRadius: 32,
-        overflow: 'hidden',
-        ...getPlatformShadow('xl'),
-    },
-    gradient: {
-        padding: Platform.OS === 'android' ? 20 : 28,
-        width: '100%',
-        alignItems: 'center',
-    },
-    closeButton: {
-        position: 'absolute',
-        top: 16,
-        left: 16,
-        padding: 8,
-        zIndex: 10,
-    },
     content: {
         width: '100%',
         alignItems: 'center',
-        marginTop: 10,
+        paddingHorizontal: 16,
+        paddingBottom: 8,
     },
     iconContainer: {
-        width: Platform.OS === 'android' ? 72 : 100,
-        height: Platform.OS === 'android' ? 72 : 100,
-        borderRadius: Platform.OS === 'android' ? 36 : 50,
+        width: 100,
+        height: 100,
+        borderRadius: 50,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: Platform.OS === 'android' ? 16 : 24,
+        marginBottom: 24,
         borderWidth: 1,
         borderColor: theme.colors.primary + '33',
     },
-    title: {
-        fontSize: Platform.OS === 'android' ? 20 : 24,
-        fontWeight: getPlatformFontWeight('900'),
-        color: theme.colors.textPrimary,
-        marginBottom: Platform.OS === 'android' ? 8 : 12,
-        textAlign: 'center',
-        fontFamily: theme.typography.fontFamily,
-    },
     subtitle: {
-        fontSize: Platform.OS === 'android' ? 14 : 15,
+        fontSize: 15,
         color: theme.colors.textSecondary,
         textAlign: 'center',
-        lineHeight: Platform.OS === 'android' ? 20 : 22,
-        marginBottom: Platform.OS === 'android' ? 20 : 32,
+        lineHeight: 22,
+        marginBottom: 32,
         fontFamily: theme.typography.fontFamily,
         paddingHorizontal: 10,
     },
@@ -216,69 +135,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         width: '100%',
         marginBottom: 24,
     },
-    input: {
-        width: '100%',
-        backgroundColor: theme.colors.background,
-        borderRadius: Platform.OS === 'android' ? 16 : 20,
-        paddingHorizontal: 16,
-        height: Platform.OS === 'android' ? 54 : 60,
-        fontSize: 18,
-        color: theme.colors.textPrimary,
-        fontWeight: getPlatformFontWeight('800'),
-        fontFamily: theme.typography.fontFamily,
-        borderWidth: 2,
-        borderColor: theme.colors.border,
-    },
-    applyButton: {
-        width: '100%',
-        height: Platform.OS === 'android' ? 54 : 60,
-        borderRadius: Platform.OS === 'android' ? 16 : 20,
-        overflow: 'hidden',
-        marginBottom: 16,
-        ...getPlatformShadow('md'),
-    },
-    applyButtonGradient: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    buttonContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    applyButtonText: {
-        color: '#FFFFFF',
-        fontSize: 18,
-        fontWeight: getPlatformFontWeight('900'),
-        fontFamily: theme.typography.fontFamily,
-    },
     skipButton: {
-        padding: 8,
-    },
-    skipButtonText: {
-        color: theme.colors.textSecondary,
-        fontSize: 16,
-        fontWeight: getPlatformFontWeight('600'),
-        fontFamily: theme.typography.fontFamily,
-    },
-    errorContainer: {
-        flexDirection: isRTL ? 'row' : 'row-reverse',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: theme.colors.error + '15',
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 12,
-        marginBottom: 20,
-        gap: 6,
-        width: '100%',
-    },
-    errorText: {
-        color: theme.colors.error,
-        fontSize: 14,
-        fontWeight: '600',
-        fontFamily: theme.typography.fontFamily,
-        textAlign: 'center',
+        marginTop: 8,
     },
 });

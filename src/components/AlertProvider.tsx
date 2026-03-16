@@ -2,6 +2,8 @@ import React, { useState, useCallback } from 'react';
 import { CustomAlert, AlertType } from './CustomAlert';
 import { Toast, ToastType } from './Toast';
 import { alertService, AlertOptions } from '../services/alertService';
+import { authModalService, AuthModalOptions } from '../services/authModalService';
+import { AuthScreen } from '../screens/AuthScreen';
 
 export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [alertOptions, setAlertOptions] = useState<AlertOptions | null>(null);
@@ -10,10 +12,13 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     message: string;
     type: ToastType;
   } | null>(null);
+  const [authVisible, setAuthVisible] = useState(false);
+  const [authOptions, setAuthOptions] = useState<AuthModalOptions>({});
 
   React.useEffect(() => {
     alertService.setAlertComponent(CustomAlert, setAlertOptions);
     alertService.setToastComponent(setToastOptions);
+    authModalService.register(setAuthVisible, setAuthOptions);
   }, []);
 
   const handleConfirm = useCallback(() => {
@@ -84,6 +89,12 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           onHide={handleToastHide}
         />
       )}
+      <AuthScreen
+        visible={authVisible}
+        isLogin={authOptions.isLogin}
+        onSuccess={authOptions.onSuccess}
+        onClose={() => setAuthVisible(false)}
+      />
     </>
   );
 };

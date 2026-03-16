@@ -15,6 +15,7 @@ import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../util
 import { useThemedStyles, useAppTheme } from '../utils/theme-context';
 import { isRTL } from '../utils/rtl';
 import { onboardingStorage } from '../services/onboardingStorage';
+import { authModalService } from '../services/authModalService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -29,10 +30,8 @@ export const OnboardingScreen = ({ navigation, onFinish }: OnboardingScreenProps
   const [isCompleting, setIsCompleting] = useState(false);
 
   const navigateToAuth = useCallback((isLogin: boolean = true) => {
-    navigation.reset({
-      index: 1,
-      routes: [{ name: 'Main' }, { name: 'Auth', params: { isLogin } }],
-    });
+    navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+    authModalService.show({ isLogin });
   }, [navigation]);
 
   const navigateToMain = useCallback(() => {

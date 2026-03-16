@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, useAppTheme, useThemedStyles, getPlatformShadow, getPlatformFontWeight } from '../utils/theme';
+import { AppButton } from '../design-system';
 import { parseTransactionText, parseMultipleTransactions, ParsedTransaction, CATEGORY_DISPLAY_NAMES, EXPENSE_CATEGORY_LIST, INCOME_CATEGORY_LIST } from '../utils/smartParser';
 import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 import { parseWithGemini } from '../services/geminiService';
@@ -24,6 +25,7 @@ import { addExpense, addIncome, getSavings, addSavingsTransaction, addSavings } 
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePrivacy } from '../context/PrivacyContext';
 import { alertService } from '../services/alertService';
+import { authModalService } from '../services/authModalService';
 import { CONTACT_INFO } from '../constants/contactConstants';
 import { apiClient } from '../services/apiClient';
 
@@ -130,9 +132,7 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
                     confirmText: 'تسجيل دخول',
                     cancelText: 'إلغاء',
                     showCancel: true,
-                    onConfirm: () => {
-                        if (navigation) navigation.navigate('Auth');
-                    },
+                    onConfirm: () => authModalService.show(),
                 });
             }, 300);
             return;
@@ -322,9 +322,9 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
         >
             <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
                 <KeyboardAvoidingView
-                    behavior="padding"
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                     style={{ flex: 1 }}
-                    keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+                    keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
                 >
                     {/* Header Container with Rounded Background */}
                     <View style={styles.headerContainer}>
@@ -366,20 +366,15 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
                                 <Text style={[styles.noConnectionSub, { color: theme.colors.textSecondary }]}>
                                     تحتاج إلى الاتصال بالإنترنت لاستخدام ميزة الإضافة الذكية بالذكاء الاصطناعي.
                                 </Text>
-                                <TouchableOpacity
-                                    style={[styles.retryBtn, { backgroundColor: theme.colors.primary }]}
+                                <AppButton
+                                    label="محاولة مرة أخرى"
                                     onPress={checkConnection}
+                                    variant="primary"
+                                    leftIcon="refresh"
+                                    loading={isCheckingConnection}
                                     disabled={isCheckingConnection}
-                                >
-                                    {isCheckingConnection ? (
-                                        <ActivityIndicator size="small" color="#fff" />
-                                    ) : (
-                                        <>
-                                            <Ionicons name="refresh" size={18} color="#fff" />
-                                            <Text style={styles.retryBtnText}>محاولة مرة أخرى</Text>
-                                        </>
-                                    )}
-                                </TouchableOpacity>
+                                    style={styles.retryBtn}
+                                />
                             </View>
                         ) : isConnected === null ? (
                             <View style={styles.loadingContainer}>
@@ -711,34 +706,27 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
                     {/* Bottom Actions */}
                     {parsedResults.length > 0 && (
                         <View style={[styles.bottomActions, { paddingBottom: Math.max(insets.bottom, 16), backgroundColor: theme.colors.background, borderTopColor: theme.colors.border }]}>
-                            <TouchableOpacity
-                                style={[styles.actionBtn, styles.cancelBtn, { borderColor: theme.colors.border }]}
+                            <AppButton
+                                label="إعادة"
                                 onPress={() => {
                                     setParsedResults([]);
                                     setText('');
                                     setTimeout(() => inputRef.current?.focus(), 100);
                                 }}
-                            >
-                                <Ionicons name="refresh-outline" size={18} color={theme.colors.textSecondary} />
-                                <Text style={[styles.cancelBtnText, { color: theme.colors.textSecondary }]}>إعادة</Text>
-                            </TouchableOpacity>
+                                variant="secondary"
+                                leftIcon="refresh-outline"
+                                style={styles.cancelBtn}
+                            />
 
-                            <TouchableOpacity
-                                style={[styles.actionBtn, styles.confirmBtn]}
+                            <AppButton
+                                label={parsedResults.length > 1 ? `حفظ الكل (${parsedResults.length})` : 'حفظ'}
                                 onPress={handleConfirm}
+                                variant="primary"
+                                leftIcon="checkmark-circle"
+                                loading={isProcessing}
                                 disabled={isProcessing}
-                            >
-                                {isProcessing ? (
-                                    <ActivityIndicator size="small" color="#fff" />
-                                ) : (
-                                    <>
-                                        <Ionicons name="checkmark-circle" size={18} color="#fff" />
-                                        <Text style={styles.confirmBtnText}>
-                                            حفظ {parsedResults.length > 1 ? `الكل (${parsedResults.length})` : ''}
-                                        </Text>
-                                    </>
-                                )}
-                            </TouchableOpacity>
+                                style={styles.confirmBtn}
+                            />
                         </View>
                     )}
                 </KeyboardAvoidingView>
@@ -805,8 +793,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         marginBottom: 16,
     },
     aiBadgeText: {
-        fontSize: 12,
-        fontWeight: '600',
+        fontSize: theme.typography.sizes.xs,
+        fontWeight: getPlatformFontWeight('600'),
         color: theme.colors.primary,
         fontFamily: theme.typography.fontFamily,
     },
@@ -822,9 +810,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         marginBottom: 12,
     },
     usageBadgeText: {
-        fontSize: 11,
+        fontSize: theme.typography.sizes.xs,
         fontFamily: theme.typography.fontFamily,
-        fontWeight: '600',
+        fontWeight: getPlatformFontWeight('600'),
         marginRight: 4,
     },
     // Instruction
@@ -911,9 +899,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         marginBottom: 10,
     },
     exampleLabel: {
-        fontSize: 12,
+        fontSize: theme.typography.sizes.xs,
         fontFamily: theme.typography.fontFamily,
-        fontWeight: '700',
+        fontWeight: getPlatformFontWeight('700'),
     },
     examplesList: {
         gap: 0,
@@ -950,8 +938,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         gap: 8,
     },
     resultsTitle: {
-        fontSize: 16,
-        fontWeight: '700',
+        fontSize: theme.typography.sizes.md,
+        fontWeight: getPlatformFontWeight('700'),
         fontFamily: theme.typography.fontFamily,
     },
     // Result Card
@@ -977,8 +965,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         borderRadius: 8,
     },
     typeBadgeText: {
-        fontSize: 12,
-        fontWeight: '700',
+        fontSize: theme.typography.sizes.xs,
+        fontWeight: getPlatformFontWeight('700'),
         fontFamily: theme.typography.fontFamily,
     },
     deleteBtn: {
@@ -1001,8 +989,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         paddingHorizontal: 4,
     },
     amountInput: {
-        fontSize: 18,
-        fontWeight: '700',
+        fontSize: theme.typography.sizes.lg,
+        fontWeight: getPlatformFontWeight('700'),
     },
     currencyLabel: {
         fontSize: 12,
@@ -1032,8 +1020,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         backgroundColor: theme.colors.success + '1A',
     },
     toggleText: {
-        fontSize: 13,
-        fontWeight: '500',
+        fontSize: theme.typography.sizes.xs,
+        fontWeight: getPlatformFontWeight('500'),
         color: theme.colors.textMuted,
         fontFamily: theme.typography.fontFamily,
     },
@@ -1058,13 +1046,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         borderColor: theme.colors.success + '4D',
     },
     categoryChipText: {
-        fontSize: 12,
+        fontSize: theme.typography.sizes.xs,
         fontFamily: theme.typography.fontFamily,
-        fontWeight: '500',
+        fontWeight: getPlatformFontWeight('500'),
     },
     categoryChipTextActive: {
         color: theme.colors.textPrimary,
-        fontWeight: '700',
+        fontWeight: getPlatformFontWeight('700'),
     },
     // Add More
     addMoreBtn: {
@@ -1079,8 +1067,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         marginTop: 4,
     },
     addMoreText: {
-        fontSize: 13,
-        fontWeight: '600',
+        fontSize: theme.typography.sizes.xs,
+        fontWeight: getPlatformFontWeight('600'),
         fontFamily: theme.typography.fontFamily,
     },
     // Bottom Actions
@@ -1091,31 +1079,11 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         paddingTop: 12,
         borderTopWidth: 1,
     },
-    actionBtn: {
-        flex: 1,
-        flexDirection: 'row-reverse',
-        height: 48,
-        borderRadius: 14,
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 6,
-    },
     cancelBtn: {
-        borderWidth: 1,
         flex: 0.4,
     },
-    cancelBtnText: {
-        fontWeight: '600',
-        fontFamily: theme.typography.fontFamily,
-    },
     confirmBtn: {
-        backgroundColor: theme.colors.primary,
         flex: 0.6,
-    },
-    confirmBtnText: {
-        color: '#FFFFFF',
-        fontWeight: '700',
-        fontFamily: theme.typography.fontFamily,
     },
     // No Connection
     noConnectionContainer: {
@@ -1133,8 +1101,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         marginBottom: 20,
     },
     noConnectionTitle: {
-        fontSize: 20,
-        fontWeight: '700',
+        fontSize: theme.typography.sizes.xl,
+        fontWeight: getPlatformFontWeight('700'),
         fontFamily: theme.typography.fontFamily,
         marginBottom: 10,
         textAlign: 'center',
@@ -1147,20 +1115,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         marginBottom: 30,
     },
     retryBtn: {
-        flexDirection: 'row-reverse',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
         paddingHorizontal: 24,
-        paddingVertical: 12,
-        borderRadius: 14,
-        ...theme.shadows.sm,
-    },
-    retryBtnText: {
-        color: '#FFFFFF',
-        fontSize: 15,
-        fontWeight: '700',
-        fontFamily: theme.typography.fontFamily,
     },
     // Loading
     loadingContainer: {

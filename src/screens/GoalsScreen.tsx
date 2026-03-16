@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   RefreshControl,
   I18nManager,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenContainer } from '../design-system';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
@@ -23,6 +23,7 @@ import { FinancialGoal } from '../types';
 import { useCurrency } from '../hooks/useCurrency';
 import { isRTL } from '../utils/rtl';
 import { alertService } from '../services/alertService';
+import { authModalService } from '../services/authModalService';
 import { convertCurrency, formatCurrencyAmount } from '../services/currencyService';
 import { CURRENCIES } from '../types';
 import { authStorage } from '../services/authStorage';
@@ -46,7 +47,7 @@ export const GoalsScreen = ({ navigation, route }: any) => {
   const [showAddAmount, setShowAddAmount] = useState(false);
   const [deletingGoalId, setDeletingGoalId] = useState<number | null>(null);
 
-  const loadGoals = async () => {
+  const loadGoals = useCallback(async () => {
     try {
       const allGoals = await getFinancialGoals();
       setGoals(allGoals);
@@ -101,9 +102,9 @@ export const GoalsScreen = ({ navigation, route }: any) => {
         setCurrencyBreakdown({});
       }
     } catch (error) {
-      
+
     }
-  };
+  }, [currencyCode]);
 
   useEffect(() => {
     loadGoals();
@@ -181,7 +182,7 @@ export const GoalsScreen = ({ navigation, route }: any) => {
           confirmText: 'تسجيل الدخول',
           cancelText: 'إلغاء',
           showCancel: true,
-          onConfirm: () => navigation.navigate('Auth'),
+          onConfirm: () => authModalService.show(),
         });
         return;
       }
@@ -200,20 +201,28 @@ export const GoalsScreen = ({ navigation, route }: any) => {
     }
   };
 
-  const activeGoals = goals.filter(g => !g.completed);
-  const completedGoals = goals.filter(g => g.completed);
+  const activeGoals = useMemo(() => goals.filter(g => !g.completed), [goals]);
+  const completedGoals = useMemo(() => goals.filter(g => g.completed), [goals]);
 
   // Use converted totals if available, otherwise calculate from active goals
-  const totalTarget = convertedTotals?.target ?? activeGoals.reduce((sum, g) => sum + g.targetAmount, 0);
-  const totalCurrent = convertedTotals?.current ?? activeGoals.reduce((sum, g) => sum + g.currentAmount, 0);
+  const totalTarget = useMemo(
+    () => convertedTotals?.target ?? activeGoals.reduce((sum, g) => sum + g.targetAmount, 0),
+    [convertedTotals, activeGoals]
+  );
+  const totalCurrent = useMemo(
+    () => convertedTotals?.current ?? activeGoals.reduce((sum, g) => sum + g.currentAmount, 0),
+    [convertedTotals, activeGoals]
+  );
   const overallProgress = totalTarget > 0 ? (totalCurrent / totalTarget) * 100 : 0;
 
   // Check if all goals use the same currency
-  const uniqueCurrencies = new Set(activeGoals.map(g => g.currency || currencyCode));
-  const hasMultipleCurrencies = uniqueCurrencies.size > 1;
+  const hasMultipleCurrencies = useMemo(
+    () => new Set(activeGoals.map(g => g.currency || currencyCode)).size > 1,
+    [activeGoals, currencyCode]
+  );
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+    <ScreenContainer scrollable={false} edges={['bottom', 'left', 'right']}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -358,6 +367,7 @@ export const GoalsScreen = ({ navigation, route }: any) => {
       </ScrollView>
 
       {/* Goal Details Modal */}
+
       <GoalDetailsModal
         visible={showDetails}
         goal={selectedGoal}
@@ -395,17 +405,11 @@ export const GoalsScreen = ({ navigation, route }: any) => {
         }}
         onAdd={handleAddAmount}
       />
-    </SafeAreaView >
+    </ScreenContainer>
   );
 };
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-
-  },
-
   scrollView: {
     flex: 1,
   },

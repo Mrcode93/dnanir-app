@@ -3,16 +3,12 @@ import {
     View,
     Text,
     StyleSheet,
-    ScrollView,
     TouchableOpacity,
-    KeyboardAvoidingView,
-    Platform,
     Switch,
     Keyboard,
     Dimensions,
     StatusBar,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextInput, IconButton, Surface } from 'react-native-paper';
 import { CustomDatePicker } from '../components/CustomDatePicker';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -31,6 +27,8 @@ import { alertService } from '../services/alertService';
 import { isRTL } from '../utils/rtl';
 import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 import { useCurrency } from '../hooks/useCurrency';
+import { Platform } from 'react-native';
+import { ScreenContainer, AppHeader, AppButton } from '../design-system';
 
 const { width } = Dimensions.get('window');
 
@@ -47,7 +45,6 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
 }) => {
     const { theme } = useAppTheme();
     const styles = useThemedStyles(createStyles);
-    const insets = useSafeAreaInsets();
     const { formatCurrency } = useCurrency();
     const editingDebt = route?.params?.debt as Debt | undefined;
 
@@ -97,7 +94,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
             const stats = await getFinancialStatsAggregated();
             setCurrentBalance(stats.balance);
         } catch (error) {
-            
+
         }
     };
 
@@ -138,7 +135,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
 
         try {
             const amount = Number(cleanTotalAmount);
-            // When editing, we reset remainingAmount to match totalAmount 
+            // When editing, we reset remainingAmount to match totalAmount
             // because editing is usually used to fix an entry error.
             const finalRemainingAmount = amount;
 
@@ -197,7 +194,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
             handleClose();
             alertService.toastSuccess(editingDebt ? 'تم تحديث الدين بنجاح' : 'تم إضافة الدين بنجاح');
         } catch (error) {
-            
+
             alertService.error('خطأ', 'حدث خطأ أثناء حفظ البيانات');
         } finally {
             setLoading(false);
@@ -210,750 +207,511 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
         advance: { label: 'سلفة', icon: 'cash', colors: theme.gradients.success },
     };
 
+    const saveFooter = (
+        <AppButton
+            label={loading ? 'جاري الحفظ...' : editingDebt ? 'تحديث البيانات' : 'حفظ الالتزام'}
+            onPress={handleSave}
+            variant="primary"
+            size="lg"
+            loading={loading}
+            disabled={loading}
+            rightIcon="checkmark-circle"
+            style={{ backgroundColor: typeData[type].colors[0] }}
+        />
+    );
+
     return (
-        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.keyboardView}
-            >
-                <LinearGradient
-                    colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-                    style={styles.background}
-                >
-                    {/* Header */}
-                    <View style={styles.header}>
-                        <IconButton
-                            icon={isRTL ? "chevron-right" : "chevron-left"}
-                            size={28}
-                            onPress={handleClose}
-                            iconColor={theme.colors.textPrimary}
-                        />
-                        <View style={styles.headerTitleContainer}>
-                            <Text style={styles.headerTitle}>
-                                {editingDebt ? 'تعديل البيانات' : 'إضافة دين / سلفة'}
+        <ScreenContainer
+            scrollable
+            footer={saveFooter}
+            edges={['top']}
+            style={{ backgroundColor: theme.colors.background }}
+        >
+            <StatusBar barStyle="dark-content" />
+
+            {/* Header */}
+            <AppHeader
+                title={editingDebt ? 'تعديل التزام' : 'إضافة التزام جديد'}
+                backIcon="close"
+                onBack={handleClose}
+            />
+
+            {/* Amount Section - Premium Style */}
+            <View style={styles.amountSection}>
+                <Text style={styles.currencySymbol}>د.ع</Text>
+                <TextInput
+                    value={totalAmount}
+                    onChangeText={(v) => {
+                        const cleaned = convertArabicToEnglish(v);
+                        setTotalAmount(formatNumberWithCommas(cleaned));
+                    }}
+                    placeholder="0"
+                    placeholderTextColor={theme.colors.textMuted + '80'}
+                    style={styles.amountInput}
+                    keyboardType="decimal-pad"
+                    selectionColor={typeData[type].colors[0]}
+                    underlineColor="transparent"
+                    activeUnderlineColor="transparent"
+                />
+            </View>
+
+            {/* Balance Context */}
+            <View style={styles.balanceContext}>
+                <Ionicons name="wallet-outline" size={14} color={theme.colors.textSecondary} />
+                <Text style={styles.balanceContextText}>رصيدك الحالي: {formatCurrency(currentBalance)}</Text>
+            </View>
+
+            {/* Main Form Fields */}
+            <View style={styles.card}>
+                {/* Direction Toggle - Clean Chips */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionLabel}>اتجاه الدين</Text>
+                    <View style={styles.directionToggleContainer}>
+                        <TouchableOpacity
+                            onPress={() => setDirection('owed_by_me')}
+                            style={[
+                                styles.directionToggleBtn,
+                                direction === 'owed_by_me' && { backgroundColor: theme.colors.error + '10', borderColor: theme.colors.error }
+                            ]}
+                        >
+                            <Ionicons
+                                name={direction === 'owed_by_me' ? 'arrow-redo' : 'arrow-redo-outline'}
+                                size={20}
+                                color={direction === 'owed_by_me' ? theme.colors.error : theme.colors.textSecondary}
+                            />
+                            <Text style={[
+                                styles.directionToggleText,
+                                direction === 'owed_by_me' && { color: theme.colors.error, fontWeight: '700' }
+                            ]}>
+                                {DEBT_DIRECTIONS.owed_by_me}
                             </Text>
-                            <Text style={styles.headerSubtitle}>أدخل تفاصيل الالتزام المالي</Text>
-                        </View>
-                        <IconButton
-                            icon="help-circle-outline"
-                            size={24}
-                            iconColor={theme.colors.textSecondary}
-                            onPress={() => { }}
-                        />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            onPress={() => setDirection('owed_to_me')}
+                            style={[
+                                styles.directionToggleBtn,
+                                direction === 'owed_to_me' && { backgroundColor: theme.colors.success + '10', borderColor: theme.colors.success }
+                            ]}
+                        >
+                            <Ionicons
+                                name={direction === 'owed_to_me' ? 'arrow-undo' : 'arrow-undo-outline'}
+                                size={20}
+                                color={direction === 'owed_to_me' ? theme.colors.success : theme.colors.textSecondary}
+                            />
+                            <Text style={[
+                                styles.directionToggleText,
+                                direction === 'owed_to_me' && { color: theme.colors.success, fontWeight: '700' }
+                            ]}>
+                                {DEBT_DIRECTIONS.owed_to_me}
+                            </Text>
+                        </TouchableOpacity>
                     </View>
+                </View>
 
-                    <ScrollView
-                        style={styles.scrollView}
-                        contentContainerStyle={styles.scrollContainer}
-                        showsVerticalScrollIndicator={false}
-                        keyboardShouldPersistTaps="handled"
-                    >
-                        {/* Balance Summary Card */}
-                        <Surface style={styles.balanceCard} elevation={1}>
-                            <View style={styles.balanceInfo}>
-                                <View style={styles.balanceIconBg}>
-                                    <Ionicons name="wallet-outline" size={24} color={theme.colors.primary} />
-                                </View>
-                                <View style={styles.balanceTextContainer}>
-                                    <Text style={styles.balanceLabel}>رصيدك الحالي</Text>
-                                    <Text style={styles.balanceValue}>{formatCurrency(currentBalance)}</Text>
-                                </View>
-                            </View>
-                        </Surface>
-
-                        {/* Direction: دين على / دين لي */}
-                        <View style={styles.section}>
-                            <Text style={styles.sectionLabel}>اتجاه الدين</Text>
-                            <View style={styles.directionRow}>
+                {/* Debt Type Selection */}
+                <View style={[styles.section, { marginTop: 8 }]}>
+                    <Text style={styles.sectionLabel}>نوع الالتزام</Text>
+                    <View style={styles.typeSelectorRow}>
+                        {(Object.keys(typeData) as DebtType[]).map((t) => {
+                            const isSelected = type === t;
+                            const data = typeData[t];
+                            return (
                                 <TouchableOpacity
-                                    onPress={() => setDirection('owed_by_me')}
-                                    activeOpacity={0.8}
-                                    style={[styles.directionChip, direction === 'owed_by_me' && styles.directionChipActive]}
+                                    key={t}
+                                    onPress={() => setType(t)}
+                                    style={[
+                                        styles.typeSelectorItem,
+                                        isSelected && { borderColor: data.colors[0], backgroundColor: data.colors[0] + '10' }
+                                    ]}
                                 >
-                                    <Ionicons name="arrow-redo" size={20} color={direction === 'owed_by_me' ? '#FFFFFF' : theme.colors.textSecondary} />
-                                    <Text style={[styles.directionChipLabel, direction === 'owed_by_me' && styles.directionChipLabelActive]}>
-                                        {DEBT_DIRECTIONS.owed_by_me}
+                                    <View style={[
+                                        styles.typeIconBox,
+                                        { backgroundColor: isSelected ? data.colors[0] : theme.colors.surfaceLight }
+                                    ]}>
+                                        <Ionicons
+                                            name={(isSelected ? data.icon : `${data.icon}-outline`) as any}
+                                            size={20}
+                                            color={isSelected ? '#FFFFFF' : theme.colors.textSecondary}
+                                        />
+                                    </View>
+                                    <Text style={[
+                                        styles.typeNameText,
+                                        isSelected && { color: data.colors[0], fontWeight: '700' }
+                                    ]}>
+                                        {data.label}
                                     </Text>
-                                    <Text style={styles.directionChipHint}>أنا مدين (عند الدفع يخصم من الرصيد)</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity
-                                    onPress={() => setDirection('owed_to_me')}
-                                    activeOpacity={0.8}
-                                    style={[styles.directionChip, direction === 'owed_to_me' && styles.directionChipActiveOwedToMe]}
-                                >
-                                    <Ionicons name="arrow-undo" size={20} color={direction === 'owed_to_me' ? '#FFFFFF' : theme.colors.textSecondary} />
-                                    <Text style={[styles.directionChipLabel, direction === 'owed_to_me' && styles.directionChipLabelActive]}>
-                                        {DEBT_DIRECTIONS.owed_to_me}
-                                    </Text>
-                                    <Text style={styles.directionChipHint}>مدين لي (عند التسديد يُضاف للرصيد)</Text>
-                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
+                </View>
+
+                <View style={styles.divider} />
+
+                {/* Debtor/Person Name */}
+                <View style={styles.fieldRow}>
+                    <View style={styles.fieldIcon}>
+                        <Ionicons name="person-outline" size={20} color={theme.colors.textSecondary} />
+                    </View>
+                    <TextInput
+                        placeholder={direction === 'owed_to_me' ? 'اسم المدين' : 'اسم الدائن'}
+                        value={debtorName}
+                        onChangeText={setDebtorName}
+                        style={styles.fieldInput}
+                        underlineColor="transparent"
+                        activeUnderlineColor="transparent"
+                        placeholderTextColor={theme.colors.textMuted}
+                    />
+                </View>
+
+                <View style={styles.divider} />
+
+                {/* Date Row */}
+                <TouchableOpacity onPress={() => setShowStartDatePicker(true)} style={styles.fieldRow}>
+                    <View style={styles.fieldIcon}>
+                        <Ionicons name="calendar-outline" size={20} color={theme.colors.textSecondary} />
+                    </View>
+                    <Text style={styles.fieldText}>
+                        بداية الالتزام: {startDate.toLocaleDateString('ar-IQ-u-nu-latn', {
+                            year: 'numeric', month: 'long', day: 'numeric'
+                        })}
+                    </Text>
+                </TouchableOpacity>
+
+                {/* Due Date Row (Optional) */}
+                {!hasInstallments && (
+                    <>
+                        <View style={styles.divider} />
+                        <View style={styles.fieldRow}>
+                            <View style={styles.fieldIcon}>
+                                <Ionicons name="timer-outline" size={20} color={theme.colors.textSecondary} />
                             </View>
-                        </View>
-
-                        {/* Type Selection Grid */}
-                        <View style={styles.section}>
-                            <Text style={styles.sectionLabel}>نوع الالتزام</Text>
-                            <View style={styles.typeGrid}>
-                                {(Object.keys(typeData) as DebtType[]).map((t) => {
-                                    const isSelected = type === t;
-                                    const data = typeData[t];
-                                    return (
-                                        <TouchableOpacity
-                                            key={t}
-                                            onPress={() => setType(t)}
-                                            activeOpacity={0.8}
-                                            style={[
-                                                styles.typeCard,
-                                                isSelected && { borderColor: data.colors[0], borderWidth: 2 }
-                                            ]}
-                                        >
-                                            <LinearGradient
-                                                colors={isSelected ? data.colors as any : ([theme.colors.surfaceLight, theme.colors.surfaceLight] as any)}
-                                                style={styles.typeCardGradient}
-                                                start={{ x: 0, y: 0 }}
-                                                end={{ x: 1, y: 1 }}
-                                            >
-                                                <Ionicons
-                                                    name={isSelected ? (data.icon as any) : (`${data.icon}-outline` as any)}
-                                                    size={24}
-                                                    color={isSelected ? '#FFFFFF' : theme.colors.textSecondary}
-                                                />
-                                                <Text style={[styles.typeCardLabel, isSelected && styles.typeCardLabelActive]}>
-                                                    {data.label}
-                                                </Text>
-                                            </LinearGradient>
-                                        </TouchableOpacity>
-                                    );
-                                })}
-                            </View>
-                        </View>
-
-                        {/* Amount & Name Card */}
-                        <Surface style={styles.mainCard} elevation={2}>
-                            {/* Amount Input */}
-                            <View style={styles.amountContainer}>
-                                <Text style={styles.amountLabel}>المبلغ الإجمالي</Text>
-                                <View style={styles.amountInputRow}>
-                                    <TextInput
-                                        value={totalAmount}
-                                        onChangeText={(val) => {
-                                            const cleaned = convertArabicToEnglish(val);
-                                            setTotalAmount(formatNumberWithCommas(cleaned));
-                                        }}
-                                        placeholder="0"
-                                        keyboardType="decimal-pad"
-                                        mode="flat"
-                                        style={styles.amountInput}
-                                        underlineColor="transparent"
-                                        activeUnderlineColor="transparent"
-                                        textColor={theme.colors.textPrimary}
-                                        placeholderTextColor={theme.colors.textMuted}
-                                    />
-                                    <Text style={styles.currencyLabel}>د.ع</Text>
-                                </View>
-                            </View>
-
-                            <View style={styles.divider} />
-
-                            {/* Name Input */}
-                            <View style={styles.inputField}>
-                                <Ionicons name="person-outline" size={20} color={theme.colors.primary} style={styles.fieldIcon} />
-                                <TextInput
-                                    value={debtorName}
-                                    onChangeText={setDebtorName}
-                                    placeholder={direction === 'owed_to_me' ? 'اسم المدين (من عليه الدين)' : 'اسم الدائن أو الشخص'}
-                                    mode="flat"
-                                    style={styles.nameInput}
-                                    underlineColor="transparent"
-                                    activeUnderlineColor="transparent"
-                                    placeholderTextColor={theme.colors.textMuted}
+                            <View style={styles.dueDateControl}>
+                                <Text style={styles.fieldText}>موعد الاستحقاق (اختياري)</Text>
+                                <Switch
+                                    value={hasDueDate}
+                                    onValueChange={setHasDueDate}
+                                    trackColor={{ false: theme.colors.border, true: typeData[type].colors[0] + '80' }}
+                                    thumbColor={hasDueDate ? typeData[type].colors[0] : theme.colors.surfaceCard}
                                 />
                             </View>
-
-                            {editingDebt && (
-                                <View style={styles.editInfoContent}>
-                                    <Ionicons name="information-circle-outline" size={16} color={theme.colors.info} />
-                                    <Text style={styles.editInfoText}>
-                                        عند تعديل مبلغ الدين، سيتم تحديث المبلغ المتبقي ليطابق المبلغ الجديد تلقائياً.
-                                    </Text>
-                                </View>
-                            )}
-                        </Surface>
-
-                        {/* Date Selection */}
-                        <View style={styles.section}>
-                            <View style={styles.dateRow}>
-                                <View style={styles.dateCol}>
-                                    <Text style={styles.sectionLabel}>تاريخ البدء</Text>
-                                    <TouchableOpacity
-                                        onPress={() => setShowStartDatePicker(true)}
-                                        style={styles.dateSelector}
-                                    >
-                                        <Ionicons name="calendar-outline" size={18} color={theme.colors.primary} />
-                                        <Text style={styles.dateValue}>
-                                            {startDate.toLocaleDateString('ar-IQ-u-nu-latn')}
-                                        </Text>
-                                    </TouchableOpacity>
-                                </View>
-
-                                <View style={styles.dateCol}>
-                                    <View style={styles.labelWithSwitch}>
-                                        <Text style={styles.sectionLabel}>موعد السداد</Text>
-                                        <Switch
-                                            value={hasDueDate}
-                                            onValueChange={setHasDueDate}
-                                            trackColor={{ false: '#767577', true: theme.colors.primary }}
-                                            thumbColor={hasDueDate ? '#FFFFFF' : '#f4f3f4'}
-                                        />
-                                    </View>
-                                    <TouchableOpacity
-                                        onPress={() => hasDueDate && setShowDueDatePicker(true)}
-                                        style={[styles.dateSelector, !hasDueDate && styles.dateSelectorDisabled]}
-                                        disabled={!hasDueDate}
-                                    >
-                                        <Ionicons
-                                            name="alarm-outline"
-                                            size={18}
-                                            color={hasDueDate ? theme.colors.error : theme.colors.textMuted}
-                                        />
-                                        <Text style={[styles.dateValue, !hasDueDate && styles.dateValueDisabled]}>
-                                            {hasDueDate && dueDate ? dueDate.toLocaleDateString('ar-IQ-u-nu-latn') : 'غير محدد'}
-                                        </Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
                         </View>
 
-                        {/* Installments Options */}
-                        <View style={styles.section}>
-                            <Surface style={styles.optionsCard} elevation={0}>
-                                <View style={styles.optionRow}>
-                                    <View style={styles.optionInfo}>
-                                        <View style={styles.optionIconContainer}>
-                                            <Ionicons name="repeat" size={18} color={theme.colors.primary} />
-                                        </View>
-                                        <View>
-                                            <Text style={styles.optionTitle}>تقسيط السداد</Text>
-                                            <Text style={styles.optionSubtitle}>توزيع المبلغ على دفعات</Text>
-                                        </View>
-                                    </View>
-                                    <Switch
-                                        value={hasInstallments}
-                                        onValueChange={setHasInstallments}
-                                        trackColor={{ false: '#767577', true: theme.colors.primary }}
-                                        thumbColor={hasInstallments ? '#FFFFFF' : '#f4f3f4'}
-                                    />
-                                </View>
+                        {hasDueDate && (
+                            <TouchableOpacity
+                                onPress={() => setShowDueDatePicker(true)}
+                                style={[styles.fieldRow, { paddingRight: 52 }]}
+                            >
+                                <Text style={[styles.fieldText, { color: theme.colors.primary, paddingHorizontal: 44 }]}>
+                                    {dueDate ? dueDate.toLocaleDateString('ar-IQ-u-nu-latn') : 'اختر التاريخ'}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+                    </>
+                )}
 
-                                {hasInstallments && (
-                                    <View style={styles.installmentDetails}>
-                                        <View style={styles.installmentInputs}>
-                                            <View style={styles.instInputGroup}>
-                                                <Text style={styles.instLabel}>عدد الأقساط</Text>
-                                                <TextInput
-                                                    value={numberOfInstallments}
-                                                    onChangeText={(val) => {
-                                                        const cleaned = convertArabicToEnglish(val);
-                                                        setNumberOfInstallments(cleaned); // Assuming this is just a count, no commas needed, but cleaning is good
-                                                    }}
-                                                    keyboardType="decimal-pad"
-                                                    mode="outlined"
-                                                    style={styles.instInput}
-                                                    outlineColor={theme.colors.border}
-                                                    activeOutlineColor={theme.colors.primary}
-                                                    dense
-                                                />
-                                            </View>
-                                            <View style={styles.instInputGroup}>
-                                                <Text style={styles.instLabel}>التكرار</Text>
-                                                <TouchableOpacity
-                                                    style={styles.freqToggle}
-                                                    onPress={() => setInstallmentFrequency(f => f === 'monthly' ? 'weekly' : 'monthly')}
-                                                >
-                                                    <Text style={styles.freqText}>
-                                                        {installmentFrequency === 'monthly' ? 'شهري' : 'أسبوعي'}
-                                                    </Text>
-                                                    <Ionicons name="sync" size={14} color={theme.colors.primary} />
-                                                </TouchableOpacity>
-                                            </View>
-                                        </View>
-                                    </View>
-                                )}
-                            </Surface>
-                        </View>
+                <View style={styles.divider} />
 
-                        {/* Description */}
-                        <View style={styles.section}>
-                            <Text style={styles.sectionLabel}>ملاحظات</Text>
+                {/* Installments Logic - Simplified UI */}
+                <View style={styles.fieldRow}>
+                    <View style={styles.fieldIcon}>
+                        <Ionicons name="repeat-outline" size={20} color={theme.colors.textSecondary} />
+                    </View>
+                    <View style={styles.dueDateControl}>
+                        <Text style={styles.fieldText}>دفع على شكل أقساط؟</Text>
+                        <Switch
+                            value={hasInstallments}
+                            onValueChange={setHasInstallments}
+                            trackColor={{ false: theme.colors.border, true: typeData[type].colors[0] + '80' }}
+                            thumbColor={hasInstallments ? typeData[type].colors[0] : theme.colors.surfaceCard}
+                        />
+                    </View>
+                </View>
+
+                {hasInstallments && (
+                    <View style={styles.installmentOptions}>
+                        <View style={styles.optionRow}>
+                            <Text style={styles.optionLabel}>عدد الأقساط</Text>
                             <TextInput
-                                value={description}
-                                onChangeText={setDescription}
-                                placeholder="اكتب أي ملاحظات هنا..."
-                                multiline
-                                numberOfLines={3}
-                                mode="outlined"
-                                style={styles.descInput}
-                                outlineColor={theme.colors.border}
-                                activeOutlineColor={theme.colors.primary}
-                                placeholderTextColor={theme.colors.textMuted}
+                                value={numberOfInstallments}
+                                onChangeText={(v) => {
+                                    const cleaned = convertArabicToEnglish(v);
+                                    if (cleaned === '' || /^\d+$/.test(cleaned)) {
+                                        setNumberOfInstallments(cleaned);
+                                    }
+                                }}
+                                keyboardType="number-pad"
+                                style={styles.miniInput}
+                                placeholder="1"
+                                underlineColor="transparent"
+                                activeUnderlineColor="transparent"
                             />
                         </View>
+                        <View style={styles.optionRow}>
+                            <Text style={styles.optionLabel}>تكرار القسط</Text>
+                            <View style={styles.frequencyChips}>
+                                <TouchableOpacity
+                                    onPress={() => setInstallmentFrequency('monthly')}
+                                    style={[
+                                        styles.freqChip,
+                                        installmentFrequency === 'monthly' && { backgroundColor: typeData[type].colors[0] }
+                                    ]}
+                                >
+                                    <Text style={[
+                                        styles.freqChipText,
+                                        installmentFrequency === 'monthly' && { color: '#FFFFFF' }
+                                    ]}>شهرياً</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => setInstallmentFrequency('weekly')}
+                                    style={[
+                                        styles.freqChip,
+                                        installmentFrequency === 'weekly' && { backgroundColor: typeData[type].colors[0] }
+                                    ]}
+                                >
+                                    <Text style={[
+                                        styles.freqChipText,
+                                        installmentFrequency === 'weekly' && { color: '#FFFFFF' }
+                                    ]}>أسبوعياً</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                )}
 
-                        {/* Save Button */}
-                        <TouchableOpacity
-                            onPress={handleSave}
-                            disabled={loading}
-                            style={styles.saveBtn}
-                            activeOpacity={0.8}
-                        >
-                            <LinearGradient
-                                colors={typeData[type].colors as any}
-                                style={styles.saveBtnGradient}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                            >
-                                {loading ? (
-                                    <Text style={styles.saveBtnText}>جاري الحفظ...</Text>
-                                ) : (
-                                    <>
-                                        <Text style={styles.saveBtnText}>
-                                            {editingDebt ? 'تحديث البيانات' : 'حفظ الالتزام'}
-                                        </Text>
-                                        <Ionicons name="checkmark-circle" size={22} color="#FFFFFF" />
-                                    </>
-                                )}
-                            </LinearGradient>
-                        </TouchableOpacity>
-                    </ScrollView>
+                <View style={styles.divider} />
 
-                    {/* Date Pickers */}
-                    {showStartDatePicker && (
-                        <CustomDatePicker
-                            value={startDate}
-                            onChange={(event, date) => {
-                                if (date) setStartDate(date);
-                                if (Platform.OS === 'android') setShowStartDatePicker(false);
-                            }}
-                            onClose={() => setShowStartDatePicker(false)}
-                        />
-                    )}
-                    {showDueDatePicker && (
-                        <CustomDatePicker
-                            value={dueDate || new Date()}
-                            onChange={(event, date) => {
-                                if (date) setDueDate(date);
-                                if (Platform.OS === 'android') setShowDueDatePicker(false);
-                            }}
-                            onClose={() => setShowDueDatePicker(false)}
-                        />
-                    )}
-                </LinearGradient>
-            </KeyboardAvoidingView>
-        </SafeAreaView>
+                {/* Notes */}
+                <View style={styles.fieldRow}>
+                    <View style={styles.fieldIcon}>
+                        <Ionicons name="document-text-outline" size={20} color={theme.colors.textSecondary} />
+                    </View>
+                    <TextInput
+                        placeholder="ملاحظات..."
+                        value={description}
+                        onChangeText={setDescription}
+                        style={styles.fieldInput}
+                        underlineColor="transparent"
+                        activeUnderlineColor="transparent"
+                        placeholderTextColor={theme.colors.textMuted}
+                        multiline
+                    />
+                </View>
+            </View>
+
+            {/* Date Pickers */}
+            {showStartDatePicker && (
+                <CustomDatePicker
+                    value={startDate}
+                    onChange={(_, d) => {
+                        if (d) setStartDate(d);
+                        if (Platform.OS === 'android') setShowStartDatePicker(false);
+                    }}
+                    onClose={() => setShowStartDatePicker(false)}
+                />
+            )}
+
+            {showDueDatePicker && (
+                <CustomDatePicker
+                    value={dueDate || new Date()}
+                    onChange={(_, d) => {
+                        if (d) setDueDate(d);
+                        if (Platform.OS === 'android') setShowDueDatePicker(false);
+                    }}
+                    onClose={() => setShowDueDatePicker(false)}
+                />
+            )}
+        </ScreenContainer>
     );
 };
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: theme.colors.background,
+    amountSection: {
+        flexDirection: isRTL ? 'row' : 'row-reverse',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: 20,
+        marginBottom: 8,
     },
-    keyboardView: {
-        flex: 1,
+    currencySymbol: {
+        fontSize: 20,
+        color: theme.colors.textSecondary,
+        marginHorizontal: 8,
+        fontFamily: theme.typography.fontFamily,
+        fontWeight: getPlatformFontWeight('600'),
     },
-    background: {
-        flex: 1,
+    amountInput: {
+        fontSize: 48,
+        fontWeight: getPlatformFontWeight('800'),
+        color: theme.colors.textPrimary,
+        backgroundColor: 'transparent',
+        textAlign: 'center',
+        minWidth: 120,
+        padding: 0,
+        height: 70,
     },
-    header: {
+    balanceContext: {
         flexDirection: isRTL ? 'row-reverse' : 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 8,
-        paddingVertical: 12,
-        backgroundColor: 'transparent',
+        justifyContent: 'center',
+        gap: 6,
+        marginBottom: 24,
     },
-    headerTitleContainer: {
-        flex: 1,
-    },
-    headerTitle: {
-        fontSize: 20,
-        fontFamily: theme.typography.fontFamily,
-        color: theme.colors.textPrimary,
-        fontWeight: getPlatformFontWeight('700'),
-        textAlign: isRTL ? 'right' : 'left',
-    },
-    headerSubtitle: {
+    balanceContextText: {
         fontSize: 13,
         color: theme.colors.textSecondary,
         fontFamily: theme.typography.fontFamily,
-        textAlign: isRTL ? 'right' : 'left',
     },
-    scrollView: {
-        flex: 1,
-    },
-    scrollContainer: {
-        paddingHorizontal: 12,
-        paddingBottom: 28,
-    },
-    balanceCard: {
-        marginTop: 10,
+    card: {
         backgroundColor: theme.colors.surface,
-        borderRadius: 20,
-        padding: 16,
-        ...getPlatformShadow('sm'),
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-    },
-    balanceInfo: {
-        flexDirection: isRTL ? 'row-reverse' : 'row',
-        alignItems: 'center',
-        gap: 15,
-    },
-    balanceIconBg: {
-        width: 48,
-        height: 48,
-        borderRadius: 14,
-        backgroundColor: theme.colors.primary + '10',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    balanceTextContainer: {
-        flex: 1,
-    },
-    balanceLabel: {
-        fontSize: 12,
-        color: theme.colors.textSecondary,
-        fontFamily: theme.typography.fontFamily,
-        textAlign: isRTL ? 'right' : 'left',
-    },
-    balanceValue: {
-        fontSize: 20,
-        fontWeight: getPlatformFontWeight('700'),
-        color: theme.colors.primary,
-        fontFamily: theme.typography.fontFamily,
-        textAlign: isRTL ? 'right' : 'left',
-        marginTop: 2,
+        marginHorizontal: 20,
+        borderRadius: 24,
+        padding: 20,
+        marginBottom: 40,
+        ...getPlatformShadow('md'),
     },
     section: {
-        marginTop: 24,
+        marginBottom: 16,
     },
     sectionLabel: {
         fontSize: 14,
-        fontWeight: getPlatformFontWeight('600'),
         color: theme.colors.textSecondary,
-        marginBottom: 12,
         fontFamily: theme.typography.fontFamily,
+        marginBottom: 12,
         textAlign: isRTL ? 'right' : 'left',
+        fontWeight: getPlatformFontWeight('600'),
     },
-    directionRow: {
+    directionToggleContainer: {
+        flexDirection: isRTL ? 'row-reverse' : 'row',
+        gap: 12,
+    },
+    directionToggleBtn: {
+        flex: 1,
+        flexDirection: isRTL ? 'row-reverse' : 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        borderRadius: 16,
+        borderWidth: 2,
+        borderColor: theme.colors.border,
+        gap: 8,
+    },
+    directionToggleText: {
+        fontSize: 14,
+        fontFamily: theme.typography.fontFamily,
+        color: theme.colors.textSecondary,
+    },
+    typeSelectorRow: {
         flexDirection: isRTL ? 'row-reverse' : 'row',
         gap: 10,
     },
-    directionChip: {
+    typeSelectorItem: {
         flex: 1,
-        padding: 12,
-        borderRadius: 12,
-        backgroundColor: theme.colors.surfaceLight,
-        borderWidth: 2,
-        borderColor: theme.colors.border,
         alignItems: 'center',
-    },
-    directionChipActive: {
-        borderColor: theme.colors.info,
-        backgroundColor: theme.colors.info + '18',
-    },
-    directionChipActiveOwedToMe: {
-        borderColor: theme.colors.success,
-        backgroundColor: theme.colors.success + '18',
-    },
-    directionChipLabel: {
-        fontSize: 14,
-        fontWeight: getPlatformFontWeight('700'),
-        color: theme.colors.textPrimary,
-        fontFamily: theme.typography.fontFamily,
-        marginTop: 4,
-    },
-    directionChipLabelActive: {
-        color: '#FFFFFF',
-    },
-    directionChipHint: {
-        fontSize: 10,
-        color: theme.colors.textMuted,
-        marginTop: 2,
-        textAlign: 'center',
-        fontFamily: theme.typography.fontFamily,
-    },
-    typeGrid: {
-        flexDirection: isRTL ? 'row-reverse' : 'row',
-        justifyContent: 'space-between',
-        gap: 8,
-    },
-    typeCard: {
-        flex: 1,
-        height: 85,
+        padding: 10,
         borderRadius: 20,
-        backgroundColor: theme.colors.surfaceLight,
-        overflow: 'hidden',
         borderWidth: 2,
         borderColor: 'transparent',
+        gap: 8,
     },
-    typeCardGradient: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    typeCardLabel: {
-        fontSize: 14,
-        fontFamily: theme.typography.fontFamily,
-        marginTop: 6,
-        color: theme.colors.textSecondary,
-        fontWeight: getPlatformFontWeight('600'),
-    },
-    typeCardLabelActive: {
-        color: '#FFFFFF',
-    },
-    mainCard: {
-        marginTop: 24,
-        backgroundColor: theme.colors.surface,
+    typeIconBox: {
+        width: 52,
+        height: 52,
         borderRadius: 18,
-        padding: 16,
-        ...getPlatformShadow('md'),
-    },
-    amountContainer: {
-        alignItems: 'center',
-        marginBottom: 8,
-    },
-    amountLabel: {
-        fontSize: 12,
-        color: theme.colors.textSecondary,
-        fontFamily: theme.typography.fontFamily,
-        marginBottom: 4,
-    },
-    amountInputRow: {
-        flexDirection: isRTL ? 'row-reverse' : 'row',
         alignItems: 'center',
         justifyContent: 'center',
+        ...getPlatformShadow('xs'),
     },
-    amountInput: {
-        backgroundColor: 'transparent',
-        fontSize: 36,
-        fontWeight: getPlatformFontWeight('bold'),
-        textAlign: 'center',
-        minWidth: 100,
-        maxWidth: 220,
-        height: 60,
-    },
-    currencyLabel: {
-        fontSize: 20,
-        fontWeight: getPlatformFontWeight('700'),
-        color: theme.colors.primary,
-        marginLeft: isRTL ? 0 : 8,
-        marginRight: isRTL ? 8 : 0,
-        marginTop: 12,
-    },
-    labelWithAction: {
-        flexDirection: isRTL ? 'row-reverse' : 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        width: '100%',
-        marginBottom: 4,
-    },
-    resetBtn: {
-        backgroundColor: theme.colors.surfaceLight,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 8,
-    },
-    resetBtnText: {
-        fontSize: 10,
-        color: theme.colors.primary,
+    typeNameText: {
+        fontSize: 13,
+        color: theme.colors.textSecondary,
         fontFamily: theme.typography.fontFamily,
-        fontWeight: getPlatformFontWeight('600'),
     },
     divider: {
         height: 1,
         backgroundColor: theme.colors.border,
-        marginVertical: 20,
-        width: '100%',
+        marginVertical: 16,
+        opacity: 0.5,
     },
-    editInfoContent: {
+    fieldRow: {
         flexDirection: isRTL ? 'row-reverse' : 'row',
         alignItems: 'center',
-        backgroundColor: theme.colors.info + '10',
-        padding: 10,
-        borderRadius: 12,
-        marginTop: 15,
-        gap: 8,
-    },
-    editInfoText: {
-        flex: 1,
-        fontSize: 12,
-        color: theme.colors.info,
-        fontFamily: theme.typography.fontFamily,
-        textAlign: isRTL ? 'right' : 'left',
-    },
-    inputField: {
-        flexDirection: isRTL ? 'row-reverse' : 'row',
-        alignItems: 'center',
-        backgroundColor: theme.colors.surfaceLight,
-        borderRadius: 16,
-        paddingHorizontal: 12,
+        gap: 12,
+        minHeight: 56,
     },
     fieldIcon: {
-        marginHorizontal: 8,
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        backgroundColor: theme.colors.surfaceLight,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    nameInput: {
+    fieldInput: {
         flex: 1,
         backgroundColor: 'transparent',
-        height: 52,
         fontSize: 16,
-        fontFamily: theme.typography.fontFamily,
+        color: theme.colors.textPrimary,
         textAlign: isRTL ? 'right' : 'left',
+        fontFamily: theme.typography.fontFamily,
+        height: 50,
+        padding: 0,
     },
-    dateRow: {
-        flexDirection: isRTL ? 'row-reverse' : 'row',
-        gap: 15,
-    },
-    dateCol: {
+    fieldText: {
         flex: 1,
+        fontSize: 16,
+        color: theme.colors.textPrimary,
+        textAlign: isRTL ? 'right' : 'left',
+        fontFamily: theme.typography.fontFamily,
     },
-    labelWithSwitch: {
+    dueDateControl: {
+        flex: 1,
         flexDirection: isRTL ? 'row-reverse' : 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 10,
     },
-    dateSelector: {
-        flexDirection: isRTL ? 'row-reverse' : 'row',
-        alignItems: 'center',
-        backgroundColor: theme.colors.surface,
+    installmentOptions: {
+        marginTop: 12,
+        backgroundColor: theme.colors.surfaceLight,
         borderRadius: 16,
-        padding: 14,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-        gap: 10,
-    },
-    dateSelectorDisabled: {
-        backgroundColor: theme.colors.surfaceLight,
-        borderColor: 'transparent',
-        opacity: 0.6,
-    },
-    dateValue: {
-        fontSize: 15,
-        color: theme.colors.textPrimary,
-        fontFamily: theme.typography.fontFamily,
-        fontWeight: getPlatformFontWeight('600'),
-        flex: 1,
-        textAlign: isRTL ? 'right' : 'left',
-    },
-    dateValueDisabled: {
-        color: theme.colors.textMuted,
-    },
-    optionsCard: {
-        backgroundColor: theme.colors.surfaceLight,
-        borderRadius: 18,
-        padding: 18,
+        padding: 16,
+        gap: 16,
     },
     optionRow: {
         flexDirection: isRTL ? 'row-reverse' : 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
     },
-    optionInfo: {
-        flexDirection: isRTL ? 'row-reverse' : 'row',
-        alignItems: 'center',
-        gap: 8,
+    optionLabel: {
+        fontSize: 14,
+        color: theme.colors.textSecondary,
+        fontFamily: theme.typography.fontFamily,
     },
-    optionIconContainer: {
-        width: 40,
+    miniInput: {
+        width: 60,
         height: 40,
-        borderRadius: 12,
-        backgroundColor: theme.colors.surface,
-        alignItems: 'center',
-        justifyContent: 'center',
-        ...getPlatformShadow('sm'),
-    },
-    optionTitle: {
-        fontSize: 15,
-        fontWeight: getPlatformFontWeight('700'),
-        color: theme.colors.textPrimary,
-        fontFamily: theme.typography.fontFamily,
-        textAlign: isRTL ? 'right' : 'left',
-    },
-    optionSubtitle: {
-        fontSize: 12,
-        color: theme.colors.textSecondary,
-        fontFamily: theme.typography.fontFamily,
-        textAlign: isRTL ? 'right' : 'left',
-    },
-    installmentDetails: {
-        marginTop: 18,
-        paddingTop: 18,
-        borderTopWidth: 1,
-        borderTopColor: theme.colors.border,
-    },
-    installmentInputs: {
-        flexDirection: isRTL ? 'row-reverse' : 'row',
-        gap: 15,
-    },
-    instInputGroup: {
-        flex: 1,
-    },
-    instLabel: {
-        fontSize: 12,
-        color: theme.colors.textSecondary,
-        marginBottom: 8,
-        fontFamily: theme.typography.fontFamily,
-        textAlign: isRTL ? 'right' : 'left',
-    },
-    instInput: {
-        backgroundColor: theme.colors.surface,
-        height: 44,
-        fontSize: 15,
-        textAlign: 'center',
-    },
-    freqToggle: {
-        height: 44,
         backgroundColor: theme.colors.surface,
         borderRadius: 10,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
+        textAlign: 'center',
+        fontSize: 16,
+        padding: 0,
     },
-    freqText: {
-        fontSize: 14,
-        fontFamily: theme.typography.fontFamily,
-        fontWeight: getPlatformFontWeight('600'),
-        color: theme.colors.primary,
-    },
-    descInput: {
-        backgroundColor: theme.colors.surface,
-        fontSize: 14,
-        fontFamily: theme.typography.fontFamily,
-        marginTop: 4,
-        textAlign: isRTL ? 'right' : 'left',
-    },
-    saveBtn: {
-        marginTop: 32,
-        height: 60,
-        borderRadius: 20,
-        overflow: 'hidden',
-        ...getPlatformShadow('md'),
-    },
-    saveBtnGradient: {
-        flex: 1,
+    frequencyChips: {
         flexDirection: isRTL ? 'row-reverse' : 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
+        backgroundColor: theme.colors.surface,
+        padding: 4,
+        borderRadius: 12,
     },
-    saveBtnText: {
-        fontSize: 18,
-        fontWeight: getPlatformFontWeight('700'),
-        color: '#FFFFFF',
+    freqChip: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 10,
+    },
+    freqChipText: {
+        fontSize: 13,
         fontFamily: theme.typography.fontFamily,
+        color: theme.colors.textSecondary,
+        fontWeight: getPlatformFontWeight('600'),
     },
 });

@@ -26,9 +26,9 @@ import { isAuthenticationEnabled } from './src/services/authService';
 import { authEventService } from './src/services/authEventService';
 import { syncNewToServer } from './src/services/syncService';
 import { AlertProvider } from './src/components/AlertProvider';
+import { SplashScreen as CustomSplashScreen } from './src/components/SplashScreen';
 import { PrivacyProvider } from './src/context/PrivacyContext';
 import PushNotificationManager from './src/components/PushNotificationManager';
-import { VideoSplash } from './src/components/VideoSplash';
 import { initializeWidgetData } from './src/services/widgetDataService';
 
 // Prevent valid splash screen from auto-hiding
@@ -69,10 +69,9 @@ export default function App() {
   const [isDbReady, setIsDbReady] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
   const [initRunId, setInitRunId] = useState(0);
+  const [isSplashDone, setIsSplashDone] = useState(false);
   const systemColorScheme = useColorScheme();
   const [themeMode, setThemeMode] = useState<ThemeMode>('system');
-  const [isVideoFinished, setIsVideoFinished] = useState(false);
-
   const isDark = useMemo(() => {
     if (themeMode === 'system') {
       return (systemColorScheme || Appearance.getColorScheme()) === 'dark';
@@ -434,18 +433,12 @@ export default function App() {
     setInitRunId(prev => prev + 1);
   }, []);
 
-  if (!isVideoFinished) {
-    return <VideoSplash onFinish={() => setIsVideoFinished(true)} />;
-  }
-
-  if (isLoading || !fontsLoaded || !isDbReady) {
+  if (!isSplashDone) {
     return (
-      <View
-        style={styles.loadingContainer}
-        onLayout={onLayoutRootView}
-      >
-        <Text style={styles.loadingText}>جاري التحميل...</Text>
-      </View>
+      <CustomSplashScreen
+        ready={!isLoading && fontsLoaded && isDbReady}
+        onFinish={() => setIsSplashDone(true)}
+      />
     );
   }
 

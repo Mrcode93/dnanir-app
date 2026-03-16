@@ -6,17 +6,14 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Pressable,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
 import { useAppTheme, useThemedStyles } from '../utils/theme-context';
 import { addCustomCategory, updateCustomCategory } from '../database/database';
 import { alertService } from '../services/alertService';
+import { ScreenContainer, AppHeader, AppButton } from '../design-system';
 
 interface AddCategoryScreenProps {
   navigation: any;
@@ -101,192 +98,137 @@ export const AddCategoryScreen: React.FC<AddCategoryScreenProps> = ({
     navigation.goBack();
   };
 
+  const saveFooter = (
+    <View style={styles.actions}>
+      <AppButton
+        label="إلغاء"
+        onPress={handleClose}
+        variant="ghost"
+        size="md"
+        style={styles.cancelButton}
+      />
+      <AppButton
+        label={category ? 'تحديث' : 'حفظ'}
+        onPress={handleSave}
+        variant="primary"
+        size="md"
+        disabled={!name.trim()}
+        style={[styles.saveButton, { backgroundColor: name.trim() ? selectedColor[0] : undefined }]}
+      />
+    </View>
+  );
+
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
-        <LinearGradient
-          colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-          style={styles.gradient}
+    <ScreenContainer
+      scrollable
+      footer={saveFooter}
+      edges={['top']}
+      style={{ backgroundColor: theme.colors.surfaceCard }}
+    >
+      {/* Header */}
+      <AppHeader
+        title={category ? 'تعديل الفئة' : 'إضافة فئة جديدة'}
+        backIcon="close"
+        onBack={handleClose}
+      />
+
+      <Text style={styles.subtitle}>
+        {category
+          ? (type === 'expense' ? 'قم بتعديل بيانات فئة المصاريف' : 'قم بتعديل بيانات مصدر الدخل')
+          : (type === 'expense' ? 'أضف فئة جديدة للمصاريف' : 'أضف مصدر دخل جديد')
+        }
+      </Text>
+
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>اسم الفئة</Text>
+        <TextInput
+          style={styles.input}
+          value={name}
+          onChangeText={setName}
+          placeholder="أدخل اسم الفئة"
+          placeholderTextColor={theme.colors.textMuted}
+          maxLength={30}
+          autoFocus
+        />
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.label}>اختر الأيقونة</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.iconScroll}
+          contentContainerStyle={styles.iconContainer}
         >
-          <View style={styles.header}>
-            <Text style={styles.title}>
-              {category ? 'تعديل الفئة' : 'إضافة فئة جديدة'}
-            </Text>
-            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-              <Ionicons name="close" size={28} color={theme.colors.textPrimary} />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            <Text style={styles.subtitle}>
-              {category
-                ? (type === 'expense' ? 'قم بتعديل بيانات فئة المصاريف' : 'قم بتعديل بيانات مصدر الدخل')
-                : (type === 'expense' ? 'أضف فئة جديدة للمصاريف' : 'أضف مصدر دخل جديد')
-              }
-            </Text>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>اسم الفئة</Text>
-              <TextInput
-                style={styles.input}
-                value={name}
-                onChangeText={setName}
-                placeholder="أدخل اسم الفئة"
-                placeholderTextColor={theme.colors.textMuted}
-                maxLength={30}
-                autoFocus
+          {AVAILABLE_ICONS.map((icon) => (
+            <TouchableOpacity
+              key={icon}
+              onPress={() => setSelectedIcon(icon)}
+              style={[
+                styles.iconButton,
+                selectedIcon === icon && styles.iconButtonSelected,
+              ]}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={icon as any}
+                size={24}
+                color={
+                  selectedIcon === icon
+                    ? theme.colors.textInverse
+                    : theme.colors.textSecondary
+                }
               />
-            </View>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
 
-            <View style={styles.section}>
-              <Text style={styles.label}>اختر الأيقونة</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.iconScroll}
-                contentContainerStyle={styles.iconContainer}
+      <View style={styles.section}>
+        <Text style={styles.label}>اختر اللون</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.colorScroll}
+          contentContainerStyle={styles.colorContainer}
+        >
+          {COLOR_PRESETS.map((color, index) => {
+            const isSelected =
+              selectedColor[0] === color[0] && selectedColor[1] === color[1];
+            return (
+              <TouchableOpacity
+                key={index}
+                onPress={() => setSelectedColor(color)}
+                style={styles.colorButton}
+                activeOpacity={0.7}
               >
-                {AVAILABLE_ICONS.map((icon) => (
-                  <TouchableOpacity
-                    key={icon}
-                    onPress={() => setSelectedIcon(icon)}
-                    style={[
-                      styles.iconButton,
-                      selectedIcon === icon && styles.iconButtonSelected,
-                    ]}
-                    activeOpacity={0.7}
-                  >
+                <LinearGradient
+                  colors={color as any}
+                  style={[
+                    styles.colorGradient,
+                    isSelected && styles.colorGradientSelected,
+                  ]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  {isSelected && (
                     <Ionicons
-                      name={icon as any}
-                      size={24}
-                      color={
-                        selectedIcon === icon
-                          ? theme.colors.textInverse
-                          : theme.colors.textSecondary
-                      }
+                      name="checkmark"
+                      size={20}
+                      color={theme.colors.textInverse}
                     />
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-
-            <View style={styles.section}>
-              <Text style={styles.label}>اختر اللون</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.colorScroll}
-                contentContainerStyle={styles.colorContainer}
-              >
-                {COLOR_PRESETS.map((color, index) => {
-                  const isSelected =
-                    selectedColor[0] === color[0] && selectedColor[1] === color[1];
-                  return (
-                    <TouchableOpacity
-                      key={index}
-                      onPress={() => setSelectedColor(color)}
-                      style={styles.colorButton}
-                      activeOpacity={0.7}
-                    >
-                      <LinearGradient
-                        colors={color as any}
-                        style={[
-                          styles.colorGradient,
-                          isSelected && styles.colorGradientSelected,
-                        ]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                      >
-                        {isSelected && (
-                          <Ionicons
-                            name="checkmark"
-                            size={20}
-                            color={theme.colors.textInverse}
-                          />
-                        )}
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
-          </ScrollView>
-
-          <View style={styles.actions}>
-            <TouchableOpacity
-              onPress={handleClose}
-              style={styles.cancelButton}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.cancelButtonText}>إلغاء</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleSave}
-              style={styles.saveButton}
-              activeOpacity={0.7}
-              disabled={!name.trim()}
-            >
-              <LinearGradient
-                colors={name.trim() ? (selectedColor as any) : ['#9CA3AF', '#6B7280']}
-                style={styles.saveButtonGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <Text style={styles.saveButtonText}>
-                  {category ? 'تحديث' : 'حفظ'}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        </LinearGradient>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+    </ScreenContainer>
   );
 };
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  gradient: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  title: {
-    fontSize: theme.typography.sizes.xl,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-  },
-  closeButton: {
-    padding: theme.spacing.xs,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: theme.spacing.sm,
-    paddingBottom: theme.spacing.lg,
-  },
   subtitle: {
     fontSize: theme.typography.sizes.md,
     color: theme.colors.textSecondary,
@@ -369,41 +311,11 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   actions: {
     flexDirection: 'row-reverse',
     gap: theme.spacing.sm,
-    marginTop: theme.spacing.sm,
-    padding: theme.spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
   },
   cancelButton: {
     flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.surfaceLight,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  cancelButtonText: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('600'),
-    color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
   },
   saveButton: {
     flex: 1,
-    borderRadius: theme.borderRadius.md,
-    overflow: 'hidden',
-  },
-  saveButtonGradient: {
-    paddingVertical: 10,
-    paddingHorizontal: theme.spacing.md,
-    alignItems: 'center',
-  },
-  saveButtonText: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textInverse,
-    fontFamily: theme.typography.fontFamily,
   },
 });

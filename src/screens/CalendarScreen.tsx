@@ -9,7 +9,7 @@ import {
     Platform,
     Dimensions,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScreenContainer } from '../design-system';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -45,7 +45,6 @@ const WEEKDAY_NAMES = ['ح', 'ن', 'ث', 'ر', 'خ', 'ج', 'س'];
 export const CalendarScreen = ({ navigation, route }: any) => {
     const { theme } = useAppTheme();
     const styles = useThemedStyles(createStyles);
-    const insets = useSafeAreaInsets();
     const { formatCurrency } = useCurrency();
 
     const [selectedDate, setSelectedDate] = useState(new Date());
@@ -206,7 +205,7 @@ export const CalendarScreen = ({ navigation, route }: any) => {
     };
 
     return (
-        <SafeAreaView style={styles.container} edges={['left', 'right']}>
+        <ScreenContainer scrollable={false}>
             <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
@@ -309,15 +308,11 @@ export const CalendarScreen = ({ navigation, route }: any) => {
                     }
                 }}
             />
-        </SafeAreaView>
+        </ScreenContainer>
     );
 };
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: theme.colors.background,
-    },
     topHeader: {
         flexDirection: isRTL ? 'row' : 'row-reverse',
         alignItems: 'center',

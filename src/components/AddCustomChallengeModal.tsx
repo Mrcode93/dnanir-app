@@ -313,8 +313,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   modalContent: {
     backgroundColor: theme.colors.surfaceCard,
-    borderTopLeftRadius: theme.borderRadius.xl,
-    borderTopRightRadius: theme.borderRadius.xl,
+    borderTopLeftRadius: theme.borderRadius.xxl,
+    borderTopRightRadius: theme.borderRadius.xxl,
     maxHeight: '90%',
     ...getPlatformShadow('lg'),
   },

@@ -3,22 +3,17 @@ import {
   View,
   Text,
   StyleSheet,
-  Modal,
   TouchableOpacity,
   TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  TouchableWithoutFeedback,
-  Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
+import { getPlatformFontWeight, type AppTheme } from '../utils/theme-constants';
 import { useAppTheme, useThemedStyles } from '../utils/theme-context';
 
 import { Savings, CURRENCIES } from '../types';
 import { isRTL } from '../utils/rtl';
 import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
+import { AppDialog, AppButton } from '../design-system';
 
 interface AddSavingsTransactionModalProps {
   visible: boolean;
@@ -60,133 +55,68 @@ export const AddSavingsTransactionModal: React.FC<AddSavingsTransactionModalProp
       await onConfirm(Number(cleanAmount), type);
       onClose();
     } catch (error) {
-      
+
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Modal
+    <AppDialog
       visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
+      onClose={onClose}
+      title={type === 'deposit' ? 'إضافة مبلغ' : 'سحب مبلغ'}
+      subtitle={savings.title}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.overlay}>
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <KeyboardAvoidingView
-              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-              style={styles.container}
-            >
-              <View style={styles.modalContent}>
-                <View style={styles.header}>
-                  <Text style={styles.title}>{type === 'deposit' ? 'إضافة مبلغ' : 'سحب مبلغ'}</Text>
-                  <Text style={styles.subtitle}>{savings.title}</Text>
-                  <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                    <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
-                  </TouchableOpacity>
-                </View>
+      <View style={styles.typeSelector}>
+        <TouchableOpacity
+          style={[styles.typeBtn, type === 'deposit' && styles.typeBtnActive, { borderColor: theme.colors.success }]}
+          onPress={() => setType('deposit')}
+        >
+          <Ionicons name="arrow-down-circle" size={20} color={type === 'deposit' ? '#FFFFFF' : theme.colors.success} />
+          <Text style={[styles.typeText, type === 'deposit' && styles.typeTextActive, { color: type === 'deposit' ? '#FFFFFF' : theme.colors.success }]}>إيداع</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.typeBtn, type === 'withdrawal' && styles.typeBtnActive, { borderColor: theme.colors.error, backgroundColor: type === 'withdrawal' ? theme.colors.error : 'transparent' }]}
+          onPress={() => setType('withdrawal')}
+        >
+          <Ionicons name="arrow-up-circle" size={20} color={type === 'withdrawal' ? '#FFFFFF' : theme.colors.error} />
+          <Text style={[styles.typeText, type === 'withdrawal' && styles.typeTextActive, { color: type === 'withdrawal' ? '#FFFFFF' : theme.colors.error }]}>سحب</Text>
+        </TouchableOpacity>
+      </View>
 
-                <View style={styles.typeSelector}>
-                  <TouchableOpacity
-                    style={[styles.typeBtn, type === 'deposit' && styles.typeBtnActive, { borderColor: theme.colors.success }]}
-                    onPress={() => setType('deposit')}
-                  >
-                    <Ionicons name="arrow-down-circle" size={20} color={type === 'deposit' ? '#FFFFFF' : theme.colors.success} />
-                    <Text style={[styles.typeText, type === 'deposit' && styles.typeTextActive, { color: type === 'deposit' ? '#FFFFFF' : theme.colors.success }]}>إيداع</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.typeBtn, type === 'withdrawal' && styles.typeBtnActive, { borderColor: theme.colors.error, backgroundColor: type === 'withdrawal' ? theme.colors.error : 'transparent' }]}
-                    onPress={() => setType('withdrawal')}
-                  >
-                    <Ionicons name="arrow-up-circle" size={20} color={type === 'withdrawal' ? '#FFFFFF' : theme.colors.error} />
-                    <Text style={[styles.typeText, type === 'withdrawal' && styles.typeTextActive, { color: type === 'withdrawal' ? '#FFFFFF' : theme.colors.error }]}>سحب</Text>
-                  </TouchableOpacity>
-                </View>
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={styles.input}
+          value={amount}
+          onChangeText={(val) => {
+            const cleaned = convertArabicToEnglish(val);
+            setAmount(formatNumberWithCommas(cleaned));
+          }}
+          placeholder="0"
+          placeholderTextColor={theme.colors.textMuted}
+          keyboardType="decimal-pad"
+          autoFocus
+        />
+        <Text style={styles.currency}>
+          {CURRENCIES.find(c => c.code === (savings.currency || 'IQD'))?.symbol}
+        </Text>
+      </View>
 
-                <View style={styles.inputContainer}>
-                  <TextInput
-                    style={styles.input}
-                    value={amount}
-                    onChangeText={(val) => {
-                      const cleaned = convertArabicToEnglish(val);
-                      setAmount(formatNumberWithCommas(cleaned));
-                    }}
-                    placeholder="0"
-                    placeholderTextColor={theme.colors.textMuted}
-                    keyboardType="decimal-pad"
-                    autoFocus
-                  />
-                  <Text style={styles.currency}>
-                    {CURRENCIES.find(c => c.code === (savings.currency || 'IQD'))?.symbol}
-                  </Text>
-                </View>
-
-                <TouchableOpacity
-                  style={[styles.confirmBtn, (!amount || loading) && styles.confirmBtnDisabled]}
-                  onPress={handleConfirm}
-                  disabled={!amount || loading}
-                >
-                  <LinearGradient
-                    colors={type === 'deposit' ? theme.gradients.success as any : theme.gradients.error as any}
-                    style={styles.confirmGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  >
-                    <Text style={styles.confirmText}>{loading ? 'جاري الحفظ...' : 'تأكيد'}</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-            </KeyboardAvoidingView>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
-    </Modal>
+      <AppButton
+        label={loading ? 'جاري الحفظ...' : 'تأكيد'}
+        onPress={handleConfirm}
+        variant={type === 'deposit' ? 'success' : 'danger'}
+        loading={loading}
+        disabled={!amount || loading}
+        size="lg"
+        style={{ alignSelf: 'stretch' }}
+      />
+    </AppDialog>
   );
 };
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  container: {
-    width: '100%',
-    maxWidth: 400,
-  },
-  modalContent: {
-    backgroundColor: theme.colors.surfaceCard,
-    borderRadius: 24,
-    padding: 24,
-    ...getPlatformShadow('xl'),
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
-    marginTop: 4,
-  },
-  closeBtn: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    padding: 4,
-  },
   typeSelector: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     gap: 12,
@@ -203,7 +133,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     gap: 8,
   },
   typeBtnActive: {
-    backgroundColor: theme.colors.success, // Default, will be overridden for withdrawal
+    backgroundColor: theme.colors.success,
   },
   typeText: {
     fontSize: 16,
@@ -234,24 +164,6 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontSize: 18,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.primary,
-    fontFamily: theme.typography.fontFamily,
-  },
-  confirmBtn: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    ...getPlatformShadow('md'),
-  },
-  confirmBtnDisabled: {
-    opacity: 0.5,
-  },
-  confirmGradient: {
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  confirmText: {
-    fontSize: 18,
-    fontWeight: getPlatformFontWeight('700'),
-    color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
   },
 });

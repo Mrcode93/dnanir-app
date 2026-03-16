@@ -1,5 +1,6 @@
 import DefaultPreference from 'react-native-default-preference';
 import WidgetCenter from 'react-native-widget-center';
+import { NativeModules, Platform } from 'react-native';
 import { getWidgetBalanceData } from './widgetService';
 import { getCustomCategories, addExpense, addIncome } from '../database/database';
 import { processSmartText } from './smartTransactionService';
@@ -55,12 +56,15 @@ export const saveWidgetData = async (): Promise<void> => {
       
     }
     
-    // Trigger native widget refresh for iOS
-    try {
-       WidgetCenter.reloadAllTimelines();
-       
-    } catch (e) {
-       
+    // Trigger native widget refresh
+    if (Platform.OS === 'ios') {
+      try {
+        WidgetCenter.reloadAllTimelines();
+      } catch (e) {}
+    } else if (Platform.OS === 'android') {
+      try {
+        NativeModules.WidgetModule?.updateWidgets();
+      } catch (e) {}
     }
   } catch (error) {
     

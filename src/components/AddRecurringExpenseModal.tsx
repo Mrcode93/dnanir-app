@@ -4,17 +4,10 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Alert,
-  Modal,
   TouchableOpacity,
-  Animated,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextInput, IconButton } from 'react-native-paper';
 import { CustomDatePicker } from './CustomDatePicker';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, useAppTheme, useThemedStyles } from '../utils/theme';
 import { alertService } from '../services/alertService';
@@ -26,6 +19,8 @@ import {
 } from '../database/database';
 import { getCustomCategories } from '../database/database';
 import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
+import { AppBottomSheet, AppButton, AppInput } from '../design-system';
+import { Platform } from 'react-native';
 
 interface AddRecurringExpenseModalProps {
   visible: boolean;
@@ -40,7 +35,6 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
 }) => {
   const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
-  const insets = useSafeAreaInsets();
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<ExpenseCategory>('food');
@@ -53,23 +47,9 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [hasEndDate, setHasEndDate] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [slideAnim] = useState(new Animated.Value(0));
   const [customCategories, setCustomCategories] = useState<any[]>([]);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showRecurrencePicker, setShowRecurrencePicker] = useState(false);
-
-  useEffect(() => {
-    if (visible) {
-      Animated.spring(slideAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        tension: 50,
-        friction: 7,
-      }).start();
-    } else {
-      slideAnim.setValue(0);
-    }
-  }, [visible]);
 
   useEffect(() => {
     loadCustomCategories();
@@ -93,7 +73,7 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
       const categories = await getCustomCategories('expense');
       setCustomCategories(categories);
     } catch (error) {
-      
+
     }
   };
 
@@ -156,7 +136,7 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
       onClose();
       resetForm();
     } catch (error) {
-      
+
       alertService.error('خطأ', 'حدث خطأ أثناء حفظ المصروف المتكرر');
     } finally {
       setLoading(false);
@@ -179,321 +159,231 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
     ...customCategories.map(c => c.name as ExpenseCategory),
   ];
 
-  const translateY = slideAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [600, 0],
-  });
-
   return (
-    <Modal
+    <AppBottomSheet
       visible={visible}
-      transparent
-      animationType="none"
-      onRequestClose={handleClose}
+      onClose={handleClose}
+      title={editingExpense ? 'تعديل مصروف متكرر' : 'إضافة مصروف متكرر'}
+      maxHeight="90%"
+      avoidKeyboard
     >
-      <KeyboardAvoidingView
-        style={styles.modalOverlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
-        <TouchableOpacity
-          style={styles.backdrop}
-          activeOpacity={1}
-          onPress={handleClose}
-        />
-        <Animated.View
-          style={[
-            styles.modalContainer,
-            {
-              transform: [{ translateY }],
-              paddingBottom: insets.bottom + theme.spacing.md,
-            },
-          ]}
-        >
-          <LinearGradient
-            colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-            style={styles.modalGradient}
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>العنوان</Text>
+          <AppInput
+            value={title}
+            onChangeText={setTitle}
+            placeholder="أدخل عنوان المصروف"
+            style={styles.input}
+          />
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>المبلغ</Text>
+          <AppInput
+            value={amount}
+            onChangeText={(val) => {
+              const cleaned = convertArabicToEnglish(val);
+              setAmount(formatNumberWithCommas(cleaned));
+            }}
+            placeholder="0.00"
+            keyboardType="decimal-pad"
+            icon="cash-outline"
+            style={styles.input}
+          />
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>الفئة</Text>
+          <TouchableOpacity
+            style={styles.pickerButton}
+            onPress={() => setShowCategoryPicker(!showCategoryPicker)}
           >
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {editingExpense ? 'تعديل مصروف متكرر' : 'إضافة مصروف متكرر'}
-              </Text>
-              <IconButton
-                icon="close"
-                size={24}
-                onPress={handleClose}
-                iconColor={theme.colors.textPrimary}
-              />
-            </View>
-
-            <ScrollView
-              style={styles.scrollView}
-              contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>العنوان</Text>
-                <TextInput
-                  value={title}
-                  onChangeText={setTitle}
-                  placeholder="أدخل عنوان المصروف"
-                  mode="outlined"
-                  style={styles.input}
-                  contentStyle={styles.inputContent}
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>المبلغ</Text>
-                <TextInput
-                  value={amount}
-                  onChangeText={(val) => {
-                    const cleaned = convertArabicToEnglish(val);
-                    setAmount(formatNumberWithCommas(cleaned));
+            <Text style={styles.pickerText}>{getCategoryName(category)}</Text>
+            <Ionicons name="chevron-down" size={20} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+          {showCategoryPicker && (
+            <View style={styles.pickerOptions}>
+              {allCategories.map((cat) => (
+                <TouchableOpacity
+                  key={cat}
+                  style={[
+                    styles.pickerOption,
+                    category === cat && styles.pickerOptionSelected,
+                  ]}
+                  onPress={() => {
+                    setCategory(cat);
+                    setShowCategoryPicker(false);
                   }}
-                  placeholder="0.00"
-                  keyboardType="decimal-pad"
-                  mode="outlined"
-                  style={styles.input}
-                  contentStyle={styles.inputContent}
-                  left={<TextInput.Icon icon="currency-usd" />}
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>الفئة</Text>
-                <TouchableOpacity
-                  style={styles.pickerButton}
-                  onPress={() => setShowCategoryPicker(!showCategoryPicker)}
                 >
-                  <Text style={styles.pickerText}>{getCategoryName(category)}</Text>
-                  <Ionicons name="chevron-down" size={20} color={theme.colors.textSecondary} />
-                </TouchableOpacity>
-                {showCategoryPicker && (
-                  <View style={styles.pickerOptions}>
-                    {allCategories.map((cat) => (
-                      <TouchableOpacity
-                        key={cat}
-                        style={[
-                          styles.pickerOption,
-                          category === cat && styles.pickerOptionSelected,
-                        ]}
-                        onPress={() => {
-                          setCategory(cat);
-                          setShowCategoryPicker(false);
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.pickerOptionText,
-                            category === cat && styles.pickerOptionTextSelected,
-                          ]}
-                        >
-                          {getCategoryName(cat)}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>نوع التكرار</Text>
-                <TouchableOpacity
-                  style={styles.pickerButton}
-                  onPress={() => setShowRecurrencePicker(!showRecurrencePicker)}
-                >
-                  <Text style={styles.pickerText}>{RECURRENCE_TYPES[recurrenceType]}</Text>
-                  <Ionicons name="chevron-down" size={20} color={theme.colors.textSecondary} />
-                </TouchableOpacity>
-                {showRecurrencePicker && (
-                  <View style={styles.pickerOptions}>
-                    {Object.entries(RECURRENCE_TYPES).map(([key, label]) => (
-                      <TouchableOpacity
-                        key={key}
-                        style={[
-                          styles.pickerOption,
-                          recurrenceType === key && styles.pickerOptionSelected,
-                        ]}
-                        onPress={() => {
-                          setRecurrenceType(key as any);
-                          setShowRecurrencePicker(false);
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.pickerOptionText,
-                            recurrenceType === key && styles.pickerOptionTextSelected,
-                          ]}
-                        >
-                          {label}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>قيمة التكرار</Text>
-                <TextInput
-                  value={recurrenceValue}
-                  onChangeText={(val) => setRecurrenceValue(convertArabicToEnglish(val))}
-                  placeholder="1"
-                  keyboardType="number-pad"
-                  mode="outlined"
-                  style={styles.input}
-                  contentStyle={styles.inputContent}
-                />
-                <Text style={styles.hint}>
-                  مثال: إذا كان التكرار شهري والقيمة 2، فسيكون كل شهرين
-                </Text>
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>تاريخ البداية</Text>
-                <TouchableOpacity
-                  style={styles.pickerButton}
-                  onPress={() => setShowStartDatePicker(true)}
-                >
-                  <Text style={styles.pickerText}>
-                    {startDate.toLocaleDateString('ar-IQ-u-nu-latn')}
-                  </Text>
-                  <Ionicons name="calendar" size={20} color={theme.colors.textSecondary} />
-                </TouchableOpacity>
-                {showStartDatePicker && (
-                  <CustomDatePicker
-                    value={startDate}
-                    onChange={(event, selectedDate) => {
-                      if (selectedDate) {
-                        setStartDate(selectedDate);
-                      }
-                      if (Platform.OS === 'android') setShowStartDatePicker(false);
-                    }}
-                    onClose={() => setShowStartDatePicker(false)}
-                  />
-                )}
-              </View>
-
-              <View style={styles.formGroup}>
-                <View style={styles.switchRow}>
-                  <Text style={styles.label}>تاريخ انتهاء (اختياري)</Text>
-                  <TouchableOpacity
-                    style={[styles.switch, hasEndDate && styles.switchActive]}
-                    onPress={() => {
-                      setHasEndDate(!hasEndDate);
-                      if (hasEndDate) {
-                        setEndDate(null);
-                      }
-                    }}
+                  <Text
+                    style={[
+                      styles.pickerOptionText,
+                      category === cat && styles.pickerOptionTextSelected,
+                    ]}
                   >
-                    <View style={[styles.switchThumb, hasEndDate && styles.switchThumbActive]} />
-                  </TouchableOpacity>
-                </View>
-                {hasEndDate && (
-                  <>
-                    <TouchableOpacity
-                      style={styles.pickerButton}
-                      onPress={() => setShowEndDatePicker(true)}
-                    >
-                      <Text style={styles.pickerText}>
-                        {endDate ? endDate.toLocaleDateString('ar-IQ-u-nu-latn') : 'اختر التاريخ'}
-                      </Text>
-                      <Ionicons name="calendar" size={20} color={theme.colors.textSecondary} />
-                    </TouchableOpacity>
-                    {showEndDatePicker && (
-                      <CustomDatePicker
-                        value={endDate || new Date()}
-                        onChange={(event, selectedDate) => {
-                          if (selectedDate) {
-                            setEndDate(selectedDate);
-                          }
-                          if (Platform.OS === 'android') setShowEndDatePicker(false);
-                        }}
-                        onClose={() => setShowEndDatePicker(false)}
-                      />
-                    )}
-                  </>
-                )}
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>الوصف (اختياري)</Text>
-                <TextInput
-                  value={description}
-                  onChangeText={setDescription}
-                  placeholder="أدخل وصفاً للمصروف"
-                  mode="outlined"
-                  multiline
-                  numberOfLines={3}
-                  style={styles.input}
-                  contentStyle={styles.inputContent}
-                />
-              </View>
-            </ScrollView>
-
-            <View style={styles.actions}>
-              <TouchableOpacity
-                style={[styles.button, styles.cancelButton]}
-                onPress={handleClose}
-              >
-                <Text style={styles.cancelButtonText}>إلغاء</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.button, styles.saveButton]}
-                onPress={handleSave}
-                disabled={loading}
-              >
-                <LinearGradient
-                  colors={[theme.colors.primary, theme.colors.info]}
-                  style={styles.saveButtonGradient}
-                >
-                  <Text style={styles.saveButtonText}>
-                    {loading ? 'جاري الحفظ...' : editingExpense ? 'تحديث' : 'حفظ'}
+                    {getCategoryName(cat)}
                   </Text>
-                </LinearGradient>
-              </TouchableOpacity>
+                </TouchableOpacity>
+              ))}
             </View>
-          </LinearGradient>
-        </Animated.View>
-      </KeyboardAvoidingView>
-    </Modal>
+          )}
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>نوع التكرار</Text>
+          <TouchableOpacity
+            style={styles.pickerButton}
+            onPress={() => setShowRecurrencePicker(!showRecurrencePicker)}
+          >
+            <Text style={styles.pickerText}>{RECURRENCE_TYPES[recurrenceType]}</Text>
+            <Ionicons name="chevron-down" size={20} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+          {showRecurrencePicker && (
+            <View style={styles.pickerOptions}>
+              {Object.entries(RECURRENCE_TYPES).map(([key, label]) => (
+                <TouchableOpacity
+                  key={key}
+                  style={[
+                    styles.pickerOption,
+                    recurrenceType === key && styles.pickerOptionSelected,
+                  ]}
+                  onPress={() => {
+                    setRecurrenceType(key as any);
+                    setShowRecurrencePicker(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.pickerOptionText,
+                      recurrenceType === key && styles.pickerOptionTextSelected,
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>قيمة التكرار</Text>
+          <AppInput
+            value={recurrenceValue}
+            onChangeText={(val) => setRecurrenceValue(convertArabicToEnglish(val))}
+            placeholder="1"
+            keyboardType="number-pad"
+            style={styles.input}
+          />
+          <Text style={styles.hint}>
+            مثال: إذا كان التكرار شهري والقيمة 2، فسيكون كل شهرين
+          </Text>
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>تاريخ البداية</Text>
+          <TouchableOpacity
+            style={styles.pickerButton}
+            onPress={() => setShowStartDatePicker(true)}
+          >
+            <Text style={styles.pickerText}>
+              {startDate.toLocaleDateString('ar-IQ-u-nu-latn')}
+            </Text>
+            <Ionicons name="calendar" size={20} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+          {showStartDatePicker && (
+            <CustomDatePicker
+              value={startDate}
+              onChange={(event, selectedDate) => {
+                if (selectedDate) {
+                  setStartDate(selectedDate);
+                }
+                if (Platform.OS === 'android') setShowStartDatePicker(false);
+              }}
+              onClose={() => setShowStartDatePicker(false)}
+            />
+          )}
+        </View>
+
+        <View style={styles.formGroup}>
+          <View style={styles.switchRow}>
+            <Text style={styles.label}>تاريخ انتهاء (اختياري)</Text>
+            <TouchableOpacity
+              style={[styles.switch, hasEndDate && styles.switchActive]}
+              onPress={() => {
+                setHasEndDate(!hasEndDate);
+                if (hasEndDate) {
+                  setEndDate(null);
+                }
+              }}
+            >
+              <View style={[styles.switchThumb, hasEndDate && styles.switchThumbActive]} />
+            </TouchableOpacity>
+          </View>
+          {hasEndDate && (
+            <>
+              <TouchableOpacity
+                style={styles.pickerButton}
+                onPress={() => setShowEndDatePicker(true)}
+              >
+                <Text style={styles.pickerText}>
+                  {endDate ? endDate.toLocaleDateString('ar-IQ-u-nu-latn') : 'اختر التاريخ'}
+                </Text>
+                <Ionicons name="calendar" size={20} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+              {showEndDatePicker && (
+                <CustomDatePicker
+                  value={endDate || new Date()}
+                  onChange={(event, selectedDate) => {
+                    if (selectedDate) {
+                      setEndDate(selectedDate);
+                    }
+                    if (Platform.OS === 'android') setShowEndDatePicker(false);
+                  }}
+                  onClose={() => setShowEndDatePicker(false)}
+                />
+              )}
+            </>
+          )}
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>الوصف (اختياري)</Text>
+          <AppInput
+            value={description}
+            onChangeText={setDescription}
+            placeholder="أدخل وصفاً للمصروف"
+            style={styles.input}
+          />
+        </View>
+      </ScrollView>
+
+      <View style={styles.actions}>
+        <AppButton
+          label="إلغاء"
+          onPress={handleClose}
+          variant="secondary"
+          style={styles.actionButton}
+        />
+        <AppButton
+          label={loading ? 'جاري الحفظ...' : editingExpense ? 'تحديث' : 'حفظ'}
+          onPress={handleSave}
+          variant="primary"
+          loading={loading}
+          disabled={loading}
+          style={styles.actionButton}
+        />
+      </View>
+    </AppBottomSheet>
   );
 };
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: theme.colors.overlay,
-  },
-  modalContainer: {
-    maxHeight: '90%',
-    width: '100%',
-  },
-  modalGradient: {
-    width: '100%',
-    borderTopLeftRadius: theme.borderRadius.xl,
-    borderTopRightRadius: theme.borderRadius.xl,
-    overflow: 'hidden',
-  },
-  modalHeader: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  modalTitle: {
-    fontSize: theme.typography.sizes.xl,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-  },
   scrollView: {
     flex: 1,
   },
@@ -512,10 +402,6 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   input: {
     backgroundColor: theme.colors.surfaceLight,
-  },
-  inputContent: {
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
   },
   pickerButton: {
     flexDirection: 'row-reverse',
@@ -597,33 +483,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
   },
-  button: {
+  actionButton: {
     flex: 1,
-    borderRadius: theme.borderRadius.md,
-    overflow: 'hidden',
-  },
-  cancelButton: {
-    backgroundColor: theme.colors.surfaceLight,
-    padding: theme.spacing.md,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('600'),
-    color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
-  },
-  saveButton: {
-    overflow: 'hidden',
-  },
-  saveButtonGradient: {
-    padding: theme.spacing.md,
-    alignItems: 'center',
-  },
-  saveButtonText: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textInverse,
-    fontFamily: theme.typography.fontFamily,
   },
 });

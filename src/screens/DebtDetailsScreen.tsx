@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
+import { AppButton, ScreenContainer, AppHeader } from '../design-system';
 import {
   getDebt,
   getDebtInstallments,
@@ -53,7 +54,7 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
         setPayments(paymentsData);
       }
     } catch (error) {
-      
+
       alertService.error('خطأ', 'حدث خطأ أثناء تحميل بيانات الدين');
     }
   };
@@ -65,6 +66,23 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
     });
     return unsubscribe;
   }, [navigation, debtId]);
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={handleEdit}
+          style={{
+            marginRight: isRTL ? 0 : 16,
+            marginLeft: isRTL ? 16 : 0,
+            padding: 8,
+          }}
+        >
+          <Ionicons name="create-outline" size={22} color="#FFFFFF" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, debt, theme]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -89,7 +107,7 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
       alertService.toastSuccess(message);
       setShowPayModal(false);
     } catch (error) {
-      
+
       alertService.error('خطأ', debt.direction === 'owed_to_me' ? 'حدث خطأ أثناء تسجيل التسديد' : 'حدث خطأ أثناء دفع الدين');
       throw error;
     }
@@ -103,7 +121,7 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
       const isOwedToMe = debt.direction === 'owed_to_me';
       alertService.toastSuccess(isOwedToMe ? 'تم تسجيل تسديد القسط وإضافته لرصيدك' : 'تم دفع القسط بنجاح');
     } catch (error) {
-      
+
       alertService.error('خطأ', debt.direction === 'owed_to_me' ? 'حدث خطأ أثناء تسجيل تسديد القسط' : 'حدث خطأ أثناء دفع القسط');
     }
   };
@@ -134,18 +152,18 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
       alertService.toastSuccess('تم حذف الدين بنجاح');
       navigation.goBack();
     } catch (error) {
-      
+
       alertService.error('خطأ', 'حدث خطأ أثناء حذف الدين');
     }
   };
 
   if (!debt) {
     return (
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <ScreenContainer>
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>جاري التحميل...</Text>
         </View>
-      </SafeAreaView>
+      </ScreenContainer>
     );
   }
 
@@ -192,7 +210,11 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <ScreenContainer
+      scrollable
+      edges={['left', 'right', 'bottom']}
+    >
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -201,376 +223,209 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Header Card */}
+        {/* Premium Summary Card */}
         <LinearGradient
           colors={colors as any}
-          style={styles.headerCard}
+          style={styles.summaryCard}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          <View style={styles.headerContent}>
-            <View style={styles.headerIcon}>
-              <Ionicons name={typeIcons[debt.type] as any} size={48} color="#FFFFFF" />
+          <View style={styles.summaryTopRow}>
+            <View style={styles.typeBadge}>
+              <Ionicons name={typeIcons[debt.type] as any} size={14} color="#FFFFFF" />
+              <Text style={styles.typeBadgeText}>
+                {debt.direction === 'owed_to_me' ? 'يستحق لك' : 'يستحق عليك'}
+              </Text>
             </View>
-            <Text style={styles.debtorName}>{debt.direction === 'owed_to_me' ? 'مدين لي:' : 'مدين لـ:'} {debt.debtorName}</Text>
-            <Text style={styles.debtType}>{DEBT_TYPES[debt.type]}</Text>
-            <View style={styles.amountContainer}>
-              <Text style={styles.totalAmount}>{formatCurrency(debt.totalAmount)}</Text>
-              {debt.isPaid ? (
-                <View style={styles.paidStatusContainer}>
-                  <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-                  <Text style={styles.paidStatusText}>مدفوع بالكامل</Text>
-                </View>
-              ) : (
-                <Text style={styles.remainingAmount}>
-                  متبقي: {formatCurrency(debt.remainingAmount)}
-                </Text>
-              )}
+            <TouchableOpacity onPress={handleDelete} style={styles.deleteIconBtn}>
+              <Ionicons name="trash-outline" size={20} color="rgba(255,255,255,0.8)" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.amountContent}>
+            <Text style={styles.amountLabelPrimary}>
+              {debt.direction === 'owed_to_me' ? 'مبلغ يستحق لك من:' : 'مبلغ تستحق دفعه لـ:'}
+            </Text>
+            <Text style={styles.debtorNameText}>{debt.debtorName}</Text>
+            <Text style={styles.totalAmountText}>{formatCurrency(debt.totalAmount)}</Text>
+          </View>
+
+          <View style={styles.summaryFooter}>
+            <View style={styles.footerStat}>
+              <Text style={styles.footerStatLabel}>المتبقي</Text>
+              <Text style={styles.footerStatValue}>{formatCurrency(debt.remainingAmount)}</Text>
             </View>
-            {debt.isPaid && (
-              <View style={styles.paidBadge}>
-                <Ionicons name="trophy" size={20} color="#FFFFFF" />
-                <Text style={styles.paidTextHeader}>تم إتمام الدفع بنجاح</Text>
-              </View>
-            )}
+            <View style={styles.footerDivider} />
+            <View style={styles.footerStat}>
+              <Text style={styles.footerStatLabel}>الحالة</Text>
+              <Text style={styles.footerStatValue}>{debt.isPaid ? 'مدفوع' : 'نشط'}</Text>
+            </View>
           </View>
         </LinearGradient>
 
-        {/* Progress Card - Show for unpaid debts */}
+        {/* Progress Section */}
         {!debt.isPaid && (
-          <View style={styles.progressCard}>
-            <View style={styles.progressHeader}>
-              <Text style={styles.progressTitle}>التقدم</Text>
-              <Text style={styles.progressPercentage}>{progress.toFixed(0)}%</Text>
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>نسبة السداد</Text>
+              <Text style={[styles.progressVal, { color: colors[0] }]}>{progress.toFixed(0)}%</Text>
             </View>
-            <View style={styles.progressBarContainer}>
-              <View style={styles.progressBar}>
-                <LinearGradient
-                  colors={baseColors as any}
-                  style={[styles.progressFill, { width: `${progress}%` }]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                />
-              </View>
+            <View style={styles.progressTrack}>
+              <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: colors[0] }]} />
             </View>
-            <View style={styles.progressStats}>
-              <View style={styles.progressStat}>
-                <Text style={styles.progressStatLabel}>مدفوع</Text>
-                <Text style={styles.progressStatValue}>
-                  {formatCurrency(debt.totalAmount - debt.remainingAmount)}
-                </Text>
-              </View>
-              <View style={styles.progressStat}>
-                <Text style={styles.progressStatLabel}>متبقي</Text>
-                <Text style={[styles.progressStatValue, { color: theme.colors.error }]}>
-                  {formatCurrency(debt.remainingAmount)}
-                </Text>
-              </View>
+            <View style={styles.progressLegend}>
+              <Text style={styles.legendText}>تم دفع: {formatCurrency(debt.totalAmount - debt.remainingAmount)}</Text>
             </View>
           </View>
         )}
 
-        {/* Payment Summary Card - Show for paid debts */}
-        {debt.isPaid && (
-          <View style={styles.paymentSummaryCard}>
-            <View style={styles.paymentSummaryHeader}>
-              <Ionicons name="checkmark-circle" size={24} color={theme.colors.success} />
-              <Text style={styles.paymentSummaryTitle}>تم الدفع بالكامل</Text>
-            </View>
-            <View style={styles.paymentSummaryContent}>
-              <View style={styles.paymentSummaryRow}>
-                <Text style={styles.paymentSummaryLabel}>المبلغ الإجمالي</Text>
-                <Text style={styles.paymentSummaryValue}>
-                  {formatCurrency(debt.totalAmount)}
-                </Text>
-              </View>
-              <View style={styles.paymentSummaryRow}>
-                <Text style={styles.paymentSummaryLabel}>الدائن</Text>
-                <Text style={styles.paymentSummaryValue}>
-                  {debt.debtorName}
-                </Text>
-              </View>
-              <View style={styles.paymentSummaryRow}>
-                <Text style={styles.paymentSummaryLabel}>تاريخ الإتمام</Text>
-                <Text style={styles.paymentSummaryValue}>
-                  {formatDate(debt.startDate)}
-                </Text>
-              </View>
-              {installments.length > 0 && (
-                <View style={styles.paymentSummaryRow}>
-                  <Text style={styles.paymentSummaryLabel}>عدد الأقساط</Text>
-                  <Text style={styles.paymentSummaryValue}>
-                    {installments.length} قسط
-                  </Text>
-                </View>
-              )}
-            </View>
+        {/* Action Buttons */}
+        {!debt.isPaid && (
+          <View style={styles.mainActions}>
+            <AppButton
+              label={debt.direction === 'owed_to_me' ? 'تسجيل دفعة مستلمة' : 'دفع مبلغ من الدين'}
+              onPress={handlePayDebt}
+              variant="primary"
+              size="lg"
+              leftIcon="cash-outline"
+              style={{ backgroundColor: colors[0], borderRadius: 16 }}
+            />
           </View>
         )}
 
         {/* Details Card */}
-        <View style={styles.detailsCard}>
-          <Text style={styles.sectionTitle}>التفاصيل</Text>
-          <View style={styles.detailRow}>
-            <View style={styles.detailItem}>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>التفاصيل</Text>
+          <View style={styles.infoRow}>
+            <View style={styles.infoIconBox}>
               <Ionicons name="calendar-outline" size={20} color={theme.colors.textSecondary} />
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>تاريخ البدء</Text>
-                <Text style={styles.detailValue}>{formatDate(debt.startDate)}</Text>
-              </View>
             </View>
-            {debt.dueDate && (
-              <View style={styles.detailItem}>
+            <View style={styles.infoContent}>
+              <Text style={styles.infoLabel}>تاريخ البدء</Text>
+              <Text style={styles.infoValue}>{formatDate(debt.startDate)}</Text>
+            </View>
+          </View>
+
+          {debt.dueDate && (
+            <View style={styles.infoRow}>
+              <View style={[styles.infoIconBox, getDaysUntilDue(debt.dueDate)! < 0 && !debt.isPaid && { backgroundColor: theme.colors.error + '10' }]}>
                 <Ionicons
-                  name="time-outline"
+                  name="timer-outline"
                   size={20}
-                  color={
-                    debt.isPaid
-                      ? theme.colors.success
-                      : getDaysUntilDue(debt.dueDate)! < 0
-                        ? theme.colors.error
-                        : theme.colors.textSecondary
-                  }
+                  color={!debt.isPaid && getDaysUntilDue(debt.dueDate)! < 0 ? theme.colors.error : theme.colors.textSecondary}
                 />
-                <View style={styles.detailContent}>
-                  <Text style={styles.detailLabel}>تاريخ الاستحقاق</Text>
-                  <Text style={[
-                    styles.detailValue,
-                    debt.isPaid && styles.paidText,
-                    !debt.isPaid && getDaysUntilDue(debt.dueDate)! < 0 && styles.overdueText
-                  ]}>
-                    {formatDate(debt.dueDate)}
-                    {debt.isPaid && ' ✓'}
-                  </Text>
-                </View>
               </View>
-            )}
-            {debt.description && (
-              <View style={styles.detailItem}>
-                <Ionicons name="document-text-outline" size={20} color={theme.colors.textSecondary} />
-                <View style={styles.detailContent}>
-                  <Text style={styles.detailLabel}>الوصف</Text>
-                  <Text style={styles.detailValue}>{debt.description}</Text>
-                </View>
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* Installments Card */}
-        {installments.length > 0 && (
-          <View style={styles.installmentsCard}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>الأقساط</Text>
-              <View style={[
-                styles.installmentsSummary,
-                debt.isPaid && { backgroundColor: theme.colors.success + '20' }
-              ]}>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>موعد الاستحقاق النهائي</Text>
                 <Text style={[
-                  styles.installmentsSummaryText,
-                  debt.isPaid && { color: theme.colors.success, fontWeight: getPlatformFontWeight('700') }
+                  styles.infoValue,
+                  !debt.isPaid && getDaysUntilDue(debt.dueDate)! < 0 && { color: theme.colors.error, fontWeight: '700' }
                 ]}>
-                  {debt.isPaid
-                    ? `✓ ${paidInstallments.length}/${installments.length} مدفوعة بالكامل`
-                    : `${paidInstallments.length}/${installments.length} مدفوعة`
-                  }
+                  {formatDate(debt.dueDate)}
+                  {!debt.isPaid && getDaysUntilDue(debt.dueDate)! < 0 && ' (متأخر)'}
                 </Text>
               </View>
             </View>
-
-            {/* Unpaid Installments */}
-            {unpaidInstallments.length > 0 && !debt.isPaid && (
-              <View style={styles.installmentsSection}>
-                <Text style={styles.installmentsSubtitle}>المستحقة ({unpaidInstallments.length})</Text>
-                {unpaidInstallments.map((inst) => {
-                  const daysUntilDue = getDaysUntilDue(inst.dueDate);
-                  const isOverdue = daysUntilDue !== null && daysUntilDue < 0;
-                  const isDueSoon = daysUntilDue !== null && daysUntilDue >= 0 && daysUntilDue <= 3;
-
-                  return (
-                    <TouchableOpacity
-                      key={inst.id}
-                      style={styles.installmentItem}
-                      activeOpacity={0.7}
-                      onPress={() => {
-                        // Navigate to installment details if needed
-                      }}
-                    >
-                      <View style={styles.installmentLeft}>
-                        <View style={[
-                          styles.installmentNumberBadge,
-                          { backgroundColor: isOverdue ? theme.colors.error + '20' : isDueSoon ? theme.colors.warning + '20' : colors[0] + '20' }
-                        ]}>
-                          <Text style={[
-                            styles.installmentNumber,
-                            { color: isOverdue ? theme.colors.error : isDueSoon ? theme.colors.warning : colors[0] }
-                          ]}>
-                            {inst.installmentNumber}
-                          </Text>
-                        </View>
-                        <View style={styles.installmentInfo}>
-                          <Text style={styles.installmentAmount}>{formatCurrency(inst.amount)}</Text>
-                          <Text style={[
-                            styles.installmentDate,
-                            isOverdue && styles.overdueText,
-                            isDueSoon && styles.dueSoonText
-                          ]}>
-                            {formatDate(inst.dueDate)}
-                            {isOverdue && ' (متأخر)'}
-                            {isDueSoon && daysUntilDue === 0 && ' (اليوم!)'}
-                            {isDueSoon && daysUntilDue! > 0 && ` (بعد ${daysUntilDue} يوم)`}
-                          </Text>
-                        </View>
-                      </View>
-                      <TouchableOpacity
-                        style={styles.payInstallmentButton}
-                        onPress={() => handlePayInstallment(inst)}
-                        activeOpacity={0.7}
-                      >
-                        <LinearGradient
-                          colors={theme.gradients.success as any}
-                          style={styles.payInstallmentButtonGradient}
-                        >
-                          <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
-                          <Text style={styles.payInstallmentButtonText}>{debt.direction === 'owed_to_me' ? 'تسديد' : 'دفع'}</Text>
-                        </LinearGradient>
-                      </TouchableOpacity>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            )}
-
-            {/* Paid Installments */}
-            {paidInstallments.length > 0 && (
-              <View style={styles.installmentsSection}>
-                <Text style={styles.installmentsSubtitle}>
-                  {debt.isPaid ? 'جميع الأقساط المدفوعة' : `المدفوعة (${paidInstallments.length})`}
-                </Text>
-                {paidInstallments.map((inst) => (
-                  <View key={inst.id} style={[styles.installmentItem, styles.paidInstallmentItem]}>
-                    <View style={styles.installmentLeft}>
-                      <View style={[styles.installmentNumberBadge, { backgroundColor: theme.colors.success + '20' }]}>
-                        <Ionicons name="checkmark-circle" size={16} color={theme.colors.success} />
-                      </View>
-                      <View style={styles.installmentInfo}>
-                        <Text style={styles.installmentAmount}>{formatCurrency(inst.amount)}</Text>
-                        <Text style={styles.installmentDate}>
-                          {formatDate(inst.dueDate)}
-                          {inst.paidDate && ` • دُفع في ${formatDate(inst.paidDate)}`}
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={styles.paidBadgeSmall}>
-                      <Text style={styles.paidBadgeText}>مدفوع</Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Payment History Card */}
-        {payments.length > 0 && (
-          <View style={styles.paymentHistoryCard}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>سجل المدفوعات</Text>
-              <View style={styles.paymentHistorySummary}>
-                <Text style={styles.paymentHistorySummaryText}>
-                  {payments.length} {payments.length === 1 ? 'دفعة' : 'دفعة'}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.paymentHistoryList}>
-              {payments.map((payment) => {
-                const installment = installments.find(inst => inst.id === payment.installmentId);
-                return (
-                  <View key={payment.id} style={styles.paymentHistoryItem}>
-                    <View style={styles.paymentHistoryLeft}>
-                      <View style={[styles.paymentHistoryIcon, { backgroundColor: theme.colors.success + '20' }]}>
-                        <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
-                      </View>
-                      <View style={styles.paymentHistoryInfo}>
-                        <Text style={styles.paymentHistoryAmount}>
-                          {formatCurrency(payment.amount)}
-                        </Text>
-                        <Text style={styles.paymentHistoryDescription}>
-                          {payment.description || (installment ? `القسط رقم ${installment.installmentNumber}` : 'دفع الدين')}
-                        </Text>
-                        <Text style={styles.paymentHistoryDate}>
-                          {formatDate(payment.paymentDate)}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-        )}
-
-        {/* Actions Card */}
-        <View style={styles.actionsCard}>
-          {!debt.isPaid && (
-            <TouchableOpacity
-              style={styles.payFullButton}
-              onPress={handlePayDebt}
-              activeOpacity={0.8}
-            >
-              <LinearGradient
-                colors={baseColors as any}
-                style={styles.payFullButtonGradient}
-              >
-                <Ionicons name="checkmark-circle" size={24} color="#FFFFFF" />
-                <Text style={styles.payFullButtonText}>{debt.direction === 'owed_to_me' ? 'تسديد (استلام)' : 'دفع الدين'}</Text>
-              </LinearGradient>
-            </TouchableOpacity>
           )}
 
-          <View style={styles.secondaryActions}>
-            {!debt.isPaid && (
-              <TouchableOpacity
-                style={styles.editButton}
-                onPress={handleEdit}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="pencil" size={20} color={theme.colors.primary} />
-                <Text style={styles.editButtonText}>تعديل</Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              style={[styles.deleteButton, debt.isPaid && styles.deleteButtonPaid]}
-              onPress={handleDelete}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="trash-outline" size={20} color={theme.colors.error} />
-              <Text style={[styles.deleteButtonText, debt.isPaid && styles.deleteButtonTextPaid]}>
-                {debt.isPaid ? 'حذف الدين المدفوع' : 'حذف الدين'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {debt.isPaid && (
-            <Text style={styles.deleteWarningText}>
-              ⚠️ تحذير: حذف الدين المدفوع سيؤدي إلى حذف جميع السجلات المرتبطة به بشكل دائم
-            </Text>
+          {debt.description && (
+            <View style={styles.infoRow}>
+              <View style={styles.infoIconBox}>
+                <Ionicons name="document-text-outline" size={20} color={theme.colors.textSecondary} />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>ملاحظات</Text>
+                <Text style={styles.infoValue}>{debt.description}</Text>
+              </View>
+            </View>
           )}
         </View>
+
+        {/* Installments Section */}
+        {installments.length > 0 && (
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>الأقساط</Text>
+              <View style={styles.badgeSm}>
+                <Text style={styles.badgeSmText}>{paidInstallments.length}/{installments.length}</Text>
+              </View>
+            </View>
+
+            {unpaidInstallments.map((inst) => {
+              const days = getDaysUntilDue(inst.dueDate);
+              const isOverdue = days !== null && days < 0;
+              return (
+                <View key={inst.id} style={styles.installmentItemRow}>
+                  <View style={styles.instLeft}>
+                    <View style={[styles.instNum, { borderColor: isOverdue ? theme.colors.error : theme.colors.border }]}>
+                      <Text style={[styles.instNumText, isOverdue && { color: theme.colors.error }]}>{inst.installmentNumber}</Text>
+                    </View>
+                    <View>
+                      <Text style={styles.instAmount}>{formatCurrency(inst.amount)}</Text>
+                      <Text style={[styles.instDate, isOverdue && { color: theme.colors.error }]}>
+                        {formatDate(inst.dueDate)} {isOverdue && ' (متأخر)'}
+                      </Text>
+                    </View>
+                  </View>
+                  {!debt.isPaid && (
+                    <TouchableOpacity
+                      style={[styles.instPayBtn, { backgroundColor: colors[0] }]}
+                      onPress={() => handlePayInstallment(inst)}
+                    >
+                      <Text style={styles.instPayBtnText}>دفع</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              );
+            })}
+
+            {paidInstallments.map((inst) => (
+              <View key={inst.id} style={[styles.installmentItemRow, { opacity: 0.6 }]}>
+                <View style={styles.instLeft}>
+                  <View style={[styles.instNum, { backgroundColor: theme.colors.success + '20', borderColor: 'transparent' }]}>
+                    <Ionicons name="checkmark" size={12} color={theme.colors.success} />
+                  </View>
+                  <View>
+                    <Text style={styles.instAmount}>{formatCurrency(inst.amount)}</Text>
+                    <Text style={styles.instDate}>{formatDate(inst.dueDate)} (مدفوع)</Text>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* History Section */}
+        {payments.length > 0 && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>سجل المدفوعات</Text>
+            {payments.map((p) => (
+              <View key={p.id} style={styles.historyItem}>
+                <View style={styles.historyIconBox}>
+                  <Ionicons name="receipt-outline" size={18} color={theme.colors.success} />
+                </View>
+                <View style={styles.historyContent}>
+                  <View style={styles.historyTop}>
+                    <Text style={styles.historyAmount}>{formatCurrency(p.amount)}</Text>
+                    <Text style={styles.historyDate}>{formatDate(p.paymentDate)}</Text>
+                  </View>
+                  <Text style={styles.historyNote}>{p.description || 'تسديد جزء من الدين'}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        <View style={{ height: 40 }} />
       </ScrollView>
 
       <ConfirmAlert
         visible={showDeleteAlert}
         onCancel={() => setShowDeleteAlert(false)}
         onConfirm={confirmDelete}
-        title={debt.isPaid ? '⚠️ حذف دين مدفوع' : 'حذف الدين'}
-        message={
-          debt.isPaid
-            ? `هل أنت متأكد تماماً من حذف هذا الدين المدفوع؟\n\nسيتم حذف:\n• الدين بالكامل\n• جميع الأقساط المرتبطة به\n• جميع السجلات التاريخية\n\n⚠️ هذا الإجراء لا يمكن التراجع عنه!`
-            : 'هل أنت متأكد من حذف هذا الدين؟ سيتم حذف جميع الأقساط والسقوف المرتبطة به. لا يمكن التراجع عن هذا الإجراء.'
-        }
-        confirmText={debt.isPaid ? 'نعم، احذف الكل' : 'حذف'}
+        title="حذف الالتزام"
+        message="هل أنت متأكد من حذف هذا الالتزام وجميع السجلات الملحقة به؟ هذا الإجراء لا يمكن التراجع عنه."
+        confirmText="نعم، حذف"
         cancelText="إلغاء"
         type="danger"
       />
@@ -581,7 +436,7 @@ export const DebtDetailsScreen = ({ navigation, route }: any) => {
         onClose={() => setShowPayModal(false)}
         onPay={handlePayDebtConfirm}
       />
-    </SafeAreaView>
+    </ScreenContainer>
   );
 };
 
@@ -596,7 +451,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    fontSize: theme.typography.sizes.md,
+    fontSize: 16,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
   },
@@ -604,487 +459,288 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: theme.spacing.sm,
+    paddingBottom: 40,
   },
-  headerCard: {
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.sm,
-    marginBottom: theme.spacing.sm,
-    ...getPlatformShadow('lg'),
-  },
-  headerContent: {
-    alignItems: 'center',
-  },
-  headerIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  headerActionBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.surfaceLight,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: theme.spacing.xs,
+    marginRight: isRTL ? 0 : 8,
+    marginLeft: isRTL ? 8 : 0,
   },
-  debtorName: {
-    fontSize: theme.typography.sizes.xxl,
-    fontWeight: getPlatformFontWeight('700'),
-    color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
-    marginBottom: 2,
+  summaryCard: {
+    margin: 20,
+    borderRadius: 32,
+    padding: 24,
+    minHeight: 220,
+    justifyContent: 'space-between',
+    ...getPlatformShadow('lg'),
   },
-  debtType: {
-    fontSize: theme.typography.sizes.md,
-    color: 'rgba(255, 255, 255, 0.9)', // Always white on dark gradient
-    fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.sm,
-  },
-  amountContainer: {
-    alignItems: 'center',
-    marginBottom: theme.spacing.sm,
-  },
-  totalAmount: {
-    fontSize: theme.typography.sizes.xxl,
-    fontWeight: getPlatformFontWeight('700'),
-    color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
-    marginBottom: 2,
-  },
-  remainingAmount: {
-    fontSize: theme.typography.sizes.md,
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontFamily: theme.typography.fontFamily,
-  },
-  paidStatusContainer: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xs,
-    marginTop: 2,
-  },
-  paidStatusText: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('600'),
-    color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
-  },
-  paidBadge: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: theme.borderRadius.md,
-  },
-  paidTextHeader: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('600'),
-    color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
-  },
-  progressCard: {
-    backgroundColor: theme.colors.surfaceCard,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.sm,
-    marginBottom: theme.spacing.sm,
-    ...getPlatformShadow('md'),
-  },
-  paymentSummaryCard: {
-    backgroundColor: theme.colors.surfaceCard,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.sm,
-    marginBottom: theme.spacing.sm,
-    borderWidth: 2,
-    borderColor: theme.colors.success,
-    ...getPlatformShadow('md'),
-  },
-  paymentSummaryHeader: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    marginBottom: theme.spacing.sm,
-  },
-  paymentSummaryTitle: {
-    fontSize: theme.typography.sizes.xl,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.success,
-    fontFamily: theme.typography.fontFamily,
-  },
-  paymentSummaryContent: {
-    gap: theme.spacing.sm,
-  },
-  paymentSummaryRow: {
+  summaryTopRow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: theme.spacing.xs,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
   },
-  paymentSummaryLabel: {
-    fontSize: theme.typography.sizes.md,
-    color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
+  typeBadge: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
-  paymentSummaryValue: {
-    fontSize: theme.typography.sizes.md,
+  typeBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
   },
-  progressHeader: {
+  deleteIconBtn: {
+    padding: 4,
+  },
+  amountContent: {
+    alignItems: 'center',
+    marginVertical: 12,
+  },
+  amountLabelPrimary: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 14,
+    fontFamily: theme.typography.fontFamily,
+    marginBottom: 4,
+  },
+  debtorNameText: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: getPlatformFontWeight('800'),
+    fontFamily: theme.typography.fontFamily,
+    marginBottom: 4,
+  },
+  totalAmountText: {
+    color: '#FFFFFF',
+    fontSize: 32,
+    fontWeight: getPlatformFontWeight('900'),
+    fontFamily: theme.typography.fontFamily,
+  },
+  summaryFooter: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.2)',
+    paddingTop: 16,
+    gap: 16,
+  },
+  footerStat: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  footerStatLabel: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 11,
+    fontFamily: theme.typography.fontFamily,
+    marginBottom: 2,
+  },
+  footerStatValue: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: getPlatformFontWeight('700'),
+    fontFamily: theme.typography.fontFamily,
+  },
+  footerDivider: {
+    width: 1,
+    height: '60%',
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    alignSelf: 'center',
+  },
+  card: {
+    backgroundColor: theme.colors.surface,
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderRadius: 24,
+    padding: 20,
+    ...getPlatformShadow('sm'),
+  },
+  cardHeader: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: theme.spacing.xs,
+    marginBottom: 16,
   },
-  progressTitle: {
-    fontSize: theme.typography.sizes.lg,
-    fontWeight: getPlatformFontWeight('700'),
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: getPlatformFontWeight('800'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'right' : 'left',
   },
-  progressPercentage: {
-    fontSize: theme.typography.sizes.xl,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.primary,
-    fontFamily: theme.typography.fontFamily,
+  progressVal: {
+    fontSize: 16,
+    fontWeight: getPlatformFontWeight('900'),
   },
-  progressBarContainer: {
-    marginBottom: theme.spacing.sm,
-  },
-  progressBar: {
-    height: 10,
+  progressTrack: {
+    height: 12,
     backgroundColor: theme.colors.surfaceLight,
-    borderRadius: theme.borderRadius.sm,
+    borderRadius: 6,
     overflow: 'hidden',
+    marginBottom: 12,
   },
   progressFill: {
     height: '100%',
-    borderRadius: theme.borderRadius.sm,
+    borderRadius: 6,
   },
-  progressStats: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    justifyContent: 'space-around',
+  progressLegend: {
+    alignItems: isRTL ? 'flex-end' : 'flex-start',
   },
-  progressStat: {
-    alignItems: 'center',
-  },
-  progressStatLabel: {
-    fontSize: theme.typography.sizes.sm,
+  legendText: {
+    fontSize: 13,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    marginBottom: 2,
   },
-  progressStatValue: {
-    fontSize: theme.typography.sizes.lg,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
+  mainActions: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
   },
-  detailsCard: {
-    backgroundColor: theme.colors.surfaceCard,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.sm,
-    marginBottom: theme.spacing.sm,
-    ...getPlatformShadow('md'),
-  },
-  sectionTitle: {
-    fontSize: theme.typography.sizes.lg,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.sm,
-    textAlign: isRTL ? 'right' : 'left',
-  },
-  detailRow: {
-    gap: theme.spacing.sm,
-  },
-  detailItem: {
+  infoRow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    gap: theme.spacing.sm,
+    gap: 12,
+    marginBottom: 16,
   },
-  detailContent: {
+  infoIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: theme.colors.surfaceLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoContent: {
     flex: 1,
   },
-  detailLabel: {
-    fontSize: theme.typography.sizes.sm,
+  infoLabel: {
+    fontSize: 12,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: 2,
     textAlign: isRTL ? 'right' : 'left',
   },
-  detailValue: {
-    fontSize: theme.typography.sizes.md,
+  infoValue: {
+    fontSize: 15,
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-  },
-  overdueText: {
-    color: theme.colors.error,
     fontWeight: getPlatformFontWeight('600'),
+    textAlign: isRTL ? 'right' : 'left',
   },
-  dueSoonText: {
-    color: theme.colors.warning,
-    fontWeight: getPlatformFontWeight('600'),
-  },
-  paidText: {
-    color: theme.colors.success,
-    fontWeight: getPlatformFontWeight('600'),
-  },
-  installmentsCard: {
-    backgroundColor: theme.colors.surfaceCard,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.sm,
-    marginBottom: theme.spacing.sm,
-    ...getPlatformShadow('md'),
-  },
-  sectionHeader: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.sm,
-  },
-  installmentsSummary: {
+  badgeSm: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     backgroundColor: theme.colors.surfaceLight,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.borderRadius.sm,
+    borderRadius: 8,
   },
-  installmentsSummaryText: {
-    fontSize: theme.typography.sizes.sm,
-    fontWeight: getPlatformFontWeight('600'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-  },
-  installmentsSection: {
-    marginTop: theme.spacing.sm,
-  },
-  installmentsSubtitle: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('600'),
+  badgeSmText: {
+    fontSize: 12,
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.sm,
   },
-  installmentItem: {
+  installmentItemRow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: theme.spacing.sm,
-    backgroundColor: theme.colors.surfaceLight,
-    borderRadius: theme.borderRadius.sm,
-    marginBottom: theme.spacing.xs,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border + '50',
   },
-  paidInstallmentItem: {
-    opacity: 0.7,
-  },
-  installmentLeft: {
+  instLeft: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    flex: 1,
-    gap: theme.spacing.sm,
+    gap: 12,
   },
-  installmentNumberBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  instNum: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.overlay, // Ensure badge background is visible
   },
-  installmentNumber: {
-    fontSize: theme.typography.sizes.sm,
+  instNumText: {
+    fontSize: 12,
     fontWeight: getPlatformFontWeight('700'),
-    fontFamily: theme.typography.fontFamily,
+    color: theme.colors.textSecondary,
   },
-  installmentInfo: {
-    flex: 1,
-  },
-  installmentAmount: {
-    fontSize: theme.typography.sizes.md,
+  instAmount: {
+    fontSize: 15,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'right' : 'left',
+  },
+  instDate: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'right' : 'left',
+  },
+  instPayBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  instPayBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: getPlatformFontWeight('700'),
+  },
+  historyItem: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    gap: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border + '50',
+  },
+  historyIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: theme.colors.success + '10',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  historyContent: {
+    flex: 1,
+  },
+  historyTop: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 2,
   },
-  installmentDate: {
-    fontSize: theme.typography.sizes.sm,
-    color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
-  },
-  payInstallmentButton: {
-    borderRadius: theme.borderRadius.sm,
-    overflow: 'hidden',
-    ...getPlatformShadow('sm'),
-  },
-  payInstallmentButtonGradient: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-    gap: theme.spacing.xs,
-  },
-  payInstallmentButtonText: {
-    fontSize: theme.typography.sizes.sm,
-    fontWeight: getPlatformFontWeight('600'),
-    color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
-  },
-  paidBadgeSmall: {
-    backgroundColor: theme.colors.success + '20',
-    paddingHorizontal: theme.spacing.xs,
-    paddingVertical: 2,
-    borderRadius: theme.borderRadius.sm,
-  },
-  paidBadgeText: {
-    fontSize: theme.typography.sizes.xs,
-    fontWeight: getPlatformFontWeight('600'),
+  historyAmount: {
+    fontSize: 14,
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.success,
-    fontFamily: theme.typography.fontFamily,
   },
-  actionsCard: {
-    gap: theme.spacing.sm,
-    marginBottom: theme.spacing.md,
+  historyDate: {
+    fontSize: 11,
+    color: theme.colors.textSecondary,
   },
-  payFullButton: {
-    borderRadius: theme.borderRadius.md,
-    overflow: 'hidden',
-    ...getPlatformShadow('md'),
-  },
-  payFullButtonGradient: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: theme.spacing.sm,
-    gap: theme.spacing.sm,
-  },
-  payFullButtonText: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('700'),
-    color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
-  },
-  secondaryActions: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    gap: theme.spacing.sm,
-  },
-  editButton: {
-    flex: 1,
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: theme.spacing.sm,
-    backgroundColor: theme.colors.surfaceCard,
-    borderRadius: theme.borderRadius.md,
-    gap: theme.spacing.xs,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  editButtonText: {
-    fontSize: theme.typography.sizes.sm,
-    fontWeight: getPlatformFontWeight('600'),
-    color: theme.colors.primary,
-    fontFamily: theme.typography.fontFamily,
-  },
-  deleteButton: {
-    flex: 1,
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: theme.spacing.sm,
-    backgroundColor: theme.colors.surfaceLight,
-    borderRadius: theme.borderRadius.md,
-    gap: theme.spacing.xs,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  deleteButtonPaid: {
-    borderStyle: 'dashed',
-    borderColor: theme.colors.error,
-  },
-  deleteButtonText: {
-    fontSize: theme.typography.sizes.sm,
-    fontWeight: getPlatformFontWeight('600'),
-    color: theme.colors.error,
-    fontFamily: theme.typography.fontFamily,
-  },
-  deleteButtonTextPaid: {
-    fontWeight: getPlatformFontWeight('700'),
+  historyNote: {
+    fontSize: 13,
+    color: theme.colors.textPrimary,
+    textAlign: isRTL ? 'right' : 'left',
   },
   deleteWarningText: {
-    fontSize: theme.typography.sizes.sm,
-    color: theme.colors.error,
-    fontFamily: theme.typography.fontFamily,
+    marginTop: 12,
     textAlign: 'center',
-    lineHeight: 18,
-    marginTop: theme.spacing.xs,
-    padding: theme.spacing.xs,
+    fontSize: 12,
+    color: theme.colors.error,
     backgroundColor: theme.colors.error + '10',
-    borderRadius: theme.borderRadius.sm,
-  },
-  paymentHistoryCard: {
-    backgroundColor: theme.colors.surfaceCard,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.sm,
-    marginBottom: theme.spacing.sm,
-    ...getPlatformShadow('md'),
-  },
-  paymentHistorySummary: {
-    backgroundColor: theme.colors.surfaceLight,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.borderRadius.sm,
-  },
-  paymentHistorySummaryText: {
-    fontSize: theme.typography.sizes.sm,
-    fontWeight: getPlatformFontWeight('600'),
-    color: theme.colors.textPrimary,
+    padding: 10,
+    borderRadius: 12,
     fontFamily: theme.typography.fontFamily,
-    textAlign: isRTL ? 'right' : 'left',
-  },
-  paymentHistoryList: {
-    marginTop: theme.spacing.sm,
-    gap: theme.spacing.xs,
-  },
-  paymentHistoryItem: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    padding: theme.spacing.sm,
-    backgroundColor: theme.colors.surfaceLight,
-    borderRadius: theme.borderRadius.sm,
-  },
-  paymentHistoryLeft: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: theme.spacing.sm,
-  },
-  paymentHistoryIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  paymentHistoryInfo: {
-    flex: 1,
-  },
-  paymentHistoryAmount: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.success,
-    fontFamily: theme.typography.fontFamily,
-    marginBottom: 2,
-  },
-  paymentHistoryDescription: {
-    fontSize: theme.typography.sizes.sm,
-    fontWeight: getPlatformFontWeight('600'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-    marginBottom: 2,
-  },
-  paymentHistoryDate: {
-    fontSize: theme.typography.sizes.sm,
-    color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
+    marginHorizontal: 20,
   },
 });

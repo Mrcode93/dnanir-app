@@ -17,7 +17,6 @@
           "defaultChannel": "default"
         }
       ],
-      "expo-video"
     ],
     "name": "دنانير",
     "slug": "dnanir",
@@ -30,7 +29,8 @@
     "primaryLanguage": "ar",
     "description": "تطبيق دنانير - تطبيقك الذكي لإدارة الأموال وتتبع المصروفات والدخل بطريقة سهلة وممتعة",
     "splash": {
-      "resizeMode": "contain",
+      "image": "./assets/images/splash.png",
+      "resizeMode": "cover",
       "backgroundColor": "#003459"
     },
     "scheme": "dnanir",
@@ -106,10 +106,6 @@
         "./assets/fonts/din-next-lt-w23-ultra-light-1.ttf"
       ],
       "permissions": [
-        "android.permission.INTERNET",
-        "android.permission.ACCESS_NETWORK_STATE",
-        "android.permission.POST_NOTIFICATIONS",
-        "android.permission.VIBRATE",
         "android.permission.INTERNET",
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.POST_NOTIFICATIONS",

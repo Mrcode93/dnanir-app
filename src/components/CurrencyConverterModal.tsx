@@ -3,15 +3,10 @@ import {
   View,
   Text,
   StyleSheet,
-  Modal,
   TouchableOpacity,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
@@ -22,6 +17,7 @@ import { CurrencyPickerModal } from './CurrencyPickerModal';
 import { alertService } from '../services/alertService';
 import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 import { usePrivacy } from '../context/PrivacyContext';
+import { AppBottomSheet, AppInput } from '../design-system';
 
 interface CurrencyConverterModalProps {
   visible: boolean;
@@ -87,7 +83,7 @@ export const CurrencyConverterModal: React.FC<CurrencyConverterModalProps> = ({
       setExchangeRate(rate);
       setConvertedAmount(converted);
     } catch (error) {
-      
+
       alertService.error('خطأ', 'حدث خطأ أثناء تحويل العملة');
     } finally {
       setLoading(false);
@@ -118,216 +114,140 @@ export const CurrencyConverterModal: React.FC<CurrencyConverterModalProps> = ({
   const toCurrencyData = CURRENCIES.find(c => c.code === toCurrency);
 
   return (
-    <Modal
-      visible={visible}
-      animationType="fade"
-      transparent={true}
-      onRequestClose={onClose}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.modalOverlay}
+    <>
+      <AppBottomSheet
+        visible={visible}
+        onClose={onClose}
+        title="محول العملات"
+        maxHeight="90%"
+        avoidKeyboard
       >
-        <TouchableOpacity
-          style={styles.backdrop}
-          activeOpacity={1}
-          onPress={onClose}
-        />
-        <View style={styles.modalContainer}>
-          <LinearGradient
-            colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-            style={styles.modalGradient}
-          >
-            <SafeAreaView edges={['top']} style={styles.safeArea}>
-              {/* Header */}
-              <View style={styles.header}>
-                <TouchableOpacity
-                  onPress={onClose}
-                  style={styles.closeButton}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="close" size={28} color={theme.colors.textPrimary} />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>محول العملات</Text>
-                <View style={styles.placeholder} />
-              </View>
-
-              <ScrollView
-                style={styles.scrollView}
-                contentContainerStyle={styles.scrollContent}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* From Currency */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>من</Text>
+            <TouchableOpacity
+              onPress={() => setShowFromPicker(true)}
+              style={styles.currencySelector}
+              activeOpacity={0.7}
+            >
+              <LinearGradient
+                colors={theme.gradients.primary as any}
+                style={styles.currencySelectorGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
               >
-                {/* From Currency */}
-                <View style={styles.section}>
-                  <Text style={styles.sectionLabel}>من</Text>
-                  <TouchableOpacity
-                    onPress={() => setShowFromPicker(true)}
-                    style={styles.currencySelector}
-                    activeOpacity={0.7}
-                  >
-                    <LinearGradient
-                      colors={theme.gradients.primary as any}
-                      style={styles.currencySelectorGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                    >
-                      <View style={styles.currencyInfo}>
-                        <Text style={styles.currencyCode}>{fromCurrency}</Text>
-                        <Text style={styles.currencyName}>{fromCurrencyData?.name}</Text>
-                      </View>
-                      <Ionicons name="chevron-down" size={20} color="#FFFFFF" />
-                    </LinearGradient>
-                  </TouchableOpacity>
-
-                  <View style={styles.amountInputContainer}>
-                    <TextInput
-                      style={styles.amountInput}
-                      value={amount}
-                      onChangeText={(val) => {
-                        const cleaned = convertArabicToEnglish(val);
-                        setAmount(formatNumberWithCommas(cleaned));
-                      }}
-                      placeholder="0.00"
-                      placeholderTextColor={theme.colors.textSecondary}
-                      keyboardType="decimal-pad"
-                      textAlign="right"
-                    />
-                    <Text style={styles.currencySymbol}>{fromCurrencyData?.symbol}</Text>
-                  </View>
+                <View style={styles.currencyInfo}>
+                  <Text style={styles.currencyCode}>{fromCurrency}</Text>
+                  <Text style={styles.currencyName}>{fromCurrencyData?.name}</Text>
                 </View>
+                <Ionicons name="chevron-down" size={20} color="#FFFFFF" />
+              </LinearGradient>
+            </TouchableOpacity>
 
-                {/* Swap Button */}
-                <TouchableOpacity
-                  onPress={swapCurrencies}
-                  style={styles.swapButton}
-                  activeOpacity={0.7}
-                >
-                  <LinearGradient
-                    colors={theme.gradients.goalPurple as any}
-                    style={styles.swapButtonGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                  >
-                    <Ionicons name="swap-vertical" size={24} color="#FFFFFF" />
-                  </LinearGradient>
-                </TouchableOpacity>
+            <AppInput
+              value={amount}
+              onChangeText={(val) => {
+                const cleaned = convertArabicToEnglish(val);
+                setAmount(formatNumberWithCommas(cleaned));
+              }}
+              placeholder="0.00"
+              keyboardType="decimal-pad"
+              rightAction={
+                <Text style={styles.currencySymbol}>{fromCurrencyData?.symbol}</Text>
+              }
+            />
+          </View>
 
-                {/* To Currency */}
-                <View style={styles.section}>
-                  <Text style={styles.sectionLabel}>إلى</Text>
-                  <TouchableOpacity
-                    onPress={() => setShowToPicker(true)}
-                    style={styles.currencySelector}
-                    activeOpacity={0.7}
-                  >
-                    <LinearGradient
-                      colors={theme.gradients.success as any}
-                      style={styles.currencySelectorGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                    >
-                      <View style={styles.currencyInfo}>
-                        <Text style={styles.currencyCode}>{toCurrency}</Text>
-                        <Text style={styles.currencyName}>{toCurrencyData?.name}</Text>
-                      </View>
-                      <Ionicons name="chevron-down" size={20} color="#FFFFFF" />
-                    </LinearGradient>
-                  </TouchableOpacity>
+          {/* Swap Button */}
+          <TouchableOpacity
+            onPress={swapCurrencies}
+            style={styles.swapButton}
+            activeOpacity={0.7}
+          >
+            <LinearGradient
+              colors={theme.gradients.goalPurple as any}
+              style={styles.swapButtonGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Ionicons name="swap-vertical" size={24} color="#FFFFFF" />
+            </LinearGradient>
+          </TouchableOpacity>
 
-                  <View style={styles.resultContainer}>
-                    {loading ? (
-                      <ActivityIndicator size="large" color={theme.colors.primary} />
-                    ) : convertedAmount !== null ? (
-                      <>
-                        <Text style={styles.convertedAmount}>
-                          {isPrivacyEnabled ? '****' : formatCurrencyAmount(convertedAmount, toCurrency)}
-                        </Text>
-                        {!isPrivacyEnabled && exchangeRate !== null && exchangeRate !== 1 && (
-                          <Text style={styles.exchangeRateText}>
-                            1 {fromCurrency} = {exchangeRate.toFixed(6)} {toCurrency}
-                          </Text>
-                        )}
-                      </>
-                    ) : (
-                      <Text style={styles.placeholderText}>0.00</Text>
-                    )}
-                  </View>
+          {/* To Currency */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>إلى</Text>
+            <TouchableOpacity
+              onPress={() => setShowToPicker(true)}
+              style={styles.currencySelector}
+              activeOpacity={0.7}
+            >
+              <LinearGradient
+                colors={theme.gradients.success as any}
+                style={styles.currencySelectorGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <View style={styles.currencyInfo}>
+                  <Text style={styles.currencyCode}>{toCurrency}</Text>
+                  <Text style={styles.currencyName}>{toCurrencyData?.name}</Text>
                 </View>
-              </ScrollView>
-            </SafeAreaView>
-          </LinearGradient>
-        </View>
+                <Ionicons name="chevron-down" size={20} color="#FFFFFF" />
+              </LinearGradient>
+            </TouchableOpacity>
 
-        {/* Currency Picker Modals */}
-        {showFromPicker && (
-          <CurrencyPickerModal
-            visible={showFromPicker}
-            selectedCurrency={fromCurrency}
-            onSelect={(code) => selectCurrency(code, 'from')}
-            onClose={() => setShowFromPicker(false)}
-          />
-        )}
+            <View style={styles.resultContainer}>
+              {loading ? (
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+              ) : convertedAmount !== null ? (
+                <>
+                  <Text style={styles.convertedAmount}>
+                    {isPrivacyEnabled ? '****' : formatCurrencyAmount(convertedAmount, toCurrency)}
+                  </Text>
+                  {!isPrivacyEnabled && exchangeRate !== null && exchangeRate !== 1 && (
+                    <Text style={styles.exchangeRateText}>
+                      1 {fromCurrency} = {exchangeRate.toFixed(6)} {toCurrency}
+                    </Text>
+                  )}
+                </>
+              ) : (
+                <Text style={styles.placeholderText}>0.00</Text>
+              )}
+            </View>
+          </View>
+        </ScrollView>
+      </AppBottomSheet>
 
-        {showToPicker && (
-          <CurrencyPickerModal
-            visible={showToPicker}
-            selectedCurrency={toCurrency}
-            onSelect={(code) => selectCurrency(code, 'to')}
-            onClose={() => setShowToPicker(false)}
-          />
-        )}
-      </KeyboardAvoidingView>
-    </Modal>
+      {/* Currency Picker Modals */}
+      {showFromPicker && (
+        <CurrencyPickerModal
+          visible={showFromPicker}
+          selectedCurrency={fromCurrency}
+          onSelect={(code) => selectCurrency(code, 'from')}
+          onClose={() => setShowFromPicker(false)}
+        />
+      )}
+
+      {showToPicker && (
+        <CurrencyPickerModal
+          visible={showToPicker}
+          selectedCurrency={toCurrency}
+          onSelect={(code) => selectCurrency(code, 'to')}
+          onClose={() => setShowToPicker(false)}
+        />
+      )}
+    </>
   );
 };
 
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: theme.colors.overlay,
-  },
-  modalContainer: {
-    width: '100%',
-    maxHeight: '90%',
-    borderTopLeftRadius: theme.borderRadius.xl,
-    borderTopRightRadius: theme.borderRadius.xl,
-    overflow: 'hidden',
-  },
-  modalGradient: {
-    width: '100%',
-    minHeight: 500,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  closeButton: {
-    padding: theme.spacing.xs,
-  },
-  headerTitle: {
-    fontSize: theme.typography.sizes.xl,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'center',
-  },
-  placeholder: {
-    width: 40,
-  },
   scrollView: {
     flex: 1,
   },
@@ -372,25 +292,6 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontSize: theme.typography.sizes.sm,
     color: 'rgba(255, 255, 255, 0.9)',
     fontFamily: theme.typography.fontFamily,
-  },
-  amountInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.surfaceCard,
-    borderRadius: theme.borderRadius.lg,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderWidth: 2,
-    borderColor: theme.colors.border,
-  },
-  amountInput: {
-    flex: 1,
-    fontSize: theme.typography.sizes.xxl,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
-    paddingVertical: theme.spacing.sm,
   },
   currencySymbol: {
     fontSize: theme.typography.sizes.lg,
@@ -443,65 +344,5 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     opacity: 0.3,
-  },
-  pickerBackdrop: {
-    flex: 1,
-    backgroundColor: theme.colors.overlay,
-    justifyContent: 'flex-end',
-  },
-  pickerContainer: {
-    maxHeight: '70%',
-    borderTopLeftRadius: theme.borderRadius.xl,
-    borderTopRightRadius: theme.borderRadius.xl,
-    overflow: 'hidden',
-  },
-  pickerGradient: {
-    maxHeight: '100%',
-  },
-  pickerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: theme.spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  pickerTitle: {
-    fontSize: theme.typography.sizes.xl,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-  },
-  pickerCloseButton: {
-    padding: theme.spacing.xs,
-  },
-  pickerScrollView: {
-    maxHeight: 400,
-  },
-  pickerItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  pickerItemSelected: {
-    backgroundColor: theme.colors.surfaceLight,
-  },
-  pickerItemContent: {
-    flex: 1,
-  },
-  pickerItemCode: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.xs,
-  },
-  pickerItemName: {
-    fontSize: theme.typography.sizes.sm,
-    color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
   },
 });

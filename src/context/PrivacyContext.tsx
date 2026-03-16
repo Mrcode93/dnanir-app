@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type PrivacyContextType = {
@@ -23,20 +23,25 @@ export const PrivacyProvider: React.FC<{ children: React.ReactNode }> = ({ child
         });
     }, []);
 
-    const togglePrivacy = () => {
+    const togglePrivacy = useCallback(() => {
         const newState = !isPrivacyEnabled;
         setIsPrivacyEnabled(newState);
         AsyncStorage.setItem('privacy_mode', String(newState));
-        
+
         // Sync to Widget Storage (DefaultPreference)
         import('react-native-default-preference').then((DefaultPreference) => {
             DefaultPreference.default.setName('group.com.mrcodeiq.dinar');
             DefaultPreference.default.set('privacy_mode', String(newState));
         });
-    };
+    }, [isPrivacyEnabled]);
+
+    const value = useMemo(
+        () => ({ isPrivacyEnabled, togglePrivacy }),
+        [isPrivacyEnabled, togglePrivacy]
+    );
 
     return (
-        <PrivacyContext.Provider value={{ isPrivacyEnabled, togglePrivacy }}>
+        <PrivacyContext.Provider value={value}>
             {children}
         </PrivacyContext.Provider>
     );

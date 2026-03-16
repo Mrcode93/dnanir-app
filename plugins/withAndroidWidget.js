@@ -13,7 +13,7 @@ function withAndroidWidget(config) {
     const receiver = {
       $: {
         'android:name': '.DnanirWidget',
-        'android:exported': 'false',
+        'android:exported': 'true',
         'android:label': 'دنانير - اختصارات',
       },
       'intent-filter': [

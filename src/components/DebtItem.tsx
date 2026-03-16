@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Modal, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -33,7 +33,7 @@ const DebtItemComponent: React.FC<DebtItemProps> = ({
   const styles = useThemedStyles(createStyles);
   const { formatCurrency: hookFormatCurrency } = useCurrency();
   const formatCurrency = propFormatCurrency || hookFormatCurrency;
-  const [swipeAnim] = useState(new Animated.Value(0));
+  const swipeAnim = useRef(new Animated.Value(0)).current;
   const [showConfirmAlert, setShowConfirmAlert] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
 
@@ -107,131 +107,131 @@ const DebtItemComponent: React.FC<DebtItemProps> = ({
           },
         ]}
       >
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={onPress}
-          style={styles.card}
-        >
+        <View style={styles.card}>
           <LinearGradient
             colors={[colors[0] + '15', colors[1] + '08']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.cardGradient}
           >
-            {/* Icon Section */}
-            <View style={styles.iconSection}>
-              <View style={[styles.iconWrapper, { borderColor: colors[0] + '30' }]}>
-                <LinearGradient
-                  colors={colors as any}
-                  style={styles.iconGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <Ionicons name={icon as any} size={20} color="#FFFFFF" />
-                </LinearGradient>
+            {/* Tappable content area — no three-dots button inside */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={onPress}
+              style={styles.cardPressArea}
+            >
+              {/* Icon Section */}
+              <View style={styles.iconSection}>
+                <View style={[styles.iconWrapper, { borderColor: colors[0] + '30' }]}>
+                  <LinearGradient
+                    colors={colors as any}
+                    style={styles.iconGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Ionicons name={icon as any} size={20} color="#FFFFFF" />
+                  </LinearGradient>
+                </View>
               </View>
-            </View>
 
-            {/* Content Section */}
-            <View style={styles.contentSection}>
-              <View style={styles.mainRow}>
-                <View style={styles.leftContent}>
-                  <Text style={styles.title} numberOfLines={1}>
-                    {title}
-                  </Text>
-                  <View style={styles.metaRow}>
-                    <View style={styles.dateInfo}>
-                      <Ionicons name="calendar-outline" size={12} color={theme.colors.textMuted} />
-                      <Text style={styles.dateText}>{formattedDate}</Text>
-                    </View>
-                    <View style={[styles.categoryTag, { backgroundColor: colors[0] + '20' }]}>
-                      <Text style={[styles.categoryText, { color: colors[0] }]}>
-                        {typeLabel}
-                      </Text>
-                    </View>
-                    {item.isPaid && (
-                      <View style={[styles.categoryTag, { backgroundColor: theme.colors.success + '20' }]}>
-                        <Ionicons name="checkmark-circle" size={12} color={theme.colors.success} />
-                        <Text style={[styles.categoryText, { color: theme.colors.success }]}>
-                          مدفوع
+              {/* Content Section */}
+              <View style={styles.contentSection}>
+                <View style={styles.mainRow}>
+                  <View style={styles.leftContent}>
+                    <Text style={styles.title} numberOfLines={1}>
+                      {title}
+                    </Text>
+                    <View style={styles.metaRow}>
+                      <View style={styles.dateInfo}>
+                        <Ionicons name="calendar-outline" size={12} color={theme.colors.textMuted} />
+                        <Text style={styles.dateText}>{formattedDate}</Text>
+                      </View>
+                      <View style={[styles.categoryTag, { backgroundColor: colors[0] + '20' }]}>
+                        <Text style={[styles.categoryText, { color: colors[0] }]}>
+                          {typeLabel}
                         </Text>
                       </View>
-                    )}
-                    {totalInstallmentsCount > 0 && (
-                      <View style={[styles.categoryTag, { backgroundColor: theme.colors.surfaceLight }]}>
-                        <Ionicons name="list" size={12} color={theme.colors.textSecondary} />
-                        <Text style={[styles.categoryText, { color: theme.colors.textSecondary }]}>
-                          {unpaidInstallmentsCount}/{totalInstallmentsCount}
-                        </Text>
-                      </View>
-                    )}
-                    {item.dueDate && !item.isPaid && (
-                      <View style={[
-                        styles.categoryTag,
-                        {
-                          backgroundColor: isOverdue
-                            ? theme.colors.error + '15'
-                            : isDueSoon
-                              ? theme.colors.warning + '15'
-                              : theme.colors.surfaceLight
-                        }
-                      ]}>
-                        <Ionicons
-                          name={isOverdue ? 'warning' : 'time-outline'}
-                          size={12}
-                          color={isOverdue ? theme.colors.error : isDueSoon ? theme.colors.warning : theme.colors.textSecondary}
-                        />
-                        <Text style={[
-                          styles.categoryText,
+                      {item.isPaid && (
+                        <View style={[styles.categoryTag, { backgroundColor: theme.colors.success + '20' }]}>
+                          <Ionicons name="checkmark-circle" size={12} color={theme.colors.success} />
+                          <Text style={[styles.categoryText, { color: theme.colors.success }]}>
+                            مدفوع
+                          </Text>
+                        </View>
+                      )}
+                      {totalInstallmentsCount > 0 && (
+                        <View style={[styles.categoryTag, { backgroundColor: theme.colors.surfaceLight }]}>
+                          <Ionicons name="list" size={12} color={theme.colors.textSecondary} />
+                          <Text style={[styles.categoryText, { color: theme.colors.textSecondary }]}>
+                            {unpaidInstallmentsCount}/{totalInstallmentsCount}
+                          </Text>
+                        </View>
+                      )}
+                      {item.dueDate && !item.isPaid && (
+                        <View style={[
+                          styles.categoryTag,
                           {
-                            color: isOverdue
-                              ? theme.colors.error
+                            backgroundColor: isOverdue
+                              ? theme.colors.error + '15'
                               : isDueSoon
-                                ? theme.colors.warning
-                                : theme.colors.textSecondary
+                                ? theme.colors.warning + '15'
+                                : theme.colors.surfaceLight
                           }
                         ]}>
-                          {isOverdue
-                            ? `متأخر ${Math.abs(daysUntilDue!)} يوم`
-                            : isDueSoon && daysUntilDue === 0
-                              ? 'اليوم!'
-                              : isDueSoon
-                                ? `بعد ${daysUntilDue} يوم`
-                                : formattedDate}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
-                <View style={styles.rightContent}>
-                  <View style={styles.amountWrapper}>
-                    <LinearGradient
-                      colors={item.isPaid ? ['#10B981', '#059669'] : ['#EF4444', '#DC2626']}
-                      style={styles.amountBadge}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                    >
-                      <Text style={styles.amount}>
-                        {formatCurrency(item.totalAmount)}
-                      </Text>
-                      {!item.isPaid && item.remainingAmount < item.totalAmount && (
-                        <Text style={styles.remainingAmount}>
-                          متبقي: {formatCurrency(item.remainingAmount)}
-                        </Text>
+                          <Ionicons
+                            name={isOverdue ? 'warning' : 'time-outline'}
+                            size={12}
+                            color={isOverdue ? theme.colors.error : isDueSoon ? theme.colors.warning : theme.colors.textSecondary}
+                          />
+                          <Text style={[
+                            styles.categoryText,
+                            {
+                              color: isOverdue
+                                ? theme.colors.error
+                                : isDueSoon
+                                  ? theme.colors.warning
+                                  : theme.colors.textSecondary
+                            }
+                          ]}>
+                            {isOverdue
+                              ? `متأخر ${Math.abs(daysUntilDue!)} يوم`
+                              : isDueSoon && daysUntilDue === 0
+                                ? 'اليوم!'
+                                : isDueSoon
+                                  ? `بعد ${daysUntilDue} يوم`
+                                  : formattedDate}
+                          </Text>
+                        </View>
                       )}
-                    </LinearGradient>
+                    </View>
+                  </View>
+                  <View style={styles.rightContent}>
+                    <View style={styles.amountWrapper}>
+                      <LinearGradient
+                        colors={item.isPaid ? ['#10B981', '#059669'] : ['#EF4444', '#DC2626']}
+                        style={styles.amountBadge}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                      >
+                        <Text style={styles.amount}>
+                          {formatCurrency(item.totalAmount)}
+                        </Text>
+                        {!item.isPaid && item.remainingAmount < item.totalAmount && (
+                          <Text style={styles.remainingAmount}>
+                            متبقي: {formatCurrency(item.remainingAmount)}
+                          </Text>
+                        )}
+                      </LinearGradient>
+                    </View>
                   </View>
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
 
-            {/* Menu Icon */}
+            {/* Menu Icon — sibling of the press area, not nested inside it */}
             <TouchableOpacity
               style={styles.menuSection}
-              onPress={(e) => {
-                e.stopPropagation();
-                setShowMenu(true);
-              }}
+              onPress={() => setShowMenu(true)}
               activeOpacity={0.7}
             >
               <Ionicons
@@ -241,7 +241,7 @@ const DebtItemComponent: React.FC<DebtItemProps> = ({
               />
             </TouchableOpacity>
           </LinearGradient>
-        </TouchableOpacity>
+        </View>
       </Animated.View>
 
       {/* Delete Button */}
@@ -407,15 +407,20 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   card: {
     borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
-    backgroundColor: theme.colors.surfaceCard, // Required for Android elevation
+    backgroundColor: theme.colors.surfaceCard,
     ...getPlatformShadow('md'),
   },
   cardGradient: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
+    minHeight: 64,
+  },
+  cardPressArea: {
+    flex: 1,
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
     padding: theme.spacing.sm,
     paddingHorizontal: theme.spacing.md,
-    minHeight: 64,
   },
   iconSection: {
     ...(isRTL ? { marginLeft: theme.spacing.sm } : { marginRight: theme.spacing.sm }),
@@ -517,9 +522,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginTop: 2,
   },
   menuSection: {
-    ...(isRTL ? { marginRight: theme.spacing.xs } : { marginLeft: theme.spacing.xs }),
     justifyContent: 'center',
-    padding: theme.spacing.xs,
+    alignSelf: 'stretch',
+    paddingHorizontal: theme.spacing.sm,
   },
   menuOverlay: {
     flex: 1,
@@ -528,8 +533,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   bottomSheetContainer: {
     backgroundColor: theme.colors.surfaceCard,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: theme.borderRadius.xxl,
+    borderTopRightRadius: theme.borderRadius.xxl,
     paddingBottom: 40,
     paddingTop: 12,
     ...getPlatformShadow('lg'),

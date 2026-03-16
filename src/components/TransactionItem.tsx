@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Modal, Pressable } from 'react-native';
+import { PlatformTouchable } from './PlatformTouchable';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
@@ -37,8 +38,8 @@ const TransactionItemComponent: React.FC<TransactionItemProps> = ({
   const { formatCurrency: hookFormatCurrency, currencyCode } = useCurrency();
   const formatCurrency = propFormatCurrency || hookFormatCurrency;
   const { isPrivacyEnabled } = usePrivacy();
-  const [swipeAnim] = useState(new Animated.Value(0));
-  const [scaleAnim] = useState(new Animated.Value(1));
+  const swipeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
   const [showConfirmAlert, setShowConfirmAlert] = useState(false);
   const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
   const [showMenu, setShowMenu] = useState(false);
@@ -177,7 +178,7 @@ const TransactionItemComponent: React.FC<TransactionItemProps> = ({
 
   const title = isExpense
     ? (expense?.title || '')
-    : (income?.description || income?.source || '');
+    : (income?.source || '');
   const amount = item.amount;
   const itemCurrency = (item as Expense | Income).currency || currencyCode;
   const date = new Date(item.date);
@@ -188,20 +189,21 @@ const TransactionItemComponent: React.FC<TransactionItemProps> = ({
 
   // Convert amount if currency is different
   useEffect(() => {
+    let cancelled = false;
     const convertAmount = async () => {
       if (itemCurrency && itemCurrency !== currencyCode) {
         try {
           const converted = await convertCurrency(amount, itemCurrency, currencyCode);
-          setConvertedAmount(converted);
+          if (!cancelled) setConvertedAmount(converted);
         } catch (error) {
-          
-          setConvertedAmount(null);
+          if (!cancelled) setConvertedAmount(null);
         }
       } else {
-        setConvertedAmount(null);
+        if (!cancelled) setConvertedAmount(null);
       }
     };
     convertAmount();
+    return () => { cancelled = true; };
   }, [amount, itemCurrency, currencyCode]);
 
   const handleDelete = () => setShowConfirmAlert(true);
@@ -236,7 +238,7 @@ const TransactionItemComponent: React.FC<TransactionItemProps> = ({
           },
         ]}
       >
-        <TouchableOpacity
+        <PlatformTouchable
           style={styles.card}
           activeOpacity={0.9}
           onPress={onPress ? onPress : undefined}
@@ -295,7 +297,7 @@ const TransactionItemComponent: React.FC<TransactionItemProps> = ({
             )}
 
           </View>
-        </TouchableOpacity>
+        </PlatformTouchable>
       </Animated.View>
 
       {showConfirmAlert && (
@@ -395,9 +397,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: theme.colors.surface,
     borderRadius: 20,
     ...getPlatformShadow('sm'),
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    marginHorizontal: 2, // Slight margin safely
+    marginHorizontal: 2,
   },
   cardContent: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -479,8 +479,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   bottomSheetContainer: {
     backgroundColor: theme.colors.surfaceCard,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: theme.borderRadius.xxl,
+    borderTopRightRadius: theme.borderRadius.xxl,
     padding: 24,
     paddingBottom: 40,
     ...getPlatformShadow('xl'),

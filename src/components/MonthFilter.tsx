@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { isRTL } from '../utils/rtl';
+import { AppBottomSheet, AppButton } from '../design-system';
 
 interface MonthFilterProps {
   selectedMonth: { year: number; month: number } | null;
@@ -48,7 +49,7 @@ export const MonthFilter: React.FC<MonthFilterProps> = ({
   };
 
   // Generate months list (only months with data + current month)
-  const getMonthsList = () => {
+  const getMonthsList = useMemo(() => () => {
     const months: Array<{ year: number; month: number; label: string }> = [];
     const now = new Date();
     const currentYear = now.getFullYear();
@@ -95,7 +96,7 @@ export const MonthFilter: React.FC<MonthFilterProps> = ({
     });
 
     return months;
-  };
+  }, [availableMonths, showAllOption]);
 
   const handleMonthSelect = (year: number, month: number) => {
     if (year === 0 && month === 0) {
@@ -122,102 +123,76 @@ export const MonthFilter: React.FC<MonthFilterProps> = ({
         </View>
       </TouchableOpacity>
 
-      {/* Pro Month Picker Modal */}
-      <Modal
+      <AppBottomSheet
         visible={showMonthPicker}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowMonthPicker(false)}
-        statusBarTranslucent
+        onClose={() => setShowMonthPicker(false)}
+        title="تصفية حسب الفترة"
+        maxHeight="80%"
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.dragHandle} />
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>تصفية حسب الفترة</Text>
+        <ScrollView style={styles.monthList} contentContainerStyle={styles.monthListContent}>
+          {getMonthsList().map((item, index) => {
+            const isSelected = selectedMonth
+              ? (item.year === 0 && item.month === 0 && selectedMonth.year === 0 && selectedMonth.month === 0)
+              || (item.year === selectedMonth.year && item.month === selectedMonth.month)
+              : (item.year === 0 && item.month === 0);
+
+            const isAllOption = item.year === 0 && item.month === 0;
+
+            return (
               <TouchableOpacity
-                onPress={() => setShowMonthPicker(false)}
-                style={styles.closeButton}
+                key={index}
+                style={[
+                  styles.monthCard,
+                  isSelected && styles.monthCardSelected,
+                  isAllOption && !isSelected && styles.allDataCard
+                ]}
+                onPress={() => handleMonthSelect(item.year, item.month)}
+                activeOpacity={0.9}
               >
-                <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.monthList} contentContainerStyle={styles.monthListContent}>
-              {getMonthsList().map((item, index) => {
-                const isSelected = selectedMonth
-                  ? (item.year === 0 && item.month === 0 && selectedMonth.year === 0 && selectedMonth.month === 0)
-                  || (item.year === selectedMonth.year && item.month === selectedMonth.month)
-                  : (item.year === 0 && item.month === 0);
-
-                const isAllOption = item.year === 0 && item.month === 0;
-
-                return (
-                  <TouchableOpacity
-                    key={index}
-                    style={[
-                      styles.monthCard,
-                      isSelected && styles.monthCardSelected,
-                      isAllOption && !isSelected && styles.allDataCard
-                    ]}
-                    onPress={() => handleMonthSelect(item.year, item.month)}
-                    activeOpacity={0.9}
+                {isSelected ? (
+                  <LinearGradient
+                    colors={theme.gradients.primary as any}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.selectedGradient}
                   >
-                    {isSelected ? (
-                      <LinearGradient
-                        colors={theme.gradients.primary as any}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.selectedGradient}
-                      >
-                        <View style={styles.cardContent}>
-                          <View style={styles.iconBoxSelected}>
-                            <Ionicons name={isAllOption ? "layers" : "calendar"} size={22} color={theme.colors.primary} />
-                          </View>
-                          <Text style={styles.textSelected}>{item.label}</Text>
-                          <View style={styles.checkCircle}>
-                            <Ionicons name="checkmark" size={16} color={theme.colors.primary} />
-                          </View>
-                        </View>
-                      </LinearGradient>
-                    ) : (
-                      <View style={styles.cardContent}>
-                        <View style={[styles.iconBox, isAllOption && { backgroundColor: theme.colors.surfaceLight }]}>
-                          <Ionicons
-                            name={isAllOption ? "layers-outline" : "calendar-outline"}
-                            size={22}
-                            color={isAllOption ? theme.colors.textSecondary : theme.colors.textSecondary}
-                          />
-                        </View>
-                        <Text style={[styles.textNormal, isAllOption && { fontWeight: '700' }]}>{item.label}</Text>
-                        {isAllOption && <View style={styles.allBadge}><Text style={styles.allBadgeText}>الكل</Text></View>}
+                    <View style={styles.cardContent}>
+                      <View style={styles.iconBoxSelected}>
+                        <Ionicons name={isAllOption ? "layers" : "calendar"} size={22} color={theme.colors.primary} />
                       </View>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-              <View style={{ height: 40 }} />
-            </ScrollView>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={styles.confirmButton}
-                onPress={() => setShowMonthPicker(false)}
-                activeOpacity={0.8}
-              >
-                <LinearGradient
-                  colors={theme.gradients.primary as any}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.confirmGradient}
-                >
-                  <Text style={styles.confirmButtonText}>موافق</Text>
-                </LinearGradient>
+                      <Text style={styles.textSelected}>{item.label}</Text>
+                      <View style={styles.checkCircle}>
+                        <Ionicons name="checkmark" size={16} color={theme.colors.primary} />
+                      </View>
+                    </View>
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.cardContent}>
+                    <View style={[styles.iconBox, isAllOption && { backgroundColor: theme.colors.surfaceLight }]}>
+                      <Ionicons
+                        name={isAllOption ? "layers-outline" : "calendar-outline"}
+                        size={22}
+                        color={isAllOption ? theme.colors.textSecondary : theme.colors.textSecondary}
+                      />
+                    </View>
+                    <Text style={[styles.textNormal, isAllOption && { fontWeight: '700' }]}>{item.label}</Text>
+                    {isAllOption && <View style={styles.allBadge}><Text style={styles.allBadgeText}>الكل</Text></View>}
+                  </View>
+                )}
               </TouchableOpacity>
-            </View>
-          </View>
+            );
+          })}
+          <View style={{ height: 40 }} />
+        </ScrollView>
+
+        <View style={styles.modalFooter}>
+          <AppButton
+            label="موافق"
+            onPress={() => setShowMonthPicker(false)}
+            variant="primary"
+          />
         </View>
-      </Modal>
+      </AppBottomSheet>
     </>
   );
 };
@@ -245,50 +220,6 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
     flex: 1,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: theme.colors.overlay,
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: theme.colors.surfaceCard, // Clean surface
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    maxHeight: '80%',
-    ...getPlatformShadow('xl'),
-    paddingBottom: 20,
-    direction: 'ltr',
-
-  },
-  dragHandle: {
-    width: 48,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: theme.colors.border,
-    alignSelf: 'center',
-    marginTop: 12,
-  },
-  modalHeader: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: theme.colors.primary,
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  closeButton: {
-    padding: 8,
-    backgroundColor: theme.colors.surfaceLight,
-    borderRadius: 50,
   },
   monthList: {
     maxHeight: 500,
@@ -335,7 +266,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: theme.colors.surfaceCard, // White background for icon inside gradient
+    backgroundColor: theme.colors.surfaceCard,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: isRTL ? 12 : 0,
@@ -343,8 +274,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   textNormal: {
     flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: theme.typography.sizes.sm,
+    fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
@@ -352,8 +283,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   textSelected: {
     flex: 1,
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: theme.typography.sizes.md,
+    fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
@@ -371,34 +302,19 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     backgroundColor: theme.colors.primary + '15',
-    borderRadius: 8,
+    borderRadius: theme.borderRadius.md,
   },
   allBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: theme.typography.sizes.xs,
+    fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily,
   },
   modalFooter: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 10,
+    paddingBottom: 8,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
-  },
-  confirmButton: {
-    height: 50,
-    borderRadius: 15,
-    overflow: 'hidden',
-  },
-  confirmGradient: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  confirmButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-    fontFamily: theme.typography.fontFamily,
   },
 });

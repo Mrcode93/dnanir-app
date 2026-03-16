@@ -1,11 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Modal,
-  TouchableOpacity,
-  TextInput,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -17,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles, type AppTheme } from '../utils/theme';
 import { useAuthSettings } from '../hooks/useAuthSettings';
 import { convertArabicToEnglishSimple } from '../utils/numbers';
+import { AppButton, AppInput, AppDialog } from '../design-system';
 
 interface AuthSettingsModalProps {
   visible: boolean;
@@ -32,7 +31,7 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
   const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
-  const [slideAnim] = useState(new Animated.Value(0));
+  const slideAnim = useRef(new Animated.Value(0)).current;
 
   const {
     currentMethod,
@@ -103,9 +102,13 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
           >
             <View style={styles.header}>
               <View style={styles.headerLeft}>
-                <TouchableOpacity onPress={onClose} style={styles.backButton}>
-                  <Ionicons name="arrow-forward" size={24} color={theme.colors.textPrimary} />
-                </TouchableOpacity>
+                <AppButton
+                  label=""
+                  onPress={onClose}
+                  variant="ghost"
+                  leftIcon="arrow-forward"
+                  style={styles.backButton}
+                />
                 <Text style={styles.title}>إعدادات الأمان</Text>
               </View>
             </View>
@@ -183,43 +186,29 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
                     </View>
                   </View>
                   <View style={styles.methodContent}>
-                    <View style={styles.inputContainer}>
-                      <Ionicons name="lock-closed" size={20} color={theme.colors.textSecondary} style={styles.inputIcon} />
-                      <TextInput
-                        value={password}
-                        onChangeText={(v) => setPassword(convertArabicToEnglishSimple(v))}
-                        placeholder="كلمة المرور (4 أحرف على الأقل)"
-                        secureTextEntry
-                        style={styles.input}
-                        placeholderTextColor={theme.colors.textSecondary}
-                      />
-                    </View>
-                    <View style={styles.inputContainer}>
-                      <Ionicons name="lock-closed" size={20} color={theme.colors.textSecondary} style={styles.inputIcon} />
-                      <TextInput
-                        value={confirmPassword}
-                        onChangeText={(v) => setConfirmPassword(convertArabicToEnglishSimple(v))}
-                        placeholder="تأكيد كلمة المرور"
-                        secureTextEntry
-                        style={styles.input}
-                        placeholderTextColor={theme.colors.textSecondary}
-                      />
-                    </View>
-                    <TouchableOpacity
+                    <AppInput
+                      value={password}
+                      onChangeText={(v) => setPassword(convertArabicToEnglishSimple(v))}
+                      placeholder="كلمة المرور (4 أحرف على الأقل)"
+                      secureTextEntry
+                      icon="lock-closed"
+                      containerStyle={styles.inputSpacing}
+                    />
+                    <AppInput
+                      value={confirmPassword}
+                      onChangeText={(v) => setConfirmPassword(convertArabicToEnglishSimple(v))}
+                      placeholder="تأكيد كلمة المرور"
+                      secureTextEntry
+                      icon="lock-closed"
+                      containerStyle={styles.inputSpacing}
+                    />
+                    <AppButton
+                      label="تفعيل كلمة المرور"
                       onPress={handleSetupPassword}
+                      variant="primary"
+                      leftIcon="checkmark-circle"
                       style={styles.setupButton}
-                      activeOpacity={0.8}
-                    >
-                      <LinearGradient
-                        colors={[theme.colors.info, theme.colors.info]}
-                        style={styles.setupButtonGradient}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                      >
-                        <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-                        <Text style={styles.setupButtonText}>تفعيل كلمة المرور</Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
+                    />
                   </View>
                 </View>
               )}
@@ -242,27 +231,12 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
                       </Text>
                     </View>
                   </View>
-                  <TouchableOpacity
+                  <AppButton
+                    label={`تفعيل ${biometricType}`}
                     onPress={handleSetupBiometric}
-                    style={styles.biometricButton}
-                    activeOpacity={0.8}
-                  >
-                    <LinearGradient
-                      colors={[theme.colors.success, theme.colors.success]}
-                      style={styles.biometricButtonGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                    >
-                      <Ionicons
-                        name={biometricType.includes('Face') ? 'person' : 'finger-print'}
-                        size={28}
-                        color="#FFFFFF"
-                      />
-                      <Text style={styles.biometricButtonText}>
-                        تفعيل {biometricType}
-                      </Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
+                    variant="success"
+                    leftIcon={biometricType.includes('Face') ? 'person' : 'finger-print'}
+                  />
                 </View>
               )}
 
@@ -282,128 +256,73 @@ export const AuthSettingsModal: React.FC<AuthSettingsModalProps> = ({
 
               {/* Disable Password */}
               {passwordEnabled && (
-                <TouchableOpacity
+                <AppButton
+                  label="تعطيل كلمة المرور"
                   onPress={handleDisablePassword}
+                  variant="danger"
+                  leftIcon="key"
                   style={styles.disableButton}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.disableButtonContent}>
-                    <View style={styles.disableIconContainer}>
-                      <Ionicons name="key" size={24} color={theme.colors.error} />
-                    </View>
-                    <View style={styles.disableButtonTextContainer}>
-                      <Text style={styles.disableButtonTitle}>تعطيل كلمة المرور</Text>
-                      <Text style={styles.disableButtonDescription}>
-                        إزالة قفل كلمة المرور
-                      </Text>
-                    </View>
-                    <Ionicons name="chevron-back" size={20} color={theme.colors.error} />
-                  </View>
-                </TouchableOpacity>
+                />
               )}
 
               {/* Disable Biometric */}
               {biometricEnabled && (
-                <TouchableOpacity
+                <AppButton
+                  label={`تعطيل ${biometricType}`}
                   onPress={handleDisableBiometric}
+                  variant="danger"
+                  leftIcon={biometricType.includes('Face') ? 'person' : 'finger-print'}
                   style={styles.disableButton}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.disableButtonContent}>
-                    <View style={styles.disableIconContainer}>
-                      <Ionicons
-                        name={biometricType.includes('Face') ? 'person' : 'finger-print'}
-                        size={24}
-                        color={theme.colors.error}
-                      />
-                    </View>
-                    <View style={styles.disableButtonTextContainer}>
-                      <Text style={styles.disableButtonTitle}>تعطيل {biometricType}</Text>
-                      <Text style={styles.disableButtonDescription}>
-                        إزالة {biometricType}
-                      </Text>
-                    </View>
-                    <Ionicons name="chevron-back" size={20} color={theme.colors.error} />
-                  </View>
-                </TouchableOpacity>
+                />
               )}
 
               {/* Disable All Auth - Show when ANY auth is enabled */}
               {(passwordEnabled || biometricEnabled) && (
-                <TouchableOpacity
+                <AppButton
+                  label="تعطيل جميع طرق القفل"
                   onPress={handleDisableAuth}
+                  variant="danger"
+                  leftIcon="lock-open"
                   style={[styles.disableButton, styles.disableAllButton]}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.disableButtonContent}>
-                    <View style={styles.disableIconContainer}>
-                      <Ionicons name="lock-open" size={24} color={theme.colors.error} />
-                    </View>
-                    <View style={styles.disableButtonTextContainer}>
-                      <Text style={styles.disableButtonTitle}>تعطيل جميع طرق القفل</Text>
-                      <Text style={styles.disableButtonDescription}>
-                        إزالة جميع الحماية من التطبيق
-                      </Text>
-                    </View>
-                    <Ionicons name="chevron-back" size={20} color={theme.colors.error} />
-                  </View>
-                </TouchableOpacity>
+                />
               )}
             </ScrollView>
           </LinearGradient>
         </Animated.View>
       </KeyboardAvoidingView>
 
-      {/* Password Prompt Modal */}
-      <Modal
+      {/* Password Prompt Dialog */}
+      <AppDialog
         visible={showPasswordPrompt}
-        transparent
-        animationType="fade"
-        onRequestClose={closePasswordPrompt}
+        onClose={closePasswordPrompt}
+        title="تأكيد الهوية"
+        subtitle="يرجى إدخال كلمة المرور للمتابعة"
       >
-        <View style={styles.passwordPromptOverlay}>
-          <View style={styles.passwordPromptContainer}>
-            <Text style={styles.passwordPromptTitle}>تأكيد الهوية</Text>
-            <Text style={styles.passwordPromptMessage}>
-              يرجى إدخال كلمة المرور للمتابعة
-            </Text>
-            <View style={styles.passwordPromptInputContainer}>
-              <Ionicons name="lock-closed" size={20} color={theme.colors.textSecondary} style={styles.passwordPromptIcon} />
-              <TextInput
-                value={promptPassword}
-                onChangeText={(v) => setPromptPassword(convertArabicToEnglishSimple(v))}
-                placeholder="كلمة المرور"
-                secureTextEntry
-                style={styles.passwordPromptInput}
-                placeholderTextColor={theme.colors.textSecondary}
-                autoFocus
-                onSubmitEditing={handlePasswordPromptSubmit}
-              />
-            </View>
-            <View style={styles.passwordPromptActions}>
-              <TouchableOpacity
-                onPress={closePasswordPrompt}
-                style={styles.passwordPromptCancelButton}
-              >
-                <Text style={styles.passwordPromptCancelText}>إلغاء</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handlePasswordPromptSubmit}
-                style={styles.passwordPromptConfirmButton}
-              >
-                <LinearGradient
-                  colors={[theme.colors.info, theme.colors.info]}
-                  style={styles.passwordPromptConfirmGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  <Text style={styles.passwordPromptConfirmText}>تأكيد</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
+        <View style={styles.passwordPromptContent}>
+          <AppInput
+            value={promptPassword}
+            onChangeText={(v) => setPromptPassword(convertArabicToEnglishSimple(v))}
+            placeholder="كلمة المرور"
+            secureTextEntry
+            icon="lock-closed"
+            containerStyle={styles.passwordPromptInput}
+          />
+          <View style={styles.passwordPromptActions}>
+            <AppButton
+              label="إلغاء"
+              onPress={closePasswordPrompt}
+              variant="secondary"
+              style={styles.actionBtnFlex}
+            />
+            <AppButton
+              label="تأكيد"
+              onPress={handlePasswordPromptSubmit}
+              variant="primary"
+              style={styles.actionBtnFlex}
+            />
           </View>
         </View>
-      </Modal>
+      </AppDialog>
     </Modal>
   );
 };
@@ -435,7 +354,6 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     flex: 1,
   },
   backButton: {
-    padding: theme.spacing.sm,
     marginLeft: theme.spacing.md,
   },
   title: {
@@ -445,9 +363,6 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
     writingDirection: 'rtl',
-  },
-  closeButton: {
-    padding: theme.spacing.xs,
   },
   scrollView: {
     flex: 1,
@@ -544,122 +459,17 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   methodContent: {
     marginTop: theme.spacing.md,
   },
-  inputContainer: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    backgroundColor: theme.colors.surfaceLight,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+  inputSpacing: {
     marginBottom: theme.spacing.md,
-    paddingHorizontal: theme.spacing.md,
-  },
-  inputIcon: {
-    marginLeft: theme.spacing.sm,
-  },
-  section: {
-    marginBottom: theme.spacing.lg,
-  },
-  sectionTitle: {
-    fontSize: theme.typography.sizes.lg,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    marginBottom: theme.spacing.md,
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  input: {
-    flex: 1,
-    padding: theme.spacing.md,
-    fontSize: theme.typography.sizes.md,
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
-    writingDirection: 'rtl',
   },
   setupButton: {
-    borderRadius: theme.borderRadius.md,
-    overflow: 'hidden',
     marginTop: theme.spacing.sm,
   },
-  setupButtonGradient: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: theme.spacing.md,
-    gap: theme.spacing.sm,
-  },
-  setupButtonText: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textInverse,
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'center',
-  },
-  biometricButton: {
-    borderRadius: theme.borderRadius.md,
-    overflow: 'hidden',
-  },
-  biometricButtonGradient: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: theme.spacing.lg,
-    gap: theme.spacing.md,
-  },
-  biometricButtonText: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textInverse,
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'center',
-  },
   disableButton: {
-    backgroundColor: theme.colors.error + '1A',
-    borderRadius: theme.borderRadius.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.error + '33',
     marginTop: theme.spacing.md,
-    ...getPlatformShadow('sm'),
-  },
-  disableButtonContent: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    padding: theme.spacing.lg,
-  },
-  disableIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: theme.colors.error + '33',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: theme.spacing.md,
-  },
-  disableButtonTextContainer: {
-    flex: 1,
-  },
-  disableButtonTitle: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.error,
-    marginBottom: theme.spacing.xs,
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  disableButtonDescription: {
-    fontSize: theme.typography.sizes.sm,
-    color: theme.colors.error,
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
-    writingDirection: 'rtl',
   },
   disableAllButton: {
     marginTop: theme.spacing.md,
-    borderWidth: 2,
-    borderColor: '#FECACA',
   },
   infoCard: {
     flexDirection: 'row-reverse',
@@ -681,94 +491,17 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     writingDirection: 'rtl',
     lineHeight: 20,
   },
-  passwordPromptOverlay: {
-    flex: 1,
-    backgroundColor: theme.colors.overlay,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.lg,
-  },
-  passwordPromptContainer: {
-    backgroundColor: theme.colors.surfaceCard,
-    borderRadius: theme.borderRadius.xl,
-    padding: theme.spacing.xl,
+  passwordPromptContent: {
     width: '100%',
-    maxWidth: 400,
-    ...getPlatformShadow('lg'),
-  },
-  passwordPromptTitle: {
-    fontSize: theme.typography.sizes.xl,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'center',
-    marginBottom: theme.spacing.sm,
-    writingDirection: 'rtl',
-  },
-  passwordPromptMessage: {
-    fontSize: theme.typography.sizes.md,
-    color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'center',
-    marginBottom: theme.spacing.lg,
-    writingDirection: 'rtl',
-  },
-  passwordPromptInputContainer: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    backgroundColor: theme.colors.surfaceLight,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginBottom: theme.spacing.lg,
-    paddingHorizontal: theme.spacing.md,
-  },
-  passwordPromptIcon: {
-    marginLeft: theme.spacing.sm,
   },
   passwordPromptInput: {
-    flex: 1,
-    padding: theme.spacing.md,
-    fontSize: theme.typography.sizes.md,
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
-    writingDirection: 'rtl',
+    marginBottom: theme.spacing.lg,
   },
   passwordPromptActions: {
     flexDirection: 'row-reverse',
     gap: theme.spacing.md,
   },
-  passwordPromptCancelButton: {
+  actionBtnFlex: {
     flex: 1,
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.surfaceLight,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    alignItems: 'center',
-  },
-  passwordPromptCancelText: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('600'),
-    color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'center',
-  },
-  passwordPromptConfirmButton: {
-    flex: 1,
-    borderRadius: theme.borderRadius.md,
-    overflow: 'hidden',
-  },
-  passwordPromptConfirmGradient: {
-    padding: theme.spacing.md,
-    alignItems: 'center',
-  },
-  passwordPromptConfirmText: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('700'),
-    color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
-    textAlign: 'center',
   },
 });

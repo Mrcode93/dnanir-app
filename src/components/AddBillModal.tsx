@@ -4,21 +4,16 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Modal,
-  TouchableOpacity,
-  Animated,
-  KeyboardAvoidingView,
   Platform,
   Switch,
   Pressable,
   Keyboard,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TextInput, IconButton } from 'react-native-paper';
+import { TextInput } from 'react-native-paper';
 import { CustomDatePicker } from './CustomDatePicker';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
+import { AppBottomSheet, AppButton } from '../design-system';
 import { Bill, BillCategory, BILL_CATEGORIES } from '../types';
 import { addBill, updateBill } from '../database/database';
 import { scheduleBillReminder } from '../services/billService';
@@ -40,7 +35,6 @@ export const AddBillModal: React.FC<AddBillModalProps> = ({
 }) => {
   const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
-  const insets = useSafeAreaInsets();
   const { currencyCode, currency } = useCurrency();
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
@@ -49,23 +43,10 @@ export const AddBillModal: React.FC<AddBillModalProps> = ({
   const [description, setDescription] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [slideAnim] = useState(new Animated.Value(0));
   const [hasRecurrence, setHasRecurrence] = useState(false);
   const [recurrenceType, setRecurrenceType] = useState<'monthly' | 'yearly' | 'quarterly' | 'weekly'>('monthly');
   const [reminderDaysBefore, setReminderDaysBefore] = useState('3');
 
-  useEffect(() => {
-    if (visible) {
-      Animated.spring(slideAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        tension: 50,
-        friction: 7,
-      }).start();
-    } else {
-      slideAnim.setValue(0);
-    }
-  }, [visible]);
 
   useEffect(() => {
     if (editingBill) {
@@ -157,325 +138,182 @@ export const AddBillModal: React.FC<AddBillModalProps> = ({
     return BILL_CATEGORIES[cat];
   };
 
-  const translateY = slideAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [600, 0],
-  });
 
   return (
-    <Modal
+    <AppBottomSheet
       visible={visible}
-      animationType="fade"
-      transparent={true}
-      onRequestClose={handleClose}
-      statusBarTranslucent
+      onClose={handleClose}
+      title={editingBill ? 'تعديل الفاتورة' : 'فاتورة جديدة'}
+      maxHeight="90%"
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        <TouchableOpacity
-          style={styles.overlay}
-          activeOpacity={1}
-          onPress={handleClose}
-        >
-          <Animated.View
-            style={[
-              styles.modalContainer,
-              {
-                transform: [{ translateY }],
-              },
-            ]}
-          >
-            <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
-              <LinearGradient
-                colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-                style={[styles.modalGradient, { paddingBottom: insets.bottom }]}
-              >
-                {/* Header */}
-                <View style={styles.header}>
-                  <View style={styles.headerLeft}>
-                    <View style={[styles.iconBadge, { backgroundColor: getCategoryInfo(category).icon + '20' }]}>
-                      <Ionicons
-                        name={getCategoryInfo(category).icon as any}
-                        size={24}
-                        color={theme.colors.primary}
-                      />
-                    </View>
-                    <View style={styles.headerText}>
-                      <Text style={styles.title}>
-                        {editingBill ? 'تعديل الفاتورة' : 'فاتورة جديدة'}
-                      </Text>
-                      <Text style={styles.subtitle}>أضف تفاصيل الفاتورة</Text>
-                    </View>
-                  </View>
-                  <IconButton
-                    icon="close"
-                    size={24}
-                    onPress={handleClose}
-                    iconColor={theme.colors.textSecondary}
-                    style={styles.closeButton}
-                  />
-                </View>
+        {/* Title */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>عنوان الفاتورة *</Text>
+          <TextInput
+            value={title}
+            onChangeText={setTitle}
+            placeholder="مثال: فاتورة الكهرباء"
+            mode="outlined"
+            style={styles.input}
+            contentStyle={styles.inputContent}
+            outlineColor={theme.colors.border}
+            activeOutlineColor={theme.colors.primary}
+          />
+        </View>
 
-                <ScrollView
-                  style={styles.scrollView}
-                  showsVerticalScrollIndicator={false}
-                  keyboardShouldPersistTaps="handled"
-                >
-                  {/* Title */}
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.label}>عنوان الفاتورة *</Text>
-                    <TextInput
-                      value={title}
-                      onChangeText={setTitle}
-                      placeholder="مثال: فاتورة الكهرباء"
-                      mode="outlined"
-                      style={styles.input}
-                      contentStyle={styles.inputContent}
-                      outlineColor={theme.colors.border}
-                      activeOutlineColor={theme.colors.primary}
-                    />
-                  </View>
+        {/* Amount */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>المبلغ *</Text>
+          <TextInput
+            value={amount}
+            onChangeText={(val) => {
+              const cleaned = convertArabicToEnglish(val);
+              setAmount(formatNumberWithCommas(cleaned));
+            }}
+            placeholder="0"
+            mode="outlined"
+            keyboardType="numeric"
+            style={styles.input}
+            contentStyle={styles.inputContent}
+            outlineColor={theme.colors.border}
+            activeOutlineColor={theme.colors.primary}
+            right={
+              <TextInput.Affix text={currency?.symbol || currencyCode} />
+            }
+          />
+        </View>
 
-                  {/* Amount */}
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.label}>المبلغ *</Text>
-                    <TextInput
-                      value={amount}
-                      onChangeText={(val) => {
-                        const cleaned = convertArabicToEnglish(val);
-                        setAmount(formatNumberWithCommas(cleaned));
-                      }}
-                      placeholder="0"
-                      mode="outlined"
-                      keyboardType="numeric"
-                      style={styles.input}
-                      contentStyle={styles.inputContent}
-                      outlineColor={theme.colors.border}
-                      activeOutlineColor={theme.colors.primary}
-                      right={
-                        <TextInput.Affix text={currency?.symbol || currencyCode} />
-                      }
-                    />
-                  </View>
+        {/* Category */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>الفئة *</Text>
+          <AppButton
+            label={getCategoryInfo(category).label}
+            onPress={() => {
+              const categories = Object.keys(BILL_CATEGORIES) as BillCategory[];
+              const currentIndex = categories.indexOf(category);
+              const nextIndex = (currentIndex + 1) % categories.length;
+              setCategory(categories[nextIndex]);
+            }}
+            variant="secondary"
+            leftIcon={getCategoryInfo(category).icon as any}
+            rightIcon="chevron-down"
+            style={styles.categoryButton}
+            labelStyle={styles.categoryButtonText}
+          />
+        </View>
 
-                  {/* Category */}
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.label}>الفئة *</Text>
-                    <Pressable
-                      onPress={() => {
-                        // Show category picker
-                        const categories = Object.keys(BILL_CATEGORIES) as BillCategory[];
-                        const currentIndex = categories.indexOf(category);
-                        const nextIndex = (currentIndex + 1) % categories.length;
-                        setCategory(categories[nextIndex]);
-                      }}
-                      style={styles.categoryButton}
-                    >
-                      <View style={styles.categoryButtonContent}>
-                        <Ionicons
-                          name={getCategoryInfo(category).icon as any}
-                          size={20}
-                          color={theme.colors.primary}
-                        />
-                        <Text style={styles.categoryButtonText}>
-                          {getCategoryInfo(category).label}
-                        </Text>
-                        <Ionicons
-                          name="chevron-down"
-                          size={20}
-                          color={theme.colors.textSecondary}
-                        />
-                      </View>
-                    </Pressable>
-                  </View>
+        {/* Due Date */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>تاريخ الاستحقاق *</Text>
+          <AppButton
+            label={dueDate.toLocaleDateString('ar-IQ-u-nu-latn', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+            })}
+            onPress={() => setShowDatePicker(true)}
+            variant="secondary"
+            leftIcon="calendar"
+            style={styles.dateButton}
+            labelStyle={styles.dateButtonText}
+          />
+          {showDatePicker && (
+            <CustomDatePicker
+              value={dueDate}
+              onChange={(event, selectedDate) => {
+                if (selectedDate) {
+                  setDueDate(selectedDate);
+                }
+                if (Platform.OS === 'android') setShowDatePicker(false);
+              }}
+              onClose={() => setShowDatePicker(false)}
+            />
+          )}
+        </View>
 
-                  {/* Due Date */}
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.label}>تاريخ الاستحقاق *</Text>
-                    <Pressable
-                      onPress={() => setShowDatePicker(true)}
-                      style={styles.dateButton}
-                    >
-                      <Ionicons name="calendar" size={20} color={theme.colors.primary} />
-                      <Text style={styles.dateButtonText}>
-                        {dueDate.toLocaleDateString('ar-IQ-u-nu-latn', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                        })}
-                      </Text>
-                    </Pressable>
-                    {showDatePicker && (
-                      <CustomDatePicker
-                        value={dueDate}
-                        onChange={(event, selectedDate) => {
-                          if (selectedDate) {
-                            setDueDate(selectedDate);
-                          }
-                          if (Platform.OS === 'android') setShowDatePicker(false);
-                        }}
-                        onClose={() => setShowDatePicker(false)}
-                      />
-                    )}
-                  </View>
+        {/* Recurrence */}
+        <View style={styles.inputGroup}>
+          <View style={styles.switchRow}>
+            <Text style={styles.label}>فاتورة متكررة</Text>
+            <Switch
+              value={hasRecurrence}
+              onValueChange={setHasRecurrence}
+              trackColor={{ false: '#767577', true: theme.colors.primary }}
+              thumbColor={hasRecurrence ? '#FFFFFF' : '#f4f3f4'}
+            />
+          </View>
+          {hasRecurrence && (
+            <AppButton
+              label={recurrenceType === 'monthly' ? 'شهري' :
+                recurrenceType === 'weekly' ? 'أسبوعي' :
+                  recurrenceType === 'quarterly' ? 'ربع سنوي' : 'سنوي'}
+              onPress={() => {
+                const types: ('monthly' | 'yearly' | 'quarterly' | 'weekly')[] = ['monthly', 'weekly', 'quarterly', 'yearly'];
+                const currentIndex = types.indexOf(recurrenceType);
+                const nextIndex = (currentIndex + 1) % types.length;
+                setRecurrenceType(types[nextIndex]);
+              }}
+              variant="secondary"
+              rightIcon="chevron-down"
+              style={styles.recurrenceButton}
+              labelStyle={styles.recurrenceButtonText}
+            />
+          )}
+        </View>
 
-                  {/* Recurrence */}
-                  <View style={styles.inputGroup}>
-                    <View style={styles.switchRow}>
-                      <Text style={styles.label}>فاتورة متكررة</Text>
-                      <Switch
-                        value={hasRecurrence}
-                        onValueChange={setHasRecurrence}
-                        trackColor={{ false: '#767577', true: theme.colors.primary }}
-                        thumbColor={hasRecurrence ? '#FFFFFF' : '#f4f3f4'}
-                      />
-                    </View>
-                    {hasRecurrence && (
-                      <Pressable
-                        onPress={() => {
-                          const types: ('monthly' | 'yearly' | 'quarterly' | 'weekly')[] = ['monthly', 'weekly', 'quarterly', 'yearly'];
-                          const currentIndex = types.indexOf(recurrenceType);
-                          const nextIndex = (currentIndex + 1) % types.length;
-                          setRecurrenceType(types[nextIndex]);
-                        }}
-                        style={styles.recurrenceButton}
-                      >
-                        <Text style={styles.recurrenceButtonText}>
-                          {recurrenceType === 'monthly' ? 'شهري' :
-                            recurrenceType === 'weekly' ? 'أسبوعي' :
-                              recurrenceType === 'quarterly' ? 'ربع سنوي' : 'سنوي'}
-                        </Text>
-                        <Ionicons name="chevron-down" size={20} color={theme.colors.textSecondary} />
-                      </Pressable>
-                    )}
-                  </View>
+        {/* Reminder Days */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>التذكير قبل (أيام)</Text>
+          <TextInput
+            value={reminderDaysBefore}
+            onChangeText={(val) => setReminderDaysBefore(convertArabicToEnglish(val))}
+            placeholder="3"
+            mode="outlined"
+            keyboardType="numeric"
+            style={styles.input}
+            contentStyle={styles.inputContent}
+            outlineColor={theme.colors.border}
+            activeOutlineColor={theme.colors.primary}
+          />
+        </View>
 
-                  {/* Reminder Days */}
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.label}>التذكير قبل (أيام)</Text>
-                    <TextInput
-                      value={reminderDaysBefore}
-                      onChangeText={(val) => setReminderDaysBefore(convertArabicToEnglish(val))}
-                      placeholder="3"
-                      mode="outlined"
-                      keyboardType="numeric"
-                      style={styles.input}
-                      contentStyle={styles.inputContent}
-                      outlineColor={theme.colors.border}
-                      activeOutlineColor={theme.colors.primary}
-                    />
-                  </View>
+        {/* Description */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>ملاحظات</Text>
+          <TextInput
+            value={description}
+            onChangeText={setDescription}
+            placeholder="ملاحظات إضافية..."
+            mode="outlined"
+            multiline
+            numberOfLines={3}
+            style={styles.input}
+            contentStyle={styles.inputContent}
+            outlineColor={theme.colors.border}
+            activeOutlineColor={theme.colors.primary}
+          />
+        </View>
 
-                  {/* Description */}
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.label}>ملاحظات</Text>
-                    <TextInput
-                      value={description}
-                      onChangeText={setDescription}
-                      placeholder="ملاحظات إضافية..."
-                      mode="outlined"
-                      multiline
-                      numberOfLines={3}
-                      style={styles.input}
-                      contentStyle={styles.inputContent}
-                      outlineColor={theme.colors.border}
-                      activeOutlineColor={theme.colors.primary}
-                    />
-                  </View>
-
-                  {/* Save Button */}
-                  <TouchableOpacity
-                    onPress={handleSave}
-                    disabled={loading}
-                    style={[styles.saveButton, loading && styles.saveButtonDisabled]}
-                  >
-                    <LinearGradient
-                      colors={[theme.colors.primary, theme.colors.primaryDark]}
-                      style={styles.saveButtonGradient}
-                    >
-                      {loading ? (
-                        <Text style={styles.saveButtonText}>جاري الحفظ...</Text>
-                      ) : (
-                        <>
-                          <Ionicons name="checkmark" size={20} color={theme.colors.background} />
-                          <Text style={styles.saveButtonText}>
-                            {editingBill ? 'تحديث' : 'حفظ'}
-                          </Text>
-                        </>
-                      )}
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </ScrollView>
-              </LinearGradient>
-            </TouchableOpacity>
-          </Animated.View>
-        </TouchableOpacity>
-      </KeyboardAvoidingView>
-    </Modal>
+        {/* Save Button */}
+        <AppButton
+          label={editingBill ? 'تحديث' : 'حفظ'}
+          onPress={handleSave}
+          variant="primary"
+          loading={loading}
+          leftIcon="checkmark"
+          style={styles.saveButton}
+        />
+      </ScrollView>
+    </AppBottomSheet>
   );
 };
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-  keyboardView: {
-    flex: 1,
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContainer: {
-    maxHeight: '90%',
-  },
-  modalGradient: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingTop: 12,
-  },
-  header: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  headerLeft: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  iconBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: isRTL ? 0 : 12,
-    marginLeft: isRTL ? 12 : 0,
-  },
-  headerText: {
-    flex: 1,
-  },
-  title: {
-    fontSize: theme.typography.sizes.lg,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-  },
-  subtitle: {
-    fontSize: theme.typography.sizes.sm,
-    color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
-    marginTop: 4,
-  },
-  closeButton: {
-    margin: 0,
-  },
   scrollView: {
     flex: 1,
     paddingHorizontal: 12,
@@ -558,24 +396,5 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   saveButton: {
     marginTop: 12,
     marginBottom: 12,
-    borderRadius: 12,
-    overflow: 'hidden',
-    ...getPlatformShadow('md'),
-  },
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
-  saveButtonGradient: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    gap: 8,
-  },
-  saveButtonText: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.background,
-    fontFamily: theme.typography.fontFamily,
   },
 });

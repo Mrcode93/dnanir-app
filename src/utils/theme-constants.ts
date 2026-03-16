@@ -41,18 +41,21 @@ export const lightTheme = {
     goalRose: ['#FB7185', '#F43F5E', '#E11D48'],
   },
   spacing: {
-    xs: Platform.OS === 'android' ? 2 : 3,
-    sm: Platform.OS === 'android' ? 4 : 6,
-    md: Platform.OS === 'android' ? 8 : 12,
-    lg: Platform.OS === 'android' ? 12 : 16,
-    xl: Platform.OS === 'android' ? 16 : 20,
-    xxl: Platform.OS === 'android' ? 24 : 28,
+    xs: 4,
+    sm: Platform.OS === 'android' ? 6 : 8,
+    md: Platform.OS === 'android' ? 12 : 16,
+    lg: Platform.OS === 'android' ? 18 : 24,
+    xl: Platform.OS === 'android' ? 24 : 32,
+    xxl: Platform.OS === 'android' ? 36 : 48,
+    screenH: Platform.OS === 'android' ? 16 : 20,   // horizontal screen gutter
+    touchMin: Platform.OS === 'android' ? 48 : 44,
   },
   borderRadius: {
-    sm: Platform.OS === 'android' ? 3 : 4,
-    md: Platform.OS === 'android' ? 6 : 8,
-    lg: Platform.OS === 'android' ? 10 : 12,
-    xl: Platform.OS === 'android' ? 14 : 16,
+    sm: 4,
+    md: 8,
+    lg: 12,
+    xl: 16,
+    xxl: 24,   // bottom sheets and dialogs
     round: 9999,
   },
   shadows: {
@@ -95,13 +98,13 @@ export const lightTheme = {
   typography: {
     fontFamily: 'DINNext-Medium',
     sizes: {
-      xs: Platform.OS === 'android' ? 12 : 14,
-      sm: Platform.OS === 'android' ? 14 : 18,
-      md: Platform.OS === 'android' ? 16 : 20,
-      lg: Platform.OS === 'android' ? 18 : 22,
-      xl: Platform.OS === 'android' ? 20 : 24,
-      xxl: Platform.OS === 'android' ? 22 : 28,
-      display: Platform.OS === 'android' ? 40 : 48,
+      xs: 12,       // caption, badge, tiny label
+      sm: 14,       // secondary text, helper text
+      md: 16,       // body, input fields
+      lg: 18,       // section titles, list items
+      xl: 20,       // card titles
+      xxl: 24,      // screen titles
+      display: 40,  // hero number (balance, amounts)
     },
   },
 };
@@ -201,13 +204,17 @@ export const getTheme = () => currentTheme;
 export const theme = lightTheme;
 export const defaultTheme = lightTheme;
 
-// Helper function for platform-specific shadows
-export const getPlatformShadow = (size: 'xs' | 'sm' | 'md' | 'lg' | 'xl') => {
-  const shadow = lightTheme.shadows[size];
+// Helper function for platform-specific shadows.
+// Pass the active theme to get correct shadow values in dark mode.
+export const getPlatformShadow = (
+  size: 'xs' | 'sm' | 'md' | 'lg' | 'xl',
+  activeTheme?: AppTheme,
+) => {
+  const shadow = (activeTheme ?? lightTheme).shadows[size];
   if (Platform.OS === 'android') {
     return {
       elevation: shadow.elevation,
-      shadowColor: 'transparent',
+      shadowColor: shadow.shadowColor,
     };
   }
   return {

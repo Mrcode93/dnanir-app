@@ -3,23 +3,17 @@ import {
   View,
   Text,
   StyleSheet,
-  Modal,
   TouchableOpacity,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  TouchableWithoutFeedback,
-  Keyboard,
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
 import { useAppTheme, useThemedStyles } from '../utils/theme-context';
 
 import { Savings, CURRENCIES } from '../types';
 import { isRTL } from '../utils/rtl';
 import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
+import { AppBottomSheet, AppButton, AppInput } from '../design-system';
 
 interface SavingsTransferModalProps {
   visible: boolean;
@@ -78,155 +72,94 @@ export const SavingsTransferModal: React.FC<SavingsTransferModalProps> = ({
   const otherSavings = allSavings.filter(s => s.id !== fromSavings.id);
 
   return (
-    <Modal
+    <AppBottomSheet
       visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
+      onClose={onClose}
+      title="تحويل بين الحصالات"
+      avoidKeyboard
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.overlay}>
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <KeyboardAvoidingView
-              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-              style={styles.container}
-            >
-              <View style={styles.modalContent}>
-                <View style={styles.header}>
-                  <Text style={styles.title}>تحويل بين الحصالات</Text>
-                  <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                    <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.transferFlow}>
-                  <View style={styles.node}>
-                    <View style={[styles.iconBox, { backgroundColor: fromSavings.color + '20' }]}>
-                      <Ionicons name={(fromSavings.icon || 'wallet') as any} size={24} color={fromSavings.color} />
-                    </View>
-                    <Text style={styles.nodeTitle} numberOfLines={1}>{fromSavings.title}</Text>
-                    <Text style={styles.nodeLabel}>من</Text>
-                  </View>
-
-                  <View style={styles.arrowContainer}>
-                    <Ionicons name={isRTL ? "arrow-back" : "arrow-forward"} size={24} color={theme.colors.textMuted} />
-                  </View>
-
-                  <View style={styles.node}>
-                    <ScrollView 
-                      horizontal 
-                      showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={styles.targetList}
-                    >
-                      {otherSavings.length > 0 ? (
-                        otherSavings.map((s) => (
-                          <TouchableOpacity
-                            key={s.id}
-                            style={[
-                              styles.targetItem,
-                              targetId === s.id && styles.targetItemActive,
-                              { borderColor: targetId === s.id ? s.color : theme.colors.border }
-                            ]}
-                            onPress={() => setTargetId(s.id)}
-                          >
-                            <View style={[styles.iconBoxSmall, { backgroundColor: s.color + '20' }]}>
-                              <Ionicons name={(s.icon || 'wallet') as any} size={18} color={s.color} />
-                            </View>
-                            <Text style={[styles.targetName, targetId === s.id && { color: s.color }]} numberOfLines={1}>{s.title}</Text>
-                          </TouchableOpacity>
-                        ))
-                      ) : (
-                        <Text style={styles.noSavingsText}>لا توجد حصالات أخرى</Text>
-                      )}
-                    </ScrollView>
-                    <Text style={styles.nodeLabel}>إلى</Text>
-                  </View>
-                </View>
-
-                <View style={styles.inputContainer}>
-                  <TextInput
-                    style={styles.input}
-                    value={amount}
-                    onChangeText={(val) => {
-                      const cleaned = convertArabicToEnglish(val);
-                      setAmount(formatNumberWithCommas(cleaned));
-                    }}
-                    placeholder="0"
-                    placeholderTextColor={theme.colors.textMuted}
-                    keyboardType="decimal-pad"
-                    autoFocus
-                  />
-                  <Text style={styles.currency}>
-                    {CURRENCIES.find(c => c.code === (fromSavings.currency || 'IQD'))?.symbol}
-                  </Text>
-                </View>
-
-                <TouchableOpacity
-                  style={[styles.confirmBtn, (!amount || !targetId || loading) && styles.confirmBtnDisabled]}
-                  onPress={handleConfirm}
-                  disabled={!amount || !targetId || loading}
-                >
-                  <LinearGradient
-                    colors={theme.gradients.primary as any}
-                    style={styles.confirmGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  >
-                    <Text style={styles.confirmText}>{loading ? 'جاري التحويل...' : 'تأكيد التحويل'}</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-            </KeyboardAvoidingView>
-          </TouchableWithoutFeedback>
+      <View style={styles.transferFlow}>
+        <View style={styles.node}>
+          <View style={[styles.iconBox, { backgroundColor: fromSavings.color + '20' }]}>
+            <Ionicons name={(fromSavings.icon || 'wallet') as any} size={24} color={fromSavings.color} />
+          </View>
+          <Text style={styles.nodeTitle} numberOfLines={1}>{fromSavings.title}</Text>
+          <Text style={styles.nodeLabel}>من</Text>
         </View>
-      </TouchableWithoutFeedback>
-    </Modal>
+
+        <View style={styles.arrowContainer}>
+          <Ionicons name={isRTL ? "arrow-back" : "arrow-forward"} size={24} color={theme.colors.textMuted} />
+        </View>
+
+        <View style={styles.node}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.targetList}
+          >
+            {otherSavings.length > 0 ? (
+              otherSavings.map((s) => (
+                <TouchableOpacity
+                  key={s.id}
+                  style={[
+                    styles.targetItem,
+                    targetId === s.id && styles.targetItemActive,
+                    { borderColor: targetId === s.id ? s.color : theme.colors.border }
+                  ]}
+                  onPress={() => setTargetId(s.id)}
+                >
+                  <View style={[styles.iconBoxSmall, { backgroundColor: s.color + '20' }]}>
+                    <Ionicons name={(s.icon || 'wallet') as any} size={18} color={s.color} />
+                  </View>
+                  <Text style={[styles.targetName, targetId === s.id && { color: s.color }]} numberOfLines={1}>{s.title}</Text>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <Text style={styles.noSavingsText}>لا توجد حصالات أخرى</Text>
+            )}
+          </ScrollView>
+          <Text style={styles.nodeLabel}>إلى</Text>
+        </View>
+      </View>
+
+      <View style={styles.inputContainer}>
+        <AppInput
+          value={amount}
+          onChangeText={(val) => {
+            const cleaned = convertArabicToEnglish(val);
+            setAmount(formatNumberWithCommas(cleaned));
+          }}
+          placeholder="0"
+          keyboardType="decimal-pad"
+          rightAction={
+            <Text style={styles.currency}>
+              {CURRENCIES.find(c => c.code === (fromSavings.currency || 'IQD'))?.symbol}
+            </Text>
+          }
+        />
+      </View>
+
+      <View style={styles.confirmBtnContainer}>
+        <AppButton
+          label={loading ? 'جاري التحويل...' : 'تأكيد التحويل'}
+          onPress={handleConfirm}
+          variant="primary"
+          loading={loading}
+          disabled={!amount || !targetId || loading}
+        />
+      </View>
+    </AppBottomSheet>
   );
 };
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  container: {
-    width: '100%',
-    maxWidth: 450,
-  },
-  modalContent: {
-    backgroundColor: theme.colors.surfaceCard,
-    borderRadius: 24,
-    padding: 24,
-    ...getPlatformShadow('xl'),
-  },
-  header: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-    position: 'relative',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-  },
-  closeBtn: {
-    position: 'absolute',
-    right: isRTL ? undefined : 0,
-    left: isRTL ? 0 : undefined,
-    padding: 4,
-  },
   transferFlow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 32,
     gap: 12,
+    paddingHorizontal: 16,
   },
   node: {
     flex: 1,
@@ -293,21 +226,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     textAlign: 'center',
   },
   inputContainer: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.surfaceLight,
-    borderRadius: 16,
     paddingHorizontal: 16,
     marginBottom: 24,
-  },
-  input: {
-    flex: 1,
-    fontSize: 24,
-    fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-    paddingVertical: 16,
-    textAlign: 'center',
   },
   currency: {
     fontSize: 18,
@@ -315,22 +235,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily,
   },
-  confirmBtn: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    ...getPlatformShadow('md'),
-  },
-  confirmBtnDisabled: {
-    opacity: 0.5,
-  },
-  confirmGradient: {
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  confirmText: {
-    fontSize: 18,
-    fontWeight: getPlatformFontWeight('700'),
-    color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
+  confirmBtnContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
   },
 });

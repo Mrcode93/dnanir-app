@@ -17,6 +17,7 @@ import {
   Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenContainer } from '../design-system';
 import { List, Switch, Button } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -42,6 +43,7 @@ import { authenticateWithDevice } from '../services/authService';
 import { deleteAllData } from '../database/database';
 
 import { CONTACT_INFO, APP_LINKS, SHARE_APP_MESSAGE } from '../constants/contactConstants';
+import { CurrencyPickerModal } from '../components/CurrencyPickerModal';
 import { convertArabicToEnglish } from '../utils/numbers';
 import Constants from 'expo-constants';
 import * as Clipboard from 'expo-clipboard';
@@ -901,7 +903,7 @@ export const SettingsScreen = ({ navigation }: any) => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+    <ScreenContainer scrollable={false} edges={['left', 'right']}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -1175,7 +1177,7 @@ export const SettingsScreen = ({ navigation }: any) => {
               <Text style={styles.sectionTitle}>اللغة والعملة</Text>
             </View>
             <TouchableOpacity
-              onPress={() => setShowCurrencyPicker(!showCurrencyPicker)}
+              onPress={() => setShowCurrencyPicker(true)}
               style={styles.currencyItem}
               activeOpacity={0.7}
             >
@@ -1199,31 +1201,6 @@ export const SettingsScreen = ({ navigation }: any) => {
                 <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={20} color="#FFFFFF" />
               </LinearGradient>
             </TouchableOpacity>
-
-            {showCurrencyPicker && (
-              <View style={styles.currencyPicker}>
-                {CURRENCIES.map((currency) => (
-                  <TouchableOpacity
-                    key={currency.code}
-                    style={[
-                      styles.currencyOption,
-                      selectedCurrency === currency.code && styles.currencyOptionSelected,
-                    ]}
-                    onPress={() => handleCurrencyChange(currency.code)}
-                  >
-                    <Text style={[
-                      styles.currencyOptionText,
-                      selectedCurrency === currency.code && styles.currencyOptionTextSelected,
-                    ]}>
-                      {currency.symbol} {currency.name}
-                    </Text>
-                    {selectedCurrency === currency.code && (
-                      <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
 
             <TouchableOpacity
               onPress={() => setShowLanguagePicker(!showLanguagePicker)}
@@ -1750,15 +1727,18 @@ export const SettingsScreen = ({ navigation }: any) => {
         loading={exportingPDF}
       />
 
-    </SafeAreaView>
+      <CurrencyPickerModal
+        visible={showCurrencyPicker}
+        selectedCurrency={selectedCurrency}
+        onSelect={(code) => handleCurrencyChange(code)}
+        onClose={() => setShowCurrencyPicker(false)}
+      />
+
+    </ScreenContainer>
   );
 };
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
   scrollView: {
     flex: 1,
   },
@@ -1800,11 +1780,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   profileCardPro: {
     borderColor: 'rgba(212, 175, 55, 0.6)',
     borderWidth: 1.5,
-    shadowColor: '#D4AF37',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 8,
+    ...(Platform.OS === 'ios'
+      ? { shadowColor: '#D4AF37', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 12 }
+      : { elevation: 8 }),
   },
   proCrownBanner: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -2903,9 +2881,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   timePickerModalContent: {
     backgroundColor: theme.colors.surfaceCard,
-    borderTopLeftRadius: theme.borderRadius.xl,
-    borderTopRightRadius: theme.borderRadius.xl,
-    paddingBottom: Platform.OS === 'ios' ? 40 : theme.spacing.lg,
+    borderTopLeftRadius: theme.borderRadius.xxl,
+    borderTopRightRadius: theme.borderRadius.xxl,
+    paddingBottom: theme.spacing.xxl,
     maxHeight: '50%',
     ...getPlatformShadow('lg'),
     direction: 'rtl' as const,
@@ -3145,10 +3123,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     maxHeight: '90%',
   },
   exportModalGradient: {
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
+    borderTopLeftRadius: theme.borderRadius.xxl,
+    borderTopRightRadius: theme.borderRadius.xxl,
     padding: theme.spacing.lg,
-    paddingBottom: Platform.OS === 'ios' ? 40 : theme.spacing.lg,
+    paddingBottom: theme.spacing.xxl,
   },
   exportModalHeader: {
     flexDirection: isRTL ? 'row' : 'row-reverse',

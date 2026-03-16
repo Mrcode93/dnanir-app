@@ -1,18 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   RefreshControl,
   TouchableOpacity,
-  Modal,
   Animated,
-  Pressable,
   ScrollView,
   Platform,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppBottomSheet } from '../design-system';
 import { Searchbar } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -56,7 +54,7 @@ export const BudgetScreen = ({ navigation, route }: any) => {
   });
   const [availableMonths, setAvailableMonths] = useState<Array<{ year: number; month: number }>>([]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       // Build available months from compact SQL result + budgets list (no full expenses scan).
       const [expenseMonths, allBudgets] = await Promise.all([
@@ -161,7 +159,7 @@ export const BudgetScreen = ({ navigation, route }: any) => {
       
       alertService.error('خطأ', 'حدث خطأ أثناء تحميل الميزانيات');
     }
-  };
+  }, [currencyCode, selectedMonth]);
 
   useEffect(() => {
     loadData();
@@ -276,11 +274,13 @@ export const BudgetScreen = ({ navigation, route }: any) => {
     return getCategoryName(selectedCategory);
   };
 
-  const totalBudget = budgets.reduce((sum, b) => sum + b.budget.amount, 0);
-  const totalSpent = budgets.reduce((sum, b) => sum + b.spent, 0);
-  const totalRemaining = totalBudget - totalSpent;
+  const { totalBudget, totalSpent, totalRemaining } = useMemo(() => {
+    const budget = budgets.reduce((sum, b) => sum + b.budget.amount, 0);
+    const spent = budgets.reduce((sum, b) => sum + b.spent, 0);
+    return { totalBudget: budget, totalSpent: spent, totalRemaining: budget - spent };
+  }, [budgets]);
 
-  const renderBudget = ({ item }: { item: BudgetStatus }) => {
+  const renderBudget = useCallback(({ item }: { item: BudgetStatus }) => {
     const percentage = Math.min(item.percentage, 100);
     const isExceeded = item.isExceeded;
     const isWarning = item.percentage >= 80 && !isExceeded;
@@ -375,7 +375,7 @@ export const BudgetScreen = ({ navigation, route }: any) => {
         </View>
       </View>
     );
-  };
+  }, [theme, styles, formatCurrency, currencyCode, convertedAmounts, getCategoryIcon, getCategoryName, openMenu, isPrivacyEnabled]);
 
   return (
     <View style={styles.container}>
@@ -523,66 +523,55 @@ export const BudgetScreen = ({ navigation, route }: any) => {
         }
       />
 
-      {/* Pro Bottom Sheet Menu */}
-      <Modal
+      {/* Budget Options Bottom Sheet */}
+      <AppBottomSheet
         visible={showMenu}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowMenu(false)}
+        onClose={() => setShowMenu(false)}
+        title="خيارات الميزانية"
       >
-        <Pressable
-          style={styles.menuOverlay}
+        <View style={styles.menuOptionsList}>
+          {selectedBudget && (
+            <>
+              <TouchableOpacity
+                style={styles.menuOption}
+                onPress={() => handleEditBudget(selectedBudget)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.menuIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                  <Ionicons name="create-outline" size={22} color={theme.colors.primary} />
+                </View>
+                <View style={styles.menuOptionTextContainer}>
+                  <Text style={styles.menuOptionTitle}>تعديل</Text>
+                  <Text style={styles.menuOptionSubtitle}>تغيير تفاصيل الميزانية أو المبلغ</Text>
+                </View>
+                <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color={theme.colors.textMuted} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.menuOption, { marginTop: 8 }]}
+                onPress={() => handleDeleteBudget(selectedBudget.budget.id)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.menuIconBox, { backgroundColor: theme.colors.error + '15' }]}>
+                  <Ionicons name="trash-outline" size={22} color={theme.colors.error} />
+                </View>
+                <View style={styles.menuOptionTextContainer}>
+                  <Text style={[styles.menuOptionTitle, { color: theme.colors.error }]}>حذف</Text>
+                  <Text style={styles.menuOptionSubtitle}>حذف هذه الميزانية نهائياً</Text>
+                </View>
+                <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color={theme.colors.textMuted} />
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+
+        <TouchableOpacity
+          style={styles.closeButton}
           onPress={() => setShowMenu(false)}
         >
-          <View style={styles.bottomSheetContainer}>
-            <View style={styles.dragHandle} />
-            <Text style={styles.menuHeaderTitle}>خيارات الميزانية</Text>
-
-            <View style={styles.menuOptionsList}>
-              {selectedBudget && (
-                <>
-                  <TouchableOpacity
-                    style={styles.menuOption}
-                    onPress={() => handleEditBudget(selectedBudget)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={[styles.menuIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
-                      <Ionicons name="create-outline" size={22} color={theme.colors.primary} />
-                    </View>
-                    <View style={styles.menuOptionTextContainer}>
-                      <Text style={styles.menuOptionTitle}>تعديل</Text>
-                      <Text style={styles.menuOptionSubtitle}>تغيير تفاصيل الميزانية أو المبلغ</Text>
-                    </View>
-                    <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color={theme.colors.textMuted} />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.menuOption, { marginTop: 8 }]}
-                    onPress={() => handleDeleteBudget(selectedBudget.budget.id)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={[styles.menuIconBox, { backgroundColor: theme.colors.error + '15' }]}>
-                      <Ionicons name="trash-outline" size={22} color={theme.colors.error} />
-                    </View>
-                    <View style={styles.menuOptionTextContainer}>
-                      <Text style={[styles.menuOptionTitle, { color: theme.colors.error }]}>حذف</Text>
-                      <Text style={styles.menuOptionSubtitle}>حذف هذه الميزانية نهائياً</Text>
-                    </View>
-                    <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color={theme.colors.textMuted} />
-                  </TouchableOpacity>
-                </>
-              )}
-            </View>
-
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setShowMenu(false)}
-            >
-              <Text style={styles.closeButtonText}>إلغاء</Text>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      </Modal>
+          <Text style={styles.closeButtonText}>إلغاء</Text>
+        </TouchableOpacity>
+      </AppBottomSheet>
 
       {/* Delete Confirmation */}
       <ConfirmAlert
@@ -836,8 +825,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   filterMenuContainer: {
     backgroundColor: theme.colors.surfaceCard,
-    borderTopLeftRadius: theme.borderRadius.xl,
-    borderTopRightRadius: theme.borderRadius.xl,
+    borderTopLeftRadius: theme.borderRadius.xxl,
+    borderTopRightRadius: theme.borderRadius.xxl,
     maxHeight: '70%',
   },
   filterMenuHeader: {
@@ -904,8 +893,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   bottomSheetContainer: {
     backgroundColor: theme.colors.surfaceCard,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: theme.borderRadius.xxl,
+    borderTopRightRadius: theme.borderRadius.xxl,
     paddingBottom: 40,
     paddingTop: 12,
     ...getPlatformShadow('lg'),

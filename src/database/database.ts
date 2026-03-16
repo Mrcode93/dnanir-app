@@ -218,6 +218,26 @@ export const initDatabase = async () => {
       await db.execAsync('ALTER TABLE custom_categories ADD COLUMN synced_at INTEGER;');
     } catch (e) { }
 
+    // Migrate custom_categories: change UNIQUE(name) to UNIQUE(name, type)
+    try {
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS custom_categories_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          type TEXT NOT NULL,
+          icon TEXT DEFAULT 'ellipse',
+          color TEXT DEFAULT '#6B7280',
+          createdAt TEXT NOT NULL,
+          synced_at INTEGER,
+          UNIQUE(name, type)
+        );
+        INSERT OR IGNORE INTO custom_categories_new (id, name, type, icon, color, createdAt, synced_at)
+          SELECT id, name, type, icon, color, createdAt, synced_at FROM custom_categories;
+        DROP TABLE custom_categories;
+        ALTER TABLE custom_categories_new RENAME TO custom_categories;
+      `);
+    } catch (e) { }
+
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS budgets (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1660,7 +1680,7 @@ export const clearUserProfile = async (): Promise<void> => {
 
   if (existing) {
     await database.runAsync(
-      'UPDATE user_settings SET userId = NULL, phone = NULL, email = NULL, isPro = 0 WHERE id = ?',
+      'UPDATE user_settings SET name = NULL, userId = NULL, phone = NULL, email = NULL, isPro = 0 WHERE id = ?',
       [existing.id]
     );
   }
@@ -1967,7 +1987,7 @@ export const addCustomCategory = async (category: Omit<CustomCategory, 'id' | 'c
     return result.lastInsertRowId;
   } catch (error: any) {
     if (error.message?.includes('UNIQUE constraint')) {
-      throw new Error('الفئة موجودة بالفعل');
+      throw new Error('هذه الفئة موجودة بالفعل في نفس النوع');
     }
     throw error;
   }

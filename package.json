@@ -1,6 +1,6 @@
 {
   "name": "dnanir",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "description": "دنانير - Smart Iraqi-themed financial app for expense and income tracking",
   "main": "index.ts",
   "scripts": {
@@ -68,6 +68,8 @@
     "react-native-copilot": "^3.3.3",
     "react-native-default-preference": "^1.4.4",
     "react-native-gesture-handler": "^2.30.0",
+    "react-native-mmkv": "^4.2.0",
+    "react-native-nitro-modules": "^0.35.2",
     "react-native-pager-view": "6.9.1",
     "react-native-paper": "^5.14.5",
     "react-native-reanimated": "^4.2.1",
