@@ -30,10 +30,12 @@ export const createDebt = async (
   description?: string,
   currency?: string,
   installments?: { amount: number; dueDate: string }[],
-  direction: 'owed_by_me' | 'owed_to_me' = 'owed_by_me'
+  direction: 'owed_by_me' | 'owed_to_me' = 'owed_by_me',
+  debtorId?: number
 ): Promise<number> => {
   const debtId = await addDebt({
     debtorName,
+    debtorId,
     totalAmount,
     remainingAmount: totalAmount,
     startDate,

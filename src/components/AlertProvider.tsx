@@ -68,6 +68,12 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <>
       {children}
+      <AuthScreen
+        visible={authVisible}
+        isLogin={authOptions.isLogin}
+        onSuccess={authOptions.onSuccess}
+        onClose={() => setAuthVisible(false)}
+      />
       {alertOptions && (
         <CustomAlert
           visible={!!alertOptions}
@@ -89,12 +95,6 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           onHide={handleToastHide}
         />
       )}
-      <AuthScreen
-        visible={authVisible}
-        isLogin={authOptions.isLogin}
-        onSuccess={authOptions.onSuccess}
-        onClose={() => setAuthVisible(false)}
-      />
     </>
   );
 };

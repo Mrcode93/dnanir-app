@@ -29,7 +29,7 @@
     "primaryLanguage": "ar",
     "description": "تطبيق دنانير - تطبيقك الذكي لإدارة الأموال وتتبع المصروفات والدخل بطريقة سهلة وممتعة",
     "splash": {
-      "image": "./assets/images/splash.png",
+      "image": "./assets/logo.png",
       "resizeMode": "cover",
       "backgroundColor": "#003459"
     },
@@ -38,7 +38,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.mrcodeiq.dinar",
       "googleServicesFile": "./GoogleService-Info.plist",
-      "buildNumber": "32",
+      "buildNumber": "35",
       "infoPlist": {
         "CFBundleURLTypes": [
           {

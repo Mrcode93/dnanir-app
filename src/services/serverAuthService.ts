@@ -2,6 +2,7 @@ import { apiRequest, setAccessToken, setRefreshToken, setUser, clearAuthData, ge
 import { API_CONFIG, API_ENDPOINTS } from '../config/api';
 import { pushNotificationService } from './pushNotificationService';
 import { authEventService } from './authEventService';
+import { initEncryptionKey, clearEncryptionKey, restoreEncryptionKeyFromStorage } from '../utils/encryption';
 
 export interface RegisterRequest {
   phone: string;
@@ -45,6 +46,9 @@ export const register = async (data: RegisterRequest): Promise<AuthResponse> => 
     await setRefreshToken(response.data.tokens.refreshToken);
     await setUser(response.data.user);
 
+    // Derive + wrap DEK and cache session key (GCM, DEK/KEK pattern)
+    await initEncryptionKey(data.password, response.data.user.id);
+
     // Notify app of login
     authEventService.notifyAuthChanged();
 
@@ -73,6 +77,9 @@ export const login = async (data: LoginRequest): Promise<AuthResponse> => {
     await setRefreshToken(response.data.tokens.refreshToken);
     await setUser(response.data.user);
 
+    // Derive + wrap DEK and cache session key (GCM, DEK/KEK pattern)
+    await initEncryptionKey(data.password, response.data.user.id);
+
     // Notify app of login
     authEventService.notifyAuthChanged();
 
@@ -89,9 +96,11 @@ export const logout = async (): Promise<void> => {
   try {
     await pushNotificationService.removeTokenFromServer();
   } catch (e) {
-    
+
   }
   await clearAuthData();
+  // Remove the AES encryption key from secure storage on logout
+  await clearEncryptionKey();
   authEventService.notifyAuthChanged();
 };
 
@@ -110,3 +119,10 @@ export const isLoggedIn = async (): Promise<boolean> => {
 export const getCurrentUser = async () => {
   return await getUser();
 };
+
+/**
+ * Restore the encryption key from SecureStore on app restart.
+ * Call this at startup when the user already has a valid JWT session.
+ * Does not require the password — reads the cached raw DEK from hardware storage.
+ */
+export { restoreEncryptionKeyFromStorage };

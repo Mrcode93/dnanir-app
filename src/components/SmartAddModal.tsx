@@ -91,16 +91,19 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
     useEffect(() => {
         if (visible) {
             checkConnection();
-            setTimeout(() => inputRef.current?.focus(), 300);
-            setText('');
-            setParsedResults([]);
-            // Load usage info
-            getSmartAddUsageInfo().then(setUsageInfo);
             // Entrance animation
             Animated.parallel([
                 Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
                 Animated.timing(slideAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
             ]).start();
+
+            // Focus after animation starts for smoother feel
+            const timer = setTimeout(() => inputRef.current?.focus(), 400);
+            setText('');
+            setParsedResults([]);
+            getSmartAddUsageInfo().then(setUsageInfo);
+            
+            return () => clearTimeout(timer);
         } else {
             fadeAnim.setValue(0);
             slideAnim.setValue(30);
@@ -315,10 +318,9 @@ export const SmartAddModal: React.FC<SmartAddModalProps> = ({ visible, onClose, 
     return (
         <Modal
             visible={visible}
-            transparent={false}
+            transparent={true}
             animationType="slide"
             onRequestClose={onClose}
-            statusBarTranslucent={true}
         >
             <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
                 <KeyboardAvoidingView

@@ -88,4 +88,6 @@ export const API_ENDPOINTS = {
   PROMO: {
     APPLY: '/api/promo/apply',
   },
+  // Updates
+  UPDATES: '/api/updates',
 };

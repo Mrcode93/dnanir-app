@@ -180,10 +180,11 @@ class ApiClient {
     let data: unknown;
     try {
       data = isJson ? await response.json() : await response.text();
-    } catch (error) {
+    } catch (parseError) {
       return {
         success: false,
         error: 'فشل في معالجة رد السيرفر',
+        statusCode: response.status
       };
     }
 
@@ -191,6 +192,7 @@ class ApiClient {
       const apiError: ApiError = isJson && typeof data === 'object' && data !== null
         ? (data as ApiError)
         : { error: typeof data === 'string' ? data : 'Unknown error' };
+
       return {
         success: false,
         error: apiError.error || apiError.message || 'فشل الطلب',

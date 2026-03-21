@@ -10,6 +10,7 @@ import { type AppTheme, getPlatformShadow, getPlatformFontWeight } from '../util
 import { referralService } from '../services/referralService';
 import { isRTL } from '../utils/rtl';
 import { AppBottomSheet, AppButton, AppInput } from '../design-system';
+import { LinearGradient } from 'expo-linear-gradient';
 
 
 interface ReferralModalProps {
@@ -64,14 +65,18 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({ visible, onClose, 
             avoidKeyboard
         >
             <View style={styles.content}>
-                <View
-                    style={[styles.iconContainer, { backgroundColor: theme.colors.primary + '15' }]}
-                >
-                    <Ionicons name="gift" size={50} color={theme.colors.primary} />
+                <View style={styles.iconWrapper}>
+                    <LinearGradient
+                        colors={[theme.colors.primary + '15', theme.colors.primary + '30'] as any}
+                        style={styles.iconContainer}
+                    >
+                        <Ionicons name="gift" size={50} color={theme.colors.primary} />
+                    </LinearGradient>
+                    <View style={[styles.iconPulse, { borderColor: theme.colors.primary + '10' }]} />
                 </View>
 
                 <Text style={styles.subtitle}>
-                    أدخل كود الإحالة الذي حصلت عليه من صديقك لتحصل أنت وهو على 7 أيام اشتراك "برو" مجاناً!
+                    أدخل كود الإحالة الذي حصلت عليه من صديقك ليحصل كل منكما على 7 أيام اشتراك "برو" مجاناً!
                 </Text>
 
                 <View style={styles.inputWrapper}>
@@ -86,20 +91,23 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({ visible, onClose, 
                     />
                 </View>
 
-                <AppButton
-                    label="تفعيل الكود"
-                    onPress={handleApply}
-                    loading={loading}
-                    variant="primary"
-                    rightIcon="arrow-forward-outline"
-                />
+                <View style={styles.actions}>
+                    <AppButton
+                        label="تفعيل الكود"
+                        onPress={handleApply}
+                        loading={loading}
+                        variant="primary"
+                        rightIcon="flash-outline"
+                        style={styles.actionButton}
+                    />
 
-                <AppButton
-                    label="ليس لدي كود حالياً"
-                    onPress={handleDismiss}
-                    variant="ghost"
-                    style={styles.skipButton}
-                />
+                    <AppButton
+                        label="ليس لدي كود حالياً"
+                        onPress={handleDismiss}
+                        variant="ghost"
+                        style={styles.skipButton}
+                    />
+                </View>
             </View>
         </AppBottomSheet>
     );
@@ -109,8 +117,15 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     content: {
         width: '100%',
         alignItems: 'center',
-        paddingHorizontal: 16,
+        paddingHorizontal: 8,
         paddingBottom: 8,
+    },
+    iconWrapper: {
+        position: 'relative',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 24,
+        marginTop: 8,
     },
     iconContainer: {
         width: 100,
@@ -118,24 +133,40 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         borderRadius: 50,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 24,
+        zIndex: 2,
         borderWidth: 1,
         borderColor: theme.colors.primary + '33',
     },
+    iconPulse: {
+        position: 'absolute',
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        borderWidth: 1,
+        zIndex: 1,
+    },
     subtitle: {
-        fontSize: 15,
+        fontSize: 16,
         color: theme.colors.textSecondary,
         textAlign: 'center',
-        lineHeight: 22,
-        marginBottom: 32,
+        lineHeight: 24,
+        marginBottom: 24,
         fontFamily: theme.typography.fontFamily,
-        paddingHorizontal: 10,
+        paddingHorizontal: 20,
     },
     inputWrapper: {
         width: '100%',
-        marginBottom: 24,
+        marginBottom: 32,
+    },
+    actions: {
+        width: '100%',
+        gap: 12,
+    },
+    actionButton: {
+        width: '100%',
     },
     skipButton: {
-        marginTop: 8,
+        width: '100%',
+        marginTop: 4,
     },
 });

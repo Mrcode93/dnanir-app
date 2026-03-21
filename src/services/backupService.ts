@@ -6,6 +6,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import { exportFullData, importFullData } from '../database/database';
+import { encryptForStorage, decryptFromStorage, waitForEncryptionReady } from '../utils/encryption';
 
 const BACKUP_LATEST = 'dnanir-backup-latest.json';
 
@@ -30,7 +31,12 @@ export type LocalBackupResult =
  */
 export async function createLocalBackup(): Promise<LocalBackupResult> {
   try {
-    const data = await exportFullData();
+    if (!await waitForEncryptionReady(15_000)) {
+      return { success: false, error: 'مفتاح التشفير غير متاح. يرجى تسجيل الخروج وإعادة تسجيل الدخول لتفعيل التشفير.' };
+    }
+    const raw = await exportFullData();
+    // Encrypt the backup before writing to disk
+    const data = await encryptForStorage(raw);
     const jsonString = JSON.stringify(data, null, 2);
     const path = getBackupPath();
 
@@ -109,8 +115,13 @@ export async function restoreFromFileUri(uri: string): Promise<RestoreFromLocalR
     const content = await FileSystem.readAsStringAsync(uri, {
       encoding: FileSystem.EncodingType.UTF8,
     });
-    const data = JSON.parse(content) as Record<string, unknown>;
-    if (!data || typeof data !== 'object' || !('version' in data || 'expenses' in data)) {
+    const parsed = JSON.parse(content) as Record<string, unknown>;
+    if (!parsed || typeof parsed !== 'object') {
+      return { success: false, error: 'ملف غير صالح. اختر ملف نسخة احتياطية من دنانير.' };
+    }
+    // Decrypt if this backup was encrypted (backwards compatible with plain backups)
+    const data = await decryptFromStorage<Record<string, unknown>>(parsed);
+    if (!('version' in data || 'expenses' in data)) {
       return { success: false, error: 'ملف غير صالح. اختر ملف نسخة احتياطية من دنانير.' };
     }
     await importFullData(data);

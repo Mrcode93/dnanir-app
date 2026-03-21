@@ -1,21 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  I18nManager,
-  TouchableOpacity,
-  ActivityIndicator,
-  Modal,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  Dimensions,
-  Image,
-  Linking,
-  Share,
-} from 'react-native';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, I18nManager, TouchableOpacity, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, Dimensions, Image, Linking, Share, type LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenContainer } from '../design-system';
 import { List, Switch, Button } from 'react-native-paper';
@@ -23,8 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
-import { useAppTheme, useThemedStyles } from '../utils/theme-context';
-import { isRTL } from '../utils/rtl';
+import { useAppTheme } from '../utils/theme-context';
 import { getUserSettings, getAppSettings, upsertAppSettings, getNotificationSettings, upsertNotificationSettings, upsertUserSettings, recalculateAllBaseAmounts } from '../database/database';
 import { initializeNotifications, requestPermissions, scheduleDailyReminder, sendExpenseReminder, cancelNotification, rescheduleAllNotifications, sendTestNotification, verifyScheduledNotifications } from '../services/notificationService';
 import { generateMonthlyReport, generateFullReport, sharePDF } from '../services/pdfService';
@@ -41,7 +24,6 @@ import { createLocalBackup, restoreFromLastLocalBackup, pickBackupFileAndRestore
 import { referralService, ReferralInfo } from '../services/referralService';
 import { authenticateWithDevice } from '../services/authService';
 import { deleteAllData } from '../database/database';
-
 import { CONTACT_INFO, APP_LINKS, SHARE_APP_MESSAGE } from '../constants/contactConstants';
 import { CurrencyPickerModal } from '../components/CurrencyPickerModal';
 import { convertArabicToEnglish } from '../utils/numbers';
@@ -49,10 +31,26 @@ import Constants from 'expo-constants';
 import * as Clipboard from 'expo-clipboard';
 import { notifyCurrencyChanged } from '../services/currencyEvents';
 import { convertCurrency } from '../services/currencyService';
+import { isRTL as globalRTL } from '../utils/rtl';
+import { type AppLanguage, getCurrencyDisplayName, getCurrentLanguage, getLanguageDisplayName, getLanguageNativeName, isSupportedLanguage, translate as translateText, useLocalization, tl } from '../localization';
 
-export const SettingsScreen = ({ navigation }: any) => {
-  const { theme, themeMode, setThemeMode, isDark } = useAppTheme();
-  const styles = useThemedStyles(createStyles);
+type Meridiem = 'am' | 'pm';
+export const SettingsScreen = ({
+  navigation
+}: any) => {
+  const {
+    theme,
+    themeMode,
+    setThemeMode,
+    isDark
+  } = useAppTheme();
+  const {
+    language,
+    setLanguage,
+    t,
+    isRTL
+  } = useLocalization();
+  const styles = useMemo(() => createStyles(theme, isRTL), [theme, isRTL]);
   const [userName, setUserName] = useState<string>('');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [dailyReminder, setDailyReminder] = useState(true);
@@ -64,10 +62,9 @@ export const SettingsScreen = ({ navigation }: any) => {
   const [showExpenseTimePicker, setShowExpenseTimePicker] = useState(false);
   const [exportingPDF, setExportingPDF] = useState(false);
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
-
   const [selectedCurrency, setSelectedCurrency] = useState<string>('IQD');
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState<string>('ar');
+  const [selectedLanguage, setSelectedLanguage] = useState<AppLanguage>('ar');
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
   const [showAuthSettings, setShowAuthSettings] = useState(false);
   const [showExchangeRateModal, setShowExchangeRateModal] = useState(false);
@@ -80,14 +77,13 @@ export const SettingsScreen = ({ navigation }: any) => {
   const [userPhone, setUserPhone] = useState<string>('');
   const [tempHour, setTempHour] = useState<number>(8); // 12-hour format (1-12)
   const [tempMinute, setTempMinute] = useState<number>(0);
-  const [tempAmPm, setTempAmPm] = useState<'ص' | 'م'>('م');
+  const [tempAmPm, setTempAmPm] = useState<Meridiem>('pm');
   const dailyHourScrollRef = useRef<ScrollView>(null);
   const dailyMinuteScrollRef = useRef<ScrollView>(null);
   const dailyAmPmScrollRef = useRef<ScrollView>(null);
   const expenseHourScrollRef = useRef<ScrollView>(null);
   const expenseMinuteScrollRef = useRef<ScrollView>(null);
   const expenseAmPmScrollRef = useRef<ScrollView>(null);
-
   const [userData, setUserData] = useState<any>(null);
   const [syncing, setSyncing] = useState(false);
   const [hasUnsynced, setHasUnsynced] = useState(false);
@@ -102,7 +98,34 @@ export const SettingsScreen = ({ navigation }: any) => {
   const [exportMode, setExportMode] = useState<'monthly' | 'all'>('monthly');
   const [exportMonth, setExportMonth] = useState(new Date().getMonth());
   const [exportYear, setExportYear] = useState(new Date().getFullYear());
-
+  const [languageOptionPositions, setLanguageOptionPositions] = useState<{
+    arX: number | null;
+    enX: number | null;
+  }>({
+    arX: null,
+    enX: null,
+  });
+  const [languageOptionMetrics, setLanguageOptionMetrics] = useState<{
+    arLabelX: number | null;
+    arIconX: number | null;
+    enLabelX: number | null;
+    enIconX: number | null;
+  }>({
+    arLabelX: null,
+    arIconX: null,
+    enLabelX: null,
+    enIconX: null,
+  });
+  const settingsDebugKey = `${language}-${selectedLanguage}-${isRTL ? 'rtl' : 'ltr'}`;
+  const getDefaultAppSettings = () => ({
+    notificationsEnabled: true,
+    darkModeEnabled: false,
+    themeMode: 'light' as const,
+    autoBackupEnabled: false,
+    autoSyncEnabled: false,
+    currency: 'دينار عراقي',
+    language: 'ar'
+  });
   useEffect(() => {
     loadSettings();
     checkAuthStatus();
@@ -116,16 +139,54 @@ export const SettingsScreen = ({ navigation }: any) => {
       if (unsubscribe) unsubscribe();
     };
   }, [navigation]);
-
   useEffect(() => {
     if (isAuthenticated) refreshUnsyncedStatus();
   }, [isAuthenticated]);
 
+  useEffect(() => {
+    if (!__DEV__) {
+      return;
+    }
+
+    console.log('[RTL Debug][Settings]', {
+      language,
+      selectedLanguage,
+      isRTL,
+      globalRTL,
+      currentLanguage: getCurrentLanguage(),
+      i18nManagerIsRTL: I18nManager.isRTL,
+      settingsDebugKey,
+      languageOptionPositions,
+      languageOptionMetrics,
+    });
+  }, [language, selectedLanguage, isRTL, settingsDebugKey, languageOptionMetrics, languageOptionPositions]);
+
+  const handleLanguageOptionLayout = useCallback((key: 'arX' | 'enX') => (event: LayoutChangeEvent) => {
+    const nextX = Math.round(event.nativeEvent.layout.x);
+    setLanguageOptionPositions(prev => (
+      prev[key] === nextX
+        ? prev
+        : {
+          ...prev,
+          [key]: nextX,
+        }
+    ));
+  }, []);
+  const handleLanguageMetricLayout = useCallback((key: 'arLabelX' | 'arIconX' | 'enLabelX' | 'enIconX') => (event: LayoutChangeEvent) => {
+    const nextX = Math.round(event.nativeEvent.layout.x);
+    setLanguageOptionMetrics(prev => (
+      prev[key] === nextX
+        ? prev
+        : {
+          ...prev,
+          [key]: nextX,
+        }
+    ));
+  }, []);
   const refreshUnsyncedStatus = async () => {
     const v = await hasUnsyncedData();
     setHasUnsynced(v);
   };
-
   const checkAuthStatus = async (userFromServer?: any) => {
     // if (__DEV__) {
     //   
@@ -138,7 +199,6 @@ export const SettingsScreen = ({ navigation }: any) => {
         setUserPhone(userFromServer.phone || '');
         return;
       }
-
       const status = await authApiService.checkAuth();
       // if (__DEV__) {
       //   
@@ -154,40 +214,40 @@ export const SettingsScreen = ({ navigation }: any) => {
         setUserData(null);
       }
     } catch (error) {
-      
       setIsAuthenticated(false);
     }
   };
-
   const handleLogout = async () => {
     try {
       await authApiService.logout();
       setIsAuthenticated(false);
       setUserPhone('');
-      alertService.toastSuccess('تم تسجيل الخروج بنجاح');
+      alertService.toastSuccess(tl("تم تسجيل الخروج بنجاح"));
     } catch (error) {
-      alertService.error('خطأ', 'فشل تسجيل الخروج');
+      alertService.error(tl("خطأ"), tl("فشل تسجيل الخروج"));
     }
   };
-
   const loadSettings = async () => {
     try {
       const userSettings = await getUserSettings();
       if (userSettings?.name) {
         setUserName(userSettings.name);
       }
-
       const appSettings = await getAppSettings();
       if (appSettings) {
         setNotificationsEnabled(appSettings.notificationsEnabled);
         setAutoSyncEnabled(!!appSettings.autoSyncEnabled);
+        const nextLanguage = isSupportedLanguage(appSettings.language) ? appSettings.language : 'ar';
+        setSelectedLanguage(nextLanguage);
+        if (nextLanguage !== language) {
+          setLanguage(nextLanguage);
+        }
         // Extract currency code from currency string (e.g., "دينار عراقي" -> "IQD")
         const currency = CURRENCIES.find(c => c.name === appSettings.currency);
         if (currency) {
           setSelectedCurrency(currency.code);
         }
       }
-
       const notificationSettings = await getNotificationSettings();
       if (notificationSettings) {
         setDailyReminder(!!notificationSettings.dailyReminder);
@@ -222,7 +282,6 @@ export const SettingsScreen = ({ navigation }: any) => {
         const defaultDailyTime = new Date();
         defaultDailyTime.setHours(20, 0, 0, 0);
         setDailyReminderTime(defaultDailyTime);
-
         const defaultExpenseTime = new Date();
         defaultExpenseTime.setHours(20, 0, 0, 0);
         setExpenseReminderTime(defaultExpenseTime);
@@ -245,146 +304,124 @@ export const SettingsScreen = ({ navigation }: any) => {
       // Ignore error
     }
   };
-
   const handleNotificationsToggle = async (value: boolean) => {
     setNotificationsEnabled(value);
     const appSettings = await getAppSettings();
     // Create default settings if none exist
-    const settingsToSave = appSettings || {
-      notificationsEnabled: true,
-      darkModeEnabled: false,
-      themeMode: 'light',
-      autoBackupEnabled: false,
-      autoSyncEnabled: false,
-      currency: 'دينار عراقي',
-      language: 'ar',
-    };
-    await upsertAppSettings({ ...settingsToSave, notificationsEnabled: value, themeMode: settingsToSave.themeMode });
+    const settingsToSave = appSettings || getDefaultAppSettings();
+    await upsertAppSettings({
+      ...settingsToSave,
+      notificationsEnabled: value,
+      themeMode: settingsToSave.themeMode
+    });
     if (value) {
       const hasPermission = await requestPermissions();
       if (hasPermission) {
         await initializeNotifications();
       } else {
-        alertService.warning('إذن مطلوب', 'يرجى السماح بالإشعارات من إعدادات التطبيق');
+        alertService.warning(t('settings.notificationsPermissionTitle'), t('settings.notificationsPermissionMessage'));
       }
     } else {
       // Cancel all notifications when disabled
       await Notifications.cancelAllScheduledNotificationsAsync();
     }
   };
-
   const handleAutoSyncToggle = async (value: boolean) => {
     if (value) {
-      const user = await authStorage.getUser<{ isPro?: boolean; is_pro?: boolean }>();
+      const user = await authStorage.getUser<{
+        isPro?: boolean;
+        is_pro?: boolean;
+      }>();
       const isPro = user?.isPro === true || (user as any)?.is_pro === true;
       if (!isPro) {
         alertService.show({
-          title: 'اشتراك مميز',
-          message: 'المزامنة التلقائية متاحة للمشتركين المميزين فقط. يجب أن يكون نوع حسابك أو اشتراكك مميزاً.',
+          title: t('sync.premiumTitle'),
+          message: t('settings.autoSyncPremiumMessage'),
           type: 'warning',
-          confirmText: 'حسناً',
+          confirmText: t('common.ok')
         });
         return;
       }
     }
     setAutoSyncEnabled(value);
     const appSettings = await getAppSettings();
-    const settingsToSave = appSettings || {
-      notificationsEnabled: true,
-      darkModeEnabled: false,
-      themeMode: 'light',
-      autoBackupEnabled: false,
-      autoSyncEnabled: false,
-      currency: 'دينار عراقي',
-      language: 'ar',
-    };
-    await upsertAppSettings({ ...settingsToSave, autoSyncEnabled: value, themeMode: settingsToSave.themeMode });
+    const settingsToSave = appSettings || getDefaultAppSettings();
+    await upsertAppSettings({
+      ...settingsToSave,
+      autoSyncEnabled: value,
+      themeMode: settingsToSave.themeMode
+    });
   };
-
   const handleDailyReminderToggle = async (value: boolean) => {
     setDailyReminder(value);
     const notificationSettings = await getNotificationSettings();
-
     const dailyTimeString = `${dailyReminderTime.getHours().toString().padStart(2, '0')}:${dailyReminderTime.getMinutes().toString().padStart(2, '0')}`;
     const expenseTimeString = `${expenseReminderTime.getHours().toString().padStart(2, '0')}:${expenseReminderTime.getMinutes().toString().padStart(2, '0')}`;
-
-    const payload = notificationSettings
-      ? {
-        dailyReminder: value ? 1 : 0,
-        dailyReminderTime: notificationSettings.dailyReminderTime ?? dailyTimeString,
-        expenseReminder: notificationSettings.expenseReminder ? 1 : 0,
-        expenseReminderTime: notificationSettings.expenseReminderTime ?? expenseTimeString,
-        incomeReminder: notificationSettings.incomeReminder ? 1 : 0,
-        weeklySummary: notificationSettings.weeklySummary ? 1 : 0,
-        monthlySummary: notificationSettings.monthlySummary ? 1 : 0,
-      }
-      : {
-        dailyReminder: value ? 1 : 0,
-        dailyReminderTime: dailyTimeString,
-        expenseReminder: expenseReminder ? 1 : 0,
-        expenseReminderTime: expenseTimeString,
-        incomeReminder: 1,
-        weeklySummary: 1,
-        monthlySummary: 1,
-      };
-
+    const payload = notificationSettings ? {
+      dailyReminder: value ? 1 : 0,
+      dailyReminderTime: notificationSettings.dailyReminderTime ?? dailyTimeString,
+      expenseReminder: notificationSettings.expenseReminder ? 1 : 0,
+      expenseReminderTime: notificationSettings.expenseReminderTime ?? expenseTimeString,
+      incomeReminder: notificationSettings.incomeReminder ? 1 : 0,
+      weeklySummary: notificationSettings.weeklySummary ? 1 : 0,
+      monthlySummary: notificationSettings.monthlySummary ? 1 : 0
+    } : {
+      dailyReminder: value ? 1 : 0,
+      dailyReminderTime: dailyTimeString,
+      expenseReminder: expenseReminder ? 1 : 0,
+      expenseReminderTime: expenseTimeString,
+      incomeReminder: 1,
+      weeklySummary: 1,
+      monthlySummary: 1
+    };
     await upsertNotificationSettings(payload);
     await loadSettings();
-
     if (value) {
       try {
         await scheduleDailyReminder();
       } catch (error) {
-        alertService.error('خطأ', 'فشل جدولة التذكير اليومي');
+        alertService.error(tl("خطأ"), tl("فشل جدولة التذكير اليومي"));
       }
     } else {
       await cancelNotification('daily-reminder');
       await cancelNotification('daily-reminder-repeat');
     }
   };
-
   const handleExpenseReminderToggle = async (value: boolean) => {
     setExpenseReminder(value);
     const notificationSettings = await getNotificationSettings();
-
     const dailyTimeString = `${dailyReminderTime.getHours().toString().padStart(2, '0')}:${dailyReminderTime.getMinutes().toString().padStart(2, '0')}`;
     const expenseTimeString = `${expenseReminderTime.getHours().toString().padStart(2, '0')}:${expenseReminderTime.getMinutes().toString().padStart(2, '0')}`;
-
-    const payload = notificationSettings
-      ? {
-        dailyReminder: notificationSettings.dailyReminder ? 1 : 0,
-        dailyReminderTime: notificationSettings.dailyReminderTime ?? dailyTimeString,
-        expenseReminder: value ? 1 : 0,
-        expenseReminderTime: notificationSettings.expenseReminderTime ?? expenseTimeString,
-        incomeReminder: notificationSettings.incomeReminder ? 1 : 0,
-        weeklySummary: notificationSettings.weeklySummary ? 1 : 0,
-        monthlySummary: notificationSettings.monthlySummary ? 1 : 0,
-      }
-      : {
-        dailyReminder: dailyReminder ? 1 : 0,
-        dailyReminderTime: dailyTimeString,
-        expenseReminder: value ? 1 : 0,
-        expenseReminderTime: expenseTimeString,
-        incomeReminder: 1,
-        weeklySummary: 1,
-        monthlySummary: 1,
-      };
-
+    const payload = notificationSettings ? {
+      dailyReminder: notificationSettings.dailyReminder ? 1 : 0,
+      dailyReminderTime: notificationSettings.dailyReminderTime ?? dailyTimeString,
+      expenseReminder: value ? 1 : 0,
+      expenseReminderTime: notificationSettings.expenseReminderTime ?? expenseTimeString,
+      incomeReminder: notificationSettings.incomeReminder ? 1 : 0,
+      weeklySummary: notificationSettings.weeklySummary ? 1 : 0,
+      monthlySummary: notificationSettings.monthlySummary ? 1 : 0
+    } : {
+      dailyReminder: dailyReminder ? 1 : 0,
+      dailyReminderTime: dailyTimeString,
+      expenseReminder: value ? 1 : 0,
+      expenseReminderTime: expenseTimeString,
+      incomeReminder: 1,
+      weeklySummary: 1,
+      monthlySummary: 1
+    };
     await upsertNotificationSettings(payload);
     await loadSettings();
-
     if (value) {
       try {
         await sendExpenseReminder();
       } catch (error) {
-        alertService.error('خطأ', 'فشل جدولة تذكير المصاريف');
+        alertService.error(tl("خطأ"), tl("فشل جدولة تذكير المصاريف"));
       }
     } else {
       await cancelNotification('expense-reminder');
       await cancelNotification('expense-reminder-repeat');
     }
   };
-
   const handleDailyTimeChange = async (event: any, selectedTime?: Date) => {
     if (Platform.OS === 'android') {
       setShowDailyTimePicker(false);
@@ -393,12 +430,11 @@ export const SettingsScreen = ({ navigation }: any) => {
         const hours = selectedTime.getHours().toString().padStart(2, '0');
         const minutes = selectedTime.getMinutes().toString().padStart(2, '0');
         const timeString = `${hours}:${minutes}`;
-
         const notificationSettings = await getNotificationSettings();
         if (notificationSettings) {
           await upsertNotificationSettings({
             ...notificationSettings,
-            dailyReminderTime: timeString,
+            dailyReminderTime: timeString
           });
           if (dailyReminder) {
             await scheduleDailyReminder();
@@ -407,7 +443,6 @@ export const SettingsScreen = ({ navigation }: any) => {
       }
     }
   };
-
   const handleExpenseTimeChange = async (event: any, selectedTime?: Date) => {
     if (Platform.OS === 'android') {
       setShowExpenseTimePicker(false);
@@ -416,12 +451,11 @@ export const SettingsScreen = ({ navigation }: any) => {
         const hours = selectedTime.getHours().toString().padStart(2, '0');
         const minutes = selectedTime.getMinutes().toString().padStart(2, '0');
         const timeString = `${hours}:${minutes}`;
-
         const notificationSettings = await getNotificationSettings();
         if (notificationSettings) {
           await upsertNotificationSettings({
             ...notificationSettings,
-            expenseReminderTime: timeString,
+            expenseReminderTime: timeString
           });
           if (expenseReminder) {
             await sendExpenseReminder();
@@ -430,7 +464,6 @@ export const SettingsScreen = ({ navigation }: any) => {
       }
     }
   };
-
   const handleOpenDailyTimePicker = () => {
     const hour24 = dailyReminderTime.getHours();
     const minute = dailyReminderTime.getMinutes();
@@ -438,19 +471,26 @@ export const SettingsScreen = ({ navigation }: any) => {
     // Convert 24-hour to 12-hour format
     let hour12 = hour24 % 12;
     if (hour12 === 0) hour12 = 12;
-    const amPm: 'ص' | 'م' = hour24 >= 12 ? 'م' : 'ص';
-
+    const amPm: Meridiem = hour24 >= 12 ? 'pm' : 'am';
     setTempHour(hour12);
     setTempMinute(minute);
     setTempAmPm(amPm);
     setShowDailyTimePicker(true);
     setTimeout(() => {
-      dailyHourScrollRef.current?.scrollTo({ y: (hour12 - 1) * 50, animated: false });
-      dailyMinuteScrollRef.current?.scrollTo({ y: minute * 50, animated: false });
-      dailyAmPmScrollRef.current?.scrollTo({ y: amPm === 'ص' ? 0 : 50, animated: false });
+      dailyHourScrollRef.current?.scrollTo({
+        y: (hour12 - 1) * 50,
+        animated: false
+      });
+      dailyMinuteScrollRef.current?.scrollTo({
+        y: minute * 50,
+        animated: false
+      });
+      dailyAmPmScrollRef.current?.scrollTo({
+        y: amPm === 'am' ? 0 : 50,
+        animated: false
+      });
     }, 100);
   };
-
   const handleOpenExpenseTimePicker = () => {
     const hour24 = expenseReminderTime.getHours();
     const minute = expenseReminderTime.getMinutes();
@@ -458,36 +498,40 @@ export const SettingsScreen = ({ navigation }: any) => {
     // Convert 24-hour to 12-hour format
     let hour12 = hour24 % 12;
     if (hour12 === 0) hour12 = 12;
-    const amPm: 'ص' | 'م' = hour24 >= 12 ? 'م' : 'ص';
-
+    const amPm: Meridiem = hour24 >= 12 ? 'pm' : 'am';
     setTempHour(hour12);
     setTempMinute(minute);
     setTempAmPm(amPm);
     setShowExpenseTimePicker(true);
     setTimeout(() => {
-      expenseHourScrollRef.current?.scrollTo({ y: (hour12 - 1) * 50, animated: false });
-      expenseMinuteScrollRef.current?.scrollTo({ y: minute * 50, animated: false });
-      expenseAmPmScrollRef.current?.scrollTo({ y: amPm === 'ص' ? 0 : 50, animated: false });
+      expenseHourScrollRef.current?.scrollTo({
+        y: (hour12 - 1) * 50,
+        animated: false
+      });
+      expenseMinuteScrollRef.current?.scrollTo({
+        y: minute * 50,
+        animated: false
+      });
+      expenseAmPmScrollRef.current?.scrollTo({
+        y: amPm === 'am' ? 0 : 50,
+        animated: false
+      });
     }, 100);
   };
-
   const handleDailyTimeConfirm = async () => {
     setShowDailyTimePicker(false);
 
     // Convert 12-hour to 24-hour format
     let hour24 = tempHour;
-    if (tempAmPm === 'م' && tempHour !== 12) {
+    if (tempAmPm === 'pm' && tempHour !== 12) {
       hour24 = tempHour + 12;
-    } else if (tempAmPm === 'ص' && tempHour === 12) {
+    } else if (tempAmPm === 'am' && tempHour === 12) {
       hour24 = 0;
     }
-
     const newTime = new Date();
     newTime.setHours(hour24, tempMinute, 0, 0);
     setDailyReminderTime(newTime);
-
     const timeString = `${hour24.toString().padStart(2, '0')}:${tempMinute.toString().padStart(2, '0')}`;
-
     try {
       const notificationSettings = await getNotificationSettings();
 
@@ -495,53 +539,44 @@ export const SettingsScreen = ({ navigation }: any) => {
       const expenseHours = expenseReminderTime.getHours().toString().padStart(2, '0');
       const expenseMinutes = expenseReminderTime.getMinutes().toString().padStart(2, '0');
       const expenseTimeString = `${expenseHours}:${expenseMinutes}`;
-
       await upsertNotificationSettings({
-        dailyReminder: notificationSettings ? (notificationSettings.dailyReminder ? 1 : 0) : (dailyReminder ? 1 : 0),
+        dailyReminder: notificationSettings ? notificationSettings.dailyReminder ? 1 : 0 : dailyReminder ? 1 : 0,
         dailyReminderTime: timeString,
-        expenseReminder: notificationSettings ? (notificationSettings.expenseReminder ? 1 : 0) : (expenseReminder ? 1 : 0),
+        expenseReminder: notificationSettings ? notificationSettings.expenseReminder ? 1 : 0 : expenseReminder ? 1 : 0,
         expenseReminderTime: notificationSettings?.expenseReminderTime ?? expenseTimeString,
-        incomeReminder: notificationSettings ? (notificationSettings.incomeReminder ? 1 : 0) : 1,
-        weeklySummary: notificationSettings ? (notificationSettings.weeklySummary ? 1 : 0) : 1,
-        monthlySummary: notificationSettings ? (notificationSettings.monthlySummary ? 1 : 0) : 1,
+        incomeReminder: notificationSettings ? notificationSettings.incomeReminder ? 1 : 0 : 1,
+        weeklySummary: notificationSettings ? notificationSettings.weeklySummary ? 1 : 0 : 1,
+        monthlySummary: notificationSettings ? notificationSettings.monthlySummary ? 1 : 0 : 1
       });
 
       // Reload from DB so state matches persisted value (handles focus race)
       await loadSettings();
-
-      alertService.toastSuccess(`تم حفظ وقت التذكير اليومي: ${timeString}`);
-
+      alertService.toastSuccess(tl("تم حفظ وقت التذكير اليومي: {{}}", [timeString]));
       if (dailyReminder) {
         try {
           await scheduleDailyReminder();
         } catch (error) {
-          
-          alertService.error('خطأ', 'تم حفظ الوقت لكن فشل جدولة التذكير');
+          alertService.error(tl("خطأ"), tl("تم حفظ الوقت لكن فشل جدولة التذكير"));
         }
       }
     } catch (error) {
-      
-      alertService.error('خطأ', 'فشل حفظ وقت التذكير اليومي');
+      alertService.error(tl("خطأ"), tl("فشل حفظ وقت التذكير اليومي"));
     }
   };
-
   const handleExpenseTimeConfirm = async () => {
     setShowExpenseTimePicker(false);
 
     // Convert 12-hour to 24-hour format
     let hour24 = tempHour;
-    if (tempAmPm === 'م' && tempHour !== 12) {
+    if (tempAmPm === 'pm' && tempHour !== 12) {
       hour24 = tempHour + 12;
-    } else if (tempAmPm === 'ص' && tempHour === 12) {
+    } else if (tempAmPm === 'am' && tempHour === 12) {
       hour24 = 0;
     }
-
     const newTime = new Date();
     newTime.setHours(hour24, tempMinute, 0, 0);
     setExpenseReminderTime(newTime);
-
     const timeString = `${hour24.toString().padStart(2, '0')}:${tempMinute.toString().padStart(2, '0')}`;
-
     let notificationSettings = await getNotificationSettings();
 
     // Create default settings if they don't exist
@@ -553,80 +588,63 @@ export const SettingsScreen = ({ navigation }: any) => {
         expenseReminderTime: timeString,
         incomeReminder: 1,
         weeklySummary: 1,
-        monthlySummary: 1,
+        monthlySummary: 1
       };
     }
-
     await upsertNotificationSettings({
       ...notificationSettings,
-      expenseReminderTime: timeString,
+      expenseReminderTime: timeString
     });
-
     if (expenseReminder) {
       try {
         await sendExpenseReminder();
-        alertService.toastSuccess(`تم تعيين وقت تذكير المصاريف إلى ${timeString}`);
+        alertService.toastSuccess(tl("تم تعيين وقت تذكير المصاريف إلى {{}}", [timeString]));
       } catch (error) {
-        alertService.error('خطأ', 'فشل جدولة تذكير المصاريف');
+        alertService.error(tl("خطأ"), tl("فشل جدولة تذكير المصاريف"));
       }
     }
   };
-
   const renderTimePickerWheel = (type: 'daily' | 'expense') => {
-    const hours = Array.from({ length: 12 }, (_, i) => i + 1); // 1-12 for 12-hour format
-    const minutes = Array.from({ length: 60 }, (_, i) => i);
-    const amPmOptions: ('ص' | 'م')[] = ['ص', 'م'];
+    const hours = Array.from({
+      length: 12
+    }, (_, i) => i + 1); // 1-12 for 12-hour format
+    const minutes = Array.from({
+      length: 60
+    }, (_, i) => i);
+    const amPmOptions: Meridiem[] = ['am', 'pm'];
     const itemHeight = 50;
-
     const hourRef = type === 'daily' ? dailyHourScrollRef : expenseHourScrollRef;
     const minuteRef = type === 'daily' ? dailyMinuteScrollRef : expenseMinuteScrollRef;
     const amPmRef = type === 'daily' ? dailyAmPmScrollRef : expenseAmPmScrollRef;
-
     const handleHourScroll = (event: any) => {
       const y = event.nativeEvent.contentOffset.y;
       const index = Math.round(y / itemHeight);
       const hour = Math.max(1, Math.min(12, index + 1));
       setTempHour(hour);
     };
-
     const handleMinuteScroll = (event: any) => {
       const y = event.nativeEvent.contentOffset.y;
       const index = Math.round(y / itemHeight);
       const minute = Math.max(0, Math.min(59, index));
       setTempMinute(minute);
     };
-
     const handleAmPmScroll = (event: any) => {
       const y = event.nativeEvent.contentOffset.y;
       const index = Math.round(y / itemHeight);
-      const amPm = index === 0 ? 'ص' : 'م';
+      const amPm: Meridiem = index === 0 ? 'am' : 'pm';
       setTempAmPm(amPm);
     };
-
-    return (
-      <View style={styles.customTimePickerContainer}>
+    return <View style={styles.customTimePickerContainer}>
         <View style={styles.timePickerWheel}>
           <View style={styles.timePickerSelectionIndicator} />
-          <ScrollView
-            ref={hourRef}
-            style={styles.timePickerScroll}
-            contentContainerStyle={styles.timePickerScrollContent}
-            showsVerticalScrollIndicator={false}
-            snapToInterval={itemHeight}
-            decelerationRate="fast"
-            onMomentumScrollEnd={handleHourScroll}
-            onScrollEndDrag={handleHourScroll}
-          >
-            {hours.map((hour) => (
-              <View key={hour} style={[styles.timePickerItem, { height: itemHeight }]}>
-                <Text style={[
-                  styles.timePickerItemText,
-                  tempHour === hour && styles.timePickerItemTextSelected
-                ]}>
+          <ScrollView ref={hourRef} style={styles.timePickerScroll} contentContainerStyle={styles.timePickerScrollContent} showsVerticalScrollIndicator={false} snapToInterval={itemHeight} decelerationRate="fast" onMomentumScrollEnd={handleHourScroll} onScrollEndDrag={handleHourScroll}>
+            {hours.map(hour => <View key={hour} style={[styles.timePickerItem, {
+            height: itemHeight
+          }]}>
+                <Text style={[styles.timePickerItemText, tempHour === hour && styles.timePickerItemTextSelected]}>
                   {hour.toString().padStart(2, '0')}
                 </Text>
-              </View>
-            ))}
+              </View>)}
           </ScrollView>
         </View>
 
@@ -634,95 +652,64 @@ export const SettingsScreen = ({ navigation }: any) => {
 
         <View style={styles.timePickerWheel}>
           <View style={styles.timePickerSelectionIndicator} />
-          <ScrollView
-            ref={minuteRef}
-            style={styles.timePickerScroll}
-            contentContainerStyle={styles.timePickerScrollContent}
-            showsVerticalScrollIndicator={false}
-            snapToInterval={itemHeight}
-            decelerationRate="fast"
-            onMomentumScrollEnd={handleMinuteScroll}
-            onScrollEndDrag={handleMinuteScroll}
-          >
-            {minutes.map((minute) => (
-              <View key={minute} style={[styles.timePickerItem, { height: itemHeight }]}>
-                <Text style={[
-                  styles.timePickerItemText,
-                  tempMinute === minute && styles.timePickerItemTextSelected
-                ]}>
+          <ScrollView ref={minuteRef} style={styles.timePickerScroll} contentContainerStyle={styles.timePickerScrollContent} showsVerticalScrollIndicator={false} snapToInterval={itemHeight} decelerationRate="fast" onMomentumScrollEnd={handleMinuteScroll} onScrollEndDrag={handleMinuteScroll}>
+            {minutes.map(minute => <View key={minute} style={[styles.timePickerItem, {
+            height: itemHeight
+          }]}>
+                <Text style={[styles.timePickerItemText, tempMinute === minute && styles.timePickerItemTextSelected]}>
                   {minute.toString().padStart(2, '0')}
                 </Text>
-              </View>
-            ))}
+              </View>)}
           </ScrollView>
         </View>
 
         <View style={styles.timePickerWheel}>
           <View style={styles.timePickerSelectionIndicator} />
-          <ScrollView
-            ref={amPmRef}
-            style={styles.timePickerScroll}
-            contentContainerStyle={styles.timePickerScrollContent}
-            showsVerticalScrollIndicator={false}
-            snapToInterval={itemHeight}
-            decelerationRate="fast"
-            onMomentumScrollEnd={handleAmPmScroll}
-            onScrollEndDrag={handleAmPmScroll}
-          >
-            {amPmOptions.map((amPm) => (
-              <View key={amPm} style={[styles.timePickerItem, { height: itemHeight }]}>
-                <Text style={[
-                  styles.timePickerItemText,
-                  tempAmPm === amPm && styles.timePickerItemTextSelected
-                ]}>
-                  {amPm}
+          <ScrollView ref={amPmRef} style={styles.timePickerScroll} contentContainerStyle={styles.timePickerScrollContent} showsVerticalScrollIndicator={false} snapToInterval={itemHeight} decelerationRate="fast" onMomentumScrollEnd={handleAmPmScroll} onScrollEndDrag={handleAmPmScroll}>
+            {amPmOptions.map(amPm => <View key={amPm} style={[styles.timePickerItem, {
+            height: itemHeight
+          }]}>
+                <Text style={[styles.timePickerItemText, tempAmPm === amPm && styles.timePickerItemTextSelected]}>
+                  {amPm === 'am' ? tl("ص") : tl("م")}
                 </Text>
-              </View>
-            ))}
+              </View>)}
           </ScrollView>
         </View>
-      </View>
-    );
+      </View>;
   };
-
   const formatTime = (date: Date): string => {
     const hour24 = date.getHours();
     let hour12 = hour24 % 12;
     if (hour12 === 0) hour12 = 12;
-    const amPm = hour24 >= 12 ? 'م' : 'ص';
+    const amPm = hour24 >= 12 ? tl("م") : tl("ص");
     const minutes = date.getMinutes().toString().padStart(2, '0');
     return `${hour12}:${minutes} ${amPm}`;
   };
-
   const handleCurrencyChange = async (currencyCode: string) => {
     const currency = CURRENCIES.find(c => c.code === currencyCode);
     if (currency) {
       setSelectedCurrency(currencyCode);
       const appSettings = await getAppSettings();
       // Create default settings if none exist
-      const settingsToSave = appSettings || {
-        notificationsEnabled: true,
-        darkModeEnabled: false,
-        themeMode: 'light',
-        autoBackupEnabled: false,
-        autoSyncEnabled: false,
-        currency: 'دينار عراقي',
-        language: 'ar',
-      };
-      await upsertAppSettings({ ...settingsToSave, currency: currency.name, themeMode: settingsToSave.themeMode });
+      const settingsToSave = appSettings || getDefaultAppSettings();
+      await upsertAppSettings({
+        ...settingsToSave,
+        currency: currency.name,
+        themeMode: settingsToSave.themeMode
+      });
 
       // Recalculate all base amounts for existing records based on the new target currency
       try {
-        
         await recalculateAllBaseAmounts(currencyCode, convertCurrency);
       } catch (error) {
-        
+
         // We continue anyway so the currency change takes effect, even if historical normalization fails
       }
-
       notifyCurrencyChanged();
       setShowCurrencyPicker(false);
-      alertService.toastSuccess(`تم تغيير العملة إلى ${currency.name}`);
+      alertService.toastSuccess(t('settings.currencyChanged', {
+        currency: getCurrencyDisplayName(currencyCode, language)
+      }));
 
       // Reload exchange rate for new currency
       if (currencyCode !== 'USD') {
@@ -736,7 +723,27 @@ export const SettingsScreen = ({ navigation }: any) => {
         setUsdToIqdRate('1');
       }
     }
-  }; const handleExportPDF = async () => {
+  };
+  const handleLanguageChange = async (nextLanguage: AppLanguage) => {
+    try {
+      const appSettings = await getAppSettings();
+      const settingsToSave = appSettings || getDefaultAppSettings();
+      await upsertAppSettings({
+        ...settingsToSave,
+        language: nextLanguage,
+        themeMode: settingsToSave.themeMode
+      });
+      setSelectedLanguage(nextLanguage);
+      setShowLanguagePicker(false);
+      setLanguage(nextLanguage);
+      alertService.toastSuccess(translateText('settings.languageChanged', {
+        language: getLanguageDisplayName(nextLanguage, nextLanguage)
+      }, nextLanguage));
+    } catch (error) {
+      alertService.error(t('common.error'), t('settings.languageChangeFailed'));
+    }
+  };
+  const handleExportPDF = async () => {
     try {
       setExportingPDF(true);
       let uri = '';
@@ -748,68 +755,58 @@ export const SettingsScreen = ({ navigation }: any) => {
       await sharePDF(uri);
       setShowExportModal(false);
     } catch (error) {
-      
-      alertService.error('خطأ', 'فشل تصدير التقرير');
+      alertService.error(tl("خطأ"), tl("فشل تصدير التقرير"));
     } finally {
       setExportingPDF(false);
     }
   };
-
   const handleSaveExchangeRate = async () => {
     if (selectedCurrency === 'USD') {
-      alertService.warning('تحذير', 'لا يمكن تعديل سعر الصرف للدولار مع نفسه');
+      alertService.warning(tl("تحذير"), tl("لا يمكن تعديل سعر الصرف للدولار مع نفسه"));
       return;
     }
-
     const rate = parseFloat(usdToIqdRate);
     if (isNaN(rate) || rate <= 0) {
-      alertService.warning('تحذير', 'يرجى إدخال سعر صرف صحيح');
+      alertService.warning(tl("تحذير"), tl("يرجى إدخال سعر صرف صحيح"));
       return;
     }
-
     try {
       await upsertExchangeRate({
         fromCurrency: 'USD',
         toCurrency: selectedCurrency,
-        rate: rate,
+        rate: rate
       });
 
       // Also update reverse rate
       await upsertExchangeRate({
         fromCurrency: selectedCurrency,
         toCurrency: 'USD',
-        rate: 1 / rate,
+        rate: 1 / rate
       });
-
       setShowExchangeRateModal(false);
-      alertService.toastSuccess('تم حفظ سعر الصرف بنجاح');
+      alertService.toastSuccess(tl("تم حفظ سعر الصرف بنجاح"));
     } catch (error) {
-      alertService.error('خطأ', 'حدث خطأ أثناء حفظ سعر الصرف');
+      alertService.error(tl("خطأ"), tl("حدث خطأ أثناء حفظ سعر الصرف"));
     }
   };
-
   const handleContactEmail = async () => {
     const subject = encodeURIComponent(CONTACT_INFO.emailSubject);
     const body = encodeURIComponent(CONTACT_INFO.emailBody);
     const mailtoUrl = `mailto:${CONTACT_INFO.email}?subject=${subject}&body=${body}`;
-
     try {
       const canOpen = await Linking.canOpenURL(mailtoUrl);
       if (canOpen) {
         await Linking.openURL(mailtoUrl);
       } else {
-        alertService.warning('تنبيه', 'لا يمكن فتح تطبيق البريد الإلكتروني');
+        alertService.warning(tl("تنبيه"), tl("لا يمكن فتح تطبيق البريد الإلكتروني"));
       }
     } catch (error) {
-      
-      alertService.error('خطأ', 'حدث خطأ أثناء فتح البريد الإلكتروني');
+      alertService.error(tl("خطأ"), tl("حدث خطأ أثناء فتح البريد الإلكتروني"));
     }
   };
-
   const handleContactWhatsApp = async () => {
     const message = encodeURIComponent(CONTACT_INFO.whatsappMessage);
     const whatsappUrl = `https://wa.me/${CONTACT_INFO.whatsappNumber}?text=${message}`;
-
     try {
       const canOpen = await Linking.canOpenURL(whatsappUrl);
       if (canOpen) {
@@ -820,15 +817,13 @@ export const SettingsScreen = ({ navigation }: any) => {
         try {
           await Linking.openURL(whatsappAppUrl);
         } catch {
-          alertService.warning('تنبيه', 'يرجى تثبيت تطبيق WhatsApp');
+          alertService.warning(tl("تنبيه"), tl("يرجى تثبيت تطبيق WhatsApp"));
         }
       }
     } catch (error) {
-      
-      alertService.error('خطأ', 'حدث خطأ أثناء فتح WhatsApp');
+      alertService.error(tl("خطأ"), tl("حدث خطأ أثناء فتح WhatsApp"));
     }
   };
-
   const loadReferralInfo = async () => {
     setLoadingReferral(true);
     try {
@@ -836,30 +831,22 @@ export const SettingsScreen = ({ navigation }: any) => {
       if (result.success && result.data) {
         setReferralInfo(result.data);
       }
-    } catch (err) {
-      
-    } finally {
+    } catch (err) {} finally {
       setLoadingReferral(false);
     }
   };
-
   const handleShareReferral = async () => {
     if (!referralInfo?.referralCode) return;
-
     try {
-      const message = `استخدم كود الإحالة الخاص بي (${referralInfo.referralCode}) في تطبيق "دنانير" لتحصل على 7 أيام اشتراك برو مجاناً!\n\nحمل التطبيق من هنا: ${APP_LINKS.apple}`;
+      const message = tl("استخدم كود الإحالة الخاص بي ({{}}) في تطبيق \"دنانير\" لتحصل على 7 أيام اشتراك برو مجاناً! حمل التطبيق من هنا: {{}}", [referralInfo.referralCode, APP_LINKS.apple]);
       await Share.share({
-        message,
+        message
       });
-    } catch (error) {
-      
-    }
+    } catch (error) {}
   };
-
   const handleDeleteAllData = async () => {
     try {
-      const authenticated = await authenticateWithDevice('يرجى التحقق من الهوية لحذف جميع البيانات');
-
+      const authenticated = await authenticateWithDevice(tl("يرجى التحقق من الهوية لحذف جميع البيانات"));
       if (authenticated) {
         setDeletingAll(true);
 
@@ -870,21 +857,18 @@ export const SettingsScreen = ({ navigation }: any) => {
         try {
           await deleteSyncDataFromServer();
         } catch (serverError) {
-          
+
           // We don't block local success because local data is already gone
         }
-
         setDeletingAll(false);
-        alertService.toastSuccess('تم حذف جميع بيانات التطبيق بنجاح (محلياً ومن السيرفر)');
+        alertService.toastSuccess(tl("تم حذف جميع بيانات التطبيق بنجاح (محلياً ومن السيرفر)"));
         await loadSettings();
       }
     } catch (error) {
       setDeletingAll(false);
-      
-      alertService.error('خطأ', 'حدث خطأ أثناء مسح البيانات');
+      alertService.error(tl("خطأ"), tl("حدث خطأ أثناء مسح البيانات"));
     }
   };
-
   const handleShareApp = async () => {
     try {
       // رابط موحد لكل المنصات
@@ -893,38 +877,46 @@ export const SettingsScreen = ({ navigation }: any) => {
       await Share.share({
         message,
         url: Platform.OS === 'ios' ? shareUrl : undefined,
-        title: 'دنانير - تطبيق المالية الشخصية',
+        title: tl("دنانير - تطبيق المالية الشخصية")
       });
     } catch (err: any) {
       if (err?.message !== 'User did not share') {
-        alertService.error('خطأ', 'لم تتم المشاركة');
+        alertService.error(tl("خطأ"), tl("لم تتم المشاركة"));
       }
     }
   };
-
-  return (
-    <ScreenContainer scrollable={false} edges={['left', 'right']}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+  return <ScreenContainer key={`settings-${language}-${isRTL ? 'rtl' : 'ltr'}`} scrollable={false} edges={['left', 'right']} style={{
+      writingDirection: isRTL ? 'rtl' : 'ltr'
+    } as any}>
+      <ScrollView key={`settings-scroll-${language}-${isRTL ? 'rtl' : 'ltr'}`} style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
         {/* Profile Navigation Block (NEW) */}
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Profile')}
-          style={[styles.sectionCard, { marginTop: 16 }]}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.sectionContent, { flexDirection: 'row', alignItems: 'center' }]}>
-            <View style={[styles.avatarContainer, { width: 50, height: 50, borderRadius: 25, backgroundColor: theme.colors.primary + '20', justifyContent: 'center', alignItems: 'center' }]}>
+        <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={[styles.sectionCard, {
+        marginTop: 16
+      }]} activeOpacity={0.7}>
+          <View style={[styles.sectionContent, {
+          flexDirection: isRTL ? 'row' : 'row-reverse',
+          alignItems: 'center'
+        }]}>
+            <View style={[styles.avatarContainer, {
+            width: 50,
+            height: 50,
+            borderRadius: 25,
+            backgroundColor: isDark ? theme.colors.surfaceLight : theme.colors.primary + '15',
+            justifyContent: 'center',
+            alignItems: 'center',
+            elevation: 0 // Disable elevation on Android for transparent circle
+          }]}>
               <Ionicons name="person" size={24} color={theme.colors.primary} />
             </View>
-            <View style={{ flex: 1, marginLeft: 16, marginRight: 16 }}>
-              <Text style={styles.profileTitle}>الحساب والملف الشخصي</Text>
-              <Text style={styles.profileSubtitle}>إدارة الحساب، المزامنة، والإحالة</Text>
+            <View style={{
+            flex: 1,
+            marginHorizontal: 16
+          }}>
+              <Text style={styles.profileTitle}>{tl("الحساب والملف الشخصي")}</Text>
+              <Text style={styles.profileSubtitle}>{tl("إدارة الحساب، المزامنة، والإحالة")}</Text>
             </View>
-            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={24} color={theme.colors.textMuted} />
+            <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={24} color={theme.colors.textMuted} />
           </View>
         </TouchableOpacity>
 
@@ -933,118 +925,137 @@ export const SettingsScreen = ({ navigation }: any) => {
           <View style={styles.sectionContent}>
             <View style={styles.sectionHeader}>
               <Ionicons name="settings-outline" size={22} color={theme.colors.primary} />
-              <Text style={styles.sectionTitle}>الإعدادات العامة</Text>
+              <Text style={styles.sectionTitle}>{tl("الإعدادات العامة")}</Text>
             </View>
 
             <View style={styles.premiumRow}>
-              <View style={[styles.premiumIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+              <View style={[styles.premiumIconBox, {
+              backgroundColor: theme.colors.primary + '15'
+            }]}>
                 <Ionicons name="notifications" size={22} color={theme.colors.primary} />
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.premiumItemTitle}>الإشعارات</Text>
-                <Text style={styles.premiumItemSubtitle}>تلقي تنبيهات حول المصاريف والأهداف</Text>
+              <View style={{
+              flex: 1
+            }}>
+                <Text style={styles.premiumItemTitle}>{tl("الإشعارات")}</Text>
+                <Text style={styles.premiumItemSubtitle}>{tl("تلقي تنبيهات حول المصاريف والأهداف")}</Text>
               </View>
-              <Switch
-                value={notificationsEnabled}
-                onValueChange={handleNotificationsToggle}
-                trackColor={{ false: '#767577', true: theme.colors.primary }}
-                thumbColor={notificationsEnabled ? '#FFFFFF' : '#f4f3f4'}
-              />
+              <Switch value={notificationsEnabled} onValueChange={handleNotificationsToggle} trackColor={{
+              false: '#767577',
+              true: theme.colors.primary
+            }} thumbColor={notificationsEnabled ? '#FFFFFF' : '#f4f3f4'} />
             </View>
 
-            <View style={{ marginTop: 16 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                <View style={[styles.premiumIconBox, { backgroundColor: '#8B5CF615', width: 36, height: 36, borderRadius: 10 }]}>
+            <View style={{
+            marginTop: 16
+          }}>
+            <View style={{
+              flexDirection: isRTL ? 'row' : 'row-reverse',
+              alignItems: 'center',
+              marginBottom: 12
+            }}>
+                <View style={[styles.premiumIconBox, {
+                backgroundColor: '#8B5CF615',
+                width: 36,
+                height: 36,
+                borderRadius: 10
+              }]}>
                   <Ionicons name="color-palette" size={18} color="#8B5CF6" />
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.premiumItemTitle, { fontSize: 15 }]}>المظهر (Theme)</Text>
+                <View style={{
+                flex: 1
+              }}>
+                  <Text style={[styles.premiumItemTitle, {
+                  fontSize: 15
+                }]}>{tl("المظهر (Theme)")}</Text>
                 </View>
               </View>
 
               <View style={styles.themeOptionsContainer}>
-                <TouchableOpacity
-                  style={[styles.themeOption, themeMode === 'light' && styles.themeOptionActive]}
-                  onPress={async () => {
-                    setThemeMode('light');
-                    try {
-                      const appSettings = await getAppSettings();
-                      const settingsToSave = appSettings || {
-                        notificationsEnabled: true,
-                        darkModeEnabled: false,
-                        themeMode: 'light',
-                        autoBackupEnabled: false,
-                        autoSyncEnabled: false,
-                        currency: 'دينار عراقي',
-                        language: 'ar',
-                      };
-                      await upsertAppSettings({ ...settingsToSave, themeMode: 'light', darkModeEnabled: false });
-                      // Sync to widget
-                      const { saveWidgetData } = await import('../services/widgetDataService');
-                      await saveWidgetData();
-                    } catch (e) {
-                      
-                    }
-                  }}
-                >
+                <TouchableOpacity style={[styles.themeOption, themeMode === 'light' && styles.themeOptionActive]} onPress={async () => {
+                setThemeMode('light');
+                try {
+                  const appSettings = await getAppSettings();
+                  const settingsToSave = appSettings || {
+                    notificationsEnabled: true,
+                    darkModeEnabled: false,
+                    themeMode: 'light',
+                    autoBackupEnabled: false,
+                    autoSyncEnabled: false,
+                    currency: 'دينار عراقي',
+                    language: 'ar'
+                  };
+                  await upsertAppSettings({
+                    ...settingsToSave,
+                    themeMode: 'light',
+                    darkModeEnabled: false
+                  });
+                  // Sync to widget
+                  const {
+                    saveWidgetData
+                  } = await import('../services/widgetDataService');
+                  await saveWidgetData();
+                } catch (e) {}
+              }}>
                   <Ionicons name="sunny" size={20} color={themeMode === 'light' ? theme.colors.primary : theme.colors.textSecondary} />
-                  <Text style={[styles.themeOptionText, themeMode === 'light' && styles.themeOptionTextActive]}>فاتح</Text>
+                  <Text style={[styles.themeOptionText, themeMode === 'light' && styles.themeOptionTextActive]}>{tl("فاتح")}</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[styles.themeOption, themeMode === 'dark' && styles.themeOptionActive]}
-                  onPress={async () => {
-                    setThemeMode('dark');
-                    try {
-                      const appSettings = await getAppSettings();
-                      const settingsToSave = appSettings || {
-                        notificationsEnabled: true,
-                        darkModeEnabled: true,
-                        themeMode: 'dark',
-                        autoBackupEnabled: false,
-                        autoSyncEnabled: false,
-                        currency: 'دينار عراقي',
-                        language: 'ar',
-                      };
-                      await upsertAppSettings({ ...settingsToSave, themeMode: 'dark', darkModeEnabled: true });
-                      // Sync to widget
-                      const { saveWidgetData } = await import('../services/widgetDataService');
-                      await saveWidgetData();
-                    } catch (e) {
-                      
-                    }
-                  }}
-                >
+                <TouchableOpacity style={[styles.themeOption, themeMode === 'dark' && styles.themeOptionActive]} onPress={async () => {
+                setThemeMode('dark');
+                try {
+                  const appSettings = await getAppSettings();
+                  const settingsToSave = appSettings || {
+                    notificationsEnabled: true,
+                    darkModeEnabled: true,
+                    themeMode: 'dark',
+                    autoBackupEnabled: false,
+                    autoSyncEnabled: false,
+                    currency: 'دينار عراقي',
+                    language: 'ar'
+                  };
+                  await upsertAppSettings({
+                    ...settingsToSave,
+                    themeMode: 'dark',
+                    darkModeEnabled: true
+                  });
+                  // Sync to widget
+                  const {
+                    saveWidgetData
+                  } = await import('../services/widgetDataService');
+                  await saveWidgetData();
+                } catch (e) {}
+              }}>
                   <Ionicons name="moon" size={20} color={themeMode === 'dark' ? theme.colors.primary : theme.colors.textSecondary} />
-                  <Text style={[styles.themeOptionText, themeMode === 'dark' && styles.themeOptionTextActive]}>داكن</Text>
+                  <Text style={[styles.themeOptionText, themeMode === 'dark' && styles.themeOptionTextActive]}>{tl("داكن")}</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[styles.themeOption, themeMode === 'system' && styles.themeOptionActive]}
-                  onPress={async () => {
-                    setThemeMode('system');
-                    try {
-                      const appSettings = await getAppSettings();
-                      const settingsToSave = appSettings || {
-                        notificationsEnabled: true,
-                        darkModeEnabled: false,
-                        themeMode: 'system',
-                        autoBackupEnabled: false,
-                        autoSyncEnabled: false,
-                        currency: 'دينار عراقي',
-                        language: 'ar',
-                      };
-                      await upsertAppSettings({ ...settingsToSave, themeMode: 'system' });
-                      // Sync to widget
-                      const { saveWidgetData } = await import('../services/widgetDataService');
-                      await saveWidgetData();
-                    } catch (e) {
-                      
-                    }
-                  }}
-                >
+                <TouchableOpacity style={[styles.themeOption, themeMode === 'system' && styles.themeOptionActive]} onPress={async () => {
+                setThemeMode('system');
+                try {
+                  const appSettings = await getAppSettings();
+                  const settingsToSave = appSettings || {
+                    notificationsEnabled: true,
+                    darkModeEnabled: false,
+                    themeMode: 'system',
+                    autoBackupEnabled: false,
+                    autoSyncEnabled: false,
+                    currency: 'دينار عراقي',
+                    language: 'ar'
+                  };
+                  await upsertAppSettings({
+                    ...settingsToSave,
+                    themeMode: 'system'
+                  });
+                  // Sync to widget
+                  const {
+                    saveWidgetData
+                  } = await import('../services/widgetDataService');
+                  await saveWidgetData();
+                } catch (e) {}
+              }}>
                   <Ionicons name="phone-portrait" size={20} color={themeMode === 'system' ? theme.colors.primary : theme.colors.textSecondary} />
-                  <Text style={[styles.themeOptionText, themeMode === 'system' && styles.themeOptionTextActive]}>النظام</Text>
+                  <Text style={[styles.themeOptionText, themeMode === 'system' && styles.themeOptionTextActive]}>{tl("النظام")}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1058,32 +1069,30 @@ export const SettingsScreen = ({ navigation }: any) => {
           <View style={styles.sectionContent}>
             <View style={styles.sectionHeader}>
               <Ionicons name="cloud-upload-outline" size={22} color={theme.colors.primary} />
-              <Text style={styles.sectionTitle}>النسخ الاحتياطي والاستعادة</Text>
+              <Text style={styles.sectionTitle}>{tl("النسخ الاحتياطي والاستعادة")}</Text>
             </View>
-            <TouchableOpacity
-              onPress={async () => {
-                if (backupLoading) return;
-                setBackupLoading(true);
-                const result = await createLocalBackup();
-                setBackupLoading(false);
-                if (result.success) {
-                  alertService.toastSuccess('تم إنشاء النسخة الاحتياطية بنجاح. يمكنك حفظ الملف في التخزين أو مشاركته.');
-                } else {
-                  alertService.error('خطأ', result.error);
-                }
-              }}
-              style={[styles.actionItem, { backgroundColor: '#0EA5E9', overflow: 'hidden' }]}
-              activeOpacity={0.7}
-              disabled={backupLoading}
-            >
+            <TouchableOpacity onPress={async () => {
+            if (backupLoading) return;
+            setBackupLoading(true);
+            const result = await createLocalBackup();
+            setBackupLoading(false);
+            if (result.success) {
+              alertService.toastSuccess(tl("تم إنشاء النسخة الاحتياطية بنجاح. يمكنك حفظ الملف في التخزين أو مشاركته."));
+            } else {
+              alertService.error(tl("خطأ"), result.error);
+            }
+          }} style={[styles.actionItem, {
+            backgroundColor: '#0EA5E9',
+            overflow: 'hidden'
+          }]} activeOpacity={0.7} disabled={backupLoading}>
               <View style={styles.actionItemGradient}>
                 <View style={styles.actionItemLeft}>
                   <View style={styles.actionIconContainer}>
                     {backupLoading ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Ionicons name="save" size={24} color="#FFFFFF" />}
                   </View>
                   <View style={styles.actionItemInfo}>
-                    <Text style={styles.actionItemTitleWhite}>نسخ احتياطي داخلي</Text>
-                    <Text style={styles.actionItemDescriptionWhite}>حفظ كل بياناتك في ملف واحفظه على جهازك</Text>
+                    <Text style={styles.actionItemTitleWhite}>{tl("نسخ احتياطي داخلي")}</Text>
+                    <Text style={styles.actionItemDescriptionWhite}>{tl("حفظ كل بياناتك في ملف واحفظه على جهازك")}</Text>
                   </View>
                 </View>
                 {!backupLoading && <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={20} color="#FFFFFF" />}
@@ -1091,81 +1100,65 @@ export const SettingsScreen = ({ navigation }: any) => {
             </TouchableOpacity>
 
 
-            <TouchableOpacity
-              onPress={async () => {
-                if (backupLoading) return;
-                setBackupLoading(true);
-                const result = await pickBackupFileAndRestore();
-                setBackupLoading(false);
-                if (result.success) {
-                  alertService.toastSuccess('تم استعادة النسخة الاحتياطية من الملف.');
-                  loadSettings();
-                } else if (result.error !== 'لم يتم اختيار ملف') {
-                  alertService.error('خطأ', result.error);
-                }
-              }}
-              style={[styles.actionItem, { backgroundColor: '#6366F1', overflow: 'hidden' }]}
-              activeOpacity={0.7}
-              disabled={backupLoading}
-            >
+            <TouchableOpacity onPress={async () => {
+            if (backupLoading) return;
+            setBackupLoading(true);
+            const result = await pickBackupFileAndRestore();
+            setBackupLoading(false);
+            if (result.success) {
+              alertService.toastSuccess(tl("تم استعادة النسخة الاحتياطية من الملف."));
+              loadSettings();
+            } else if (result.error !== 'لم يتم اختيار ملف') {
+              alertService.error(tl("خطأ"), result.error);
+            }
+          }} style={[styles.actionItem, {
+            backgroundColor: '#6366F1',
+            overflow: 'hidden'
+          }]} activeOpacity={0.7} disabled={backupLoading}>
               <View style={styles.actionItemGradient}>
                 <View style={styles.actionItemLeft}>
                   <View style={styles.actionIconContainer}>
                     {backupLoading ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Ionicons name="folder-open" size={24} color="#FFFFFF" />}
                   </View>
                   <View style={styles.actionItemInfo}>
-                    <Text style={styles.actionItemTitleWhite}>استعادة من ملف</Text>
-                    <Text style={styles.actionItemDescriptionWhite}>اختر ملف نسخة احتياطية من جهازك (ملف أو iCloud)</Text>
+                    <Text style={styles.actionItemTitleWhite}>{tl("استعادة من ملف")}</Text>
+                    <Text style={styles.actionItemDescriptionWhite}>{tl("اختر ملف نسخة احتياطية من جهازك (ملف أو iCloud)")}</Text>
                   </View>
                 </View>
                 {!backupLoading && <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={20} color="#FFFFFF" />}
               </View>
             </TouchableOpacity>
 
-            {isAuthenticated && (
-              <TouchableOpacity
-                onPress={() => setShowRestoreServerConfirm(true)}
-                style={[styles.actionItem, { backgroundColor: '#F59E0B', overflow: 'hidden' }]}
-                activeOpacity={0.7}
-                disabled={restoreServerLoading}
-              >
+            {isAuthenticated && <TouchableOpacity onPress={() => setShowRestoreServerConfirm(true)} style={[styles.actionItem, {
+            backgroundColor: '#F59E0B',
+            overflow: 'hidden'
+          }]} activeOpacity={0.7} disabled={restoreServerLoading}>
                 <View style={styles.actionItemGradient}>
                   <View style={styles.actionItemLeft}>
                     <View style={styles.actionIconContainer}>
                       {restoreServerLoading ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Ionicons name="cloud-download" size={24} color="#FFFFFF" />}
                     </View>
                     <View style={styles.actionItemInfo}>
-                      <Text style={styles.actionItemTitleWhite}>استعادة من السيرفر</Text>
-                      <Text style={styles.actionItemDescriptionWhite}>جلب آخر نسخة من السيرفر واستبدال البيانات المحلية (مميز)</Text>
+                      <Text style={styles.actionItemTitleWhite}>{tl("استعادة من السيرفر")}</Text>
+                      <Text style={styles.actionItemDescriptionWhite}>{tl("جلب آخر نسخة من السيرفر واستبدال البيانات المحلية (مميز)")}</Text>
                     </View>
                   </View>
                   {!restoreServerLoading && <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={20} color="#FFFFFF" />}
                 </View>
-              </TouchableOpacity>
-            )}
+              </TouchableOpacity>}
 
-            {showRestoreServerConfirm && (
-              <ConfirmAlert
-                visible={showRestoreServerConfirm}
-                title="استعادة من السيرفر"
-                message="سيتم استبدال كل بياناتك المحلية بآخر نسخة من السيرفر. هل أنت متأكد؟"
-                confirmText="استعادة"
-                cancelText="إلغاء"
-                onConfirm={async () => {
-                  setShowRestoreServerConfirm(false);
-                  setRestoreServerLoading(true);
-                  const result = await getFullFromServer();
-                  setRestoreServerLoading(false);
-                  if (result.success) {
-                    alertService.toastSuccess('تم استعادة البيانات من السيرفر.');
-                    loadSettings();
-                  } else {
-                    alertService.error('فشل الاستعادة', result.error);
-                  }
-                }}
-                onCancel={() => setShowRestoreServerConfirm(false)}
-              />
-            )}
+            {showRestoreServerConfirm && <ConfirmAlert visible={showRestoreServerConfirm} title={tl("استعادة من السيرفر")} message={tl("سيتم استبدال كل بياناتك المحلية بآخر نسخة من السيرفر. هل أنت متأكد؟")} confirmText={tl("استعادة")} cancelText={tl("إلغاء")} onConfirm={async () => {
+            setShowRestoreServerConfirm(false);
+            setRestoreServerLoading(true);
+            const result = await getFullFromServer();
+            setRestoreServerLoading(false);
+            if (result.success) {
+              alertService.toastSuccess(tl("تم استعادة البيانات من السيرفر."));
+              loadSettings();
+            } else {
+              alertService.error(tl("فشل الاستعادة"), result.error);
+            }
+          }} onCancel={() => setShowRestoreServerConfirm(false)} />}
           </View>
         </View>
 
@@ -1174,27 +1167,24 @@ export const SettingsScreen = ({ navigation }: any) => {
           <View style={styles.sectionContent}>
             <View style={styles.sectionHeader}>
               <Ionicons name="globe-outline" size={22} color={theme.colors.primary} />
-              <Text style={styles.sectionTitle}>اللغة والعملة</Text>
+              <Text style={styles.sectionTitle}>{t('settings.languageAndCurrency')}</Text>
             </View>
-            <TouchableOpacity
-              onPress={() => setShowCurrencyPicker(true)}
-              style={styles.currencyItem}
-              activeOpacity={0.7}
-            >
-              <LinearGradient
-                colors={['#10B981', '#059669']}
-                style={styles.currencyItemGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
+            <TouchableOpacity onPress={() => setShowCurrencyPicker(true)} style={styles.currencyItem} activeOpacity={0.7}>
+              <LinearGradient colors={['#10B981', '#059669']} style={styles.currencyItemGradient} start={{
+              x: 0,
+              y: 0
+            }} end={{
+              x: 1,
+              y: 0
+            }}>
                 <View style={styles.currencyItemLeft}>
                   <View style={styles.currencyIconContainer}>
                     <Ionicons name="cash" size={24} color="#FFFFFF" />
                   </View>
                   <View style={styles.currencyItemInfo}>
-                    <Text style={styles.currencyItemTitleWhite}>العملة الأساسية</Text>
+                    <Text style={styles.currencyItemTitleWhite}>{t('settings.baseCurrency')}</Text>
                     <Text style={styles.currencyItemDescriptionWhite}>
-                      {CURRENCIES.find(c => c.code === selectedCurrency)?.name || 'دينار عراقي'}
+                      {getCurrencyDisplayName(selectedCurrency, language)}
                     </Text>
                   </View>
                 </View>
@@ -1202,25 +1192,22 @@ export const SettingsScreen = ({ navigation }: any) => {
               </LinearGradient>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => setShowLanguagePicker(!showLanguagePicker)}
-              style={styles.currencyItem}
-              activeOpacity={0.7}
-            >
-              <LinearGradient
-                colors={['#3B82F6', '#2563EB']}
-                style={styles.currencyItemGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
+            <TouchableOpacity onPress={() => setShowLanguagePicker(!showLanguagePicker)} style={styles.currencyItem} activeOpacity={0.7}>
+              <LinearGradient colors={['#3B82F6', '#2563EB']} style={styles.currencyItemGradient} start={{
+              x: 0,
+              y: 0
+            }} end={{
+              x: 1,
+              y: 0
+            }}>
                 <View style={styles.currencyItemLeft}>
                   <View style={styles.currencyIconContainer}>
                     <Ionicons name="language" size={24} color="#FFFFFF" />
                   </View>
                   <View style={styles.currencyItemInfo}>
-                    <Text style={styles.currencyItemTitleWhite}>لغة التطبيق</Text>
+                    <Text style={styles.currencyItemTitleWhite}>{t('settings.appLanguage')}</Text>
                     <Text style={styles.currencyItemDescriptionWhite}>
-                      {selectedLanguage === 'ar' ? 'العربية (العراق)' : 'English'}
+                      {getLanguageDisplayName(selectedLanguage, language)}
                     </Text>
                   </View>
                 </View>
@@ -1228,66 +1215,60 @@ export const SettingsScreen = ({ navigation }: any) => {
               </LinearGradient>
             </TouchableOpacity>
 
-            {showLanguagePicker && (
-              <View style={styles.currencyPicker}>
-                <TouchableOpacity
-                  style={[
-                    styles.currencyOption,
-                    selectedLanguage === 'ar' && styles.currencyOptionSelected,
-                  ]}
-                  onPress={() => {
-                    setSelectedLanguage('ar');
-                    setShowLanguagePicker(false);
-                  }}
-                >
-                  <Text style={[
-                    styles.currencyOptionText,
-                    selectedLanguage === 'ar' && styles.currencyOptionTextSelected,
-                  ]}>
-                    العربية
-                  </Text>
-                  {selectedLanguage === 'ar' && (
-                    <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />
-                  )}
+            {showLanguagePicker && <View style={styles.currencyPicker}>
+                <TouchableOpacity style={[styles.currencyOption, styles.languageOptionRtl, selectedLanguage === 'ar' && styles.currencyOptionSelected]} onLayout={handleLanguageOptionLayout('arX')} onPress={() => handleLanguageChange('ar')}>
+                  <View style={styles.languageOptionLabelWrapRtl} onLayout={handleLanguageMetricLayout('arLabelX')}>
+                    <Text style={[styles.currencyOptionText, styles.languageOptionTextRtl, selectedLanguage === 'ar' && styles.currencyOptionTextSelected]}>
+                      {getLanguageNativeName('ar')}
+                    </Text>
+                  </View>
+                  <View style={styles.languageOptionIconSlot} onLayout={handleLanguageMetricLayout('arIconX')}>
+                    {selectedLanguage === 'ar' && <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />}
+                  </View>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.currencyOption,
-                    selectedLanguage === 'en' && styles.currencyOptionSelected,
-                  ]}
-                  onPress={() => {
-                    alertService.info('تنبيه', 'اللغة الإنجليزية ستتوفر قريباً');
-                    setShowLanguagePicker(false);
-                  }}
-                >
-                  <Text style={[
-                    styles.currencyOptionText,
-                    selectedLanguage === 'en' && styles.currencyOptionTextSelected,
-                  ]}>
-                    English (Coming Soon)
-                  </Text>
+                <TouchableOpacity style={[styles.currencyOption, styles.languageOptionLtr, selectedLanguage === 'en' && styles.currencyOptionSelected]} onLayout={handleLanguageOptionLayout('enX')} onPress={() => handleLanguageChange('en')}>
+                  <View style={styles.languageOptionLabelWrapLtr} onLayout={handleLanguageMetricLayout('enLabelX')}>
+                    <Text style={[styles.currencyOptionText, styles.languageOptionTextLtr, selectedLanguage === 'en' && styles.currencyOptionTextSelected]}>
+                      {getLanguageNativeName('en')}
+                    </Text>
+                  </View>
+                  <View style={styles.languageOptionIconSlot} onLayout={handleLanguageMetricLayout('enIconX')}>
+                    {selectedLanguage === 'en' && <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />}
+                  </View>
                 </TouchableOpacity>
-              </View>
-            )}
+              </View>}
 
-            {selectedCurrency !== 'USD' && (
-              <TouchableOpacity
-                onPress={() => setShowExchangeRateModal(true)}
-                style={styles.exchangeRateItem}
-                activeOpacity={0.7}
-              >
-                <LinearGradient
-                  colors={['#F59E0B', '#D97706']}
-                  style={styles.exchangeRateItemGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
+            {__DEV__ && <View style={styles.debugCard}>
+                <Text style={styles.debugTitle}>RTL Debug</Text>
+                <Text style={styles.debugText}>context language: {language}</Text>
+                <Text style={styles.debugText}>selectedLanguage: {selectedLanguage}</Text>
+                <Text style={styles.debugText}>context isRTL: {String(isRTL)}</Text>
+                <Text style={styles.debugText}>global isRTL: {String(globalRTL)}</Text>
+                <Text style={styles.debugText}>currentLanguage(): {getCurrentLanguage()}</Text>
+                <Text style={styles.debugText}>I18nManager.isRTL: {String(I18nManager.isRTL)}</Text>
+                <Text style={styles.debugText}>settings key: {settingsDebugKey}</Text>
+                <Text style={styles.debugText}>Arabic option x: {languageOptionPositions.arX ?? 'n/a'}</Text>
+                <Text style={styles.debugText}>English option x: {languageOptionPositions.enX ?? 'n/a'}</Text>
+                <Text style={styles.debugText}>Arabic label/icon x: {languageOptionMetrics.arLabelX ?? 'n/a'} / {languageOptionMetrics.arIconX ?? 'n/a'}</Text>
+                <Text style={styles.debugText}>English label/icon x: {languageOptionMetrics.enLabelX ?? 'n/a'} / {languageOptionMetrics.enIconX ?? 'n/a'}</Text>
+                <Text style={styles.debugText}>Arabic row dir: row-reverse</Text>
+                <Text style={styles.debugText}>English row dir: row</Text>
+              </View>}
+
+            {selectedCurrency !== 'USD' && <TouchableOpacity onPress={() => setShowExchangeRateModal(true)} style={styles.exchangeRateItem} activeOpacity={0.7}>
+                <LinearGradient colors={['#F59E0B', '#D97706']} style={styles.exchangeRateItemGradient} start={{
+              x: 0,
+              y: 0
+            }} end={{
+              x: 1,
+              y: 0
+            }}>
                   <View style={styles.exchangeRateItemLeft}>
                     <View style={styles.exchangeRateIconContainer}>
                       <Ionicons name="swap-horizontal" size={24} color="#FFFFFF" />
                     </View>
                     <View style={styles.exchangeRateItemInfo}>
-                      <Text style={styles.exchangeRateItemTitleWhite}>سعر الصرف</Text>
+                      <Text style={styles.exchangeRateItemTitleWhite}>{tl("سعر الصرف")}</Text>
                       <Text style={styles.exchangeRateItemDescriptionWhite}>
                         1 USD = {usdToIqdRate} {selectedCurrency}
                       </Text>
@@ -1295,19 +1276,16 @@ export const SettingsScreen = ({ navigation }: any) => {
                   </View>
                   <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={20} color="#FFFFFF" />
                 </LinearGradient>
-              </TouchableOpacity>
-            )}
+              </TouchableOpacity>}
           </View>
         </View>
 
         {/* 5. إعدادات الإشعارات */}
-        {
-          notificationsEnabled && (
-            <View style={styles.sectionCard}>
+        {notificationsEnabled && <View style={styles.sectionCard}>
               <View style={styles.sectionContent}>
                 <View style={styles.sectionHeader}>
                   <Ionicons name="notifications-outline" size={22} color={theme.colors.primary} />
-                  <Text style={styles.sectionTitle}>إعدادات الإشعارات</Text>
+                  <Text style={styles.sectionTitle}>{tl("إعدادات الإشعارات")}</Text>
                 </View>
 
                 {/* Daily Reminder */}
@@ -1318,25 +1296,19 @@ export const SettingsScreen = ({ navigation }: any) => {
                         <Ionicons name="calendar" size={20} color={theme.colors.primary} />
                       </View>
                       <View style={styles.notificationItemInfo}>
-                        <Text style={styles.notificationItemTitle}>تذكير يومي</Text>
-                        <Text style={styles.notificationItemDescription}>تذكير يومي لتسجيل المصاريف</Text>
+                        <Text style={styles.notificationItemTitle}>{tl("تذكير يومي")}</Text>
+                        <Text style={styles.notificationItemDescription}>{tl("تذكير يومي لتسجيل المصاريف")}</Text>
                       </View>
                     </View>
-                    <Switch
-                      value={dailyReminder}
-                      onValueChange={handleDailyReminderToggle}
-                      trackColor={{ false: '#767577', true: theme.colors.primary }}
-                      thumbColor={dailyReminder ? '#FFFFFF' : '#f4f3f4'}
-                    />
+                    <Switch value={dailyReminder} onValueChange={handleDailyReminderToggle} trackColor={{
+                false: '#767577',
+                true: theme.colors.primary
+              }} thumbColor={dailyReminder ? '#FFFFFF' : '#f4f3f4'} />
                   </View>
-                  <TouchableOpacity
-                    onPress={handleOpenDailyTimePicker}
-                    style={styles.timePickerButton}
-                    activeOpacity={0.7}
-                  >
+                  <TouchableOpacity onPress={handleOpenDailyTimePicker} style={styles.timePickerButton} activeOpacity={0.7}>
                     <Ionicons name="time-outline" size={18} color={theme.colors.primary} />
-                    <Text style={styles.timePickerText}>اختر الوقت: {formatTime(dailyReminderTime)}</Text>
-                    <Ionicons name="chevron-back" size={16} color={theme.colors.textMuted} />
+                    <Text style={styles.timePickerText}>{tl("اختر الوقت:")}{formatTime(dailyReminderTime)}</Text>
+                    <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={16} color={theme.colors.textMuted} />
                   </TouchableOpacity>
                 </View>
 
@@ -1344,31 +1316,18 @@ export const SettingsScreen = ({ navigation }: any) => {
 
 
               </View>
-            </View>
-          )
-        }
+            </View>}
         {/* Expense Reminder Time Picker */}
-        <Modal
-          visible={showExpenseTimePicker}
-          transparent={true}
-          animationType="slide"
-          onRequestClose={() => setShowExpenseTimePicker(false)}
-        >
+        <Modal visible={showExpenseTimePicker} transparent={true} animationType="slide" onRequestClose={() => setShowExpenseTimePicker(false)}>
           <View style={styles.timePickerModalOverlay}>
             <View style={styles.timePickerModalContent}>
               <View style={styles.timePickerModalHeader}>
-                <TouchableOpacity
-                  onPress={handleExpenseTimeConfirm}
-                  style={styles.timePickerConfirmButton}
-                >
-                  <Text style={styles.timePickerConfirmText}>تأكيد</Text>
+                <TouchableOpacity onPress={handleExpenseTimeConfirm} style={styles.timePickerConfirmButton}>
+                  <Text style={styles.timePickerConfirmText}>{tl("تأكيد")}</Text>
                 </TouchableOpacity>
-                <Text style={styles.timePickerModalTitle}>اختر الوقت</Text>
-                <TouchableOpacity
-                  onPress={() => setShowExpenseTimePicker(false)}
-                  style={styles.timePickerCancelButton}
-                >
-                  <Text style={styles.timePickerCancelText}>إلغاء</Text>
+                <Text style={styles.timePickerModalTitle}>{tl("اختر الوقت")}</Text>
+                <TouchableOpacity onPress={() => setShowExpenseTimePicker(false)} style={styles.timePickerCancelButton}>
+                  <Text style={styles.timePickerCancelText}>{tl("إلغاء")}</Text>
                 </TouchableOpacity>
               </View>
               {renderTimePickerWheel('expense')}
@@ -1381,74 +1340,59 @@ export const SettingsScreen = ({ navigation }: any) => {
           <View style={styles.sectionContent}>
             <View style={styles.sectionHeader}>
               <Ionicons name="document-text-outline" size={22} color={theme.colors.primary} />
-              <Text style={styles.sectionTitle}>التصدير</Text>
+              <Text style={styles.sectionTitle}>{tl("التصدير")}</Text>
             </View>
 
-            <TouchableOpacity
-              onPress={() => setShowExportModal(true)}
-              disabled={exportingPDF}
-              style={[
-                styles.exportButton,
-                { backgroundColor: isDark ? '#1E3A5F' : theme.colors.primary }
-              ]}
-              activeOpacity={0.8}
-            >
-              {exportingPDF ? (
-                <ActivityIndicator color={theme.colors.textInverse} />
-              ) : (
-                <>
+            <TouchableOpacity onPress={() => setShowExportModal(true)} disabled={exportingPDF} style={[styles.exportButton, {
+            backgroundColor: isDark ? '#1E3A5F' : theme.colors.primary
+          }]} activeOpacity={0.8}>
+              {exportingPDF ? <ActivityIndicator color={theme.colors.textInverse} /> : <>
                   <Ionicons name="document-text" size={20} color={'#FFFFFF'} />
-                  <Text style={styles.exportButtonText}>
-                    تصدير البيانات
-                  </Text>
-                </>
-              )}
+                  <Text style={styles.exportButtonText}>{tl("تصدير البيانات")}</Text>
+                </>}
             </TouchableOpacity>
 
-            <View style={{ height: 12 }} />
+            <View style={{
+            height: 12
+          }} />
 
-            <TouchableOpacity
-              onPress={() => setShowDeleteAllConfirm(true)}
-              style={[
-                styles.actionItem,
-                {
-                  backgroundColor: theme.colors.error + '10',
-                  borderColor: theme.colors.error + '30',
-                  borderWidth: 1,
-                  borderRadius: 12,
-                  marginHorizontal: 0
-                }
-              ]}
-              activeOpacity={0.7}
-              disabled={deletingAll}
-            >
-              <View style={[styles.actionItemGradient, { paddingVertical: 12 }]}>
+            <TouchableOpacity onPress={() => setShowDeleteAllConfirm(true)} style={[styles.actionItem, {
+            backgroundColor: theme.colors.error + '10',
+            borderColor: theme.colors.error + '30',
+            borderWidth: 1,
+            borderRadius: 12,
+            marginHorizontal: 0
+          }]} activeOpacity={0.7} disabled={deletingAll}>
+              <View style={[styles.actionItemGradient, {
+              paddingVertical: 12
+            }]}>
                 <View style={styles.actionItemLeft}>
-                  <View style={[styles.actionIconContainer, { backgroundColor: theme.colors.error + '20', width: 40, height: 40, borderRadius: 20 }]}>
+                  <View style={[styles.actionIconContainer, {
+                  backgroundColor: theme.colors.error + '20',
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20
+                }]}>
                     {deletingAll ? <ActivityIndicator size="small" color={theme.colors.error} /> : <Ionicons name="trash" size={22} color={theme.colors.error} />}
                   </View>
                   <View style={styles.actionItemInfo}>
-                    <Text style={[styles.actionItemTitleWhite, { color: theme.colors.error, fontSize: 16 }]}>حذف جميع البيانات</Text>
-                    <Text style={[styles.actionItemDescriptionWhite, { color: theme.colors.textSecondary, fontSize: 12 }]}>سيتم مسح كافة البيانات بشكل نهائي.</Text>
+                    <Text style={[styles.actionItemTitleWhite, {
+                    color: theme.colors.error,
+                    fontSize: 16
+                  }]}>{tl("حذف جميع البيانات")}</Text>
+                    <Text style={[styles.actionItemDescriptionWhite, {
+                    color: theme.colors.textSecondary,
+                    fontSize: 12
+                  }]}>{tl("سيتم مسح كافة البيانات بشكل نهائي.")}</Text>
                   </View>
                 </View>
               </View>
             </TouchableOpacity>
 
-            {showDeleteAllConfirm && (
-              <ConfirmAlert
-                visible={showDeleteAllConfirm}
-                title="حذف جميع البيانات؟"
-                message="سيتم حذف كافة المصاريف والأهداف والديون بشكل نهائي. هل أنت متأكد من رغبتك في المتابعة؟"
-                confirmText="حذف الكل"
-                cancelText="إلغاء"
-                onConfirm={() => {
-                  setShowDeleteAllConfirm(false);
-                  handleDeleteAllData();
-                }}
-                onCancel={() => setShowDeleteAllConfirm(false)}
-              />
-            )}
+            {showDeleteAllConfirm && <ConfirmAlert visible={showDeleteAllConfirm} title={tl("حذف جميع البيانات؟")} message={tl("سيتم حذف كافة المصاريف والأهداف والديون بشكل نهائي. هل أنت متأكد من رغبتك في المتابعة؟")} confirmText={tl("حذف الكل")} cancelText={tl("إلغاء")} onConfirm={() => {
+            setShowDeleteAllConfirm(false);
+            handleDeleteAllData();
+          }} onCancel={() => setShowDeleteAllConfirm(false)} />}
           </View>
         </View>
 
@@ -1457,26 +1401,23 @@ export const SettingsScreen = ({ navigation }: any) => {
           <View style={styles.sectionContent}>
             <View style={styles.sectionHeader}>
               <Ionicons name="chatbubbles-outline" size={22} color={theme.colors.primary} />
-              <Text style={styles.sectionTitle}>تواصل معنا</Text>
+              <Text style={styles.sectionTitle}>{tl("تواصل معنا")}</Text>
             </View>
 
-            <TouchableOpacity
-              onPress={handleContactEmail}
-              style={styles.contactItem}
-              activeOpacity={0.8}
-            >
-              <LinearGradient
-                colors={['#6366F1', '#3B82F6']}
-                style={styles.contactItemGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
+            <TouchableOpacity onPress={handleContactEmail} style={styles.contactItem} activeOpacity={0.8}>
+              <LinearGradient colors={['#6366F1', '#3B82F6']} style={styles.contactItemGradient} start={{
+              x: 0,
+              y: 0
+            }} end={{
+              x: 1,
+              y: 1
+            }}>
                 <View style={styles.contactItemLeft}>
                   <View style={styles.contactIconContainer}>
                     <Ionicons name="mail" size={26} color="#FFFFFF" />
                   </View>
                   <View style={styles.contactItemInfo}>
-                    <Text style={styles.contactItemTitleWhite}>البريد الإلكتروني</Text>
+                    <Text style={styles.contactItemTitleWhite}>{tl("البريد الإلكتروني")}</Text>
                     <Text style={styles.contactItemDescriptionWhite} numberOfLines={1}>
                       {CONTACT_INFO.email}
                     </Text>
@@ -1486,51 +1427,43 @@ export const SettingsScreen = ({ navigation }: any) => {
               </LinearGradient>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={handleContactWhatsApp}
-              style={styles.contactItem}
-              activeOpacity={0.8}
-            >
-              <LinearGradient
-                colors={['#10B981', '#059669']}
-                style={styles.contactItemGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
+            <TouchableOpacity onPress={handleContactWhatsApp} style={styles.contactItem} activeOpacity={0.8}>
+              <LinearGradient colors={['#10B981', '#059669']} style={styles.contactItemGradient} start={{
+              x: 0,
+              y: 0
+            }} end={{
+              x: 1,
+              y: 1
+            }}>
                 <View style={styles.contactItemLeft}>
                   <View style={styles.contactIconContainer}>
                     <Ionicons name="logo-whatsapp" size={26} color="#FFFFFF" />
                   </View>
                   <View style={styles.contactItemInfo}>
                     <Text style={styles.contactItemTitleWhite}>WhatsApp</Text>
-                    <Text style={styles.contactItemDescriptionWhite}>
-                      تواصل معنا عبر WhatsApp
-                    </Text>
+                    <Text style={styles.contactItemDescriptionWhite}>{tl("تواصل معنا عبر WhatsApp")}</Text>
                   </View>
                 </View>
                 <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={22} color="#FFFFFF" />
               </LinearGradient>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={handleShareApp}
-              style={styles.contactItem}
-              activeOpacity={0.8}
-            >
-              <LinearGradient
-                colors={['#8B5CF6', '#7C3AED']}
-                style={styles.contactItemGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
+            <TouchableOpacity onPress={handleShareApp} style={styles.contactItem} activeOpacity={0.8}>
+              <LinearGradient colors={['#8B5CF6', '#7C3AED']} style={styles.contactItemGradient} start={{
+              x: 0,
+              y: 0
+            }} end={{
+              x: 1,
+              y: 1
+            }}>
                 <View style={styles.contactItemLeft}>
                   <View style={styles.contactIconContainer}>
                     <Ionicons name="share-social" size={26} color="#FFFFFF" />
                   </View>
                   <View style={styles.contactItemInfo}>
-                    <Text style={styles.contactItemTitleWhite}>مشاركة التطبيق</Text>
+                    <Text style={styles.contactItemTitleWhite}>{tl("مشاركة التطبيق")}</Text>
                     <Text style={styles.contactItemDescriptionWhite}>
-                      {Platform.OS === 'ios' ? 'شارك رابط App Store عبر واتساب أو أي تطبيق' : 'شارك رابط تيليجرام عبر واتساب أو أي تطبيق'}
+                      {Platform.OS === 'ios' ? tl("شارك رابط App Store عبر واتساب أو أي تطبيق") : tl("شارك رابط تيليجرام عبر واتساب أو أي تطبيق")}
                     </Text>
                   </View>
                 </View>
@@ -1542,69 +1475,40 @@ export const SettingsScreen = ({ navigation }: any) => {
 
         {/* التذييل */}
         <View style={styles.copyrightWrapper}>
-          <LinearGradient
-            colors={theme.gradients.primary as any}
-            style={styles.copyrightCard}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <Image
-              source={require('../../assets/letters-logo.png')}
-              style={styles.copyrightLogo}
-              resizeMode="contain"
-            />
-            <Text style={styles.copyrightText}>© 2025 URUX. جميع الحقوق محفوظة.</Text>
+          <LinearGradient colors={theme.gradients.primary as any} style={styles.copyrightCard} start={{
+          x: 0,
+          y: 0
+        }} end={{
+          x: 1,
+          y: 1
+        }}>
+            <Image source={require('../../assets/letters-logo.png')} style={styles.copyrightLogo} resizeMode="contain" />
+            <Text style={styles.copyrightText}>{tl("© 2025 URUX. جميع الحقوق محفوظة.")}</Text>
             <Text style={styles.versionText}>v.{Constants.expoConfig?.version ?? '1.1.5'}</Text>
           </LinearGradient>
         </View>
 
-      </ScrollView >
+      </ScrollView>
 
-      <AuthSettingsModal
-        visible={showAuthSettings}
-        onClose={() => setShowAuthSettings(false)}
-        onAuthChanged={() => {
-          // Reload settings if needed
-        }}
-      />
+      <AuthSettingsModal visible={showAuthSettings} onClose={() => setShowAuthSettings(false)} onAuthChanged={() => {
+      // Reload settings if needed
+    }} />
 
 
       {/* Exchange Rate Modal */}
-      {
-        showExchangeRateModal && selectedCurrency !== 'USD' && (
-          <ExchangeRateModal
-            visible={showExchangeRateModal}
-            rate={usdToIqdRate}
-            selectedCurrency={selectedCurrency}
-            onRateChange={setUsdToIqdRate}
-            onSave={handleSaveExchangeRate}
-            onClose={() => setShowExchangeRateModal(false)}
-          />
-        )
-      }
+      {showExchangeRateModal && selectedCurrency !== 'USD' && <ExchangeRateModal visible={showExchangeRateModal} rate={usdToIqdRate} selectedCurrency={selectedCurrency} onRateChange={setUsdToIqdRate} onSave={handleSaveExchangeRate} onClose={() => setShowExchangeRateModal(false)} />}
 
       {/* Daily Reminder Time Picker */}
-      <Modal
-        visible={showDailyTimePicker}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowDailyTimePicker(false)}
-      >
+      <Modal visible={showDailyTimePicker} transparent={true} animationType="slide" onRequestClose={() => setShowDailyTimePicker(false)}>
         <View style={styles.timePickerModalOverlay}>
           <View style={styles.timePickerModalContent}>
             <View style={styles.timePickerModalHeader}>
-              <TouchableOpacity
-                onPress={handleDailyTimeConfirm}
-                style={styles.timePickerConfirmButton}
-              >
-                <Text style={styles.timePickerConfirmText}>تأكيد</Text>
+              <TouchableOpacity onPress={handleDailyTimeConfirm} style={styles.timePickerConfirmButton}>
+                <Text style={styles.timePickerConfirmText}>{tl("تأكيد")}</Text>
               </TouchableOpacity>
-              <Text style={styles.timePickerModalTitle}>اختر الوقت</Text>
-              <TouchableOpacity
-                onPress={() => setShowDailyTimePicker(false)}
-                style={styles.timePickerCancelButton}
-              >
-                <Text style={styles.timePickerCancelText}>إلغاء</Text>
+              <Text style={styles.timePickerModalTitle}>{tl("اختر الوقت")}</Text>
+              <TouchableOpacity onPress={() => setShowDailyTimePicker(false)} style={styles.timePickerCancelButton}>
+                <Text style={styles.timePickerCancelText}>{tl("إلغاء")}</Text>
               </TouchableOpacity>
             </View>
             {renderTimePickerWheel('daily')}
@@ -1617,95 +1521,59 @@ export const SettingsScreen = ({ navigation }: any) => {
 
 
       {/* Name Edit Modal */}
-      <Modal
-        visible={showNameModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowNameModal(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
+      <Modal visible={showNameModal} transparent={true} animationType="fade" onRequestClose={() => setShowNameModal(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            <LinearGradient
-              colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-              style={styles.modalContent}
-            >
+            <LinearGradient colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]} style={styles.modalContent}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>تعديل الاسم</Text>
-                <TouchableOpacity
-                  onPress={() => setShowNameModal(false)}
-                  style={styles.closeButton}
-                >
+                <Text style={styles.modalTitle}>{tl("تعديل الاسم")}</Text>
+                <TouchableOpacity onPress={() => setShowNameModal(false)} style={styles.closeButton}>
                   <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
                 </TouchableOpacity>
               </View>
 
               <View style={styles.modalBody}>
-                <Text style={styles.inputLabel}>الاسم</Text>
-                <TextInput
-                  style={styles.nameInput}
-                  value={editingName}
-                  onChangeText={setEditingName}
-                  placeholder="أدخل اسمك"
-                  placeholderTextColor={theme.colors.textMuted}
-                  autoFocus={true}
-                  maxLength={50}
-                />
+                <Text style={styles.inputLabel}>{tl("الاسم")}</Text>
+                <TextInput style={styles.nameInput} value={editingName} onChangeText={setEditingName} placeholder={tl("أدخل اسمك")} placeholderTextColor={theme.colors.textMuted} autoFocus={true} maxLength={50} />
               </View>
 
               <View style={styles.modalActions}>
-                <TouchableOpacity
-                  onPress={() => setShowNameModal(false)}
-                  style={[styles.modalButton, styles.cancelButton]}
-                >
-                  <Text style={styles.cancelButtonText}>إلغاء</Text>
+                <TouchableOpacity onPress={() => setShowNameModal(false)} style={[styles.modalButton, styles.cancelButton]}>
+                  <Text style={styles.cancelButtonText}>{tl("إلغاء")}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={async () => {
-                    if (!editingName.trim()) {
-                      alertService.warning('تنبيه', 'يرجى إدخال الاسم');
-                      return;
+                <TouchableOpacity onPress={async () => {
+                if (!editingName.trim()) {
+                  alertService.warning(tl("تنبيه"), tl("يرجى إدخال الاسم"));
+                  return;
+                }
+                try {
+                  // 1. Update locally
+                  const currentSettings = await getUserSettings();
+                  await upsertUserSettings({
+                    name: editingName.trim() || undefined,
+                    authMethod: currentSettings?.authMethod || 'none',
+                    passwordHash: currentSettings?.passwordHash,
+                    biometricsEnabled: currentSettings?.biometricsEnabled || false
+                  });
+                  setUserName(editingName.trim());
+
+                  // 2. Update on server if authenticated
+                  if (isAuthenticated) {
+                    const result = await authApiService.updateProfile(editingName.trim());
+                    if (result.success && result.user) {
+                      setUserData(result.user);
+                    } else if (!result.success) {
+                      // If server update fails, we still keep local for now but log it
                     }
-
-                    try {
-                      // 1. Update locally
-                      const currentSettings = await getUserSettings();
-                      await upsertUserSettings({
-                        name: editingName.trim() || undefined,
-                        authMethod: currentSettings?.authMethod || 'none',
-                        passwordHash: currentSettings?.passwordHash,
-                        biometricsEnabled: currentSettings?.biometricsEnabled || false,
-                      });
-
-                      setUserName(editingName.trim());
-
-                      // 2. Update on server if authenticated
-                      if (isAuthenticated) {
-                        const result = await authApiService.updateProfile(editingName.trim());
-                        if (result.success && result.user) {
-                          setUserData(result.user);
-                        } else if (!result.success) {
-                          // If server update fails, we still keep local for now but log it
-                          
-                        }
-                      }
-
-                      setShowNameModal(false);
-                      alertService.toastSuccess('تم تحديث الاسم بنجاح');
-                    } catch (error) {
-                      
-                      alertService.error('خطأ', 'فشل تحديث الاسم');
-                    }
-                  }}
-                  style={[styles.modalButton, styles.saveButton]}
-                >
-                  <LinearGradient
-                    colors={theme.gradients.primary as any}
-                    style={styles.saveButtonGradient}
-                  >
-                    <Text style={styles.saveButtonText}>حفظ</Text>
+                  }
+                  setShowNameModal(false);
+                  alertService.toastSuccess(tl("تم تحديث الاسم بنجاح"));
+                } catch (error) {
+                  alertService.error(tl("خطأ"), tl("فشل تحديث الاسم"));
+                }
+              }} style={[styles.modalButton, styles.saveButton]}>
+                  <LinearGradient colors={theme.gradients.primary as any} style={styles.saveButtonGradient}>
+                    <Text style={styles.saveButtonText}>{tl("حفظ")}</Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
@@ -1714,38 +1582,20 @@ export const SettingsScreen = ({ navigation }: any) => {
         </KeyboardAvoidingView>
       </Modal>
 
-      <ExportPeriodModal
-        visible={showExportModal}
-        exportMode={exportMode}
-        setExportMode={setExportMode}
-        exportMonth={exportMonth}
-        setExportMonth={setExportMonth}
-        exportYear={exportYear}
-        setExportYear={setExportYear}
-        onConfirm={handleExportPDF}
-        onClose={() => setShowExportModal(false)}
-        loading={exportingPDF}
-      />
+      <ExportPeriodModal visible={showExportModal} exportMode={exportMode} setExportMode={setExportMode} exportMonth={exportMonth} setExportMonth={setExportMonth} exportYear={exportYear} setExportYear={setExportYear} onConfirm={handleExportPDF} onClose={() => setShowExportModal(false)} loading={exportingPDF} />
 
-      <CurrencyPickerModal
-        visible={showCurrencyPicker}
-        selectedCurrency={selectedCurrency}
-        onSelect={(code) => handleCurrencyChange(code)}
-        onClose={() => setShowCurrencyPicker(false)}
-      />
+      <CurrencyPickerModal visible={showCurrencyPicker} selectedCurrency={selectedCurrency} onSelect={code => handleCurrencyChange(code)} onClose={() => setShowCurrencyPicker(false)} />
 
-    </ScreenContainer>
-  );
+    </ScreenContainer>;
 };
-
-const createStyles = (theme: AppTheme) => StyleSheet.create({
+const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
   scrollView: {
-    flex: 1,
+    flex: 1
   },
   scrollContent: {
     padding: theme.spacing.md,
     paddingBottom: theme.spacing.xl,
-    direction: 'rtl' as const,
+    direction: isRTL ? 'rtl' : 'ltr'
   },
   sectionCard: {
     marginBottom: theme.spacing.lg,
@@ -1754,7 +1604,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: theme.colors.border + '30',
-    ...getPlatformShadow('md'),
+    ...getPlatformShadow('md')
   },
   sectionHeader: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
@@ -1763,11 +1613,11 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: theme.spacing.sm,
     paddingBottom: theme.spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border + '20',
+    borderBottomColor: theme.colors.border + '20'
   },
   sectionContent: {
     padding: theme.spacing.lg,
-    direction: 'rtl' as const,
+    direction: isRTL ? 'rtl' : 'ltr'
   },
   profileCard: {
     borderRadius: 24,
@@ -1775,14 +1625,22 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: theme.spacing.md,
     ...getPlatformShadow('lg'),
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: 'rgba(255, 255, 255, 0.25)'
   },
   profileCardPro: {
     borderColor: 'rgba(212, 175, 55, 0.6)',
     borderWidth: 1.5,
-    ...(Platform.OS === 'ios'
-      ? { shadowColor: '#D4AF37', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 12 }
-      : { elevation: 8 }),
+    ...(Platform.OS === 'ios' ? {
+      shadowColor: '#D4AF37',
+      shadowOffset: {
+        width: 0,
+        height: 4
+      },
+      shadowOpacity: 0.25,
+      shadowRadius: 12
+    } : {
+      elevation: 8
+    })
   },
   proCrownBanner: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -1793,40 +1651,47 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 12,
     gap: 4,
     marginBottom: 4,
-    alignSelf: isRTL ? 'flex-start' : 'flex-end',
+    alignSelf: isRTL ? 'flex-start' : 'flex-end'
   },
   proCrownBannerText: {
     fontSize: 10,
     fontWeight: getPlatformFontWeight('700'),
     color: '#F5E6A3',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   profileHeader: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
-    gap: 12,
+    gap: 12
   },
   avatarWrapper: {
-    position: 'relative',
+    position: 'relative'
   },
   avatarContainer: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: theme.colors.surfaceCard,
     alignItems: 'center',
     justifyContent: 'center',
     ...getPlatformShadow('sm'),
+    ...(Platform.OS === 'android' ? {
+      elevation: 0
+    } : {}),
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: theme.colors.border + '40'
   },
   avatarContainerPro: {
-    borderColor: 'rgba(212, 175, 55, 0.6)',
+    borderColor: 'rgba(212, 175, 55, 0.6)'
   },
   proCrownBadge: {
     position: 'absolute',
     bottom: 0,
-    right: 0,
+    ...(isRTL ? {
+      left: 0,
+    } : {
+      right: 0,
+    }),
     width: 20,
     height: 20,
     borderRadius: 10,
@@ -1834,51 +1699,58 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#F5E6A3',
+    borderColor: '#F5E6A3'
   },
   onlineBadge: {
     position: 'absolute',
     bottom: 2,
-    right: 2,
+    ...(isRTL ? {
+      left: 2,
+    } : {
+      right: 2,
+    }),
     width: 14,
     height: 14,
     borderRadius: 7,
     backgroundColor: '#10B981',
     borderWidth: 2,
-    borderColor: theme.colors.primary,
+    borderColor: theme.colors.primary
   },
   userInfo: {
     flex: 1,
     gap: 3,
-    alignItems: isRTL ? 'flex-start' : 'flex-end',
+    alignItems: isRTL ? 'flex-end' : 'flex-start'
   },
   userNameRow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 6
   },
   userNameText: {
     fontSize: 18,
     fontWeight: getPlatformFontWeight('800'),
     color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   userNameTextPro: {
     textShadowColor: 'rgba(0,0,0,0.2)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    textShadowOffset: {
+      width: 0,
+      height: 1
+    },
+    textShadowRadius: 2
   },
   proSparkIcon: {
-    opacity: 0.95,
+    opacity: 0.95
   },
   userEmail: {
     fontSize: 12,
     color: 'rgba(255, 255, 255, 0.85)',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   userEmailPro: {
-    color: 'rgba(245, 230, 163, 0.95)',
+    color: 'rgba(245, 230, 163, 0.95)'
   },
   verifiedBadge: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
@@ -1889,16 +1761,16 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
     gap: 4,
-    marginTop: 4,
+    marginTop: 4
   },
   verifiedText: {
     fontSize: 10,
     fontWeight: getPlatformFontWeight('600'),
     color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   verifiedBadgePro: {
-    backgroundColor: 'rgba(212, 175, 55, 0.35)',
+    backgroundColor: 'rgba(212, 175, 55, 0.35)'
   },
   editProfileBtn: {
     width: 36,
@@ -1908,22 +1780,22 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.3)'
   },
   unauthProfileHeader: {
     paddingVertical: 15,
     alignItems: 'center',
-    gap: 20,
+    gap: 20
   },
   unauthTextContainer: {
     alignItems: 'center',
-    gap: 8,
+    gap: 8
   },
   unauthTitle: {
     fontSize: 24,
     fontWeight: getPlatformFontWeight('900'),
     color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   unauthSubtitle: {
     fontSize: 15,
@@ -1931,20 +1803,20 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     textAlign: 'center',
     fontFamily: theme.typography.fontFamily,
     paddingHorizontal: 30,
-    lineHeight: 22,
+    lineHeight: 22
   },
   loginBtnHeader: {
     backgroundColor: theme.colors.surfaceCard,
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 24,
-    ...getPlatformShadow('md'),
+    ...getPlatformShadow('md')
   },
   loginBtnHeaderText: {
     color: theme.colors.primary,
     fontWeight: getPlatformFontWeight('900'),
     fontSize: 17,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   statsRow: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
@@ -1952,28 +1824,31 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingTop: 24,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'space-around',
+    justifyContent: 'space-around'
   },
   statBox: {
     alignItems: 'center',
-    gap: 6,
+    gap: 6
   },
   statLabel: {
     fontSize: 13,
     color: 'rgba(255, 255, 255, 0.75)',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   statValue: {
     fontSize: 18,
     fontWeight: getPlatformFontWeight('800'),
     color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   statValuePro: {
     color: '#FDE047',
     textShadowColor: 'rgba(0,0,0,0.2)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    textShadowOffset: {
+      width: 0,
+      height: 1
+    },
+    textShadowRadius: 2
   },
   copyIdButton: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -1985,18 +1860,18 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingHorizontal: 12,
     gap: 6,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 12,
+    borderRadius: 12
   },
   copyIdLabel: {
     fontSize: 11,
     color: 'rgba(255, 255, 255, 0.9)',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   statDivider: {
     width: 1,
     height: '60%',
     alignSelf: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)'
   },
   proFeaturesRow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -2006,7 +1881,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(245, 230, 163, 0.2)',
+    borderTopColor: 'rgba(245, 230, 163, 0.2)'
   },
   proFeaturePill: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -2015,13 +1890,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 12,
-    gap: 4,
+    gap: 4
   },
   proFeaturePillText: {
     fontSize: 10,
     fontWeight: getPlatformFontWeight('600'),
     color: 'rgba(255, 255, 255, 0.95)',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   actionItem: {
     borderRadius: 24,
@@ -2029,19 +1904,19 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginTop: theme.spacing.md,
     backgroundColor: theme.colors.surfaceLight,
     borderWidth: 1,
-    borderColor: theme.colors.border + '20',
+    borderColor: theme.colors.border + '20'
   },
   actionItemGradient: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: theme.spacing.md,
+    padding: theme.spacing.md
   },
   actionItemLeft: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     flex: 1,
-    gap: theme.spacing.md,
+    gap: theme.spacing.md
   },
   actionIconContainer: {
     width: 48,
@@ -2049,10 +1924,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 16,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   actionItemInfo: {
-    flex: 1,
+    flex: 1
   },
   actionItemTitleWhite: {
     fontSize: 16,
@@ -2060,15 +1935,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     marginBottom: 4,
-    textAlign: 'left',
+    textAlign: 'left'
   },
   actionItemDescriptionWhite: {
     fontSize: 13,
     color: 'rgba(255, 255, 255, 0.85)',
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'left',
+    textAlign: 'left'
   },
-
   // Premium Custom Action Items (no full color, cleaner look)
   premiumRow: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
@@ -2079,7 +1953,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: 10,
     backgroundColor: theme.colors.surfaceLight,
     borderWidth: 1,
-    borderColor: theme.colors.border + '15',
+    borderColor: theme.colors.border + '15'
   },
   premiumIconBox: {
     width: 44,
@@ -2088,25 +1962,25 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: isRTL ? 0 : 16,
-    marginLeft: isRTL ? 16 : 0,
+    marginLeft: isRTL ? 16 : 0
   },
   premiumItemTitle: {
     fontSize: 16,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'left',
+    textAlign: 'left'
   },
   premiumItemSubtitle: {
     fontSize: 13,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     marginTop: 2,
-    textAlign: 'left',
+    textAlign: 'left'
   },
   themeOptionsContainer: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
-    gap: 8,
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    gap: 8
   },
   themeOption: {
     flex: 1,
@@ -2116,33 +1990,32 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderWidth: 1.5,
     borderColor: theme.colors.border + '30',
     alignItems: 'center',
-    gap: 6,
+    gap: 6
   },
   themeOptionActive: {
     backgroundColor: theme.colors.primary + '10',
-    borderColor: theme.colors.primary,
+    borderColor: theme.colors.primary
   },
   themeOptionText: {
     fontSize: 13,
     fontFamily: theme.typography.fontFamily,
     color: theme.colors.textSecondary,
-    fontWeight: getPlatformFontWeight('600'),
+    fontWeight: getPlatformFontWeight('600')
   },
   themeOptionTextActive: {
     color: theme.colors.primary,
-    fontWeight: getPlatformFontWeight('700'),
+    fontWeight: getPlatformFontWeight('700')
   },
-
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 20
   },
   modalContainer: {
     width: '100%',
-    maxWidth: 420,
+    maxWidth: 420
   },
   modalContent: {
     backgroundColor: theme.colors.surfaceCard,
@@ -2150,21 +2023,21 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     overflow: 'hidden',
     ...getPlatformShadow('xl'),
     borderWidth: 1,
-    borderColor: theme.colors.border + '20',
+    borderColor: theme.colors.border + '20'
   },
   modalHeader: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 24,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border + '15',
+    borderBottomColor: theme.colors.border + '15'
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: getPlatformFontWeight('800'),
     color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   closeButton: {
     width: 36,
@@ -2172,10 +2045,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 18,
     backgroundColor: theme.colors.surfaceLight,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   modalBody: {
-    padding: 24,
+    padding: 24
   },
   inputLabel: {
     fontSize: 15,
@@ -2183,7 +2056,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: 10,
-    textAlign: isRTL ? 'right' : 'left',
+    textAlign: isRTL ? 'right' : 'left'
   },
   nameInput: {
     backgroundColor: theme.colors.surfaceLight,
@@ -2194,66 +2067,66 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'right' : 'left',
     borderWidth: 1,
-    borderColor: theme.colors.border + '40',
+    borderColor: theme.colors.border + '40'
   },
   modalActions: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     padding: 24,
     gap: 12,
     borderTopWidth: 1,
-    borderTopColor: theme.colors.border + '15',
+    borderTopColor: theme.colors.border + '15'
   },
   modalButton: {
     flex: 1,
     borderRadius: 16,
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   cancelButton: {
     backgroundColor: theme.colors.surfaceLight,
     padding: 14,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   cancelButtonText: {
     fontSize: 16,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   saveButton: {
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   saveButtonGradient: {
     padding: 14,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   saveButtonText: {
     fontSize: 16,
     fontWeight: getPlatformFontWeight('800'),
     color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: getPlatformFontWeight('800'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: isRTL ? 'left' : 'right',
+    textAlign: isRTL ? 'left' : 'right'
   },
   profileTitle: {
     fontSize: 18,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'left',
+    textAlign: isRTL ? 'right' : 'left'
   },
   profileSubtitle: {
     fontSize: 13,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     marginTop: 4,
-    textAlign: 'left',
+    textAlign: isRTL ? 'right' : 'left'
   },
   accountInfo: {
     marginBottom: theme.spacing.md,
@@ -2261,12 +2134,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: theme.colors.surfaceLight,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: theme.colors.border + '15',
+    borderColor: theme.colors.border + '15'
   },
   accountInfoLeft: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    gap: theme.spacing.md,
+    gap: theme.spacing.md
   },
   accountIconContainer: {
     width: 48,
@@ -2274,88 +2147,88 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 16,
     backgroundColor: theme.colors.primary + '15',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   accountInfoText: {
-    flex: 1,
+    flex: 1
   },
   accountStatusText: {
     fontSize: 16,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    marginBottom: 4,
+    marginBottom: 4
   },
   accountPhoneText: {
     fontSize: 13,
     color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   loginButton: {
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...getPlatformShadow('md'),
+    ...getPlatformShadow('md')
   },
   loginButtonGradient: {
-    flexDirection: 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
     padding: theme.spacing.md,
-    gap: theme.spacing.sm,
+    gap: theme.spacing.sm
   },
   loginButtonText: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   logoutButton: {
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
     marginTop: theme.spacing.md,
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   logoutButtonGradient: {
-    flexDirection: 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
     padding: theme.spacing.md,
-    gap: theme.spacing.sm,
+    gap: theme.spacing.sm
   },
   logoutButtonText: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   listItemTitle: {
     fontFamily: theme.typography.fontFamily,
     fontSize: 16,
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
+    color: theme.colors.textPrimary
   },
   listItemDescription: {
     fontFamily: theme.typography.fontFamily,
     fontSize: 13,
     color: theme.colors.textSecondary,
-    marginTop: 2,
+    marginTop: 2
   },
   notificationItem: {
     marginBottom: theme.spacing.lg,
     paddingBottom: theme.spacing.md,
-    direction: 'rtl' as const,
+    direction: isRTL ? 'rtl' : 'ltr'
   },
   notificationItemHeader: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 12
   },
   notificationItemLeft: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     flex: 1,
-    gap: 16,
+    gap: 16
   },
   notificationIconContainer: {
     width: 44,
@@ -2363,10 +2236,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 14,
     backgroundColor: theme.colors.primary + '10',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   notificationItemInfo: {
-    flex: 1,
+    flex: 1
   },
   notificationItemTitle: {
     fontSize: 16,
@@ -2374,13 +2247,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: 4,
-    textAlign: 'left',
+    textAlign: 'left'
   },
   notificationItemDescription: {
     fontSize: 13,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'left',
+    textAlign: 'left'
   },
   timePickerButton: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
@@ -2391,7 +2264,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 16,
     marginTop: 8,
     borderWidth: 1,
-    borderColor: theme.colors.border + '20',
+    borderColor: theme.colors.border + '20'
   },
   timePickerText: {
     flex: 1,
@@ -2399,62 +2272,62 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: isRTL ? 'left' : 'right',
+    textAlign: isRTL ? 'left' : 'right'
   },
   testNotificationButton: {
     marginTop: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   testNotificationButtonGradient: {
-    flexDirection: 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
-    gap: theme.spacing.sm,
+    gap: theme.spacing.sm
   },
   testNotificationButtonText: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   exportButton: {
     borderRadius: 20,
     overflow: 'hidden',
     marginTop: 8,
     ...getPlatformShadow('sm'),
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
-    gap: 10,
+    gap: 10
   },
   exportButtonText: {
     fontSize: 16,
     fontWeight: getPlatformFontWeight('800'),
     fontFamily: theme.typography.fontFamily,
-    color: '#FFFFFF',
+    color: '#FFFFFF'
   },
   currencyItem: {
     borderRadius: 20,
     overflow: 'hidden',
     marginTop: 10,
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   currencyItemGradient: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: 16
   },
   currencyItemLeft: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     flex: 1,
-    gap: 16,
+    gap: 16
   },
   currencyIconContainer: {
     width: 44,
@@ -2462,10 +2335,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   currencyItemInfo: {
-    flex: 1,
+    flex: 1
   },
   currencyItemTitle: {
     fontSize: theme.typography.sizes.md,
@@ -2473,8 +2346,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
-    textAlign: 'left',
-    writingDirection: 'rtl',
+    textAlign: isRTL ? 'right' : 'left',
+    writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   currencyItemTitleWhite: {
     fontSize: 16,
@@ -2482,20 +2355,20 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     marginBottom: 4,
-    textAlign: 'left',
+    textAlign: 'left'
   },
   currencyItemDescription: {
     fontSize: theme.typography.sizes.sm,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'left',
-    writingDirection: 'rtl',
+    textAlign: isRTL ? 'right' : 'left',
+    writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   currencyItemDescriptionWhite: {
     fontSize: 13,
     color: 'rgba(255, 255, 255, 0.9)',
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'left',
+    textAlign: 'left'
   },
   currencyPicker: {
     marginTop: 12,
@@ -2504,7 +2377,29 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     padding: 12,
     gap: 8,
     borderWidth: 1,
-    borderColor: theme.colors.border + '20',
+    borderColor: theme.colors.border + '20'
+  },
+  debugCard: {
+    marginTop: 12,
+    borderRadius: 16,
+    padding: 12,
+    backgroundColor: '#111827',
+    borderWidth: 1,
+    borderColor: '#374151',
+    gap: 4
+  },
+  debugTitle: {
+    fontSize: 13,
+    fontWeight: getPlatformFontWeight('800'),
+    color: '#F9FAFB',
+    fontFamily: theme.typography.fontFamily,
+    textAlign: 'left'
+  },
+  debugText: {
+    fontSize: 12,
+    color: '#D1D5DB',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    textAlign: 'left'
   },
   currencyOption: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
@@ -2512,41 +2407,68 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderRadius: 14,
-    backgroundColor: theme.colors.surfaceCard,
+    backgroundColor: theme.colors.surfaceCard
   },
   currencyOptionSelected: {
     backgroundColor: theme.colors.primary + '10',
     borderWidth: 1,
-    borderColor: theme.colors.primary + '30',
+    borderColor: theme.colors.primary + '30'
   },
   currencyOptionText: {
     fontSize: 15,
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
+    textAlign: 'left'
+  },
+  languageOptionRtl: {
+    flexDirection: 'row-reverse'
+  },
+  languageOptionLtr: {
+    flexDirection: 'row'
+  },
+  languageOptionTextRtl: {
+    textAlign: 'right',
+    writingDirection: 'rtl'
+  },
+  languageOptionTextLtr: {
     textAlign: 'left',
+    writingDirection: 'ltr'
+  },
+  languageOptionLabelWrapRtl: {
+    flex: 1,
+    alignItems: 'flex-end'
+  },
+  languageOptionLabelWrapLtr: {
+    flex: 1,
+    alignItems: 'flex-start'
+  },
+  languageOptionIconSlot: {
+    width: 20,
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   currencyOptionTextSelected: {
     color: theme.colors.primary,
-    fontWeight: getPlatformFontWeight('800'),
+    fontWeight: getPlatformFontWeight('800')
   },
   authItem: {
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
     marginTop: theme.spacing.sm,
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   authItemGradient: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: theme.spacing.md,
-    direction: 'rtl' as const,
+    direction: isRTL ? 'rtl' : 'ltr'
   },
   authItemLeft: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     flex: 1,
-    gap: theme.spacing.md,
+    gap: theme.spacing.md
   },
   authIconContainer: {
     width: 40,
@@ -2554,10 +2476,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   authItemInfo: {
-    flex: 1,
+    flex: 1
   },
   authItemTitle: {
     fontSize: theme.typography.sizes.md,
@@ -2566,7 +2488,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
     textAlign: 'left',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   authItemTitleWhite: {
     fontSize: theme.typography.sizes.md,
@@ -2575,39 +2497,39 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
     textAlign: 'left',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   authItemDescription: {
     fontSize: theme.typography.sizes.sm,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'left',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   authItemDescriptionWhite: {
     fontSize: theme.typography.sizes.sm,
     color: 'rgba(255, 255, 255, 0.9)',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'left',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   exchangeRateItem: {
     borderRadius: 20,
     overflow: 'hidden',
     marginTop: 12,
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   exchangeRateItemGradient: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: 16
   },
   exchangeRateItemLeft: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     flex: 1,
-    gap: 16,
+    gap: 16
   },
   exchangeRateIconContainer: {
     width: 44,
@@ -2615,10 +2537,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   exchangeRateItemInfo: {
-    flex: 1,
+    flex: 1
   },
   exchangeRateItemTitleWhite: {
     fontSize: 16,
@@ -2626,13 +2548,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     marginBottom: 4,
-    textAlign: 'left',
+    textAlign: 'left'
   },
   exchangeRateItemDescriptionWhite: {
     fontSize: 13,
     color: 'rgba(255, 255, 255, 0.9)',
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'left',
+    textAlign: 'left'
   },
   contactItem: {
     borderRadius: 24,
@@ -2640,19 +2562,19 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginTop: 14,
     ...getPlatformShadow('md'),
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.2)'
   },
   contactItemGradient: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    padding: 20
   },
   contactItemLeft: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     flex: 1,
-    gap: 16,
+    gap: 16
   },
   contactIconContainer: {
     width: 52,
@@ -2661,18 +2583,18 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   contactItemInfo: {
     flex: 1,
-    gap: 2,
+    gap: 2
   },
   contactItemTitleWhite: {
     fontSize: 17,
     fontWeight: getPlatformFontWeight('800'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'left',
+    textAlign: 'left'
   },
   contactItemDescriptionWhite: {
     fontSize: 13,
@@ -2680,48 +2602,48 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     textAlign: 'left',
     lineHeight: 18,
-    fontWeight: getPlatformFontWeight('500'),
+    fontWeight: getPlatformFontWeight('500')
   },
   copyrightWrapper: {
     marginTop: theme.spacing.xl,
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.lg
   },
   copyrightCard: {
     borderRadius: 28,
     padding: 32,
     alignItems: 'center',
     gap: 12,
-    ...getPlatformShadow('md'),
+    ...getPlatformShadow('md')
   },
   copyrightLogo: {
     width: 140,
     height: 45,
     marginBottom: 8,
-    tintColor: '#FFFFFF',
+    tintColor: '#FFFFFF'
   },
   copyrightText: {
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.9)',
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'center',
+    textAlign: 'center'
   },
   versionText: {
     fontSize: 12,
     color: 'rgba(255, 255, 255, 0.6)',
     fontFamily: theme.typography.fontFamily,
     fontWeight: getPlatformFontWeight('600'),
-    marginTop: 4,
+    marginTop: 4
   },
   exchangeRateModalOverlay: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
+    position: 'relative'
   },
   exchangeRateModalBackdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    zIndex: 1,
+    zIndex: 1
   },
   exchangeRateModalContainer: {
     width: '90%',
@@ -2730,14 +2652,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     overflow: 'hidden',
     ...getPlatformShadow('lg'),
     zIndex: 2,
-    position: 'relative',
+    position: 'relative'
   },
   exchangeRateModalGradient: {
     width: '100%',
-    minHeight: 300,
+    minHeight: 300
   },
   exchangeRateModalSafeArea: {
-    width: '100%',
+    width: '100%'
   },
   exchangeRateModalHeader: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -2746,14 +2668,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    borderBottomColor: theme.colors.border
   },
   exchangeRateModalCloseButton: {
     padding: theme.spacing.xs,
     width: 36,
     height: 36,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   exchangeRateModalTitle: {
     fontSize: theme.typography.sizes.lg,
@@ -2761,34 +2683,34 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
-    flex: 1,
+    flex: 1
   },
   exchangeRateModalContent: {
-    padding: theme.spacing.lg,
+    padding: theme.spacing.lg
   },
   exchangeRateInfoCard: {
     borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
     marginBottom: theme.spacing.lg,
-    ...getPlatformShadow('md'),
+    ...getPlatformShadow('md')
   },
   exchangeRateInfoCardGradient: {
-    padding: theme.spacing.lg,
+    padding: theme.spacing.lg
   },
   exchangeRateInfoCardContent: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: theme.spacing.md,
+    gap: theme.spacing.md
   },
   exchangeRateInfoCardText: {
     fontSize: theme.typography.sizes.xl,
     fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   exchangeRateInputSection: {
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.lg
   },
   exchangeRateInputLabel: {
     fontSize: theme.typography.sizes.sm,
@@ -2796,7 +2718,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.sm,
-    textAlign: isRTL ? 'right' : 'left',
+    textAlign: isRTL ? 'right' : 'left'
   },
   exchangeRateInputContainer: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -2807,7 +2729,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingVertical: theme.spacing.sm,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   exchangeRateInput: {
     flex: 1,
@@ -2816,14 +2738,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'right' : 'left',
-    paddingVertical: theme.spacing.xs,
+    paddingVertical: theme.spacing.xs
   },
   exchangeRateInputUnit: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    ...(isRTL ? { marginLeft: theme.spacing.sm } : { marginRight: theme.spacing.sm }),
+    marginHorizontal: theme.spacing.sm
   },
   exchangeRateHint: {
     fontSize: theme.typography.sizes.xs,
@@ -2831,12 +2753,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     marginTop: theme.spacing.xs,
     textAlign: isRTL ? 'right' : 'left',
-    opacity: 0.7,
+    opacity: 0.7
   },
   exchangeRateModalActions: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     gap: theme.spacing.md,
-    marginTop: theme.spacing.md,
+    marginTop: theme.spacing.md
   },
   exchangeRateCancelButton: {
     flex: 1,
@@ -2846,38 +2768,38 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.border
   },
   exchangeRateCancelButtonText: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   exchangeRateSaveButton: {
     flex: 1,
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   exchangeRateSaveButtonGradient: {
     padding: theme.spacing.md,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   exchangeRateSaveButtonText: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   placeholder: {
-    width: 40,
+    width: 40
   },
   timePickerModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-end'
   },
   timePickerModalContent: {
     backgroundColor: theme.colors.surfaceCard,
@@ -2886,7 +2808,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingBottom: theme.spacing.xxl,
     maxHeight: '50%',
     ...getPlatformShadow('lg'),
-    direction: 'rtl' as const,
+    direction: isRTL ? 'rtl' : 'ltr'
   },
   timePickerModalHeader: {
     flexDirection: 'row-reverse',
@@ -2894,7 +2816,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center',
     padding: theme.spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    borderBottomColor: theme.colors.border
   },
   timePickerModalTitle: {
     fontSize: theme.typography.sizes.lg,
@@ -2902,29 +2824,29 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     flex: 1,
-    textAlign: 'center',
+    textAlign: 'center'
   },
   timePickerCancelButton: {
     padding: theme.spacing.sm,
     minWidth: 60,
-    alignItems: 'flex-end',
+    alignItems: 'flex-end'
   },
   timePickerCancelText: {
     fontSize: theme.typography.sizes.md,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: getPlatformFontWeight('600'),
+    fontWeight: getPlatformFontWeight('600')
   },
   timePickerConfirmButton: {
     padding: theme.spacing.sm,
     minWidth: 60,
-    alignItems: 'flex-start',
+    alignItems: 'flex-start'
   },
   timePickerConfirmText: {
     fontSize: theme.typography.sizes.md,
     color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: getPlatformFontWeight('700'),
+    fontWeight: getPlatformFontWeight('700')
   },
   customTimePickerContainer: {
     flexDirection: 'row-reverse',
@@ -2933,41 +2855,41 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingVertical: theme.spacing.lg,
     backgroundColor: theme.colors.surfaceCard,
     minHeight: 250,
-    position: 'relative',
+    position: 'relative'
   },
   timePickerWheel: {
     height: 250,
     width: 80,
     overflow: 'hidden',
-    position: 'relative',
+    position: 'relative'
   },
   timePickerScroll: {
-    flex: 1,
+    flex: 1
   },
   timePickerScrollContent: {
-    paddingVertical: 100,
+    paddingVertical: 100
   },
   timePickerItem: {
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   timePickerItemText: {
     fontSize: 24,
     fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textMuted,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   timePickerItemTextSelected: {
     fontSize: 28,
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.primary,
+    color: theme.colors.primary
   },
   timePickerSeparator: {
     fontSize: 32,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    marginHorizontal: theme.spacing.md,
+    marginHorizontal: theme.spacing.md
   },
   timePickerSelectionIndicator: {
     position: 'absolute',
@@ -2979,7 +2901,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    pointerEvents: 'none',
+    pointerEvents: 'none'
   },
   referralCard: {
     backgroundColor: theme.colors.surfaceCard,
@@ -2988,13 +2910,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginTop: 12,
     borderWidth: 1,
     borderColor: '#F1F5F9',
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   referralHero: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     gap: 16,
-    marginBottom: 20,
+    marginBottom: 20
   },
   referralIconBox: {
     width: 60,
@@ -3002,10 +2924,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 20,
     backgroundColor: '#F59E0B15',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   referralTextContent: {
-    flex: 1,
+    flex: 1
   },
   referralTitleText: {
     fontSize: 16,
@@ -3013,44 +2935,44 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: 4,
-    textAlign: 'left',
+    textAlign: isRTL ? 'right' : 'left'
   },
   referralSubtitleText: {
     fontSize: 13,
     color: theme.colors.textMuted,
     fontFamily: theme.typography.fontFamily,
     lineHeight: 18,
-    textAlign: 'left',
+    textAlign: isRTL ? 'right' : 'left'
   },
   referralCodeBox: {
     backgroundColor: theme.colors.surfaceLight,
     borderRadius: 20,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E2E8F0'
   },
   codeContainer: {
-    marginBottom: 16,
+    marginBottom: 16
   },
   codeLabel: {
     fontSize: 12,
     color: '#94A3B8',
     fontFamily: theme.typography.fontFamily,
     marginBottom: 8,
-    textAlign: 'center',
+    textAlign: 'center'
   },
   codeRow: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 12,
+    gap: 12
   },
   codeValue: {
     fontSize: 24,
     fontWeight: getPlatformFontWeight('900'),
     color: theme.colors.primary,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    letterSpacing: 4,
+    letterSpacing: 4
   },
   copyButton: {
     width: 40,
@@ -3058,44 +2980,44 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 12,
     backgroundColor: theme.colors.primary + '15',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   referralStatBox: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
     marginBottom: 20,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: '#E2E8F0'
   },
   referralStatLabel: {
     fontSize: 14,
     color: theme.colors.textMuted,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   referralStatValue: {
     fontSize: 16,
     fontWeight: getPlatformFontWeight('800'),
     color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   shareCodeButton: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     height: 52,
     backgroundColor: theme.colors.primary,
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 10,
-    ...getPlatformShadow('md'),
+    ...getPlatformShadow('md')
   },
   shareCodeButtonText: {
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: getPlatformFontWeight('700'),
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   referralErrorText: {
     fontSize: 13,
@@ -3104,79 +3026,79 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     backgroundColor: '#EF444410',
     padding: 12,
-    borderRadius: 12,
+    borderRadius: 12
   },
   exportModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-end'
   },
   exportModalBackdrop: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0,
+    bottom: 0
   },
   exportModalContainer: {
     width: '100%',
-    maxHeight: '90%',
+    maxHeight: '90%'
   },
   exportModalGradient: {
     borderTopLeftRadius: theme.borderRadius.xxl,
     borderTopRightRadius: theme.borderRadius.xxl,
     padding: theme.spacing.lg,
-    paddingBottom: theme.spacing.xxl,
+    paddingBottom: theme.spacing.xxl
   },
   exportModalHeader: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.lg
   },
   exportModalCloseButton: {
-    padding: 4,
+    padding: 4
   },
   exportModalTitle: {
     fontSize: 20,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   exportModalContent: {
-    paddingBottom: 8,
+    paddingBottom: 8
   },
   modeToggle: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     backgroundColor: theme.colors.surfaceLight,
     borderRadius: 16,
     padding: 4,
-    marginBottom: 24,
+    marginBottom: 24
   },
   modeButton: {
     flex: 1,
     paddingVertical: 12,
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: 12
   },
   modeButtonActive: {
     backgroundColor: theme.colors.surfaceCard,
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   modeButtonText: {
     fontSize: 14,
     color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   modeButtonTextActive: {
     color: theme.colors.primary,
-    fontWeight: getPlatformFontWeight('700'),
+    fontWeight: getPlatformFontWeight('700')
   },
   periodSelectors: {
-    marginBottom: 24,
+    marginBottom: 24
   },
   selectorGroup: {
-    marginBottom: 20,
+    marginBottom: 20
   },
   selectorLabel: {
     fontSize: 14,
@@ -3184,51 +3106,50 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: 12,
-    textAlign: 'left',
+    textAlign: isRTL ? 'right' : 'left'
   },
   selectorScroll: {
-    paddingRight: 4,
+    paddingHorizontal: 4
   },
   periodOption: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 12,
     backgroundColor: theme.colors.surfaceLight,
-    marginRight: 8,
+    marginHorizontal: 4,
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: 'transparent'
   },
   periodOptionActive: {
     backgroundColor: theme.colors.primary + '10',
-    borderColor: theme.colors.primary + '30',
+    borderColor: theme.colors.primary + '30'
   },
   periodOptionText: {
     fontSize: 14,
     color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   periodOptionTextActive: {
     color: theme.colors.primary,
-    fontWeight: getPlatformFontWeight('600'),
+    fontWeight: getPlatformFontWeight('600')
   },
   confirmExportButton: {
-    marginTop: 8,
+    marginTop: 8
   },
   confirmExportGradient: {
     height: 56,
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    ...getPlatformShadow('md'),
+    ...getPlatformShadow('md')
   },
   confirmExportText: {
     fontSize: 17,
     fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
-  },
+    fontFamily: theme.typography.fontFamily
+  }
 });
-
 interface ExchangeRateModalProps {
   visible: boolean;
   rate: string;
@@ -3237,65 +3158,57 @@ interface ExchangeRateModalProps {
   onSave: () => void;
   onClose: () => void;
 }
-
 const ExchangeRateModal: React.FC<ExchangeRateModalProps> = ({
   visible,
   rate,
   selectedCurrency,
   onRateChange,
   onSave,
-  onClose,
+  onClose
 }) => {
-  const { theme } = useAppTheme();
-  const styles = useThemedStyles(createStyles);
-
-  return (
-    <Modal
-      visible={visible}
-      animationType="fade"
-      transparent={true}
-      onRequestClose={onClose}
-    >
+  const {
+    theme
+  } = useAppTheme();
+  const {
+    language,
+    isRTL
+  } = useLocalization();
+  const styles = useMemo(() => createStyles(theme, isRTL), [theme, isRTL]);
+  return <Modal visible={visible} animationType="fade" transparent={true} onRequestClose={onClose}>
       <View style={styles.exchangeRateModalOverlay}>
-        <TouchableOpacity
-          style={styles.exchangeRateModalBackdrop}
-          activeOpacity={1}
-          onPress={onClose}
-        />
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ width: '100%', alignItems: 'center' }}
-        >
+        <TouchableOpacity style={styles.exchangeRateModalBackdrop} activeOpacity={1} onPress={onClose} />
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{
+        width: '100%',
+        alignItems: 'center'
+      }}>
           <View style={styles.exchangeRateModalContainer}>
-            <LinearGradient
-              colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-              style={styles.exchangeRateModalGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
+            <LinearGradient colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]} style={styles.exchangeRateModalGradient} start={{
+            x: 0,
+            y: 0
+          }} end={{
+            x: 1,
+            y: 1
+          }}>
               <SafeAreaView edges={['top']} style={styles.exchangeRateModalSafeArea}>
                 {/* Header */}
                 <View style={styles.exchangeRateModalHeader}>
-                  <TouchableOpacity
-                    onPress={onClose}
-                    style={styles.exchangeRateModalCloseButton}
-                    activeOpacity={0.7}
-                  >
+                  <TouchableOpacity onPress={onClose} style={styles.exchangeRateModalCloseButton} activeOpacity={0.7}>
                     <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
                   </TouchableOpacity>
-                  <Text style={styles.exchangeRateModalTitle}>تعديل سعر الصرف</Text>
+                  <Text style={styles.exchangeRateModalTitle}>{tl("تعديل سعر الصرف")}</Text>
                   <View style={styles.placeholder} />
                 </View>
 
                 {/* Content */}
                 <View style={styles.exchangeRateModalContent}>
                   <View style={styles.exchangeRateInfoCard}>
-                    <LinearGradient
-                      colors={theme.gradients.primary as any}
-                      style={styles.exchangeRateInfoCardGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                    >
+                    <LinearGradient colors={theme.gradients.primary as any} style={styles.exchangeRateInfoCardGradient} start={{
+                    x: 0,
+                    y: 0
+                  }} end={{
+                    x: 1,
+                    y: 1
+                  }}>
                       <View style={styles.exchangeRateInfoCardContent}>
                         <Ionicons name="cash" size={32} color="#FFFFFF" />
                         <Text style={styles.exchangeRateInfoCardText}>
@@ -3306,49 +3219,32 @@ const ExchangeRateModal: React.FC<ExchangeRateModalProps> = ({
                   </View>
 
                   <View style={styles.exchangeRateInputSection}>
-                    <Text style={styles.exchangeRateInputLabel}>
-                      سعر الصرف (1 دولار = ? {CURRENCIES.find(c => c.code === selectedCurrency)?.name || 'دينار عراقي'})
+                    <Text style={styles.exchangeRateInputLabel}>{tl("سعر الصرف (1 دولار = ?")}{getCurrencyDisplayName(selectedCurrency, language)}
                     </Text>
-                    <View style={styles.exchangeRateInputContainer}>
-                      <TextInput
-                        style={styles.exchangeRateInput}
-                        value={rate}
-                        onChangeText={(val) => onRateChange(convertArabicToEnglish(val))}
-                        placeholder="1315"
-                        placeholderTextColor={theme.colors.textSecondary}
-                        keyboardType="decimal-pad"
-                        textAlign={isRTL ? 'right' : 'left'}
-                      />
+                      <View style={styles.exchangeRateInputContainer}>
+                        <TextInput style={styles.exchangeRateInput} value={rate} onChangeText={val => onRateChange(convertArabicToEnglish(val))} placeholder="1315" placeholderTextColor={theme.colors.textSecondary} keyboardType="decimal-pad" textAlign={isRTL ? 'right' : 'left'} />
                       <Text style={styles.exchangeRateInputUnit}>
                         {selectedCurrency}
                       </Text>
                     </View>
-                    <Text style={styles.exchangeRateHint}>
-                      أدخل سعر الصرف الحالي للدولار مقابل {CURRENCIES.find(c => c.code === selectedCurrency)?.name || 'الدينار العراقي'}
+                    <Text style={styles.exchangeRateHint}>{tl("أدخل سعر الصرف الحالي للدولار مقابل")}{getCurrencyDisplayName(selectedCurrency, language)}
                     </Text>
                   </View>
 
                   {/* Actions */}
                   <View style={styles.exchangeRateModalActions}>
-                    <TouchableOpacity
-                      onPress={onClose}
-                      style={styles.exchangeRateCancelButton}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.exchangeRateCancelButtonText}>إلغاء</Text>
+                    <TouchableOpacity onPress={onClose} style={styles.exchangeRateCancelButton} activeOpacity={0.7}>
+                      <Text style={styles.exchangeRateCancelButtonText}>{tl("إلغاء")}</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={onSave}
-                      style={styles.exchangeRateSaveButton}
-                      activeOpacity={0.7}
-                    >
-                      <LinearGradient
-                        colors={theme.gradients.primary as any}
-                        style={styles.exchangeRateSaveButtonGradient}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                      >
-                        <Text style={styles.exchangeRateSaveButtonText}>حفظ</Text>
+                    <TouchableOpacity onPress={onSave} style={styles.exchangeRateSaveButton} activeOpacity={0.7}>
+                      <LinearGradient colors={theme.gradients.primary as any} style={styles.exchangeRateSaveButtonGradient} start={{
+                      x: 0,
+                      y: 0
+                    }} end={{
+                      x: 1,
+                      y: 0
+                    }}>
+                        <Text style={styles.exchangeRateSaveButtonText}>{tl("حفظ")}</Text>
                       </LinearGradient>
                     </TouchableOpacity>
                   </View>
@@ -3358,10 +3254,8 @@ const ExchangeRateModal: React.FC<ExchangeRateModalProps> = ({
           </View>
         </KeyboardAvoidingView>
       </View>
-    </Modal>
-  );
+    </Modal>;
 };
-
 interface ExportPeriodModalProps {
   visible: boolean;
   exportMode: 'monthly' | 'all';
@@ -3374,7 +3268,6 @@ interface ExportPeriodModalProps {
   onClose: () => void;
   loading: boolean;
 }
-
 const ExportPeriodModal: React.FC<ExportPeriodModalProps> = ({
   visible,
   exportMode,
@@ -3385,77 +3278,81 @@ const ExportPeriodModal: React.FC<ExportPeriodModalProps> = ({
   setExportYear,
   onConfirm,
   onClose,
-  loading,
+  loading
 }) => {
-  const { theme } = useAppTheme();
-  const styles = useThemedStyles(createStyles);
-  const months = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
-  const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
-
-  return (
-    <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
+  const {
+    theme
+  } = useAppTheme();
+  const {
+    isRTL
+  } = useLocalization();
+  const styles = useMemo(() => createStyles(theme, isRTL), [theme, isRTL]);
+  const months = [tl("يناير"), tl("فبراير"), tl("مارس"), tl("أبريل"), tl("مايو"), tl("يونيو"), tl("يوليو"), tl("أغسطس"), tl("سبتمبر"), tl("أكتوبر"), tl("نوفمبر"), tl("ديسمبر")];
+  const years = Array.from({
+    length: 5
+  }, (_, i) => new Date().getFullYear() - i);
+  return <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
       <View style={styles.exportModalOverlay}>
         <TouchableOpacity style={styles.exportModalBackdrop} activeOpacity={1} onPress={onClose} />
         <View style={styles.exportModalContainer}>
-          <LinearGradient colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]} style={styles.exportModalGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+          <LinearGradient colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]} style={styles.exportModalGradient} start={{
+          x: 0,
+          y: 0
+        }} end={{
+          x: 1,
+          y: 1
+        }}>
             <View style={styles.exportModalHeader}>
               <TouchableOpacity onPress={onClose} activeOpacity={0.7} style={styles.exportModalCloseButton}>
                 <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
               </TouchableOpacity>
-              <Text style={styles.exportModalTitle}>تصدير البيانات</Text>
+              <Text style={styles.exportModalTitle}>{tl("تصدير البيانات")}</Text>
               <View style={styles.placeholder} />
             </View>
 
             <View style={styles.exportModalContent}>
               <View style={styles.modeToggle}>
-                <TouchableOpacity
-                  onPress={() => setExportMode('monthly')}
-                  style={[styles.modeButton, exportMode === 'monthly' && styles.modeButtonActive]}
-                >
-                  <Text style={[styles.modeButtonText, exportMode === 'monthly' && styles.modeButtonTextActive]}>تقرير شهري</Text>
+                <TouchableOpacity onPress={() => setExportMode('monthly')} style={[styles.modeButton, exportMode === 'monthly' && styles.modeButtonActive]}>
+                  <Text style={[styles.modeButtonText, exportMode === 'monthly' && styles.modeButtonTextActive]}>{tl("تقرير شهري")}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setExportMode('all')}
-                  style={[styles.modeButton, exportMode === 'all' && styles.modeButtonActive]}
-                >
-                  <Text style={[styles.modeButtonText, exportMode === 'all' && styles.modeButtonTextActive]}>جميع البيانات</Text>
+                <TouchableOpacity onPress={() => setExportMode('all')} style={[styles.modeButton, exportMode === 'all' && styles.modeButtonActive]}>
+                  <Text style={[styles.modeButtonText, exportMode === 'all' && styles.modeButtonTextActive]}>{tl("جميع البيانات")}</Text>
                 </TouchableOpacity>
               </View>
 
-              {exportMode === 'monthly' && (
-                <View style={styles.periodSelectors}>
+              {exportMode === 'monthly' && <View style={styles.periodSelectors}>
                   <View style={styles.selectorGroup}>
-                    <Text style={styles.selectorLabel}>الشهر</Text>
+                    <Text style={styles.selectorLabel}>{tl("الشهر")}</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorScroll}>
-                      {months.map((m, i) => (
-                        <TouchableOpacity key={m} onPress={() => setExportMonth(i)} style={[styles.periodOption, exportMonth === i && styles.periodOptionActive]}>
+                      {months.map((m, i) => <TouchableOpacity key={m} onPress={() => setExportMonth(i)} style={[styles.periodOption, exportMonth === i && styles.periodOptionActive]}>
                           <Text style={[styles.periodOptionText, exportMonth === i && styles.periodOptionTextActive]}>{m}</Text>
-                        </TouchableOpacity>
-                      ))}
+                        </TouchableOpacity>)}
                     </ScrollView>
                   </View>
                   <View style={styles.selectorGroup}>
-                    <Text style={styles.selectorLabel}>السنة</Text>
+                    <Text style={styles.selectorLabel}>{tl("السنة")}</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorScroll}>
-                      {years.map(y => (
-                        <TouchableOpacity key={y} onPress={() => setExportYear(y)} style={[styles.periodOption, exportYear === y && styles.periodOptionActive]}>
+                      {years.map(y => <TouchableOpacity key={y} onPress={() => setExportYear(y)} style={[styles.periodOption, exportYear === y && styles.periodOptionActive]}>
                           <Text style={[styles.periodOptionText, exportYear === y && styles.periodOptionTextActive]}>{y}</Text>
-                        </TouchableOpacity>
-                      ))}
+                        </TouchableOpacity>)}
                     </ScrollView>
                   </View>
-                </View>
-              )}
+                </View>}
 
               <TouchableOpacity onPress={onConfirm} disabled={loading} style={styles.confirmExportButton}>
-                <LinearGradient colors={theme.gradients.primary as any} style={styles.confirmExportGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-                  {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.confirmExportText}>تصدير PDF</Text>}
+                <LinearGradient colors={theme.gradients.primary as any} style={styles.confirmExportGradient} start={{
+                x: 0,
+                y: 0
+              }} end={{
+                x: 1,
+                y: 0
+              }}>
+                  {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.confirmExportText}>{tl("تصدير PDF")}</Text>}
                 </LinearGradient>
               </TouchableOpacity>
             </View>
           </LinearGradient>
         </View>
       </View>
-    </Modal>
-  );
+    </Modal>;
 };

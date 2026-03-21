@@ -1,46 +1,27 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  RefreshControl,
-  TouchableOpacity,
-  Modal,
-  Pressable,
-  InteractionManager,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Modal, Pressable, InteractionManager } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
 import { useAppTheme, useThemedStyles } from '../utils/theme-context';
-import {
-  getChallenges,
-  deleteChallenge,
-  updateChallenge,
-  Challenge,
-} from '../database/database';
-import {
-  ChallengeType,
-  CHALLENGE_TYPES,
-  CHALLENGE_CATEGORIES,
-  ChallengeCategory,
-} from '../types';
+import { getChallenges, deleteChallenge, updateChallenge, Challenge } from '../database/database';
+import { ChallengeType, CHALLENGE_TYPES, CHALLENGE_CATEGORIES, ChallengeCategory } from '../types';
 import { isRTL } from '../utils/rtl';
 import { alertService } from '../services/alertService';
-import {
-  createChallenge,
-  createCustomChallenge,
-  updateAllChallenges,
-  getChallengesByCategory,
-} from '../services/challengeService';
+import { createChallenge, createCustomChallenge, updateAllChallenges, getChallengesByCategory } from '../services/challengeService';
 import { ConfirmAlert } from '../components/ConfirmAlert';
 import { AddCustomChallengeModal } from '../components/AddCustomChallengeModal';
 import { shareChallengeCompletion } from '../services/shareService';
-
-export const ChallengesScreen = ({ navigation, route }: any) => {
-  const { theme } = useAppTheme();
+import { tl, useLocalization } from "../localization";
+export const ChallengesScreen = ({
+  navigation,
+  route
+}: any) => {
+  useLocalization();
+  const {
+    theme
+  } = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -51,17 +32,13 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
   const [challengeToDelete, setChallengeToDelete] = useState<Challenge | null>(null);
   const [showMenuForChallenge, setShowMenuForChallenge] = useState<number | null>(null);
   const [editingChallenge, setEditingChallenge] = useState<Challenge | null>(null);
-
   const loadChallenges = useCallback(async () => {
     try {
       await updateAllChallenges();
       const updatedChallenges = await getChallenges();
       setChallenges(updatedChallenges);
-    } catch (error) {
-
-    }
+    } catch (error) {}
   }, []);
-
   useEffect(() => {
     const task = InteractionManager.runAfterInteractions(() => {
       loadChallenges();
@@ -72,32 +49,29 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
       unsubscribe();
     };
   }, [navigation, loadChallenges]);
-
   useEffect(() => {
     if (route?.params?.action === 'add') {
       setShowAddModal(true);
-      navigation.setParams({ action: undefined });
+      navigation.setParams({
+        action: undefined
+      });
     }
   }, [route?.params]);
-
   const onRefresh = async () => {
     setRefreshing(true);
     await loadChallenges();
     setRefreshing(false);
   };
-
   const handleAddChallenge = async (type: ChallengeType) => {
     try {
       await createChallenge(type);
       await loadChallenges();
       setShowAddModal(false);
-      alertService.toastSuccess('تم إضافة التحدي بنجاح');
+      alertService.toastSuccess(tl("تم إضافة التحدي بنجاح"));
     } catch (error) {
-      
-      alertService.error('خطأ', 'حدث خطأ أثناء إضافة التحدي');
+      alertService.error(tl("خطأ"), tl("حدث خطأ أثناء إضافة التحدي"));
     }
   };
-
   const handleAddCustomChallenge = async (challengeData: {
     title: string;
     description: string;
@@ -108,100 +82,77 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
     targetProgress: number;
   }) => {
     try {
-      await createCustomChallenge(
-        challengeData.title,
-        challengeData.description,
-        challengeData.category,
-        challengeData.icon,
-        challengeData.duration,
-        challengeData.targetProgress,
-        challengeData.targetValue
-      );
+      await createCustomChallenge(challengeData.title, challengeData.description, challengeData.category, challengeData.icon, challengeData.duration, challengeData.targetProgress, challengeData.targetValue);
       await loadChallenges();
       setShowCustomModal(false);
-      alertService.toastSuccess('تم إضافة التحدي المخصص بنجاح');
+      alertService.toastSuccess(tl("تم إضافة التحدي المخصص بنجاح"));
     } catch (error) {
-      
-      alertService.error('خطأ', 'حدث خطأ أثناء إضافة التحدي المخصص');
+      alertService.error(tl("خطأ"), tl("حدث خطأ أثناء إضافة التحدي المخصص"));
     }
   };
-
   const handleDeleteChallenge = async () => {
     if (!challengeToDelete) {
       setShowDeleteAlert(false);
       return;
     }
-
     const challengeId = challengeToDelete.id;
-
     try {
       await deleteChallenge(challengeId);
       setShowDeleteAlert(false);
       setChallengeToDelete(null);
       setShowMenuForChallenge(null);
       await loadChallenges();
-      alertService.toastSuccess('تم حذف التحدي بنجاح');
+      alertService.toastSuccess(tl("تم حذف التحدي بنجاح"));
     } catch (error) {
-      
       setShowDeleteAlert(false);
       setChallengeToDelete(null);
-      alertService.error('خطأ', 'حدث خطأ أثناء حذف التحدي');
+      alertService.error(tl("خطأ"), tl("حدث خطأ أثناء حذف التحدي"));
     }
   };
-
   const handleEditChallenge = (challenge: Challenge) => {
     setEditingChallenge(challenge);
     setShowMenuForChallenge(null);
     setShowCustomModal(true);
   };
-
   const handleDeletePress = (challenge: Challenge) => {
-    
     setChallengeToDelete(challenge);
     setShowMenuForChallenge(null);
     setShowDeleteAlert(true);
-    
   };
-
   const handleCompleteChallenge = async (challenge: Challenge) => {
     try {
       await updateChallenge(challenge.id, {
         completed: true,
         completedAt: new Date().toISOString(),
-        currentProgress: challenge.targetProgress, // Ensure progress is at target
+        currentProgress: challenge.targetProgress // Ensure progress is at target
       });
       await loadChallenges();
       setShowMenuForChallenge(null);
-      alertService.toastSuccess('تم إكمال التحدي بنجاح! 🎉');
+      alertService.toastSuccess(tl("تم إكمال التحدي بنجاح! 🎉"));
 
       // Offer to share
       try {
         await shareChallengeCompletion(challenge.title);
       } catch (shareError) {
         // User cancelled or error, ignore
-        
       }
     } catch (error) {
-      
-      alertService.error('خطأ', 'حدث خطأ أثناء إكمال التحدي');
+      alertService.error(tl("خطأ"), tl("حدث خطأ أثناء إكمال التحدي"));
     }
   };
-
   const handleReopenChallenge = async (challenge: Challenge) => {
     try {
       await updateChallenge(challenge.id, {
         completed: false,
-        completedAt: undefined,
+        completedAt: undefined
       });
       await loadChallenges();
       setShowMenuForChallenge(null);
-      alertService.toastSuccess('تم إعادة فتح التحدي');
+      alertService.toastSuccess(tl("تم إعادة فتح التحدي"));
     } catch (error) {
-      
-      alertService.error('خطأ', 'حدث خطأ أثناء إعادة فتح التحدي');
+      alertService.error(tl("خطأ"), tl("حدث خطأ أثناء إعادة فتح التحدي"));
     }
   };
-
   const handleUpdateProgress = async (challenge: Challenge) => {
     // For custom challenges, allow manual progress update
     if (challenge.isCustom || challenge.type === 'custom') {
@@ -212,37 +163,26 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
       try {
         await updateAllChallenges();
         await loadChallenges();
-        alertService.toastSuccess('تم تحديث التقدم');
+        alertService.toastSuccess(tl("تم تحديث التقدم"));
       } catch (error) {
-        
-        alertService.error('خطأ', 'حدث خطأ أثناء تحديث التقدم');
+        alertService.error(tl("خطأ"), tl("حدث خطأ أثناء تحديث التقدم"));
       }
     }
   };
-
-
   const handleCategorySelect = (category: ChallengeCategory | 'all') => {
     setSelectedCategory(category);
   };
-
   const getSelectedCategoryLabel = () => {
-    if (selectedCategory === 'all') return 'الكل';
-    return CHALLENGE_CATEGORIES[selectedCategory].label;
+    if (selectedCategory === 'all') return tl("الكل");
+    return tl(CHALLENGE_CATEGORIES[selectedCategory].label);
   };
-
-  const filteredChallenges = useMemo(
-    () => selectedCategory === 'all' ? challenges : challenges.filter(c => c.category === selectedCategory),
-    [challenges, selectedCategory]
-  );
-
+  const filteredChallenges = useMemo(() => selectedCategory === 'all' ? challenges : challenges.filter(c => c.category === selectedCategory), [challenges, selectedCategory]);
   const activeChallenges = useMemo(() => filteredChallenges.filter(c => !c.completed), [filteredChallenges]);
   const completedChallenges = useMemo(() => filteredChallenges.filter(c => c.completed), [filteredChallenges]);
-
   const getProgressPercentage = (challenge: Challenge): number => {
     if (challenge.targetProgress === 0) return 0;
-    return Math.min(100, (challenge.currentProgress / challenge.targetProgress) * 100);
+    return Math.min(100, challenge.currentProgress / challenge.targetProgress * 100);
   };
-
   const getDaysRemaining = (challenge: Challenge): number => {
     const today = new Date();
     const endDate = new Date(challenge.endDate);
@@ -250,46 +190,28 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return Math.max(0, diffDays);
   };
-
   const renderChallengeCard = (challenge: Challenge) => {
     const progress = getProgressPercentage(challenge);
     const daysRemaining = getDaysRemaining(challenge);
     const isExpired = daysRemaining === 0 && !challenge.completed;
     const categoryInfo = CHALLENGE_CATEGORIES[challenge.category as ChallengeCategory];
-
-    return (
-      <View style={styles.challengeCardWrapper}>
-        <View
-          style={[
-            styles.challengeCard,
-            challenge.completed && styles.challengeCardCompleted,
-            isExpired && styles.challengeCardExpired,
-          ]}
-        >
+    return <View style={styles.challengeCardWrapper}>
+        <View style={[styles.challengeCard, challenge.completed && styles.challengeCardCompleted, isExpired && styles.challengeCardExpired]}>
           <View style={styles.challengeHeader}>
             <View style={styles.challengeIconContainer}>
-              <Ionicons
-                name={challenge.icon as any}
-                size={24}
-                color={categoryInfo.color}
-              />
+              <Ionicons name={challenge.icon as any} size={24} color={categoryInfo.color} />
             </View>
             <View style={styles.challengeInfo}>
               <Text style={styles.challengeTitle}>{challenge.title}</Text>
               <Text style={styles.challengeDescription}>{challenge.description}</Text>
             </View>
             <View style={styles.challengeHeaderActions}>
-              {challenge.completed && (
-                <View style={styles.completedBadge}>
+              {challenge.completed && <View style={styles.completedBadge}>
                   <Ionicons name="checkmark-circle" size={24} color={theme.colors.success} />
-                </View>
-              )}
-              <TouchableOpacity
-                style={styles.menuButton}
-                onPress={() => {
-                  setShowMenuForChallenge(showMenuForChallenge === challenge.id ? null : challenge.id);
-                }}
-              >
+                </View>}
+              <TouchableOpacity style={styles.menuButton} onPress={() => {
+              setShowMenuForChallenge(showMenuForChallenge === challenge.id ? null : challenge.id);
+            }}>
                 <Ionicons name="ellipsis-vertical" size={20} color={theme.colors.textSecondary} />
               </TouchableOpacity>
             </View>
@@ -297,18 +219,15 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
 
           <View style={styles.progressContainer}>
             <View style={styles.progressBar}>
-              <LinearGradient
-                colors={
-                  challenge.completed
-                    ? [theme.colors.success, theme.colors.success]
-                    : isExpired
-                      ? [theme.colors.error, theme.colors.error]
-                      : [categoryInfo.color, categoryInfo.color]
-                }
-                style={[styles.progressFill, { width: `${progress}%` }]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              />
+              <LinearGradient colors={challenge.completed ? [theme.colors.success, theme.colors.success] : isExpired ? [theme.colors.error, theme.colors.error] : [categoryInfo.color, categoryInfo.color]} style={[styles.progressFill, {
+              width: `${progress}%`
+            }]} start={{
+              x: 0,
+              y: 0
+            }} end={{
+              x: 1,
+              y: 0
+            }} />
             </View>
             <Text style={styles.progressText}>
               {Math.round(progress)}% ({challenge.currentProgress.toFixed(0)} / {challenge.targetProgress.toFixed(0)})
@@ -316,159 +235,114 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
           </View>
 
           <View style={styles.challengeFooter}>
-            <View style={[styles.categoryBadge, { backgroundColor: categoryInfo.color + '20' }]}>
-              <Ionicons
-                name={categoryInfo.icon}
-                size={14}
-                color={categoryInfo.color}
-                style={{ marginRight: 4 }}
-              />
-              <Text style={[styles.categoryText, { color: categoryInfo.color }]}>
-                {categoryInfo.label}
+            <View style={[styles.categoryBadge, {
+            backgroundColor: categoryInfo.color + '20'
+          }]}>
+              <Ionicons name={categoryInfo.icon} size={14} color={categoryInfo.color} style={{
+              marginRight: 4
+            }} />
+              <Text style={[styles.categoryText, {
+              color: categoryInfo.color
+            }]}>
+                {tl(categoryInfo.label)}
               </Text>
             </View>
-            {!challenge.completed && (
-              <View style={styles.footerRight}>
-                {progress >= 100 && (
-                  <TouchableOpacity
-                    style={styles.completeButton}
-                    onPress={() => handleCompleteChallenge(challenge)}
-                    activeOpacity={0.7}
-                  >
-                    <LinearGradient
-                      colors={[theme.colors.success, theme.colors.success]}
-                      style={styles.completeButtonGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                    >
+            {!challenge.completed && <View style={styles.footerRight}>
+                {progress >= 100 && <TouchableOpacity style={styles.completeButton} onPress={() => handleCompleteChallenge(challenge)} activeOpacity={0.7}>
+                    <LinearGradient colors={[theme.colors.success, theme.colors.success]} style={styles.completeButtonGradient} start={{
+                x: 0,
+                y: 0
+              }} end={{
+                x: 1,
+                y: 0
+              }}>
                       <Ionicons name="checkmark-circle" size={16} color={theme.colors.background} />
-                      <Text style={styles.completeButtonText}>إكمال</Text>
+                      <Text style={styles.completeButtonText}>{tl("إكمال")}</Text>
                     </LinearGradient>
-                  </TouchableOpacity>
-                )}
+                  </TouchableOpacity>}
                 <Text style={styles.daysRemaining}>
-                  {isExpired ? 'انتهى' : `${daysRemaining} يوم متبقي`}
+                  {isExpired ? tl("انتهى") : tl("{{}} يوم متبقي", [daysRemaining])}
                 </Text>
-              </View>
-            )}
+              </View>}
           </View>
         </View>
 
         {/* Options Menu - Outside the card */}
-        {showMenuForChallenge === challenge.id && (
-          <View style={styles.optionsMenu} pointerEvents="box-none">
+        {showMenuForChallenge === challenge.id && <View style={styles.optionsMenu} pointerEvents="box-none">
             <View style={styles.menuContent} pointerEvents="auto">
-              {!challenge.completed ? (
-                <>
-                  <TouchableOpacity
-                    style={styles.menuOption}
-                    onPress={() => {
-                      handleCompleteChallenge(challenge);
-                    }}
-                    activeOpacity={0.7}
-                  >
+              {!challenge.completed ? <>
+                  <TouchableOpacity style={styles.menuOption} onPress={() => {
+              handleCompleteChallenge(challenge);
+            }} activeOpacity={0.7}>
                     <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
-                    <Text style={[styles.menuOptionText, { color: theme.colors.success }]}>
-                      إكمال التحدي
-                    </Text>
+                    <Text style={[styles.menuOptionText, {
+                color: theme.colors.success
+              }]}>{tl("إكمال التحدي")}</Text>
                   </TouchableOpacity>
                   <View style={styles.menuDivider} />
-                  <TouchableOpacity
-                    style={styles.menuOption}
-                    onPress={() => {
-                      handleUpdateProgress(challenge);
-                    }}
-                    activeOpacity={0.7}
-                  >
+                  <TouchableOpacity style={styles.menuOption} onPress={() => {
+              handleUpdateProgress(challenge);
+            }} activeOpacity={0.7}>
                     <Ionicons name="refresh-outline" size={20} color={theme.colors.primary} />
                     <Text style={styles.menuOptionText}>
-                      {challenge.isCustom || challenge.type === 'custom' ? 'تحديث التقدم' : 'تحديث تلقائي'}
+                      {challenge.isCustom || challenge.type === 'custom' ? tl("تحديث التقدم") : tl("تحديث تلقائي")}
                     </Text>
                   </TouchableOpacity>
                   <View style={styles.menuDivider} />
-                  <TouchableOpacity
-                    style={styles.menuOption}
-                    onPress={() => {
-                      handleEditChallenge(challenge);
-                    }}
-                    activeOpacity={0.7}
-                  >
+                  <TouchableOpacity style={styles.menuOption} onPress={() => {
+              handleEditChallenge(challenge);
+            }} activeOpacity={0.7}>
                     <Ionicons name="create-outline" size={20} color={theme.colors.primary} />
-                    <Text style={styles.menuOptionText}>تعديل</Text>
+                    <Text style={styles.menuOptionText}>{tl("تعديل")}</Text>
                   </TouchableOpacity>
                   <View style={styles.menuDivider} />
-                  <TouchableOpacity
-                    style={styles.menuOption}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      // console.log('Delete button pressed (active)');
-                      handleDeletePress(challenge);
-                    }}
-                    activeOpacity={0.7}
-                  >
+                  <TouchableOpacity style={styles.menuOption} onPress={e => {
+              e.stopPropagation();
+              // console.log('Delete button pressed (active)');
+              handleDeletePress(challenge);
+            }} activeOpacity={0.7}>
                     <Ionicons name="trash-outline" size={20} color={theme.colors.error} />
-                    <Text style={[styles.menuOptionText, { color: theme.colors.error }]}>حذف</Text>
+                    <Text style={[styles.menuOptionText, {
+                color: theme.colors.error
+              }]}>{tl("حذف")}</Text>
                   </TouchableOpacity>
-                </>
-              ) : (
-                <>
-                  <TouchableOpacity
-                    style={styles.menuOption}
-                    onPress={() => {
-                      handleReopenChallenge(challenge);
-                    }}
-                    activeOpacity={0.7}
-                  >
+                </> : <>
+                  <TouchableOpacity style={styles.menuOption} onPress={() => {
+              handleReopenChallenge(challenge);
+            }} activeOpacity={0.7}>
                     <Ionicons name="refresh-outline" size={20} color={theme.colors.primary} />
-                    <Text style={styles.menuOptionText}>إعادة فتح</Text>
+                    <Text style={styles.menuOptionText}>{tl("إعادة فتح")}</Text>
                   </TouchableOpacity>
                   <View style={styles.menuDivider} />
-                  <TouchableOpacity
-                    style={styles.menuOption}
-                    onPress={() => {
-                      handleEditChallenge(challenge);
-                    }}
-                    activeOpacity={0.7}
-                  >
+                  <TouchableOpacity style={styles.menuOption} onPress={() => {
+              handleEditChallenge(challenge);
+            }} activeOpacity={0.7}>
                     <Ionicons name="create-outline" size={20} color={theme.colors.primary} />
-                    <Text style={styles.menuOptionText}>تعديل</Text>
+                    <Text style={styles.menuOptionText}>{tl("تعديل")}</Text>
                   </TouchableOpacity>
                   <View style={styles.menuDivider} />
-                  <TouchableOpacity
-                    style={styles.menuOption}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      // console.log('Delete button pressed (completed)');
-                      handleDeletePress(challenge);
-                    }}
-                    activeOpacity={0.7}
-                  >
+                  <TouchableOpacity style={styles.menuOption} onPress={e => {
+              e.stopPropagation();
+              // console.log('Delete button pressed (completed)');
+              handleDeletePress(challenge);
+            }} activeOpacity={0.7}>
                     <Ionicons name="trash-outline" size={20} color={theme.colors.error} />
-                    <Text style={[styles.menuOptionText, { color: theme.colors.error }]}>حذف</Text>
+                    <Text style={[styles.menuOptionText, {
+                color: theme.colors.error
+              }]}>{tl("حذف")}</Text>
                   </TouchableOpacity>
-                </>
-              )}
+                </>}
             </View>
-          </View>
-        )}
-      </View>
-    );
+          </View>}
+      </View>;
   };
-
   const renderAddChallengeModal = () => {
     const categories: ChallengeCategory[] = ['spending_reduction', 'saving', 'discipline', 'debt'];
-
-    return (
-      <Modal
-        visible={showAddModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowAddModal(false)}
-      >
+    return <Modal visible={showAddModal} animationType="slide" transparent={true} onRequestClose={() => setShowAddModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>اختر تحدياً جديداً</Text>
+              <Text style={styles.modalTitle}>{tl("اختر تحدياً جديداً")}</Text>
               <TouchableOpacity onPress={() => setShowAddModal(false)}>
                 <Ionicons name="close" size={28} color={theme.colors.textPrimary} />
               </TouchableOpacity>
@@ -476,298 +350,200 @@ export const ChallengesScreen = ({ navigation, route }: any) => {
 
             <ScrollView style={styles.modalScrollView}>
               {/* Custom Challenge Option */}
-              <TouchableOpacity
-                style={[styles.challengeOption, styles.customChallengeOption]}
-                onPress={() => {
-                  setShowAddModal(false);
-                  setShowCustomModal(true);
-                }}
-              >
+              <TouchableOpacity style={[styles.challengeOption, styles.customChallengeOption]} onPress={() => {
+              setShowAddModal(false);
+              setShowCustomModal(true);
+            }}>
                 <View style={styles.customChallengeIconContainer}>
                   <Ionicons name="add-circle" size={28} color={theme.colors.primary} />
                 </View>
                 <View style={styles.challengeOptionInfo}>
-                  <Text style={styles.challengeOptionTitle}>تحدي مخصص</Text>
-                  <Text style={styles.challengeOptionDescription}>
-                    أنشئ تحدياً خاصاً بك
-                  </Text>
+                  <Text style={styles.challengeOptionTitle}>{tl("تحدي مخصص")}</Text>
+                  <Text style={styles.challengeOptionDescription}>{tl("أنشئ تحدياً خاصاً بك")}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
               </TouchableOpacity>
 
               {categories.map(category => {
-                const categoryInfo = CHALLENGE_CATEGORIES[category];
-                const categoryChallenges = Object.entries(CHALLENGE_TYPES).filter(
-                  ([_, def]) => def.category === category
-                );
-
-                return (
-                  <View key={category} style={styles.categorySection}>
+              const categoryInfo = CHALLENGE_CATEGORIES[category];
+              const categoryChallenges = Object.entries(CHALLENGE_TYPES).filter(([_, def]) => def.category === category);
+              return <View key={category} style={styles.categorySection}>
                     <View style={styles.categorySectionHeader}>
-                      <Ionicons
-                        name={categoryInfo.icon}
-                        size={20}
-                        color={categoryInfo.color}
-                        style={{ marginRight: 8 }}
-                      />
+                      <Ionicons name={categoryInfo.icon} size={20} color={categoryInfo.color} style={{
+                    marginRight: 8
+                  }} />
                       <Text style={styles.categorySectionTitle}>
-                        {categoryInfo.label}
+                        {tl(categoryInfo.label)}
                       </Text>
                     </View>
-                    {categoryChallenges.map(([type, def]) => (
-                      <TouchableOpacity
-                        key={type}
-                        style={styles.challengeOption}
-                        onPress={() => handleAddChallenge(type as ChallengeType)}
-                      >
-                        <Ionicons
-                          name={def.icon as any}
-                          size={24}
-                          color={categoryInfo.color}
-                          style={{ marginRight: theme.spacing.md }}
-                        />
+                    {categoryChallenges.map(([type, def]) => <TouchableOpacity key={type} style={styles.challengeOption} onPress={() => handleAddChallenge(type as ChallengeType)}>
+                        <Ionicons name={def.icon as any} size={24} color={categoryInfo.color} style={{
+                    marginRight: theme.spacing.md
+                  }} />
                         <View style={styles.challengeOptionInfo}>
                           <Text style={styles.challengeOptionTitle}>{def.title}</Text>
                           <Text style={styles.challengeOptionDescription}>{def.description}</Text>
                         </View>
                         <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                );
-              })}
+                      </TouchableOpacity>)}
+                  </View>;
+            })}
             </ScrollView>
           </View>
         </View>
-      </Modal>
-    );
+      </Modal>;
   };
-
-  return (
-    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+  return <SafeAreaView style={styles.container} edges={['left', 'right']}>
       {/* Category Filter */}
       <View style={styles.header}>
         {/* Filter Buttons Row */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterRow}
-          contentContainerStyle={styles.filterRowContent}
-        >
-          <TouchableOpacity
-            onPress={() => handleCategorySelect('all')}
-            style={styles.filterButton}
-            activeOpacity={0.7}
-          >
-            {selectedCategory === 'all' ? (
-              <LinearGradient
-                colors={theme.gradients.primary as any}
-                style={styles.filterButtonGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow} contentContainerStyle={styles.filterRowContent}>
+          <TouchableOpacity onPress={() => handleCategorySelect('all')} style={styles.filterButton} activeOpacity={0.7}>
+            {selectedCategory === 'all' ? <LinearGradient colors={theme.gradients.primary as any} style={styles.filterButtonGradient} start={{
+            x: 0,
+            y: 0
+          }} end={{
+            x: 1,
+            y: 0
+          }}>
                 <Ionicons name="apps" size={16} color="#FFFFFF" />
-                <Text style={styles.filterButtonTextActive}>الكل</Text>
-              </LinearGradient>
-            ) : (
-              <View style={styles.filterButtonDefault}>
+                <Text style={styles.filterButtonTextActive}>{tl("الكل")}</Text>
+              </LinearGradient> : <View style={styles.filterButtonDefault}>
                 <Ionicons name="apps-outline" size={16} color={theme.colors.textSecondary} />
-                <Text style={styles.filterButtonText}>الكل</Text>
-              </View>
-            )}
+                <Text style={styles.filterButtonText}>{tl("الكل")}</Text>
+              </View>}
           </TouchableOpacity>
           {Object.entries(CHALLENGE_CATEGORIES).map(([key, info]) => {
-            const isSelected = selectedCategory === key;
-            return (
-              <TouchableOpacity
-                key={key}
-                onPress={() => handleCategorySelect(key as ChallengeCategory)}
-                style={styles.filterButton}
-                activeOpacity={0.7}
-              >
-                {isSelected ? (
-                  <LinearGradient
-                    colors={[info.color, info.color] as any}
-                    style={styles.filterButtonGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  >
-                    <Ionicons
-                      name={info.icon}
-                      size={16}
-                      color="#FFFFFF"
-                    />
+          const isSelected = selectedCategory === key;
+          return <TouchableOpacity key={key} onPress={() => handleCategorySelect(key as ChallengeCategory)} style={styles.filterButton} activeOpacity={0.7}>
+                {isSelected ? <LinearGradient colors={[info.color, info.color] as any} style={styles.filterButtonGradient} start={{
+              x: 0,
+              y: 0
+            }} end={{
+              x: 1,
+              y: 0
+            }}>
+                    <Ionicons name={info.icon} size={16} color="#FFFFFF" />
                     <Text style={styles.filterButtonTextActive} numberOfLines={1}>
                       {info.label}
                     </Text>
-                  </LinearGradient>
-                ) : (
-                  <View style={styles.filterButtonDefault}>
-                    <Ionicons
-                      name={info.icon}
-                      size={16}
-                      color={theme.colors.textSecondary}
-                    />
+                  </LinearGradient> : <View style={styles.filterButtonDefault}>
+                    <Ionicons name={info.icon} size={16} color={theme.colors.textSecondary} />
                     <Text style={styles.filterButtonText} numberOfLines={1}>
                       {info.label}
                     </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })}
+                  </View>}
+              </TouchableOpacity>;
+        })}
         </ScrollView>
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={theme.colors.primary}
-          />
-        }
-        showsVerticalScrollIndicator={false}
-        onScrollBeginDrag={() => {
-          // Close menu when scrolling
-          if (showMenuForChallenge !== null) {
-            setShowMenuForChallenge(null);
-          }
-        }}
-      >
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />} showsVerticalScrollIndicator={false} onScrollBeginDrag={() => {
+      // Close menu when scrolling
+      if (showMenuForChallenge !== null) {
+        setShowMenuForChallenge(null);
+      }
+    }}>
         {/* Active Challenges */}
-        {activeChallenges.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>التحديات النشطة</Text>
-            {activeChallenges.map((challenge) => (
-              <View key={challenge.id}>{renderChallengeCard(challenge)}</View>
-            ))}
-          </View>
-        )}
+        {activeChallenges.length > 0 && <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{tl("التحديات النشطة")}</Text>
+            {activeChallenges.map(challenge => <View key={challenge.id}>{renderChallengeCard(challenge)}</View>)}
+          </View>}
 
         {/* Completed Challenges */}
-        {completedChallenges.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>التحديات المكتملة</Text>
-            {completedChallenges.map((challenge) => (
-              <View key={challenge.id}>{renderChallengeCard(challenge)}</View>
-            ))}
-          </View>
-        )}
+        {completedChallenges.length > 0 && <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{tl("التحديات المكتملة")}</Text>
+            {completedChallenges.map(challenge => <View key={challenge.id}>{renderChallengeCard(challenge)}</View>)}
+          </View>}
 
         {/* Empty State */}
-        {filteredChallenges.length === 0 && (
-          <View style={styles.emptyState}>
+        {filteredChallenges.length === 0 && <View style={styles.emptyState}>
             <Ionicons name="trophy-outline" size={64} color={theme.colors.textMuted} />
-            <Text style={styles.emptyStateTitle}>لا توجد تحديات بعد</Text>
-            <Text style={styles.emptyStateText}>
-              ابدأ بتحدي جديد لتحسين عاداتك المالية
-            </Text>
-          </View>
-        )}
+            <Text style={styles.emptyStateTitle}>{tl("لا توجد تحديات بعد")}</Text>
+            <Text style={styles.emptyStateText}>{tl("ابدأ بتحدي جديد لتحسين عاداتك المالية")}</Text>
+          </View>}
       </ScrollView>
 
       {/* Menu Overlay - outside ScrollView to not block menu */}
-      {showMenuForChallenge !== null && (
-        <Pressable
-          style={styles.menuOverlay}
-          onPress={() => {
-            setShowMenuForChallenge(null);
-          }}
-        />
-      )}
+      {showMenuForChallenge !== null && <Pressable style={styles.menuOverlay} onPress={() => {
+      setShowMenuForChallenge(null);
+    }} />}
 
       {/* Add Challenge Modal */}
       {renderAddChallengeModal()}
 
       {/* Add Custom Challenge Modal */}
-      <AddCustomChallengeModal
-        visible={showCustomModal}
-        onDismiss={() => {
+      <AddCustomChallengeModal visible={showCustomModal} onDismiss={() => {
+      setShowCustomModal(false);
+      setEditingChallenge(null);
+    }} onSave={async challengeData => {
+      if (editingChallenge) {
+        // Update existing challenge
+        try {
+          await updateChallenge(editingChallenge.id, {
+            title: challengeData.title,
+            description: challengeData.description,
+            category: challengeData.category,
+            icon: challengeData.icon,
+            endDate: (() => {
+              const startDate = new Date(editingChallenge.startDate);
+              const endDate = new Date(startDate);
+              endDate.setDate(startDate.getDate() + challengeData.duration);
+              return endDate.toISOString().split('T')[0];
+            })(),
+            targetValue: challengeData.targetValue,
+            targetProgress: challengeData.targetProgress
+          });
+          await loadChallenges();
           setShowCustomModal(false);
           setEditingChallenge(null);
-        }}
-        onSave={async (challengeData) => {
-          if (editingChallenge) {
-            // Update existing challenge
-            try {
-              await updateChallenge(editingChallenge.id, {
-                title: challengeData.title,
-                description: challengeData.description,
-                category: challengeData.category,
-                icon: challengeData.icon,
-                endDate: (() => {
-                  const startDate = new Date(editingChallenge.startDate);
-                  const endDate = new Date(startDate);
-                  endDate.setDate(startDate.getDate() + challengeData.duration);
-                  return endDate.toISOString().split('T')[0];
-                })(),
-                targetValue: challengeData.targetValue,
-                targetProgress: challengeData.targetProgress,
-              });
-              await loadChallenges();
-              setShowCustomModal(false);
-              setEditingChallenge(null);
-              alertService.toastSuccess('تم تحديث التحدي بنجاح');
-            } catch (error) {
-              
-              alertService.error('خطأ', 'حدث خطأ أثناء تحديث التحدي');
-            }
-          } else {
-            await handleAddCustomChallenge(challengeData);
-          }
-        }}
-        editingChallenge={editingChallenge}
-      />
+          alertService.toastSuccess(tl("تم تحديث التحدي بنجاح"));
+        } catch (error) {
+          alertService.error(tl("خطأ"), tl("حدث خطأ أثناء تحديث التحدي"));
+        }
+      } else {
+        await handleAddCustomChallenge(challengeData);
+      }
+    }} editingChallenge={editingChallenge} />
 
       {/* Delete Confirmation */}
-      <ConfirmAlert
-        visible={showDeleteAlert}
-        title="حذف التحدي"
-        message="هل أنت متأكد من حذف هذا التحدي؟"
-        onConfirm={handleDeleteChallenge}
-        onCancel={() => {
-          setShowDeleteAlert(false);
-          setChallengeToDelete(null);
-        }}
-      />
-    </SafeAreaView>
-  );
+      <ConfirmAlert visible={showDeleteAlert} title={tl("حذف التحدي")} message={tl("هل أنت متأكد من حذف هذا التحدي؟")} onConfirm={handleDeleteChallenge} onCancel={() => {
+      setShowDeleteAlert(false);
+      setChallengeToDelete(null);
+    }} />
+    </SafeAreaView>;
 };
-
 const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
-    direction: 'rtl',
+    direction: isRTL ? 'rtl' : 'ltr'
   },
   header: {
     padding: theme.spacing.md,
     backgroundColor: theme.colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
-    direction: 'rtl',
+    direction: isRTL ? 'rtl' : 'ltr'
   },
   filterRow: {
-    marginBottom: 0,
+    marginBottom: 0
   },
   filterRowContent: {
     gap: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.xs
   },
   filterButton: {
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   filterButtonGradient: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing.xs,
-    gap: theme.spacing.xs,
+    gap: theme.spacing.xs
   },
   filterButtonDefault: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -776,29 +552,29 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing.xs,
     gap: theme.spacing.xs,
-    borderRadius: theme.borderRadius.md,
+    borderRadius: theme.borderRadius.md
   },
   filterButtonText: {
     fontSize: theme.typography.sizes.xs,
     fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   filterButtonTextActive: {
     fontSize: theme.typography.sizes.xs,
     fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   scrollView: {
-    flex: 1,
+    flex: 1
   },
   scrollContent: {
     padding: theme.spacing.md,
-    paddingBottom: 100,
+    paddingBottom: 100
   },
   section: {
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.lg
   },
   sectionTitle: {
     fontSize: theme.typography.sizes.xl,
@@ -807,11 +583,11 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: theme.spacing.md,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'left',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   challengeCardWrapper: {
     marginBottom: theme.spacing.md,
-    position: 'relative',
+    position: 'relative'
   },
   challengeCard: {
     backgroundColor: theme.colors.surfaceCard,
@@ -820,36 +596,36 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     ...getPlatformShadow('md'),
     borderWidth: 1,
     borderColor: theme.colors.border,
-    direction: 'ltr',
+    direction: isRTL ? 'rtl' : 'ltr'
   },
   challengeCardCompleted: {
     opacity: 0.8,
-    borderColor: theme.colors.success,
+    borderColor: theme.colors.success
   },
   challengeCardExpired: {
     borderColor: theme.colors.error,
-    opacity: 0.7,
+    opacity: 0.7
   },
   challengeHeader: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.md
   },
   challengeHeaderActions: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: theme.spacing.sm,
+    gap: theme.spacing.sm
   },
   menuButton: {
     padding: theme.spacing.xs,
-    marginRight: theme.spacing.xs,
+    marginRight: theme.spacing.xs
   },
   optionsMenu: {
     position: 'absolute',
     top: 50,
     right: theme.spacing.md,
     zIndex: 100,
-    elevation: 100,
+    elevation: 100
   },
   menuContent: {
     backgroundColor: theme.colors.surfaceCard,
@@ -860,32 +636,32 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderColor: theme.colors.border,
     ...getPlatformShadow('lg'),
     zIndex: 101,
-    elevation: 101,
+    elevation: 101
   },
   menuOption: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
-    gap: theme.spacing.sm,
+    gap: theme.spacing.sm
   },
   menuOptionText: {
     fontSize: theme.typography.sizes.md,
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   menuDivider: {
     height: 1,
     backgroundColor: theme.colors.border,
-    marginVertical: theme.spacing.xs,
+    marginVertical: theme.spacing.xs
   },
   menuOverlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 90,
     elevation: 90,
-    backgroundColor: 'transparent',
+    backgroundColor: 'transparent'
   },
   challengeIconContainer: {
     width: 48,
@@ -894,10 +670,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: theme.colors.surfaceLight,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: theme.spacing.md,
+    marginRight: theme.spacing.md
   },
   challengeInfo: {
-    flex: 1,
+    flex: 1
   },
   challengeTitle: {
     fontSize: theme.typography.sizes.lg,
@@ -906,99 +682,99 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   challengeDescription: {
     fontSize: theme.typography.sizes.sm,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   completedBadge: {
-    marginRight: theme.spacing.sm,
+    marginRight: theme.spacing.sm
   },
   progressContainer: {
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.md
   },
   progressBar: {
     height: 8,
     backgroundColor: theme.colors.surfaceLight,
     borderRadius: theme.borderRadius.round,
     overflow: 'hidden',
-    marginBottom: theme.spacing.xs,
+    marginBottom: theme.spacing.xs
   },
   progressFill: {
     height: '100%',
-    borderRadius: theme.borderRadius.round,
+    borderRadius: theme.borderRadius.round
   },
   progressText: {
     fontSize: theme.typography.sizes.xs,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   challengeFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   categoryBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing.xs,
-    borderRadius: theme.borderRadius.sm,
+    borderRadius: theme.borderRadius.sm
   },
   categoryText: {
     fontSize: theme.typography.sizes.xs,
     fontWeight: getPlatformFontWeight('600'),
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   footerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.sm,
+    gap: theme.spacing.sm
   },
   completeButton: {
     borderRadius: theme.borderRadius.sm,
     overflow: 'hidden',
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   completeButtonGradient: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing.xs,
-    gap: theme.spacing.xs,
+    gap: theme.spacing.xs
   },
   completeButtonText: {
     fontSize: theme.typography.sizes.xs,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.background,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   customChallengeOption: {
     borderWidth: 2,
     borderColor: theme.colors.primary,
     borderStyle: 'dashed',
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.md
   },
   customChallengeIconContainer: {
-    marginRight: theme.spacing.md,
+    marginRight: theme.spacing.md
   },
   daysRemaining: {
     fontSize: theme.typography.sizes.xs,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: getPlatformFontWeight('600'),
+    fontWeight: getPlatformFontWeight('600')
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: theme.spacing.xxl,
-    paddingHorizontal: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.lg
   },
   emptyStateTitle: {
     fontSize: theme.typography.sizes.xl,
@@ -1008,27 +784,27 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: theme.spacing.sm,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   emptyStateText: {
     fontSize: theme.typography.sizes.md,
     color: theme.colors.textSecondary,
     textAlign: 'center',
     fontFamily: theme.typography.fontFamily,
-    writingDirection: 'rtl',
-    lineHeight: 24,
+    writingDirection: isRTL ? 'rtl' : 'ltr',
+    lineHeight: 24
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-end'
   },
   modalContent: {
     backgroundColor: theme.colors.surfaceCard,
     borderTopLeftRadius: theme.borderRadius.xxl,
     borderTopRightRadius: theme.borderRadius.xxl,
     maxHeight: '80%',
-    ...getPlatformShadow('lg'),
+    ...getPlatformShadow('lg')
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1036,7 +812,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center',
     padding: theme.spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    borderBottomColor: theme.colors.border
   },
   modalTitle: {
     fontSize: theme.typography.sizes.xl,
@@ -1044,16 +820,16 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   modalScrollView: {
-    maxHeight: 500,
+    maxHeight: 500
   },
   categorySection: {
-    padding: theme.spacing.md,
+    padding: theme.spacing.md
   },
   categorySectionHeader: {
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.md
   },
   categorySectionTitle: {
     fontSize: theme.typography.sizes.lg,
@@ -1061,7 +837,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   challengeOption: {
     flexDirection: 'row',
@@ -1069,14 +845,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: theme.colors.surfaceLight,
     borderRadius: theme.borderRadius.md,
     padding: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
+    marginBottom: theme.spacing.sm
   },
   challengeOptionIcon: {
     fontSize: 28,
-    marginRight: theme.spacing.md,
+    marginRight: theme.spacing.md
   },
   challengeOptionInfo: {
-    flex: 1,
+    flex: 1
   },
   challengeOptionTitle: {
     fontSize: theme.typography.sizes.md,
@@ -1085,13 +861,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   challengeOptionDescription: {
     fontSize: theme.typography.sizes.sm,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
-    writingDirection: 'rtl',
-  },
+    writingDirection: isRTL ? 'rtl' : 'ltr'
+  }
 });

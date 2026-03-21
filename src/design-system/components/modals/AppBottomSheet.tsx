@@ -7,7 +7,7 @@
  *     <AppButton label="حفظ" onPress={save} />
  *   </AppBottomSheet>
  */
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -15,6 +15,8 @@ import {
   TouchableWithoutFeedback,
   KeyboardAvoidingView,
   Text,
+  Platform,
+  Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../../utils/theme-context';
@@ -46,6 +48,20 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const pb = Math.max(insets.bottom, 12) + bottomPad;
+
+  // On Android, KeyboardAvoidingView inside a statusBarTranslucent Modal is broken.
+  // Manually track keyboard height and apply it as marginBottom instead.
+  const [androidKbHeight, setAndroidKbHeight] = useState(0);
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const show = Keyboard.addListener('keyboardDidShow', (e) => {
+      setAndroidKbHeight(e.endCoordinates.height);
+    });
+    const hide = Keyboard.addListener('keyboardDidHide', () => {
+      setAndroidKbHeight(0);
+    });
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   const sheet = (
     <View
@@ -96,14 +112,18 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
 
       {avoidKeyboard ? (
         <KeyboardAvoidingView
-          behavior="padding"
-          style={styles.kav}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          enabled={Platform.OS === 'ios'}
+          style={[styles.kav, Platform.OS === 'android' && { marginBottom: androidKbHeight }]}
           pointerEvents="box-none"
         >
           {sheet}
         </KeyboardAvoidingView>
       ) : (
-        <View style={styles.kav} pointerEvents="box-none">
+        <View
+          style={[styles.kav, Platform.OS === 'android' && { marginBottom: androidKbHeight }]}
+          pointerEvents="box-none"
+        >
           {sheet}
         </View>
       )}

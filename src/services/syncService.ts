@@ -1,6 +1,14 @@
 import { apiClient } from './apiClient';
 import { API_ENDPOINTS } from '../config/api';
 import { authStorage } from './authStorage';
+import * as SecureStore from 'expo-secure-store';
+import { 
+  encryptForStorage, 
+  decryptFromStorage, 
+  isEncryptedEnvelope, 
+  isEncryptionReady, 
+  waitForEncryptionReady 
+} from '../utils/encryption';
 import {
   getUnsyncedExpenses,
   getUnsyncedIncome,
@@ -25,6 +33,8 @@ import {
   markNotificationSettingsSynced,
   markSavingsSynced,
   markSavingsTransactionsSynced,
+  markDebtorsSynced,
+  markDebtPaymentsSynced,
 } from '../database/database';
 
 export type SyncResult =
@@ -59,6 +69,10 @@ export async function syncToServer(): Promise<SyncResult> {
       };
     }
 
+    if (!await waitForEncryptionReady(15_000)) {
+      return { success: false, error: 'مفتاح التشفير غير متاح. يرجى تسجيل الخروج وإعادة تسجيل الدخول.', code: 'NETWORK' };
+    }
+
     const [expenses, income] = await Promise.all([
       getUnsyncedExpenses(),
       getUnsyncedIncome(),
@@ -68,28 +82,44 @@ export async function syncToServer(): Promise<SyncResult> {
       return { success: true, synced: { expenses: 0, income: 0 } };
     }
 
-    const payload = {
-      expenses: expenses.map((e) => ({
+    // Encrypt each record's sensitive data before sending to server
+    const encryptedExpenses = await Promise.all(
+      expenses.map(async (e) => ({
         localId: e.id,
-        title: e.title,
-        amount: e.amount,
-        base_amount: e.base_amount,
-        category: e.category,
-        date: e.date,
-        description: e.description ?? null,
-        currency: e.currency ?? 'IQD',
-        receipt_image_path: e.receipt_image_path ?? null,
-      })),
-      income: income.map((i) => ({
+        data: await encryptForStorage({
+          title: e.title,
+          amount: e.amount,
+          base_amount: e.base_amount,
+          category: e.category,
+          date: e.date,
+          description: e.description ?? null,
+          currency: e.currency ?? 'IQD',
+          receipt_image_path: e.receipt_image_path ?? null,
+        }),
+      }))
+    );
+
+    const encryptedIncome = await Promise.all(
+      income.map(async (i) => ({
         localId: i.id,
-        source: i.source,
-        amount: i.amount,
-        base_amount: i.base_amount,
-        date: i.date,
-        description: i.description ?? null,
-        currency: i.currency ?? 'IQD',
-        category: i.category ?? 'other',
-      })),
+        data: await encryptForStorage({
+          source: i.source,
+          amount: i.amount,
+          base_amount: i.base_amount,
+          date: i.date,
+          description: i.description ?? null,
+          currency: i.currency ?? 'IQD',
+          category: i.category ?? 'other',
+        }),
+      }))
+    );
+
+    const wrapped_dek = await SecureStore.getItemAsync('dnanir_dek_wrapped');
+
+    const payload = { 
+      expenses: encryptedExpenses, 
+      income: encryptedIncome,
+      wrapped_dek: wrapped_dek || undefined
     };
 
     const response = await apiClient.post<{
@@ -161,8 +191,22 @@ export async function syncFullToServer(): Promise<FullSyncResult> {
       };
     }
 
-    const payload = await exportFullData();
-    
+    if (!await waitForEncryptionReady(15_000)) {
+      return { success: false, error: 'مفتاح التشفير غير متاح. يرجى تسجيل الخروج وإعادة تسجيل الدخول.', code: 'NETWORK' };
+    }
+
+    const rawPayload = await exportFullData();
+    // Encrypt entire backup. includeWrappedDek=true embeds the DEK wrapper so the
+    // user can restore on a new device using only their password + userId.
+    const encryptedData = await encryptForStorage(rawPayload, true) as Record<string, unknown>;
+
+    const wrapped_dek = await SecureStore.getItemAsync('dnanir_dek_wrapped');
+
+    const payload = { 
+      data: encryptedData,
+      wrapped_dek: wrapped_dek || undefined
+    };
+
     const response = await apiClient.post<{
       success?: boolean;
       data?: { exportedAt?: string };
@@ -180,7 +224,7 @@ export async function syncFullToServer(): Promise<FullSyncResult> {
     }
 
     await markAllExpensesAndIncomeSynced();
-    const exportedAt = response.data?.data?.exportedAt || (payload.exportedAt as string) || new Date().toISOString();
+    const exportedAt = response.data?.data?.exportedAt || (rawPayload.exportedAt as string) || new Date().toISOString();
     
     return { success: true, exportedAt };
   } catch (err: any) {
@@ -209,16 +253,34 @@ export async function syncNewToServer(): Promise<NewSyncResult> {
       };
     }
 
+    if (!await waitForEncryptionReady(15_000)) {
+      return { success: false, error: 'مفتاح التشفير غير متاح. يرجى تسجيل الخروج وإعادة تسجيل الدخول.', code: 'NETWORK' };
+    }
+
     const { items } = await exportNewDataOnly();
     let syncedCount = 0;
 
     if (items.length > 0) {
+      // Encrypt each item's data field before sending to server
+      const encryptedItems = await Promise.all(
+        items.map(async (item) => ({
+          type: item.type,
+          localId: item.localId,
+          data: await encryptForStorage(item.data),
+        }))
+      );
+
+      const wrapped_dek = await SecureStore.getItemAsync('dnanir_dek_wrapped');
+
       const response = await apiClient.post<{
         success?: boolean;
         data?: { count?: number };
         error?: string;
         message?: string;
-      }>(API_ENDPOINTS.SYNC.ITEMS, { items });
+      }>(API_ENDPOINTS.SYNC.ITEMS, { 
+        items: encryptedItems,
+        wrapped_dek: wrapped_dek || undefined
+      });
 
       if (!response.success) {
         const msg =
@@ -250,6 +312,8 @@ export async function syncNewToServer(): Promise<NewSyncResult> {
       if (byType('notification_settings').length) await markNotificationSettingsSynced(byType('notification_settings'));
       if (byType('savings').length) await markSavingsSynced(byType('savings'));
       if (byType('savings_transaction').length) await markSavingsTransactionsSynced(byType('savings_transaction'));
+      if (byType('debtor').length) await markDebtorsSynced(byType('debtor'));
+      if (byType('debt_payment').length) await markDebtPaymentsSynced(byType('debt_payment'));
     }
 
     return { success: true, count: syncedCount };
@@ -282,7 +346,12 @@ export async function getFullFromServer(): Promise<Exclude<RestoreFromServerResu
       };
     }
 
-    const response = await apiClient.get<{ success?: boolean; data?: Record<string, unknown>; exportedAt?: string }>(
+    const response = await apiClient.get<{ 
+      success?: boolean; 
+      data?: Record<string, unknown>; 
+      wrapped_dek?: string;
+      exportedAt?: string 
+    }>(
       API_ENDPOINTS.SYNC.FULL
     );
 
@@ -294,7 +363,38 @@ export async function getFullFromServer(): Promise<Exclude<RestoreFromServerResu
       return { success: false, error: msg, code: response.success === false ? 'NO_BACKUP' : 'NETWORK' };
     }
 
-    const payload = response.data.data as Record<string, unknown>;
+    if (response.data.wrapped_dek) {
+      await SecureStore.setItemAsync('dnanir_dek_wrapped', response.data.wrapped_dek);
+      // We also need to re-init the encryption key in memory using this new wrapped key
+      // but we need the password. However, if the user just logged in, they provide password
+      // only then. For now, we save it; it will be used on next app start or login.
+    }
+
+    const rawData = response.data.data as Record<string, unknown>;
+
+    // Decrypt if the backup was encrypted before it was uploaded
+    let payload = await decryptFromStorage<Record<string, unknown>>(rawData);
+
+    // Deep decrypt: if the server returned items that are individually encrypted,
+    // decrypt them now before importing into the local database.
+    for (const key of Object.keys(payload)) {
+      const list = payload[key];
+      if (Array.isArray(list)) {
+        payload[key] = await Promise.all(
+          list.map(async (item) => {
+            if (isEncryptedEnvelope(item)) {
+              try {
+                return await decryptFromStorage(item);
+              } catch (e) {
+                // Failed to decrypt individual item (maybe wrong key or corrupted)
+                return item;
+              }
+            }
+            return item;
+          })
+        );
+      }
+    }
 
     const { importFullData } = await import('../database/database');
     await importFullData(payload);

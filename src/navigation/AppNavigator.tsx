@@ -5,11 +5,10 @@ import { createStackNavigator, TransitionPresets } from '@react-navigation/stack
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ActivityIndicator, Platform, Text, TouchableOpacity, View, Dimensions } from 'react-native';
+import { ActivityIndicator, Keyboard, Platform, Text, TouchableOpacity, View, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
 import { useAppTheme } from '../utils/theme-context';
-import { isRTL } from '../utils/rtl';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { ExpensesScreen } from '../screens/ExpensesScreen';
 import { IncomeScreen } from '../screens/IncomeScreen';
@@ -24,6 +23,7 @@ import { AdvancedReportsScreen } from '../screens/AdvancedReportsScreen';
 import { CurrencyConverterScreen } from '../screens/CurrencyConverterScreen';
 import { DebtsScreen } from '../screens/DebtsScreen';
 import { DebtDetailsScreen } from '../screens/DebtDetailsScreen';
+import { DebtorDetailsScreen } from '../screens/DebtorDetailsScreen';
 import { ChallengesScreen } from '../screens/ChallengesScreen';
 import { AchievementsScreen } from '../screens/AchievementsScreen';
 import { AddIncomeScreen } from '../screens/AddIncomeScreen';
@@ -45,6 +45,8 @@ import { onboardingStorage } from '../services/onboardingStorage';
 import { syncNewToServer } from '../services/syncService';
 import { alertService } from '../services/alertService';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
+import { SmartAddActionScreen } from '../screens/SmartAddActionScreen';
+import { useLocalization } from '../localization';
 
 import { CalendarScreen } from '../screens/CalendarScreen';
 import { SavingsScreen } from '../screens/SavingsScreen';
@@ -54,6 +56,7 @@ import { AddSavingsScreen } from '../screens/AddSavingsScreen';
 
 const DashboardHeaderRight = ({ navigation }: { navigation: any }) => {
   const { theme } = useAppTheme();
+  const { t } = useLocalization();
   const { isPrivacyEnabled, togglePrivacy } = usePrivacy();
   const [syncing, setSyncing] = useState(false);
   const [canSync, setCanSync] = useState(false);
@@ -72,10 +75,10 @@ const DashboardHeaderRight = ({ navigation }: { navigation: any }) => {
     if (syncing) return;
     if (!canSync) {
       alertService.show({
-        title: 'اشتراك مميز',
-        message: 'مزامنة البيانات متاحة للمشتركين المميزين فقط. يجب أن يكون نوع حسابك أو اشتراكك مميزاً لاستخدام المزامنة.',
+        title: t('sync.premiumTitle'),
+        message: t('sync.premiumMessage'),
         type: 'warning',
-        confirmText: 'حسناً',
+        confirmText: t('common.ok'),
       });
       return;
     }
@@ -83,10 +86,14 @@ const DashboardHeaderRight = ({ navigation }: { navigation: any }) => {
     const result = await syncNewToServer();
     setSyncing(false);
     if (result.success) {
-      alertService.toastSuccess(result.count > 0 ? `تم رفع ${result.count} عنصر` : 'لا توجد بيانات جديدة');
+      alertService.toastSuccess(
+        result.count > 0
+          ? t('sync.uploadedItems', { count: result.count })
+          : t('sync.noNewData')
+      );
     } else {
       if (result.code !== 'NOT_AUTHENTICATED' && result.code !== 'NOT_PRO') {
-        alertService.error('فشل المزامنة', result.error);
+        alertService.error(t('sync.failedTitle'), result.error);
       }
     }
   };
@@ -134,53 +141,57 @@ const DashboardHeaderRight = ({ navigation }: { navigation: any }) => {
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
-const getCommonStackOptions = (theme: AppTheme, topInset: number = Platform.OS === 'ios' ? 44 : 24) => ({
-  ...TransitionPresets.SlideFromRightIOS,
-  headerStyle: {
-    backgroundColor: theme.colors.background,
-    elevation: 0,
-    shadowOpacity: 0,
-    borderBottomWidth: 0,
-    height: topInset + 70,
-  },
-  headerBackground: () => (
-    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <View style={{
-        flex: 1,
-        backgroundColor: '#003459',
-        borderBottomLeftRadius: 30,
-        borderBottomRightRadius: 30,
-        ...(Platform.OS === 'ios' ? {
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.15,
-          shadowRadius: 8,
-        } : {
-          elevation: 10,
-        })
-      }} />
-    </View>
-  ),
-  headerTitleStyle: {
-    fontFamily: theme.typography.fontFamily,
-    fontSize: theme.typography.sizes.lg,
-    fontWeight: getPlatformFontWeight('700'),
-    color: '#FFFFFF',
-    marginBottom: 0,
-  },
-  headerTitleAlign: 'center' as const,
-  headerTintColor: '#FFFFFF',
-  headerLeftContainerStyle: {
-    paddingBottom: 0,
-  },
-  headerRightContainerStyle: {
-    paddingBottom: 0,
-  },
-});
+const getCommonStackOptions = (theme: AppTheme, topInset: number) => {
+  const safeTop = topInset > 0 ? topInset : (Platform.OS === 'ios' ? 44 : 24);
+  return {
+    ...TransitionPresets.SlideFromRightIOS,
+    headerStyle: {
+      backgroundColor: theme.colors.background,
+      elevation: 0,
+      shadowOpacity: 0,
+      borderBottomWidth: 0,
+      height: safeTop + 70,
+    },
+    headerBackground: () => (
+      <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+        <View style={{
+          flex: 1,
+          backgroundColor: '#003459',
+          borderBottomLeftRadius: 30,
+          borderBottomRightRadius: 30,
+          ...(Platform.OS === 'ios' ? {
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.15,
+            shadowRadius: 8,
+          } : {
+            elevation: 10,
+          })
+        }} />
+      </View>
+    ),
+    headerTitleStyle: {
+      fontFamily: theme.typography.fontFamily,
+      fontSize: theme.typography.sizes.lg,
+      fontWeight: getPlatformFontWeight('700'),
+      color: '#FFFFFF',
+      marginBottom: 0,
+    },
+    headerTitleAlign: 'center' as const,
+    headerTintColor: '#FFFFFF',
+    headerLeftContainerStyle: {
+      paddingBottom: 0,
+    },
+    headerRightContainerStyle: {
+      paddingBottom: 0,
+    },
+  };
+};
 
 
 const SettingsScreenStack = () => {
   const { theme } = useAppTheme();
+  const { t } = useLocalization();
   const { top } = useSafeAreaInsets();
   return (
     <Stack.Navigator
@@ -196,7 +207,7 @@ const SettingsScreenStack = () => {
         name="SettingsMain"
         component={SettingsScreen}
         options={{
-          headerTitle: 'الإعدادات',
+          headerTitle: t('navigation.settings'),
         }}
       />
     </Stack.Navigator>
@@ -204,6 +215,7 @@ const SettingsScreenStack = () => {
 };
 
 const HeaderLeft = ({ navigation }: { navigation: any }) => {
+  const { isRTL } = useLocalization();
   const { theme } = useAppTheme();
   return (
     <TouchableOpacity
@@ -220,6 +232,7 @@ const HeaderLeft = ({ navigation }: { navigation: any }) => {
 };
 
 const HeaderBackWithLabel = ({ navigation, label }: { navigation: any; label: string }) => {
+  const { isRTL } = useLocalization();
   const { theme } = useAppTheme();
   return (
     <TouchableOpacity
@@ -254,6 +267,7 @@ const TopTab = createMaterialTopTabNavigator();
 
 const TransactionsTabs = () => {
   const { theme } = useAppTheme();
+  const { t } = useLocalization();
   return (
     <TopTab.Navigator
       initialRouteName="IncomeList"
@@ -265,14 +279,15 @@ const TransactionsTabs = () => {
         tabBarLabelStyle: { fontFamily: theme.typography.fontFamily, fontWeight: getPlatformFontWeight('700'), fontSize: 14 },
       }}
     >
-      <TopTab.Screen name="ExpensesList" component={ExpensesScreen} options={{ title: 'المصاريف' }} />
-      <TopTab.Screen name="IncomeList" component={IncomeScreen} options={{ title: 'الدخل' }} />
+      <TopTab.Screen name="ExpensesList" component={ExpensesScreen} options={{ title: t('navigation.expenses') }} />
+      <TopTab.Screen name="IncomeList" component={IncomeScreen} options={{ title: t('navigation.income') }} />
     </TopTab.Navigator>
   );
 };
 
 const TransactionsStack = () => {
   const { theme } = useAppTheme();
+  const { t } = useLocalization();
   const { top } = useSafeAreaInsets();
   return (
     <Stack.Navigator screenOptions={getCommonStackOptions(theme, top)}>
@@ -281,7 +296,7 @@ const TransactionsStack = () => {
         component={TransactionsTabs}
         options={({ navigation }) => ({
           headerShown: true,
-          headerTitle: 'المعاملات المالية',
+          headerTitle: t('navigation.financialTransactions'),
           ...getCommonStackOptions(theme, top),
         })}
       />
@@ -292,6 +307,7 @@ const TransactionsStack = () => {
 
 const InsightsStack = () => {
   const { theme } = useAppTheme();
+  const { t, isRTL } = useLocalization();
   const { top } = useSafeAreaInsets();
   return (
     <Stack.Navigator
@@ -301,7 +317,7 @@ const InsightsStack = () => {
         name="InsightsMain"
         component={InsightsScreen}
         options={({ navigation }) => ({
-          headerTitle: 'التحليل المالي',
+          headerTitle: t('navigation.financialAnalysis'),
           headerRight: () => (
             <TouchableOpacity
               onPress={async () => {
@@ -312,12 +328,12 @@ const InsightsStack = () => {
                   ]);
                   
                   if (!token || !user) {
-                    
+                  
                     alertService.show({
-                      title: 'تسجيل الدخول',
-                      message: 'يجب تسجيل الدخول أو إنشاء حساب لاستخدام التحليل الذكي.',
-                      confirmText: 'تسجيل الدخول',
-                      cancelText: 'إلغاء',
+                      title: t('auth.loginRequiredTitle'),
+                      message: t('auth.loginRequiredForAi'),
+                      confirmText: t('auth.login'),
+                      cancelText: t('common.cancel'),
                       showCancel: true,
                       onConfirm: () => authModalService.show(),
                     });
@@ -326,13 +342,20 @@ const InsightsStack = () => {
                   navigation.getParent()?.navigate('AISmartInsights');
                 } catch (e) {
                   
-                  alertService.error('خطأ', 'حدث خطأ. تأكد من تسجيل الدخول وحاول مرة أخرى.');
+                  alertService.error(t('common.error'), t('auth.loginTryAgain'));
                 }
               }}
-              style={{ marginLeft: 16, padding: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+              style={{
+                marginRight: isRTL ? 0 : 16,
+                marginLeft: isRTL ? 16 : 0,
+                padding: 8,
+                flexDirection: isRTL ? 'row-reverse' : 'row',
+                alignItems: 'center',
+                gap: 6,
+              }}
             >
               <Ionicons name="sparkles" size={22} color="#FFFFFF" />
-              <Text style={{ color: '#FFFFFF', fontWeight: getPlatformFontWeight('600'), fontSize: 15, fontFamily: theme.typography.fontFamily }}>رؤى ذكية</Text>
+              <Text style={{ color: '#FFFFFF', fontWeight: getPlatformFontWeight('600'), fontSize: 15, fontFamily: theme.typography.fontFamily }}>{t('navigation.smartInsights')}</Text>
             </TouchableOpacity>
           ),
         })}
@@ -344,6 +367,7 @@ const InsightsStack = () => {
 
 const DebtsStack = () => {
   const { theme } = useAppTheme();
+  const { t, isRTL } = useLocalization();
   const { top } = useSafeAreaInsets();
   return (
     <Stack.Navigator screenOptions={{ ...getCommonStackOptions(theme, top) }}>
@@ -362,7 +386,7 @@ const DebtsStack = () => {
                 fontWeight: getPlatformFontWeight('700'),
                 color: '#FFFFFF',
               }}>
-                الديون والأقساط
+                {t('navigation.debtsAndInstallments')}
               </Text>
             </View>
           ),
@@ -413,7 +437,7 @@ const DebtsStack = () => {
                 fontWeight: getPlatformFontWeight('700'),
                 color: '#FFFFFF',
               }}>
-                تفاصيل الدين
+                {t('navigation.debtDetails')}
               </Text>
             </View>
           ),
@@ -432,12 +456,41 @@ const DebtsStack = () => {
           headerBackTitle: '',
         })}
       />
+       <Stack.Screen
+        name="DebtorDetails"
+        component={DebtorDetailsScreen}
+        options={({ navigation }) => ({
+          headerShown: true,
+          headerLeft: () => <HeaderLeft navigation={navigation} />,
+          headerTitle: () => (
+            <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
+              <Ionicons name="person" size={24} color="#FFFFFF" />
+              <Text style={{
+                fontFamily: theme.typography.fontFamily,
+                fontSize: theme.typography.sizes.lg,
+                fontWeight: getPlatformFontWeight('700'),
+                color: '#FFFFFF',
+              }}>
+                {t('navigation.accountDetails')}
+              </Text>
+            </View>
+          ),
+          headerStyle: {
+            backgroundColor: '#003459',
+            borderBottomWidth: 0,
+            height: top + 70,
+          },
+          headerTintColor: '#FFFFFF',
+          headerBackTitleVisible: false,
+        })}
+      />
     </Stack.Navigator>
   );
 };
 
 const BillsStack = () => {
   const { theme } = useAppTheme();
+  const { t, isRTL } = useLocalization();
   const { top } = useSafeAreaInsets();
   return (
     <Stack.Navigator screenOptions={{ ...getCommonStackOptions(theme, top) }}>
@@ -456,7 +509,7 @@ const BillsStack = () => {
                 fontWeight: getPlatformFontWeight('700'),
                 color: '#FFFFFF',
               }}>
-                الفواتير
+                {t('navigation.bills')}
               </Text>
             </View>
           ),
@@ -495,10 +548,25 @@ const BillsStack = () => {
       <Stack.Screen
         name="BillDetails"
         component={BillDetailsScreen}
-        options={({ navigation }) => ({
+        options={({ navigation, route }: any) => ({
           headerShown: true,
           headerLeft: () => <HeaderLeft navigation={navigation} />,
-          headerTitle: 'تفاصيل الفاتورة',
+          headerTitle: t('navigation.billDetails'),
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={() => {
+                const bill = route.params?.bill;
+                if (bill) navigation.navigate('AddBill', { bill });
+              }}
+              style={{
+                marginRight: isRTL ? 0 : 16,
+                marginLeft: isRTL ? 16 : 0,
+                padding: 8,
+              }}
+            >
+              <Ionicons name="pencil" size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+          ),
           ...getCommonStackOptions(theme, top),
         })}
       />
@@ -528,6 +596,7 @@ const EmptyComponent = () => null;
 
 const MainTabs = () => {
   const { theme } = useAppTheme();
+  const { t, isRTL } = useLocalization();
   const insets = useSafeAreaInsets();
   const minBottomInset = 10;
   const tabBottomPadding = Math.max(insets.bottom, minBottomInset);
@@ -570,7 +639,7 @@ const MainTabs = () => {
           name="Settings"
           component={SettingsScreenStack}
           options={{
-            title: 'الإعدادات',
+            title: t('navigation.settings'),
             tabBarIcon: ({ focused }) => (
               <Ionicons name={focused ? 'cog' : 'cog-outline'} size={24} color={focused ? theme.colors.primary : '#94A3B8'} />
             ),
@@ -580,7 +649,7 @@ const MainTabs = () => {
           name="Insights"
           component={InsightsStack}
           options={{
-            title: 'التحليلات',
+            title: t('navigation.analytics'),
             tabBarIcon: ({ focused }) => (
               <Ionicons name={focused ? 'pie-chart' : 'pie-chart-outline'} size={24} color={focused ? theme.colors.primary : '#94A3B8'} />
             ),
@@ -592,6 +661,7 @@ const MainTabs = () => {
           listeners={({ navigation }) => ({
             tabPress: (e) => {
               e.preventDefault();
+              Keyboard.dismiss();
               navigation.navigate('SmartAddAction');
             },
           })}
@@ -607,6 +677,7 @@ const MainTabs = () => {
                 justifyContent: 'center',
                 marginTop: -30,
                 ...getPlatformShadow('lg'),
+                ...(Platform.OS === 'android' ? { elevation: 0 } : {}),
                 padding: 4,
               }}>
                 <LinearGradient
@@ -643,7 +714,7 @@ const MainTabs = () => {
           name="Transactions"
           component={TransactionsStack}
           options={{
-            title: 'المعاملات',
+            title: t('navigation.transactions'),
             tabBarIcon: ({ focused }) => (
               <Ionicons name={focused ? 'swap-horizontal' : 'swap-horizontal-outline'} size={24} color={focused ? theme.colors.primary : '#94A3B8'} />
             ),
@@ -653,7 +724,7 @@ const MainTabs = () => {
           name="Dashboard"
           component={DashboardStack}
           options={{
-            title: 'الرئيسية',
+            title: t('navigation.home'),
             tabBarIcon: ({ focused }) => (
               <Ionicons name={focused ? 'grid' : 'grid-outline'} size={24} color={focused ? theme.colors.primary : '#94A3B8'} />
             ),
@@ -664,7 +735,7 @@ const MainTabs = () => {
   );
 };
 
-import { SmartAddActionScreen } from '../screens/SmartAddActionScreen';
+
 
 const linking = {
   prefixes: ['dnanir://', 'exp://', 'https://dnanir.app'],
@@ -688,6 +759,7 @@ const linking = {
 
 export const AppNavigator = () => {
   const { theme } = useAppTheme();
+  const { t, isRTL } = useLocalization();
   const { top } = useSafeAreaInsets();
   const [isLoadingOnboarding, setIsLoadingOnboarding] = useState(true);
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false);
@@ -709,8 +781,9 @@ export const AppNavigator = () => {
 
   return (
     <NavigationContainer
+      key={isRTL ? 'rtl' : 'ltr'}
       linking={linking}
-      direction={isRTL ? 'ltr' : 'rtl'}
+      direction={isRTL ? 'rtl' : 'ltr'}
       onReady={() => {
       }}
     >
@@ -770,7 +843,7 @@ export const AppNavigator = () => {
           name="AdvancedReports"
           component={AdvancedReportsScreen}
           options={({ navigation }) => ({
-            headerTitle: 'التقارير المتطورة',
+            headerTitle: t('navigation.advancedReports'),
             headerShown: true,
             headerLeft: () => <HeaderLeft navigation={navigation} />,
             ...getCommonStackOptions(theme, top),
@@ -780,7 +853,7 @@ export const AppNavigator = () => {
           name="Profile"
           component={ProfileScreen}
           options={({ navigation }) => ({
-            headerTitle: 'الملف الشخصي',
+            headerTitle: t('navigation.profile'),
             headerShown: true,
             headerLeft: () => <HeaderLeft navigation={navigation} />,
             ...getCommonStackOptions(theme, top),
@@ -794,7 +867,7 @@ export const AppNavigator = () => {
           options={({ navigation }) => ({
             headerShown: true,
             headerLeft: () => <HeaderLeft navigation={navigation} />,
-            headerTitle: 'الأهداف المالية',
+            headerTitle: t('navigation.goals'),
             headerRight: () => (
               <TouchableOpacity
                 onPress={() => navigation.navigate('AddGoal')}
@@ -817,7 +890,7 @@ export const AppNavigator = () => {
           options={({ navigation }) => ({
             headerShown: true,
             headerLeft: () => <HeaderLeft navigation={navigation} />,
-            headerTitle: 'الحصالة - توفير مالي',
+            headerTitle: t('navigation.savings'),
             headerRight: () => (
               <TouchableOpacity
                 onPress={() => navigation.navigate('AddSavings')}
@@ -877,7 +950,7 @@ export const AppNavigator = () => {
           options={({ navigation }) => ({
             headerShown: true,
             headerLeft: () => <HeaderLeft navigation={navigation} />,
-            headerTitle: 'خطة الهدف',
+            headerTitle: t('navigation.goalPlan'),
             ...getCommonStackOptions(theme, top),
           })}
         />
@@ -887,12 +960,13 @@ export const AppNavigator = () => {
           options={({ navigation }) => ({
             headerShown: true,
             headerLeft: () => <HeaderLeft navigation={navigation} />,
-            headerTitle: 'الميزانية',
+            headerTitle: t('navigation.budget'),
             headerRight: () => (
               <TouchableOpacity
                 onPress={() => navigation.navigate('AddBudget')}
                 style={{
-                  marginRight: 16,
+                  marginRight: isRTL ? 0 : 16,
+                  marginLeft: isRTL ? 16 : 0,
                   padding: 8,
                   justifyContent: 'center',
                   alignItems: 'center',
@@ -919,7 +993,7 @@ export const AppNavigator = () => {
           options={({ navigation }) => ({
             headerShown: true,
             headerLeft: () => <HeaderLeft navigation={navigation} />,
-            headerTitle: 'محول العملات',
+            headerTitle: t('navigation.currencyConverter'),
             ...getCommonStackOptions(theme, top),
           })}
         />
@@ -936,7 +1010,7 @@ export const AppNavigator = () => {
           options={({ navigation }) => ({
             headerShown: true,
             headerLeft: () => <HeaderLeft navigation={navigation} />,
-            headerTitle: 'الإنجازات',
+            headerTitle: t('navigation.achievements'),
             ...getCommonStackOptions(theme, top),
           })}
         />
@@ -953,7 +1027,7 @@ export const AppNavigator = () => {
           options={({ navigation }) => ({
             headerShown: true,
             headerLeft: () => <HeaderLeft navigation={navigation} />,
-            headerTitle: 'التحديات',
+            headerTitle: t('navigation.challenges'),
             headerRight: () => (
               <TouchableOpacity
                 onPress={() => navigation.navigate('Challenges', { action: 'add' })}
@@ -975,7 +1049,7 @@ export const AppNavigator = () => {
           options={({ navigation }) => ({
             headerShown: true,
             headerLeft: () => <HeaderLeft navigation={navigation} />,
-            headerTitle: 'الإشعارات',
+            headerTitle: t('navigation.notifications'),
             ...getCommonStackOptions(theme, top),
           })}
         />
@@ -985,7 +1059,7 @@ export const AppNavigator = () => {
           options={({ navigation }) => ({
             headerShown: true,
             headerLeft: () => <HeaderLeft navigation={navigation} />,
-            headerTitle: 'التحليلات الذكية',
+            headerTitle: t('navigation.aiInsights'),
             ...getCommonStackOptions(theme, top),
           })}
         />
@@ -995,7 +1069,7 @@ export const AppNavigator = () => {
           component={CalendarScreen}
           options={({ navigation }) => ({
             headerShown: true,
-            headerTitle: 'التقويم المالي',
+            headerTitle: t('navigation.calendar'),
             headerLeft: () => <HeaderLeft navigation={navigation} />,
             headerRight: () => (
               <TouchableOpacity

@@ -230,6 +230,7 @@ export interface Budget {
 
 export interface Debt {
   id: number;
+  debtorId?: number;
   debtorName: string;
   totalAmount: number;
   remainingAmount: number;

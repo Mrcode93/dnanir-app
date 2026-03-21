@@ -10,8 +10,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../../../utils/theme-context';
-import { isRTL } from '../../../utils/rtl';
 import { FONT_SIZE, RADIUS, SPACING } from '../../tokens';
+import { useLocalization } from '../../../localization';
 
 interface AppInputProps extends TextInputProps {
   /** Ionicons icon name shown on the leading side */
@@ -34,6 +34,7 @@ export const AppInput: React.FC<AppInputProps> = ({
   ...rest
 }) => {
   const { theme } = useAppTheme();
+  const { isRTL } = useLocalization();
 
   return (
     <View style={containerStyle}>

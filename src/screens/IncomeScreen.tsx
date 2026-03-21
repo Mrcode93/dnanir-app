@@ -1,15 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  FlatList,
-  RefreshControl,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  Platform,
-  ActivityIndicator,
-} from 'react-native';
+import { View, StyleSheet, FlatList, RefreshControl, Text, TouchableOpacity, ScrollView, Platform, ActivityIndicator } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { AppBottomSheet } from '../design-system';
 import { Searchbar } from 'react-native-paper';
@@ -19,18 +9,7 @@ import { CustomDatePicker } from '../components/CustomDatePicker';
 import { TransactionItem } from '../components/TransactionItem';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
 import { useAppTheme, useThemedStyles } from '../utils/theme-context';
-import {
-  getIncomePaginated,
-  getIncomeTotalAmount,
-  getIncomeCount,
-  getAvailableIncomeMonths,
-  deleteIncome,
-  getCustomCategories,
-  addCustomCategory,
-  deleteCustomCategory,
-  updateCustomCategory,
-  CustomCategory
-} from '../database/database';
+import { getIncomePaginated, getIncomeTotalAmount, getIncomeCount, getAvailableIncomeMonths, deleteIncome, getCustomCategories, addCustomCategory, deleteCustomCategory, updateCustomCategory, CustomCategory } from '../database/database';
 import { Income, INCOME_SOURCES } from '../types';
 import { isRTL } from '../utils/rtl';
 import { useCurrency } from '../hooks/useCurrency';
@@ -40,14 +19,23 @@ import { getMonthRange, formatDateLocal } from '../utils/date';
 import { SmartAddModal } from '../components/SmartAddModal';
 import { usePrivacy } from '../context/PrivacyContext';
 import { TransactionDetailsModal } from '../components/TransactionDetailsModal';
-
+import { tl, useLocalization } from "../localization";
 const ITEMS_PER_PAGE = 10;
-
-export const IncomeScreen = ({ navigation, route }: any) => {
-  const { theme } = useAppTheme();
+export const IncomeScreen = ({
+  navigation,
+  route
+}: any) => {
+  useLocalization();
+  const {
+    theme
+  } = useAppTheme();
   const styles = useThemedStyles(createStyles);
-  const { formatCurrency } = useCurrency();
-  const { isPrivacyEnabled } = usePrivacy();
+  const {
+    formatCurrency
+  } = useCurrency();
+  const {
+    isPrivacyEnabled
+  } = usePrivacy();
   // Data State
   const [income, setIncome] = useState<Income[]>([]);
   const [totalAmount, setTotalAmount] = useState(0);
@@ -67,11 +55,20 @@ export const IncomeScreen = ({ navigation, route }: any) => {
   const [selectedCategory, setSelectedCategory] = useState<string | 'all'>('all');
 
   // Month State
-  const [selectedMonth, setSelectedMonth] = useState<{ year: number; month: number }>(() => {
+  const [selectedMonth, setSelectedMonth] = useState<{
+    year: number;
+    month: number;
+  }>(() => {
     const now = new Date();
-    return { year: now.getFullYear(), month: now.getMonth() + 1 };
+    return {
+      year: now.getFullYear(),
+      month: now.getMonth() + 1
+    };
   });
-  const [availableMonths, setAvailableMonths] = useState<Array<{ year: number; month: number }>>([]);
+  const [availableMonths, setAvailableMonths] = useState<Array<{
+    year: number;
+    month: number;
+  }>>([]);
 
   // Modal State
   const [showAddModal, setShowAddModal] = useState(false);
@@ -82,7 +79,6 @@ export const IncomeScreen = ({ navigation, route }: any) => {
 
   // Refs
   const initialFocusPassedRef = useRef(false);
-
   const fetchIncome = useCallback(async (reset: boolean = false) => {
     try {
       if (reset) {
@@ -90,39 +86,33 @@ export const IncomeScreen = ({ navigation, route }: any) => {
       } else {
         setLoadingMore(true);
       }
-
       const currentOffset = reset ? 0 : offset;
 
       // Calculate date range
       let startDateStr: string | undefined;
       let endDateStr: string | undefined;
-
       if (filterType === 'day') {
         const dateStr = formatDateLocal(selectedDate);
         startDateStr = dateStr;
         endDateStr = dateStr;
       } else if (selectedMonth && (selectedMonth.year !== 0 || selectedMonth.month !== 0)) {
-        const { firstDay, lastDay } = getMonthRange(selectedMonth.year, selectedMonth.month);
+        const {
+          firstDay,
+          lastDay
+        } = getMonthRange(selectedMonth.year, selectedMonth.month);
         startDateStr = firstDay;
         endDateStr = lastDay;
       }
-
       const filterOptions = {
         startDate: startDateStr,
         endDate: endDateStr,
-        category: selectedCategory === 'all' ? undefined : selectedCategory,
+        category: selectedCategory === 'all' ? undefined : selectedCategory
       };
-
-      const [newIncome, total, count] = await Promise.all([
-        getIncomePaginated({
-          ...filterOptions,
-          limit: ITEMS_PER_PAGE,
-          offset: currentOffset,
-        }),
-        reset ? getIncomeTotalAmount(filterOptions) : Promise.resolve(null),
-        reset ? getIncomeCount(filterOptions) : Promise.resolve(null)
-      ]);
-
+      const [newIncome, total, count] = await Promise.all([getIncomePaginated({
+        ...filterOptions,
+        limit: ITEMS_PER_PAGE,
+        offset: currentOffset
+      }), reset ? getIncomeTotalAmount(filterOptions) : Promise.resolve(null), reset ? getIncomeCount(filterOptions) : Promise.resolve(null)]);
       if (reset) {
         if (total !== null) setTotalAmount(total);
         if (count !== null) setTotalCount(count);
@@ -132,28 +122,22 @@ export const IncomeScreen = ({ navigation, route }: any) => {
         setIncome(prev => [...prev, ...newIncome]);
         setOffset(prev => prev + ITEMS_PER_PAGE);
       }
-
       setHasMore(newIncome.length >= ITEMS_PER_PAGE);
-
       if (reset && filterType === 'month') {
         const months = await getAvailableIncomeMonths();
         setAvailableMonths(months);
       }
-
     } catch (error) {
-      
-      alertService.error('خطأ', 'حدث خطأ أثناء تحميل البيانات');
+      alertService.error(tl("خطأ"), tl("حدث خطأ أثناء تحميل البيانات"));
     } finally {
       setLoading(false);
       setRefreshing(false);
       setLoadingMore(false);
     }
   }, [selectedMonth, selectedCategory, offset, filterType, selectedDate]);
-
   useEffect(() => {
     fetchIncome(true);
   }, [selectedMonth, selectedCategory, filterType, selectedDate]);
-
   const loadCustomCategories = useCallback(async () => {
     try {
       const categories = await getCustomCategories('income');
@@ -162,11 +146,9 @@ export const IncomeScreen = ({ navigation, route }: any) => {
       // Ignore
     }
   }, []);
-
   useEffect(() => {
     loadCustomCategories();
   }, [loadCustomCategories]);
-
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       if (!initialFocusPassedRef.current) {
@@ -178,18 +160,15 @@ export const IncomeScreen = ({ navigation, route }: any) => {
     });
     return unsubscribe;
   }, [navigation, fetchIncome, loadCustomCategories]);
-
   const onRefresh = () => {
     setRefreshing(true);
     fetchIncome(true);
   };
-
   const handleLoadMore = () => {
     if (!loadingMore && hasMore) {
       fetchIncome(false);
     }
   };
-
   const handleCategorySelect = (category: string | 'all') => {
     if (selectedCategory === category && category !== 'all') {
       setSelectedCategory('all');
@@ -197,7 +176,6 @@ export const IncomeScreen = ({ navigation, route }: any) => {
       setSelectedCategory(category);
     }
   };
-
   const handleAddOption = (option: 'manual' | 'voice') => {
     setShowAddModal(false);
     if (option === 'manual') {
@@ -206,7 +184,6 @@ export const IncomeScreen = ({ navigation, route }: any) => {
       setShowSmartAdd(true);
     }
   };
-
   const onDateChange = (event: any, date?: Date) => {
     if (Platform.OS === 'android') {
       setShowDatePicker(false);
@@ -215,46 +192,40 @@ export const IncomeScreen = ({ navigation, route }: any) => {
       setSelectedDate(date);
     }
   };
-
-  const renderIncomeItem = useCallback(({ item }: { item: Income }) => (
-    <View style={styles.itemWrapper}>
-      <TransactionItem
-        item={item}
-        type="income"
-        formatCurrency={formatCurrency}
-        customCategories={customCategories}
-        onPress={() => {
-          setSelectedIncome(item);
-          setShowDetails(true);
-        }}
-        onEdit={() => navigation.navigate('AddIncome', { income: item })}
-        onDelete={async () => {
-          try {
-            await deleteIncome(item.id);
-            alertService.toastSuccess('تم حذف الإيراد بنجاح');
-            fetchIncome(true);
-          } catch (error) {
-            alertService.toastError('حدث خطأ أثناء حذف الإيراد');
-          }
-        }}
-      />
-    </View>
-  ), [customCategories, formatCurrency, navigation, fetchIncome]);
-
-  const renderListHeader = () => (
-    <View style={styles.summaryContainer}>
-      <LinearGradient
-        colors={theme.gradients.success as any}
-        style={styles.summaryCard}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
+  const renderIncomeItem = useCallback(({
+    item
+  }: {
+    item: Income;
+  }) => <View style={styles.itemWrapper}>
+      <TransactionItem item={item} type="income" formatCurrency={formatCurrency} customCategories={customCategories} onPress={() => {
+      setSelectedIncome(item);
+      setShowDetails(true);
+    }} onEdit={() => navigation.navigate('AddIncome', {
+      income: item
+    })} onDelete={async () => {
+      try {
+        await deleteIncome(item.id);
+        alertService.toastSuccess(tl("تم حذف الإيراد بنجاح"));
+        fetchIncome(true);
+      } catch (error) {
+        alertService.toastError(tl("حدث خطأ أثناء حذف الإيراد"));
+      }
+    }} />
+    </View>, [customCategories, formatCurrency, navigation, fetchIncome]);
+  const renderListHeader = () => <View style={styles.summaryContainer}>
+      <LinearGradient colors={theme.gradients.success as any} style={styles.summaryCard} start={{
+      x: 0,
+      y: 0
+    }} end={{
+      x: 1,
+      y: 1
+    }}>
         <View style={styles.summaryContent}>
           <View style={styles.summaryIconContainer}>
             <Ionicons name="trending-up" size={24} color="#FFFFFF" />
           </View>
           <View style={styles.summaryTextContainer}>
-            <Text style={styles.summaryLabel}>إجمالي الإيرادات</Text>
+            <Text style={styles.summaryLabel}>{tl("إجمالي الإيرادات")}</Text>
             <Text style={styles.summaryAmount}>
               {isPrivacyEnabled ? '****' : formatCurrency(totalAmount)}
             </Text>
@@ -262,189 +233,113 @@ export const IncomeScreen = ({ navigation, route }: any) => {
         </View>
         <View style={styles.summaryFooter}>
           <Text style={styles.summaryCount}>
-            {isPrivacyEnabled
-              ? `*** عملية ${filterType === 'day' ? 'لهذا اليوم' : 'لهذا الشهر'}`
-              : `${totalCount} عملية ${filterType === 'day' ? 'لهذا اليوم' : 'لهذا الشهر'}`}
+            {isPrivacyEnabled ? tl("*** عملية {{}}", [filterType === 'day' ? tl("لهذا اليوم") : tl("لهذا الشهر")]) : tl("{{}} عملية {{}}", [totalCount, filterType === 'day' ? tl("لهذا اليوم") : tl("لهذا الشهر")])}
           </Text>
           <Text style={styles.summaryLoadedCount}>
-            {isPrivacyEnabled ? '(*** معروض)' : `(${income.length} معروض)`}
+            {isPrivacyEnabled ? tl("(*** معروض)") : tl("({{}} معروض)", [income.length])}
           </Text>
         </View>
       </LinearGradient>
-    </View>
-  );
-
+    </View>;
   const renderFooter = () => {
-    if (!hasMore && income.length > 0) return (
-      <View style={styles.endOfListContainer}>
-        <Text style={styles.endOfListText}>نهاية القائمة</Text>
-      </View>
-    );
-    if (!hasMore) return <View style={{ height: 20 }} />;
-
-    return (
-      <View style={styles.footerContainer}>
-        <TouchableOpacity
-          onPress={handleLoadMore}
-          style={styles.loadMoreButton}
-          disabled={loadingMore}
-        >
-          {loadingMore ? (
-            <ActivityIndicator size="small" color={theme.colors.primary} />
-          ) : (
-            <Text style={styles.loadMoreText}>عرض المزيد</Text>
-          )}
+    if (!hasMore && income.length > 0) return <View style={styles.endOfListContainer}>
+        <Text style={styles.endOfListText}>{tl("نهاية القائمة")}</Text>
+      </View>;
+    if (!hasMore) return <View style={{
+      height: 20
+    }} />;
+    return <View style={styles.footerContainer}>
+        <TouchableOpacity onPress={handleLoadMore} style={styles.loadMoreButton} disabled={loadingMore}>
+          {loadingMore ? <ActivityIndicator size="small" color={theme.colors.primary} /> : <Text style={styles.loadMoreText}>{tl("عرض المزيد")}</Text>}
         </TouchableOpacity>
-      </View>
-    );
+      </View>;
   };
+  return <View style={styles.container}>
 
-  return (
-    <View style={styles.container}>
-
-      <FlashList
-        data={income}
-        // @ts-ignore
-        estimatedItemSize={88}
-        ListHeaderComponent={
-          <>
+      <FlashList data={income}
+    // @ts-ignore
+    estimatedItemSize={88} ListHeaderComponent={<>
             <View style={styles.header}>
               {/* Filter Type Toggle & Date/Month Selector */}
               <View style={styles.dateFilterRow}>
                 <View style={styles.filterTypeToggle}>
-                  <TouchableOpacity
-                    onPress={() => setFilterType('month')}
-                    style={[styles.toggleBtn, filterType === 'month' && styles.toggleBtnActive]}
-                  >
-                    <Text style={[styles.toggleText, filterType === 'month' && styles.toggleTextActive]}>شهري</Text>
+                  <TouchableOpacity onPress={() => setFilterType('month')} style={[styles.toggleBtn, filterType === 'month' && styles.toggleBtnActive]}>
+                    <Text style={[styles.toggleText, filterType === 'month' && styles.toggleTextActive]}>{tl("شهري")}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => setFilterType('day')}
-                    style={[styles.toggleBtn, filterType === 'day' && styles.toggleBtnActive]}
-                  >
-                    <Text style={[styles.toggleText, filterType === 'day' && styles.toggleTextActive]}>يومي</Text>
+                  <TouchableOpacity onPress={() => setFilterType('day')} style={[styles.toggleBtn, filterType === 'day' && styles.toggleBtnActive]}>
+                    <Text style={[styles.toggleText, filterType === 'day' && styles.toggleTextActive]}>{tl("يومي")}</Text>
                   </TouchableOpacity>
                 </View>
 
-                {filterType === 'month' ? (
-                  <View style={styles.monthFilterWrapper}>
-                    <MonthFilter
-                      selectedMonth={selectedMonth}
-                      onMonthChange={(year, month) => setSelectedMonth({ year, month })}
-                      showAllOption={true}
-                      availableMonths={availableMonths}
-                    />
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.daySelector}
-                    onPress={() => setShowDatePicker(true)}
-                  >
+                {filterType === 'month' ? <View style={styles.monthFilterWrapper}>
+                    <MonthFilter selectedMonth={selectedMonth} onMonthChange={(year, month) => setSelectedMonth({
+              year,
+              month
+            })} showAllOption={true} availableMonths={availableMonths} />
+                  </View> : <TouchableOpacity style={styles.daySelector} onPress={() => setShowDatePicker(true)}>
                     <Ionicons name="calendar-outline" size={20} color={theme.colors.primary} />
                     <Text style={styles.daySelectorText}>{formatDateLocal(selectedDate)}</Text>
-                  </TouchableOpacity>
-                )}
+                  </TouchableOpacity>}
 
-                <TouchableOpacity
-                  style={{ padding: 8, marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0 }}
-                  onPress={() => navigation.navigate('ManageCategories', { type: 'income' })}
-                >
+                <TouchableOpacity style={{
+            padding: 8,
+            marginRight: isRTL ? 0 : 8,
+            marginLeft: isRTL ? 8 : 0
+          }} onPress={() => navigation.navigate('ManageCategories', {
+            type: 'income'
+          })}>
                   <Ionicons name="albums-outline" size={24} color={theme.colors.textSecondary} />
                 </TouchableOpacity>
               </View>
 
-              {showDatePicker && (
-                <CustomDatePicker
-                  value={selectedDate}
-                  onChange={(event, date) => {
-                    if (date) {
-                      setSelectedDate(date);
-                    }
-                    if (Platform.OS === 'android') setShowDatePicker(false);
-                  }}
-                  onClose={() => setShowDatePicker(false)}
-                />
-              )}
+              {showDatePicker && <CustomDatePicker value={selectedDate} onChange={(event, date) => {
+          if (date) {
+            setSelectedDate(date);
+          }
+          if (Platform.OS === 'android') setShowDatePicker(false);
+        }} onClose={() => setShowDatePicker(false)} />}
 
               <View style={styles.categoriesRow}>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.categoriesContent}
-                >
-                  <TouchableOpacity
-                    onPress={() => handleCategorySelect('all')}
-                    style={[
-                      styles.categoryChip,
-                      selectedCategory === 'all' && styles.categoryChipActive
-                    ]}
-                  >
-                    <Text style={[
-                      styles.categoryChipText,
-                      selectedCategory === 'all' && styles.categoryChipTextActive
-                    ]}>الكل</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesContent}>
+                  <TouchableOpacity onPress={() => handleCategorySelect('all')} style={[styles.categoryChip, selectedCategory === 'all' && styles.categoryChipActive]}>
+                    <Text style={[styles.categoryChipText, selectedCategory === 'all' && styles.categoryChipTextActive]}>{tl("الكل")}</Text>
                   </TouchableOpacity>
 
-                  {customCategories.map((category) => {
-                    const isSelected = selectedCategory === category.name;
-                    return (
-                      <TouchableOpacity
-                        key={category.id}
-                        onPress={() => handleCategorySelect(category.name)}
-                        style={[
-                          styles.categoryChip,
-                          isSelected && { backgroundColor: category.color + '20', borderColor: category.color, borderWidth: 1 }
-                        ]}
-                      >
-                        <Ionicons
-                          name={category.icon as any}
-                          size={16}
-                          color={isSelected ? category.color : theme.colors.textSecondary}
-                          style={styles.categoryChipIcon}
-                        />
-                        <Text style={[
-                          styles.categoryChipText,
-                          isSelected && { color: category.color, fontWeight: '700' }
-                        ]}>{category.name}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+                  {customCategories.map(category => {
+              const isSelected = selectedCategory === category.name;
+              return <TouchableOpacity key={category.id} onPress={() => handleCategorySelect(category.name)} style={[styles.categoryChip, isSelected && {
+                backgroundColor: category.color + '20',
+                borderColor: category.color,
+                borderWidth: 1
+              }]}>
+                        <Ionicons name={category.icon as any} size={16} color={isSelected ? category.color : theme.colors.textSecondary} style={styles.categoryChipIcon} />
+                        <Text style={[styles.categoryChipText, isSelected && {
+                  color: category.color,
+                  fontWeight: '700'
+                }]}>{category.name}</Text>
+                      </TouchableOpacity>;
+            })}
                 </ScrollView>
               </View>
             </View>
             {renderListHeader()}
-          </>
-        }
-        renderItem={renderIncomeItem}
-        keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={styles.listContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
-        ListEmptyComponent={
-          !loading ? (
-            <View style={styles.emptyContainer}>
+          </>} renderItem={renderIncomeItem} keyExtractor={item => item.id.toString()} contentContainerStyle={styles.listContent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />} ListEmptyComponent={!loading ? <View style={styles.emptyContainer}>
               <View style={styles.emptyIconContainer}>
                 <Ionicons name="wallet-outline" size={64} color={theme.colors.primary + '40'} />
               </View>
-              <Text style={styles.emptyText}>لا توجد إيرادات مسجلة</Text>
-              <Text style={styles.emptySubtext}>تأكد من الفلاتر أو أضف إيراداً جديداً</Text>
-            </View>
-          ) : null
-        }
-        ListFooterComponent={renderFooter}
-      />
+              <Text style={styles.emptyText}>{tl("لا توجد إيرادات مسجلة")}</Text>
+              <Text style={styles.emptySubtext}>{tl("تأكد من الفلاتر أو أضف إيراداً جديداً")}</Text>
+            </View> : null} ListFooterComponent={renderFooter} />
 
       <View style={styles.fabContainer}>
-        <TouchableOpacity
-          onPress={() => setShowAddModal(true)}
-          activeOpacity={0.8}
-          style={styles.fabButton}
-        >
-          <LinearGradient
-            colors={theme.gradients.success as any}
-            style={styles.fabGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
+        <TouchableOpacity onPress={() => setShowAddModal(true)} activeOpacity={0.8} style={styles.fabButton}>
+          <LinearGradient colors={theme.gradients.success as any} style={styles.fabGradient} start={{
+          x: 0,
+          y: 0
+        }} end={{
+          x: 1,
+          y: 1
+        }}>
             <Ionicons name="add" size={32} color="#FFFFFF" />
           </LinearGradient>
         </TouchableOpacity>
@@ -452,81 +347,62 @@ export const IncomeScreen = ({ navigation, route }: any) => {
 
 
       {/* Add Options Bottom Sheet */}
-      <AppBottomSheet
-        visible={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        title="إضافة إيراد جديد"
-      >
+      <AppBottomSheet visible={showAddModal} onClose={() => setShowAddModal(false)} title={tl("إضافة إيراد جديد")}>
         <View style={styles.addModalOptions}>
-          <TouchableOpacity
-            style={styles.addModalOption}
-            onPress={() => handleAddOption('manual')}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.addModalIconContainer, { backgroundColor: theme.colors.primary + '15' }]}>
+          <TouchableOpacity style={styles.addModalOption} onPress={() => handleAddOption('manual')} activeOpacity={0.7}>
+            <View style={[styles.addModalIconContainer, {
+            backgroundColor: theme.colors.primary + '15'
+          }]}>
               <Ionicons name="create-outline" size={28} color={theme.colors.primary} />
             </View>
-            <Text style={styles.addModalOptionTitle}>إدخال يدوي</Text>
-            <Text style={styles.addModalOptionSubtitle}>أدخل التفاصيل بنفسك</Text>
+            <Text style={styles.addModalOptionTitle}>{tl("إدخال يدوي")}</Text>
+            <Text style={styles.addModalOptionSubtitle}>{tl("أدخل التفاصيل بنفسك")}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.addModalOption}
-            onPress={() => handleAddOption('voice')}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.addModalIconContainer, { backgroundColor: '#10B981' + '15' }]}>
+          <TouchableOpacity style={styles.addModalOption} onPress={() => handleAddOption('voice')} activeOpacity={0.7}>
+            <View style={[styles.addModalIconContainer, {
+            backgroundColor: '#10B981' + '15'
+          }]}>
               <Ionicons name="mic-outline" size={28} color="#10B981" />
             </View>
-            <Text style={styles.addModalOptionTitle}>إدخال صوتي</Text>
-            <Text style={styles.addModalOptionSubtitle}>تحدث وسنسجل لك</Text>
+            <Text style={styles.addModalOptionTitle}>{tl("إدخال صوتي")}</Text>
+            <Text style={styles.addModalOptionSubtitle}>{tl("تحدث وسنسجل لك")}</Text>
           </TouchableOpacity>
         </View>
       </AppBottomSheet>
 
       {/* Smart Add Modal */}
-      <SmartAddModal
-        visible={showSmartAdd}
-        onClose={() => setShowSmartAdd(false)}
-        onSuccess={() => {
-          fetchIncome(true);
-        }}
-        mode="income"
-        navigation={navigation}
-      />
+      <SmartAddModal visible={showSmartAdd} onClose={() => setShowSmartAdd(false)} onSuccess={() => {
+      fetchIncome(true);
+    }} mode="income" navigation={navigation} />
 
       {/* Transaction Details Modal */}
-      <TransactionDetailsModal
-        visible={showDetails}
-        item={selectedIncome}
-        type="income"
-        customCategories={customCategories}
-        onClose={() => { setShowDetails(false); setSelectedIncome(null); }}
-        onEdit={() => {
-          if (selectedIncome) {
-            navigation.navigate('AddIncome', { income: selectedIncome });
-          }
-        }}
-        onDelete={async () => {
-          if (selectedIncome) {
-            try {
-              await deleteIncome(selectedIncome.id);
-              alertService.toastSuccess('تم حذف الإيراد بنجاح');
-              fetchIncome(true);
-            } catch (error) {
-              alertService.toastError('حدث خطأ أثناء حذف الإيراد');
-            }
-          }
-        }}
-      />
-    </View>
-  );
+      <TransactionDetailsModal visible={showDetails} item={selectedIncome} type="income" customCategories={customCategories} onClose={() => {
+      setShowDetails(false);
+      setSelectedIncome(null);
+    }} onEdit={() => {
+      if (selectedIncome) {
+        navigation.navigate('AddIncome', {
+          income: selectedIncome
+        });
+      }
+    }} onDelete={async () => {
+      if (selectedIncome) {
+        try {
+          await deleteIncome(selectedIncome.id);
+          alertService.toastSuccess(tl("تم حذف الإيراد بنجاح"));
+          fetchIncome(true);
+        } catch (error) {
+          alertService.toastError(tl("حدث خطأ أثناء حذف الإيراد"));
+        }
+      }
+    }} />
+    </View>;
 };
-
 const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.background
   },
   header: {
     backgroundColor: theme.colors.surface,
@@ -536,12 +412,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
     ...getPlatformShadow('xs'),
-    zIndex: 10,
+    zIndex: 10
   },
   fixedHeader: {
     backgroundColor: theme.colors.surface,
     borderBottomWidth: 0,
-    zIndex: 11,
+    zIndex: 11
   },
   screenHeader: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
@@ -549,13 +425,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingBottom: 12,
-    marginTop: 8,
+    marginTop: 8
   },
   screenTitle: {
     fontSize: 18,
     fontFamily: theme.typography.fontFamily,
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
+    color: theme.colors.textPrimary
   },
   settingsBtn: {
     width: 40,
@@ -563,42 +439,42 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 12,
     backgroundColor: theme.colors.surfaceLight,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   dateFilterRow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 16,
-    gap: 12,
+    gap: 12
   },
   filterTypeToggle: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     backgroundColor: theme.colors.surfaceLight,
     borderRadius: 12,
-    padding: 4,
+    padding: 4
   },
   toggleBtn: {
     paddingHorizontal: 16,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: 8
   },
   toggleBtnActive: {
     backgroundColor: theme.colors.primary,
-    ...getPlatformShadow('xs'),
+    ...getPlatformShadow('xs')
   },
   toggleText: {
     fontSize: 12,
     fontFamily: theme.typography.fontFamily,
     color: theme.colors.textMuted,
-    fontWeight: getPlatformFontWeight('600'),
+    fontWeight: getPlatformFontWeight('600')
   },
   toggleTextActive: {
-    color: '#FFFFFF',
+    color: '#FFFFFF'
   },
   monthFilterWrapper: {
     flexShrink: 1,
-    alignItems: 'center',
+    alignItems: 'center'
   },
   daySelector: {
     flexShrink: 1,
@@ -609,22 +485,22 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 12,
-    gap: 8,
+    gap: 8
   },
   daySelectorText: {
     fontSize: 14,
     fontFamily: theme.typography.fontFamily,
     color: theme.colors.textPrimary,
-    fontWeight: getPlatformFontWeight('600'),
+    fontWeight: getPlatformFontWeight('600')
   },
   categoriesRow: {
     marginTop: 4,
-    direction: "rtl"
+    direction: isRTL ? 'rtl' : 'ltr'
   },
   categoriesContent: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     gap: 8,
-    paddingHorizontal: 4,
+    paddingHorizontal: 4
   },
   categoryChip: {
     flexDirection: isRTL ? 'row-reverse' : 'row-reverse',
@@ -635,43 +511,43 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: theme.colors.surface,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    minHeight: 32,
+    minHeight: 32
   },
   categoryChipActive: {
     backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
+    borderColor: theme.colors.primary
   },
   categoryChipIcon: {
-    marginHorizontal: 4,
+    marginHorizontal: 4
   },
   categoryChipText: {
     fontFamily: theme.typography.fontFamily,
     fontSize: 13,
     color: theme.colors.textSecondary,
-    fontWeight: getPlatformFontWeight('600'),
+    fontWeight: getPlatformFontWeight('600')
   },
   categoryChipTextActive: {
-    color: theme.colors.background,
+    color: theme.colors.background
   },
   listContent: {
-    paddingBottom: 80,
+    paddingBottom: 80
   },
   itemWrapper: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 20
   },
   summaryContainer: {
     marginBottom: 20,
     paddingHorizontal: 20,
-    marginTop: 20,
+    marginTop: 20
   },
   summaryCard: {
     borderRadius: 20,
     padding: 16,
-    ...getPlatformShadow('md'),
+    ...getPlatformShadow('md')
   },
   summaryContent: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   summaryIconContainer: {
     width: 44,
@@ -681,24 +557,24 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: isRTL ? 16 : 0,
-    marginRight: isRTL ? 0 : 16,
+    marginRight: isRTL ? 0 : 16
   },
   summaryTextContainer: {
-    flex: 1,
+    flex: 1
   },
   summaryLabel: {
     fontFamily: theme.typography.fontFamily,
     fontSize: 13,
     color: 'rgba(255,255,255,0.85)',
     marginBottom: 2,
-    textAlign: isRTL ? 'right' : 'left',
+    textAlign: isRTL ? 'right' : 'left'
   },
   summaryAmount: {
     fontFamily: theme.typography.fontFamily,
     fontSize: 24,
     fontWeight: getPlatformFontWeight('800'),
     color: '#FFFFFF',
-    textAlign: isRTL ? 'right' : 'left',
+    textAlign: isRTL ? 'right' : 'left'
   },
   summaryFooter: {
     marginTop: 12,
@@ -707,24 +583,24 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingTop: 12,
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 8
   },
   summaryCount: {
     fontFamily: theme.typography.fontFamily,
     fontSize: 12,
     color: 'rgba(255,255,255,1)',
-    fontWeight: getPlatformFontWeight('600'),
+    fontWeight: getPlatformFontWeight('600')
   },
   summaryLoadedCount: {
     fontFamily: theme.typography.fontFamily,
     fontSize: 11,
-    color: 'rgba(255,255,255,0.7)',
+    color: 'rgba(255,255,255,0.7)'
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
-    paddingHorizontal: 20,
+    paddingHorizontal: 20
   },
   emptyIconContainer: {
     width: 120,
@@ -733,21 +609,21 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: theme.colors.surfaceLight,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: 20
   },
   emptyText: {
     fontFamily: theme.typography.fontFamily,
     fontSize: 18,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
-    marginBottom: 8,
+    marginBottom: 8
   },
   emptySubtext: {
     fontFamily: theme.typography.fontFamily,
     fontSize: 14,
     color: theme.colors.textSecondary,
     textAlign: 'center',
-    maxWidth: '70%',
+    maxWidth: '70%'
   },
   fabContainer: {
     position: 'absolute',
@@ -755,25 +631,25 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     left: 24,
     right: 24,
     alignItems: isRTL ? 'flex-start' : 'flex-end',
-    pointerEvents: 'box-none',
+    pointerEvents: 'box-none'
   },
   fabButton: {
     width: 60,
     height: 60,
     borderRadius: 22,
-    ...getPlatformShadow('lg'),
+    ...getPlatformShadow('lg')
   },
   fabGradient: {
     flex: 1,
     borderRadius: 22,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   footerContainer: {
     paddingVertical: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 20
   },
   loadMoreButton: {
     paddingHorizontal: 20,
@@ -783,61 +659,61 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   loadMoreText: {
     fontFamily: theme.typography.fontFamily,
     fontSize: 14,
     color: theme.colors.primary,
     fontWeight: getPlatformFontWeight('600'),
-    marginRight: 8,
+    marginRight: 8
   },
   endOfListContainer: {
     paddingVertical: 20,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   endOfListText: {
     fontFamily: theme.typography.fontFamily,
     fontSize: 12,
-    color: theme.colors.textMuted,
+    color: theme.colors.textMuted
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-end'
   },
   pickerModalContent: {
     backgroundColor: theme.colors.surfaceCard,
     borderTopLeftRadius: theme.borderRadius.xxl,
     borderTopRightRadius: theme.borderRadius.xxl,
     paddingBottom: 20,
-    ...getPlatformShadow('xl'),
+    ...getPlatformShadow('xl')
   },
   pickerHeader: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    borderBottomColor: theme.colors.border
   },
   pickerDoneText: {
     fontSize: 17,
     fontWeight: '700',
     color: theme.colors.primary,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   // Add Modal Styles
   addModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-end'
   },
   addModalContainer: {
     backgroundColor: theme.colors.surfaceCard,
     borderTopLeftRadius: theme.borderRadius.xxl,
     borderTopRightRadius: theme.borderRadius.xxl,
     paddingBottom: 40,
-    paddingTop: 12,
+    paddingTop: 12
   },
   addModalHandle: {
     width: 40,
@@ -845,7 +721,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: theme.colors.border,
     borderRadius: 2,
     alignSelf: 'center',
-    marginBottom: 16,
+    marginBottom: 16
   },
   addModalTitle: {
     fontSize: 18,
@@ -853,12 +729,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 24
   },
   addModalOptions: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     paddingHorizontal: 20,
-    gap: 16,
+    gap: 16
   },
   addModalOption: {
     flex: 1,
@@ -866,7 +742,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 20,
     padding: 20,
     alignItems: 'center',
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   addModalIconContainer: {
     width: 60,
@@ -874,19 +750,19 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 12
   },
   addModalOptionTitle: {
     fontSize: 16,
     fontFamily: theme.typography.fontFamily,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
-    marginBottom: 4,
+    marginBottom: 4
   },
   addModalOptionSubtitle: {
     fontSize: 12,
     fontFamily: theme.typography.fontFamily,
     color: theme.colors.textSecondary,
-    textAlign: 'center',
-  },
+    textAlign: 'center'
+  }
 });

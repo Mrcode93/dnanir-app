@@ -1,23 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import {
-  View,
-  StyleSheet,
-  RefreshControl,
-  Text,
-  TouchableOpacity,
-  Animated,
-} from 'react-native';
+import { View, StyleSheet, RefreshControl, Text, TouchableOpacity, Animated } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
-import {
-  getDebts,
-  deleteDebt,
-  getDebtInstallments,
-  Debt,
-  DebtInstallment,
-} from '../database/database';
+import { getDebts, deleteDebt, getDebtInstallments, Debt, DebtInstallment, getDebtorSummaries, DebtorSummary } from '../database/database';
 import { useCurrency } from '../hooks/useCurrency';
 import { ConfirmAlert } from '../components/ConfirmAlert';
 import { DebtItem } from '../components/DebtItem';
@@ -26,11 +13,21 @@ import { payDebt, payInstallment } from '../services/debtService';
 import { isRTL } from '../utils/rtl';
 import { alertService } from '../services/alertService';
 import { PayDebtModal } from '../components/PayDebtModal';
-
-export const DebtsScreen = ({ navigation, route }: any) => {
-  const { theme } = useAppTheme();
+import { tl, useLocalization } from "../localization";
+export const DebtsScreen = ({
+  navigation,
+  route
+}: any) => {
+  const {
+    language
+  } = useLocalization();
+  const {
+    theme
+  } = useAppTheme();
   const styles = useThemedStyles(createStyles);
-  const { formatCurrency } = useCurrency();
+  const {
+    formatCurrency
+  } = useCurrency();
   const [debts, setDebts] = useState<Debt[]>([]);
   const [filteredDebts, setFilteredDebts] = useState<Debt[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -42,27 +39,25 @@ export const DebtsScreen = ({ navigation, route }: any) => {
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
   const [debtToPay, setDebtToPay] = useState<Debt | null>(null);
+  const [viewMode, setViewMode] = useState<'debts' | 'debtors'>('debtors');
+  const [debtorSummaries, setDebtorSummaries] = useState<DebtorSummary[]>([]);
   const filterMenuAnim = useRef(new Animated.Value(0)).current;
-
   const loadDebts = useCallback(async () => {
     try {
       const allDebts = await getDebts();
       setDebts(allDebts);
+      const summaries = await getDebtorSummaries();
+      setDebtorSummaries(summaries);
 
       // Load all installments in parallel instead of serially
-      const installmentArrays = await Promise.all(
-        allDebts.map(debt => getDebtInstallments(debt.id))
-      );
+      const installmentArrays = await Promise.all(allDebts.map(debt => getDebtInstallments(debt.id)));
       const installments: Record<number, DebtInstallment[]> = {};
       allDebts.forEach((debt, i) => {
         installments[debt.id] = installmentArrays[i];
       });
       setInstallmentsMap(installments);
-    } catch (error) {
-
-    }
+    } catch (error) {}
   }, []);
-
   useEffect(() => {
     loadDebts();
     const unsubscribe = navigation.addListener('focus', () => {
@@ -70,74 +65,70 @@ export const DebtsScreen = ({ navigation, route }: any) => {
     });
     return unsubscribe;
   }, [navigation]);
-
   useEffect(() => {
     let filtered = debts;
-
     if (searchQuery) {
-      filtered = filtered.filter(debt =>
-        debt.debtorName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        debt.description?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+      filtered = filtered.filter(debt => debt.debtorName.toLowerCase().includes(searchQuery.toLowerCase()) || debt.description?.toLowerCase().includes(searchQuery.toLowerCase()));
     }
-
     if (selectedType !== 'all') {
       filtered = filtered.filter(debt => debt.type === selectedType);
     }
-
     setFilteredDebts(filtered);
   }, [debts, searchQuery, selectedType]);
-
   useEffect(() => {
     navigation.setOptions({
-      headerRight: () => (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 16 }}>
-          <TouchableOpacity
-            style={{ padding: 8 }}
-            onPress={() => navigation.navigate('AddDebt')}
-          >
+      headerLeft: () => <TouchableOpacity onPress={() => navigation.goBack()} style={{
+        paddingHorizontal: 16
+      }}>
+          <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+        </TouchableOpacity>,
+      headerRight: () => <View style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: 16
+      }}>
+          <TouchableOpacity style={{
+          padding: 8
+        }} onPress={() => navigation.navigate('AddDebt')}>
             <Ionicons name="add-circle" size={26} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
-      ),
     });
-  }, [navigation]);
-
+  }, [navigation, viewMode]);
   useEffect(() => {
     if (route?.params?.action === 'add') {
       navigation.navigate('AddDebt');
-      navigation.setParams({ action: undefined });
+      navigation.setParams({
+        action: undefined
+      });
     }
   }, [route?.params]);
-
   useEffect(() => {
     if (showFilterMenu) {
       Animated.spring(filterMenuAnim, {
         toValue: 1,
         useNativeDriver: true,
         tension: 50,
-        friction: 7,
+        friction: 7
       }).start();
     } else {
       Animated.timing(filterMenuAnim, {
         toValue: 0,
         duration: 200,
-        useNativeDriver: true,
+        useNativeDriver: true
       }).start();
     }
   }, [showFilterMenu]);
-
   const onRefresh = async () => {
     setRefreshing(true);
     await loadDebts();
     setRefreshing(false);
   };
-
   const handleDelete = (debt: Debt) => {
     setDebtToDelete(debt);
     setShowDeleteAlert(true);
   };
-
   const confirmDelete = async () => {
     if (debtToDelete) {
       try {
@@ -145,97 +136,83 @@ export const DebtsScreen = ({ navigation, route }: any) => {
         await loadDebts();
         setShowDeleteAlert(false);
         setDebtToDelete(null);
-        alertService.toastSuccess('تم حذف الدين بنجاح');
+        alertService.toastSuccess(tl("تم حذف الدين بنجاح"));
       } catch (error) {
-
-        alertService.error('خطأ', 'حدث خطأ أثناء حذف الدين');
+        alertService.error(tl("خطأ"), tl("حدث خطأ أثناء حذف الدين"));
       }
     }
   };
-
   const handleDebtPress = (debt: Debt) => {
-    navigation.navigate('DebtDetails', { debtId: debt.id });
+    navigation.navigate('DebtDetails', {
+      debtId: debt.id
+    });
   };
-
   const handleEdit = (debt: Debt) => {
     if (debt.isPaid) {
       alertService.show({
-        title: 'تنبيه',
-        message: 'لا يمكن تعديل الدين بعد سداده بالكامل.',
-        type: 'info',
+        title: tl("تنبيه"),
+        message: tl("لا يمكن تعديل الدين بعد سداده بالكامل."),
+        type: 'info'
       });
       return;
     }
-    navigation.navigate('AddDebt', { debt });
+    navigation.navigate('AddDebt', {
+      debt
+    });
   };
-
-
   const handlePayDebt = (debt: Debt) => {
     setDebtToPay(debt);
     setShowPayModal(true);
   };
-
   const handlePayDebtConfirm = async (amount: number) => {
     if (!debtToPay) return;
     try {
       await payDebt(debtToPay.id, amount);
       await loadDebts();
       const isOwedToMe = debtToPay.direction === 'owed_to_me';
-      const message = isOwedToMe
-        ? (amount === debtToPay.remainingAmount ? 'تم تسجيل التسديد بالكامل وتمت إضافته لرصيدك' : `تم تسجيل تسديد ${formatCurrency(amount)} وتمت إضافته لرصيدك`)
-        : (amount === debtToPay.remainingAmount ? 'تم دفع الدين بالكامل بنجاح' : `تم دفع ${formatCurrency(amount)} بنجاح`);
+      const message = isOwedToMe ? amount === debtToPay.remainingAmount ? tl("تم تسجيل التسديد بالكامل وتمت إضافته لرصيدك") : tl("تم تسجيل تسديد {{}} وتمت إضافته لرصيدك", [formatCurrency(amount)]) : amount === debtToPay.remainingAmount ? tl("تم دفع الدين بالكامل بنجاح") : tl("تم دفع {{}} بنجاح", [formatCurrency(amount)]);
       alertService.toastSuccess(message);
       setShowPayModal(false);
       setDebtToPay(null);
     } catch (error) {
-
-      alertService.error('خطأ', debtToPay.direction === 'owed_to_me' ? 'حدث خطأ أثناء تسجيل التسديد' : 'حدث خطأ أثناء دفع الدين');
+      alertService.error(tl("خطأ"), debtToPay.direction === 'owed_to_me' ? tl("حدث خطأ أثناء تسجيل التسديد") : tl("حدث خطأ أثناء دفع الدين"));
       throw error;
     }
   };
-
   const handlePayInstallment = async (installment: DebtInstallment) => {
     try {
       await payInstallment(installment.id);
       await loadDebts();
-      alertService.toastSuccess('تم دفع القسط بنجاح');
+      alertService.toastSuccess(tl("تم دفع القسط بنجاح"));
     } catch (error) {
-
-      alertService.error('خطأ', 'حدث خطأ أثناء دفع القسط');
+      alertService.error(tl("خطأ"), tl("حدث خطأ أثناء دفع القسط"));
     }
   };
-
   const getDebtTypeName = (type: string) => {
     return DEBT_TYPES[type as keyof typeof DEBT_TYPES] || type;
   };
-
   const typeIcons: Record<'debt' | 'installment' | 'advance', string> = {
     debt: 'card',
     installment: 'calendar',
-    advance: 'cash',
+    advance: 'cash'
   };
-
   const typeColors: Record<'debt' | 'installment' | 'advance', string[]> = {
     debt: ['#8B5CF6', '#7C3AED'],
     installment: ['#3B82F6', '#2563EB'],
-    advance: ['#F59E0B', '#D97706'],
+    advance: ['#F59E0B', '#D97706']
   };
-
   const handleTypeSelect = (type: 'debt' | 'installment' | 'advance' | 'all') => {
     setSelectedType(type);
     setShowFilterMenu(false);
   };
-
   const getSelectedTypeLabel = () => {
-    if (selectedType === 'all') return 'الكل';
+    if (selectedType === 'all') return tl("الكل");
     return getDebtTypeName(selectedType);
   };
-
   const formatDate = (dateStr?: string) => {
-    if (!dateStr) return 'غير محدد';
-    return new Date(dateStr).toLocaleDateString('ar-IQ-u-nu-latn');
+    if (!dateStr) return tl("غير محدد");
+    return new Date(dateStr).toLocaleDateString(language === 'ar' ? 'ar-IQ-u-nu-latn' : 'en-US');
   };
-
   const getDaysUntilDue = (dueDate?: string) => {
     if (!dueDate) return null;
     const today = new Date();
@@ -245,8 +222,11 @@ export const DebtsScreen = ({ navigation, route }: any) => {
     const diff = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     return diff;
   };
-
-  const { totalDebts, activeDebts, paidDebts } = useMemo(() => {
+  const {
+    totalDebts,
+    activeDebts,
+    paidDebts
+  } = useMemo(() => {
     let total = 0;
     let active = 0;
     let paid = 0;
@@ -258,64 +238,67 @@ export const DebtsScreen = ({ navigation, route }: any) => {
         active++;
       }
     }
-    return { totalDebts: total, activeDebts: active, paidDebts: paid };
+    return {
+      totalDebts: total,
+      activeDebts: active,
+      paidDebts: paid
+    };
   }, [debts]);
-
-  const renderListHeader = () => (
-    <View style={styles.summaryContainer}>
-      <LinearGradient
-        colors={theme.gradients.info as any}
-        style={styles.summaryCard}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <View style={styles.summaryTop}>
-          <View style={styles.summaryIconBox}>
-            <Ionicons name="card" size={22} color="#FFFFFF" />
-          </View>
-          <Text style={styles.summaryCardTitle}>ملخص الالتزامات</Text>
+  const renderListHeader = () => <View style={styles.segmentedToggleContainer}>
+      <View style={styles.segmentedToggle}>
+        <TouchableOpacity style={[styles.toggleButton, viewMode === 'debts' && styles.toggleButtonActive]} onPress={() => setViewMode('debts')}>
+          <Ionicons name="list" size={18} color={viewMode === 'debts' ? '#FFFFFF' : theme.colors.textMuted} />
+          <Text style={[styles.toggleButtonText, viewMode === 'debts' && styles.toggleButtonTextActive]}>{tl("العمليات")}</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={[styles.toggleButton, viewMode === 'debtors' && styles.toggleButtonActive]} onPress={() => setViewMode('debtors')}>
+          <Ionicons name="people" size={18} color={viewMode === 'debtors' ? '#FFFFFF' : theme.colors.textMuted} />
+          <Text style={[styles.toggleButtonText, viewMode === 'debtors' && styles.toggleButtonTextActive]}>{tl("الأشخاص")}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>;
+  const renderDebtor = useCallback(({
+    item
+  }: {
+    item: DebtorSummary;
+  }) => {
+    const primaryColor = item.netBalance >= 0 ? theme.colors.success : theme.colors.error;
+    const absNet = Math.abs(item.netBalance);
+    return <TouchableOpacity style={styles.debtorCard} onPress={() => navigation.navigate('DebtorDetails', {
+      debtor: item
+    })}>
+        <View style={styles.debtorAvatar}>
+          <Text style={styles.debtorAvatarText}>{item.name.charAt(0)}</Text>
         </View>
-        <View style={styles.summaryMain}>
-          <Text style={styles.summaryValue}>{formatCurrency(totalDebts)}</Text>
-          <Text style={styles.summaryLabel}>إجمالي الديون النشطة</Text>
+        <View style={styles.debtorInfo}>
+          <Text style={styles.debtorName}>{item.name}</Text>
+          <Text style={styles.debtorSummary}>
+            {item.totalDebts}{tl("عمليات •")}{formatCurrency(item.totalOwedToMe)}{tl("لي •")}{formatCurrency(item.totalOwedByMe)}{tl("علي")}</Text>
         </View>
-        <View style={styles.summaryStats}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{activeDebts}</Text>
-            <Text style={styles.statLabel}>نشطة</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{paidDebts}</Text>
-            <Text style={styles.statLabel}>مدفوعة</Text>
-          </View>
+        <View style={styles.debtorBalance}>
+          <Text style={[styles.balanceValue, {
+          color: primaryColor
+        }]}>
+            {item.netBalance > 0 ? '+' : item.netBalance < 0 ? '-' : ''}{formatCurrency(absNet)}
+          </Text>
+          <Text style={styles.balanceLabel}>
+            {item.netBalance > 0 ? tl("صافي - لي") : item.netBalance < 0 ? tl("صافي - علي") : tl("رصيد صفر")}
+          </Text>
         </View>
-      </LinearGradient>
-    </View>
-  );
-
-  const renderDebt = useCallback(({ item }: { item: Debt }) => {
+      </TouchableOpacity>;
+  }, [theme, styles, formatCurrency, navigation]);
+  const renderDebt = useCallback(({
+    item
+  }: {
+    item: Debt;
+  }) => {
     const installments = installmentsMap[item.id] || [];
     const unpaidInstallments = installments.filter(inst => !inst.isPaid);
-
-    return (
-      <View style={styles.itemWrapper}>
-        <DebtItem
-          item={item}
-          onPress={() => handleDebtPress(item)}
-          onEdit={() => handleEdit(item)}
-          onDelete={() => handleDelete(item)}
-          onPay={() => handlePayDebt(item)}
-          formatCurrency={formatCurrency}
-          unpaidInstallmentsCount={unpaidInstallments.length}
-          totalInstallmentsCount={installments.length}
-        />
-      </View>
-    );
+    return <View style={styles.itemWrapper}>
+        <DebtItem item={item} onPress={() => handleDebtPress(item)} onEdit={() => handleEdit(item)} onDelete={() => handleDelete(item)} onPay={() => handlePayDebt(item)} formatCurrency={formatCurrency} unpaidInstallmentsCount={unpaidInstallments.length} totalInstallmentsCount={installments.length} />
+      </View>;
   }, [theme, styles, formatCurrency, installmentsMap, handleDebtPress, handleEdit, handleDelete, handlePayDebt]);
-
-  return (
-    <View style={styles.container}>
+  return <View style={styles.container}>
       {/* <View style={styles.headerFilterSection}>
         <ScrollView
           horizontal
@@ -343,74 +326,40 @@ export const DebtsScreen = ({ navigation, route }: any) => {
             );
           })}
         </ScrollView>
-      </View> */}
+       </View> */}
 
-      <FlashList
-        data={filteredDebts}
-        // @ts-ignore
-        estimatedItemSize={150}
-        ListHeaderComponent={renderListHeader()}
-        renderItem={renderDebt}
-        keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={theme.colors.primary}
-          />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
+      <FlashList data={(viewMode === 'debtors' ? debtorSummaries : filteredDebts) as any[]}
+    // @ts-ignore
+    estimatedItemSize={100} ListHeaderComponent={renderListHeader()} renderItem={viewMode === 'debtors' ? renderDebtor : renderDebt as any} keyExtractor={item => item.id.toString()} contentContainerStyle={styles.listContent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />} ListEmptyComponent={<View style={styles.emptyContainer}>
             <View style={styles.emptyIconContainer}>
-              <Ionicons name="card-outline" size={64} color={theme.colors.primary + '40'} />
+              <Ionicons name={viewMode === 'debtors' ? "people-outline" : "card-outline"} size={64} color={theme.colors.primary + '40'} />
             </View>
             <Text style={styles.emptyText}>
-              {selectedType !== 'all' ? 'لا توجد نتائج' : 'لا توجد ديون مسجلة'}
+              {viewMode === 'debtors' ? tl("لا يوجد أشخاص") : selectedType !== 'all' ? tl("لا توجد نتائج") : tl("لا توجد ديون مسجلة")}
             </Text>
             <Text style={styles.emptySubtext}>
-              {selectedType !== 'all'
-                ? 'جرب تغيير الفلتر للحصول على نتائج'
-                : 'أضف أول دين أو قسط أو سلفة لتتبعها هنا'}
+              {viewMode === 'debtors' ? tl("أضف ديناً جديداً لارتباطه بشخص ما") : selectedType !== 'all' ? tl("جرب تغيير الفلتر للحصول على نتائج") : tl("أضف أول دين أو قسط أو سلفة لتتبعها هنا")}
             </Text>
-          </View>
-        }
-      />
+          </View>} />
 
 
-      <ConfirmAlert
-        visible={showDeleteAlert}
-        onCancel={() => {
-          setShowDeleteAlert(false);
-          setDebtToDelete(null);
-        }}
-        onConfirm={() => {
-          confirmDelete();
-        }}
-        title="حذف الدين"
-        message="هل أنت متأكد من حذف هذا الدين؟ سيتم حذف جميع الأقساط المرتبطة به."
-        confirmText="حذف"
-        cancelText="إلغاء"
-        type="danger"
-      />
+      <ConfirmAlert visible={showDeleteAlert} onCancel={() => {
+      setShowDeleteAlert(false);
+      setDebtToDelete(null);
+    }} onConfirm={() => {
+      confirmDelete();
+    }} title={tl("حذف الدين")} message={tl("هل أنت متأكد من حذف هذا الدين؟ سيتم حذف جميع الأقساط المرتبطة به.")} confirmText={tl("حذف")} cancelText={tl("إلغاء")} type="danger" />
 
-      <PayDebtModal
-        visible={showPayModal}
-        debt={debtToPay}
-        onClose={() => {
-          setShowPayModal(false);
-          setDebtToPay(null);
-        }}
-        onPay={handlePayDebtConfirm}
-      />
-    </View>
-  );
+      <PayDebtModal visible={showPayModal} debt={debtToPay} onClose={() => {
+      setShowPayModal(false);
+      setDebtToPay(null);
+    }} onPay={handlePayDebtConfirm} />
+    </View>;
 };
-
 const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.background
   },
   headerActionBtn: {
     width: 40,
@@ -418,18 +367,18 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 12,
     backgroundColor: theme.colors.surfaceLight,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   headerFilterSection: {
     paddingVertical: 12,
     backgroundColor: theme.colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border + '50',
+    borderBottomColor: theme.colors.border + '50'
   },
   filterContent: {
     paddingHorizontal: 20,
     gap: 10,
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row-reverse' : 'row'
   },
   filterChip: {
     paddingHorizontal: 16,
@@ -437,114 +386,65 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 14,
     backgroundColor: theme.colors.surfaceLight,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.border
   },
   filterChipActive: {
     backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
+    borderColor: theme.colors.primary
   },
   filterChipText: {
     fontSize: 13,
     fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   filterChipTextActive: {
-    color: '#FFFFFF',
+    color: '#FFFFFF'
   },
-  summaryContainer: {
-    padding: 20,
+  segmentedToggleContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 20
   },
-  headerEditBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: theme.colors.primary + '15',
-  },
-  headerEditText: {
-    color: theme.colors.primary,
-    fontSize: 14,
-    fontWeight: getPlatformFontWeight('700'),
-    fontFamily: theme.typography.fontFamily,
-  },
-  summaryCard: {
-    borderRadius: 24,
-    padding: 20,
-    ...getPlatformShadow('md'),
-  },
-  summaryTop: {
+  segmentedToggle: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 16,
+    backgroundColor: theme.colors.surfaceCard,
+    borderRadius: 16,
+    padding: 4,
+    ...getPlatformShadow('sm')
   },
-  summaryIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+  toggleButton: {
+    flex: 1,
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 10,
+    gap: 8,
+    borderRadius: 12
   },
-  summaryCardTitle: {
+  toggleButtonActive: {
+    backgroundColor: theme.colors.primary
+  },
+  toggleButtonText: {
+    fontFamily: theme.typography.fontFamily,
     fontSize: 14,
-    fontWeight: getPlatformFontWeight('700'),
-    color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
+    fontWeight: '700',
+    color: theme.colors.textMuted
   },
-  summaryMain: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  summaryValue: {
-    fontSize: 28,
-    fontWeight: getPlatformFontWeight('900'),
-    color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
-  },
-  summaryLabel: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.8)',
-    fontFamily: theme.typography.fontFamily,
-    marginTop: 2,
-  },
-  summaryStats: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.2)',
-    paddingTop: 16,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 16,
-    fontWeight: getPlatformFontWeight('800'),
-    color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.7)',
-    fontFamily: theme.typography.fontFamily,
-  },
-  statDivider: {
-    width: 1,
-    height: '100%',
-    backgroundColor: 'rgba(255,255,255,0.3)',
+  toggleButtonTextActive: {
+    color: '#FFFFFF'
   },
   listContent: {
-    paddingBottom: 100,
+    paddingBottom: 100
   },
   itemWrapper: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 20
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
-    paddingHorizontal: 20,
+    paddingHorizontal: 20
   },
   emptyIconContainer: {
     width: 120,
@@ -553,25 +453,25 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: theme.colors.surfaceLight,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: 20
   },
   emptyText: {
     fontFamily: theme.typography.fontFamily,
     fontSize: 18,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
-    marginBottom: 8,
+    marginBottom: 8
   },
   emptySubtext: {
     fontFamily: theme.typography.fontFamily,
     fontSize: 14,
     color: theme.colors.textSecondary,
     textAlign: 'center',
-    maxWidth: '70%',
+    maxWidth: '70%'
   },
   addModalOptions: {
     padding: 20,
-    gap: 16,
+    gap: 16
   },
   addModalOption: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
@@ -581,7 +481,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    ...getPlatformShadow('xs'),
+    ...getPlatformShadow('xs')
   },
   addModalIconContainer: {
     width: 56,
@@ -590,23 +490,76 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: isRTL ? 16 : 0,
-    marginRight: isRTL ? 0 : 16,
+    marginRight: isRTL ? 0 : 16
   },
   addModalOptionTextContainer: {
     flex: 1,
-    alignItems: isRTL ? 'flex-end' : 'flex-start',
+    alignItems: isRTL ? 'flex-end' : 'flex-start'
   },
   addModalOptionTitle: {
     fontSize: 16,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    marginBottom: 4,
+    marginBottom: 4
   },
   addModalOptionSubtitle: {
     fontSize: 13,
     color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
+  debtorCard: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surface,
+    padding: 16,
+    borderRadius: 18,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    ...getPlatformShadow('xs')
+  },
+  debtorAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: theme.colors.primary + '20',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  debtorAvatarText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: theme.colors.primary
+  },
+  debtorInfo: {
+    flex: 1,
+    marginHorizontal: 12,
+    alignItems: isRTL ? 'flex-end' : 'flex-start'
+  },
+  debtorName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily
+  },
+  debtorSummary: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+    marginTop: 2
+  },
+  debtorBalance: {
+    alignItems: isRTL ? 'flex-start' : 'flex-end'
+  },
+  balanceValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    fontFamily: theme.typography.fontFamily
+  },
+  balanceLabel: {
+    fontSize: 10,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+    marginTop: 2
+  }
 });
-

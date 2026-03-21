@@ -1,21 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  I18nManager,
-  TouchableOpacity,
-  ActivityIndicator,
-  Modal,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  Dimensions,
-  Image,
-  Linking,
-  Share,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, Dimensions, Image, Linking, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenContainer } from '../design-system';
 import { List, Switch, Button } from 'react-native-paper';
@@ -42,16 +26,24 @@ import { createLocalBackup, restoreFromLastLocalBackup, pickBackupFileAndRestore
 import { referralService, ReferralInfo } from '../services/referralService';
 import { ReferralModal } from '../components/ReferralModal';
 import { PromoCodeModal } from '../components/PromoCodeModal';
-
 import { CONTACT_INFO, APP_LINKS, SHARE_APP_MESSAGE } from '../constants/contactConstants';
 import { CurrencyPickerModal } from '../components/CurrencyPickerModal';
 import { convertArabicToEnglish } from '../utils/numbers';
 import Constants from 'expo-constants';
 import * as Clipboard from 'expo-clipboard';
 import { notifyCurrencyChanged } from '../services/currencyEvents';
+import { getCurrencyDisplayName, tl, useLocalization } from "../localization";
 
-export const ProfileScreen = ({ navigation }: any) => {
-  const { theme } = useAppTheme();
+type Meridiem = 'am' | 'pm';
+export const ProfileScreen = ({
+  navigation
+}: any) => {
+  const {
+    language
+  } = useLocalization();
+  const {
+    theme
+  } = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const [userName, setUserName] = useState<string>('');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -64,7 +56,6 @@ export const ProfileScreen = ({ navigation }: any) => {
   const [showExpenseTimePicker, setShowExpenseTimePicker] = useState(false);
   const [exportingPDF, setExportingPDF] = useState(false);
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
-
   const [selectedCurrency, setSelectedCurrency] = useState<string>('IQD');
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<string>('ar');
@@ -80,14 +71,13 @@ export const ProfileScreen = ({ navigation }: any) => {
   const [userPhone, setUserPhone] = useState<string>('');
   const [tempHour, setTempHour] = useState<number>(8); // 12-hour format (1-12)
   const [tempMinute, setTempMinute] = useState<number>(0);
-  const [tempAmPm, setTempAmPm] = useState<'ص' | 'م'>('م');
+  const [tempAmPm, setTempAmPm] = useState<Meridiem>('pm');
   const dailyHourScrollRef = useRef<ScrollView>(null);
   const dailyMinuteScrollRef = useRef<ScrollView>(null);
   const dailyAmPmScrollRef = useRef<ScrollView>(null);
   const expenseHourScrollRef = useRef<ScrollView>(null);
   const expenseMinuteScrollRef = useRef<ScrollView>(null);
   const expenseAmPmScrollRef = useRef<ScrollView>(null);
-
   const [userData, setUserData] = useState<any>(null);
   const [syncing, setSyncing] = useState(false);
   const [hasUnsynced, setHasUnsynced] = useState(false);
@@ -99,22 +89,23 @@ export const ProfileScreen = ({ navigation }: any) => {
   const [isProfileLoading, setIsProfileLoading] = useState(true);
   const [showReferralModal, setShowReferralModal] = useState(false);
   const [showPromoModal, setShowPromoModal] = useState(false);
-
   useEffect(() => {
-    loadProfileScreenData({ showLoader: true });
+    loadProfileScreenData({
+      showLoader: true
+    });
     // Reload settings when screen comes into focus
     const unsubscribe = navigation?.addListener?.('focus', () => {
-      loadProfileScreenData({ showLoader: false });
+      loadProfileScreenData({
+        showLoader: false
+      });
     });
     return () => {
       if (unsubscribe) unsubscribe();
     };
   }, [navigation]);
-
   useEffect(() => {
     if (isAuthenticated) refreshUnsyncedStatus();
   }, [isAuthenticated]);
-
   const getDaysRemaining = (expiryDate: string | Date | undefined) => {
     if (!expiryDate) return 0;
     const now = new Date();
@@ -123,29 +114,22 @@ export const ProfileScreen = ({ navigation }: any) => {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays > 0 ? diffDays : 0;
   };
-
   const refreshUnsyncedStatus = async () => {
     const v = await hasUnsyncedData();
     setHasUnsynced(v);
   };
-
   const loadProfileScreenData = async ({
-    showLoader = true,
-  }: { showLoader?: boolean } = {}) => {
+    showLoader = true
+  }: {
+    showLoader?: boolean;
+  } = {}) => {
     if (showLoader) setIsProfileLoading(true);
     try {
-      await Promise.all([
-        loadSettings(),
-        checkAuthStatus(),
-        refreshUnsyncedStatus(),
-      ]);
-    } catch (error) {
-      
-    } finally {
+      await Promise.all([loadSettings(), checkAuthStatus(), refreshUnsyncedStatus()]);
+    } catch (error) {} finally {
       if (showLoader) setIsProfileLoading(false);
     }
   };
-
   const applyAuthenticatedUser = (user: any) => {
     setIsAuthenticated(true);
     setUserData(user);
@@ -155,7 +139,6 @@ export const ProfileScreen = ({ navigation }: any) => {
       loadReferralInfo();
     }
   };
-
   const checkAuthStatus = async (userFromServer?: any, forceServer = false) => {
     // if (__DEV__) {
     //   
@@ -165,7 +148,6 @@ export const ProfileScreen = ({ navigation }: any) => {
         applyAuthenticatedUser(userFromServer);
         return;
       }
-
       const token = await authStorage.getAccessToken();
       if (!token) {
         setIsAuthenticated(false);
@@ -173,7 +155,6 @@ export const ProfileScreen = ({ navigation }: any) => {
         setUserPhone('');
         return;
       }
-
       if (!forceServer) {
         const cachedUser = await authStorage.getUser<any>();
         if (cachedUser) {
@@ -181,7 +162,6 @@ export const ProfileScreen = ({ navigation }: any) => {
           return;
         }
       }
-
       const status = await authApiService.checkAuth();
       // if (__DEV__) {
       //   
@@ -195,32 +175,28 @@ export const ProfileScreen = ({ navigation }: any) => {
         setUserPhone('');
       }
     } catch (error) {
-      
       setIsAuthenticated(false);
       setUserData(null);
       setUserPhone('');
     }
   };
-
   const handleLogout = async () => {
     try {
       await authApiService.logout();
       setIsAuthenticated(false);
       setUserData(null);
       setUserPhone('');
-      alertService.toastSuccess('تم تسجيل الخروج بنجاح');
+      alertService.toastSuccess(tl("تم تسجيل الخروج بنجاح"));
     } catch (error) {
-      alertService.error('خطأ', 'فشل تسجيل الخروج');
+      alertService.error(tl("خطأ"), tl("فشل تسجيل الخروج"));
     }
   };
-
   const loadSettings = async () => {
     try {
       const userSettings = await getUserSettings();
       if (userSettings?.name) {
         setUserName(userSettings.name);
       }
-
       const appSettings = await getAppSettings();
       if (appSettings) {
         setNotificationsEnabled(appSettings.notificationsEnabled);
@@ -231,7 +207,6 @@ export const ProfileScreen = ({ navigation }: any) => {
           setSelectedCurrency(currency.code);
         }
       }
-
       const notificationSettings = await getNotificationSettings();
       if (notificationSettings) {
         setDailyReminder(!!notificationSettings.dailyReminder);
@@ -266,7 +241,6 @@ export const ProfileScreen = ({ navigation }: any) => {
         const defaultDailyTime = new Date();
         defaultDailyTime.setHours(20, 0, 0, 0);
         setDailyReminderTime(defaultDailyTime);
-
         const defaultExpenseTime = new Date();
         defaultExpenseTime.setHours(20, 0, 0, 0);
         setExpenseReminderTime(defaultExpenseTime);
@@ -289,7 +263,6 @@ export const ProfileScreen = ({ navigation }: any) => {
       // Ignore error
     }
   };
-
   const handleNotificationsToggle = async (value: boolean) => {
     setNotificationsEnabled(value);
     const appSettings = await getAppSettings();
@@ -301,32 +274,38 @@ export const ProfileScreen = ({ navigation }: any) => {
       autoBackupEnabled: false,
       autoSyncEnabled: false,
       currency: 'دينار عراقي',
-      language: 'ar',
+      language: 'ar'
     };
-    await upsertAppSettings({ ...settingsToSave, notificationsEnabled: value, themeMode: settingsToSave.themeMode });
+    await upsertAppSettings({
+      ...settingsToSave,
+      notificationsEnabled: value,
+      themeMode: settingsToSave.themeMode
+    });
     if (value) {
       const hasPermission = await requestPermissions();
       if (hasPermission) {
         await initializeNotifications();
       } else {
-        alertService.warning('إذن مطلوب', 'يرجى السماح بالإشعارات من إعدادات التطبيق');
+        alertService.warning(tl("إذن مطلوب"), tl("يرجى السماح بالإشعارات من إعدادات التطبيق"));
       }
     } else {
       // Cancel all notifications when disabled
       await Notifications.cancelAllScheduledNotificationsAsync();
     }
   };
-
   const handleAutoSyncToggle = async (value: boolean) => {
     if (value) {
-      const user = await authStorage.getUser<{ isPro?: boolean; is_pro?: boolean }>();
+      const user = await authStorage.getUser<{
+        isPro?: boolean;
+        is_pro?: boolean;
+      }>();
       const isPro = user?.isPro === true || (user as any)?.is_pro === true;
       if (!isPro) {
         alertService.show({
-          title: 'اشتراك مميز',
-          message: 'المزامنة التلقائية متاحة للمشتركين المميزين فقط. يجب أن يكون نوع حسابك أو اشتراكك مميزاً.',
+          title: tl("اشتراك مميز"),
+          message: tl("المزامنة التلقائية متاحة للمشتركين المميزين فقط. يجب أن يكون نوع حسابك أو اشتراكك مميزاً."),
           type: 'warning',
-          confirmText: 'حسناً',
+          confirmText: tl("حسناً")
         });
         return;
       }
@@ -340,95 +319,84 @@ export const ProfileScreen = ({ navigation }: any) => {
       autoBackupEnabled: false,
       autoSyncEnabled: false,
       currency: 'دينار عراقي',
-      language: 'ar',
+      language: 'ar'
     };
-    await upsertAppSettings({ ...settingsToSave, autoSyncEnabled: value, themeMode: settingsToSave.themeMode });
+    await upsertAppSettings({
+      ...settingsToSave,
+      autoSyncEnabled: value,
+      themeMode: settingsToSave.themeMode
+    });
   };
-
   const handleDailyReminderToggle = async (value: boolean) => {
     setDailyReminder(value);
     const notificationSettings = await getNotificationSettings();
-
     const dailyTimeString = `${dailyReminderTime.getHours().toString().padStart(2, '0')}:${dailyReminderTime.getMinutes().toString().padStart(2, '0')}`;
     const expenseTimeString = `${expenseReminderTime.getHours().toString().padStart(2, '0')}:${expenseReminderTime.getMinutes().toString().padStart(2, '0')}`;
-
-    const payload = notificationSettings
-      ? {
-        dailyReminder: value ? 1 : 0,
-        dailyReminderTime: notificationSettings.dailyReminderTime ?? dailyTimeString,
-        expenseReminder: notificationSettings.expenseReminder ? 1 : 0,
-        expenseReminderTime: notificationSettings.expenseReminderTime ?? expenseTimeString,
-        incomeReminder: notificationSettings.incomeReminder ? 1 : 0,
-        weeklySummary: notificationSettings.weeklySummary ? 1 : 0,
-        monthlySummary: notificationSettings.monthlySummary ? 1 : 0,
-      }
-      : {
-        dailyReminder: value ? 1 : 0,
-        dailyReminderTime: dailyTimeString,
-        expenseReminder: expenseReminder ? 1 : 0,
-        expenseReminderTime: expenseTimeString,
-        incomeReminder: 1,
-        weeklySummary: 1,
-        monthlySummary: 1,
-      };
-
+    const payload = notificationSettings ? {
+      dailyReminder: value ? 1 : 0,
+      dailyReminderTime: notificationSettings.dailyReminderTime ?? dailyTimeString,
+      expenseReminder: notificationSettings.expenseReminder ? 1 : 0,
+      expenseReminderTime: notificationSettings.expenseReminderTime ?? expenseTimeString,
+      incomeReminder: notificationSettings.incomeReminder ? 1 : 0,
+      weeklySummary: notificationSettings.weeklySummary ? 1 : 0,
+      monthlySummary: notificationSettings.monthlySummary ? 1 : 0
+    } : {
+      dailyReminder: value ? 1 : 0,
+      dailyReminderTime: dailyTimeString,
+      expenseReminder: expenseReminder ? 1 : 0,
+      expenseReminderTime: expenseTimeString,
+      incomeReminder: 1,
+      weeklySummary: 1,
+      monthlySummary: 1
+    };
     await upsertNotificationSettings(payload);
     await loadSettings();
-
     if (value) {
       try {
         await scheduleDailyReminder();
       } catch (error) {
-        alertService.error('خطأ', 'فشل جدولة التذكير اليومي');
+        alertService.error(tl("خطأ"), tl("فشل جدولة التذكير اليومي"));
       }
     } else {
       await cancelNotification('daily-reminder');
       await cancelNotification('daily-reminder-repeat');
     }
   };
-
   const handleExpenseReminderToggle = async (value: boolean) => {
     setExpenseReminder(value);
     const notificationSettings = await getNotificationSettings();
-
     const dailyTimeString = `${dailyReminderTime.getHours().toString().padStart(2, '0')}:${dailyReminderTime.getMinutes().toString().padStart(2, '0')}`;
     const expenseTimeString = `${expenseReminderTime.getHours().toString().padStart(2, '0')}:${expenseReminderTime.getMinutes().toString().padStart(2, '0')}`;
-
-    const payload = notificationSettings
-      ? {
-        dailyReminder: notificationSettings.dailyReminder ? 1 : 0,
-        dailyReminderTime: notificationSettings.dailyReminderTime ?? dailyTimeString,
-        expenseReminder: value ? 1 : 0,
-        expenseReminderTime: notificationSettings.expenseReminderTime ?? expenseTimeString,
-        incomeReminder: notificationSettings.incomeReminder ? 1 : 0,
-        weeklySummary: notificationSettings.weeklySummary ? 1 : 0,
-        monthlySummary: notificationSettings.monthlySummary ? 1 : 0,
-      }
-      : {
-        dailyReminder: dailyReminder ? 1 : 0,
-        dailyReminderTime: dailyTimeString,
-        expenseReminder: value ? 1 : 0,
-        expenseReminderTime: expenseTimeString,
-        incomeReminder: 1,
-        weeklySummary: 1,
-        monthlySummary: 1,
-      };
-
+    const payload = notificationSettings ? {
+      dailyReminder: notificationSettings.dailyReminder ? 1 : 0,
+      dailyReminderTime: notificationSettings.dailyReminderTime ?? dailyTimeString,
+      expenseReminder: value ? 1 : 0,
+      expenseReminderTime: notificationSettings.expenseReminderTime ?? expenseTimeString,
+      incomeReminder: notificationSettings.incomeReminder ? 1 : 0,
+      weeklySummary: notificationSettings.weeklySummary ? 1 : 0,
+      monthlySummary: notificationSettings.monthlySummary ? 1 : 0
+    } : {
+      dailyReminder: dailyReminder ? 1 : 0,
+      dailyReminderTime: dailyTimeString,
+      expenseReminder: value ? 1 : 0,
+      expenseReminderTime: expenseTimeString,
+      incomeReminder: 1,
+      weeklySummary: 1,
+      monthlySummary: 1
+    };
     await upsertNotificationSettings(payload);
     await loadSettings();
-
     if (value) {
       try {
         await sendExpenseReminder();
       } catch (error) {
-        alertService.error('خطأ', 'فشل جدولة تذكير المصاريف');
+        alertService.error(tl("خطأ"), tl("فشل جدولة تذكير المصاريف"));
       }
     } else {
       await cancelNotification('expense-reminder');
       await cancelNotification('expense-reminder-repeat');
     }
   };
-
   const handleDailyTimeChange = async (event: any, selectedTime?: Date) => {
     if (Platform.OS === 'android') {
       setShowDailyTimePicker(false);
@@ -437,12 +405,11 @@ export const ProfileScreen = ({ navigation }: any) => {
         const hours = selectedTime.getHours().toString().padStart(2, '0');
         const minutes = selectedTime.getMinutes().toString().padStart(2, '0');
         const timeString = `${hours}:${minutes}`;
-
         const notificationSettings = await getNotificationSettings();
         if (notificationSettings) {
           await upsertNotificationSettings({
             ...notificationSettings,
-            dailyReminderTime: timeString,
+            dailyReminderTime: timeString
           });
           if (dailyReminder) {
             await scheduleDailyReminder();
@@ -451,7 +418,6 @@ export const ProfileScreen = ({ navigation }: any) => {
       }
     }
   };
-
   const handleExpenseTimeChange = async (event: any, selectedTime?: Date) => {
     if (Platform.OS === 'android') {
       setShowExpenseTimePicker(false);
@@ -460,12 +426,11 @@ export const ProfileScreen = ({ navigation }: any) => {
         const hours = selectedTime.getHours().toString().padStart(2, '0');
         const minutes = selectedTime.getMinutes().toString().padStart(2, '0');
         const timeString = `${hours}:${minutes}`;
-
         const notificationSettings = await getNotificationSettings();
         if (notificationSettings) {
           await upsertNotificationSettings({
             ...notificationSettings,
-            expenseReminderTime: timeString,
+            expenseReminderTime: timeString
           });
           if (expenseReminder) {
             await sendExpenseReminder();
@@ -474,7 +439,6 @@ export const ProfileScreen = ({ navigation }: any) => {
       }
     }
   };
-
   const handleOpenDailyTimePicker = () => {
     const hour24 = dailyReminderTime.getHours();
     const minute = dailyReminderTime.getMinutes();
@@ -482,19 +446,26 @@ export const ProfileScreen = ({ navigation }: any) => {
     // Convert 24-hour to 12-hour format
     let hour12 = hour24 % 12;
     if (hour12 === 0) hour12 = 12;
-    const amPm: 'ص' | 'م' = hour24 >= 12 ? 'م' : 'ص';
-
+    const amPm: Meridiem = hour24 >= 12 ? 'pm' : 'am';
     setTempHour(hour12);
     setTempMinute(minute);
     setTempAmPm(amPm);
     setShowDailyTimePicker(true);
     setTimeout(() => {
-      dailyHourScrollRef.current?.scrollTo({ y: (hour12 - 1) * 50, animated: false });
-      dailyMinuteScrollRef.current?.scrollTo({ y: minute * 50, animated: false });
-      dailyAmPmScrollRef.current?.scrollTo({ y: amPm === 'ص' ? 0 : 50, animated: false });
+      dailyHourScrollRef.current?.scrollTo({
+        y: (hour12 - 1) * 50,
+        animated: false
+      });
+      dailyMinuteScrollRef.current?.scrollTo({
+        y: minute * 50,
+        animated: false
+      });
+      dailyAmPmScrollRef.current?.scrollTo({
+        y: amPm === 'am' ? 0 : 50,
+        animated: false
+      });
     }, 100);
   };
-
   const handleOpenExpenseTimePicker = () => {
     const hour24 = expenseReminderTime.getHours();
     const minute = expenseReminderTime.getMinutes();
@@ -502,36 +473,40 @@ export const ProfileScreen = ({ navigation }: any) => {
     // Convert 24-hour to 12-hour format
     let hour12 = hour24 % 12;
     if (hour12 === 0) hour12 = 12;
-    const amPm: 'ص' | 'م' = hour24 >= 12 ? 'م' : 'ص';
-
+    const amPm: Meridiem = hour24 >= 12 ? 'pm' : 'am';
     setTempHour(hour12);
     setTempMinute(minute);
     setTempAmPm(amPm);
     setShowExpenseTimePicker(true);
     setTimeout(() => {
-      expenseHourScrollRef.current?.scrollTo({ y: (hour12 - 1) * 50, animated: false });
-      expenseMinuteScrollRef.current?.scrollTo({ y: minute * 50, animated: false });
-      expenseAmPmScrollRef.current?.scrollTo({ y: amPm === 'ص' ? 0 : 50, animated: false });
+      expenseHourScrollRef.current?.scrollTo({
+        y: (hour12 - 1) * 50,
+        animated: false
+      });
+      expenseMinuteScrollRef.current?.scrollTo({
+        y: minute * 50,
+        animated: false
+      });
+      expenseAmPmScrollRef.current?.scrollTo({
+        y: amPm === 'am' ? 0 : 50,
+        animated: false
+      });
     }, 100);
   };
-
   const handleDailyTimeConfirm = async () => {
     setShowDailyTimePicker(false);
 
     // Convert 12-hour to 24-hour format
     let hour24 = tempHour;
-    if (tempAmPm === 'م' && tempHour !== 12) {
+    if (tempAmPm === 'pm' && tempHour !== 12) {
       hour24 = tempHour + 12;
-    } else if (tempAmPm === 'ص' && tempHour === 12) {
+    } else if (tempAmPm === 'am' && tempHour === 12) {
       hour24 = 0;
     }
-
     const newTime = new Date();
     newTime.setHours(hour24, tempMinute, 0, 0);
     setDailyReminderTime(newTime);
-
     const timeString = `${hour24.toString().padStart(2, '0')}:${tempMinute.toString().padStart(2, '0')}`;
-
     try {
       const notificationSettings = await getNotificationSettings();
 
@@ -539,53 +514,44 @@ export const ProfileScreen = ({ navigation }: any) => {
       const expenseHours = expenseReminderTime.getHours().toString().padStart(2, '0');
       const expenseMinutes = expenseReminderTime.getMinutes().toString().padStart(2, '0');
       const expenseTimeString = `${expenseHours}:${expenseMinutes}`;
-
       await upsertNotificationSettings({
-        dailyReminder: notificationSettings ? (notificationSettings.dailyReminder ? 1 : 0) : (dailyReminder ? 1 : 0),
+        dailyReminder: notificationSettings ? notificationSettings.dailyReminder ? 1 : 0 : dailyReminder ? 1 : 0,
         dailyReminderTime: timeString,
-        expenseReminder: notificationSettings ? (notificationSettings.expenseReminder ? 1 : 0) : (expenseReminder ? 1 : 0),
+        expenseReminder: notificationSettings ? notificationSettings.expenseReminder ? 1 : 0 : expenseReminder ? 1 : 0,
         expenseReminderTime: notificationSettings?.expenseReminderTime ?? expenseTimeString,
-        incomeReminder: notificationSettings ? (notificationSettings.incomeReminder ? 1 : 0) : 1,
-        weeklySummary: notificationSettings ? (notificationSettings.weeklySummary ? 1 : 0) : 1,
-        monthlySummary: notificationSettings ? (notificationSettings.monthlySummary ? 1 : 0) : 1,
+        incomeReminder: notificationSettings ? notificationSettings.incomeReminder ? 1 : 0 : 1,
+        weeklySummary: notificationSettings ? notificationSettings.weeklySummary ? 1 : 0 : 1,
+        monthlySummary: notificationSettings ? notificationSettings.monthlySummary ? 1 : 0 : 1
       });
 
       // Reload from DB so state matches persisted value (handles focus race)
       await loadSettings();
-
-      alertService.toastSuccess(`تم حفظ وقت التذكير اليومي: ${timeString}`);
-
+      alertService.toastSuccess(tl("تم حفظ وقت التذكير اليومي: {{}}", [timeString]));
       if (dailyReminder) {
         try {
           await scheduleDailyReminder();
         } catch (error) {
-          
-          alertService.error('خطأ', 'تم حفظ الوقت لكن فشل جدولة التذكير');
+          alertService.error(tl("خطأ"), tl("تم حفظ الوقت لكن فشل جدولة التذكير"));
         }
       }
     } catch (error) {
-      
-      alertService.error('خطأ', 'فشل حفظ وقت التذكير اليومي');
+      alertService.error(tl("خطأ"), tl("فشل حفظ وقت التذكير اليومي"));
     }
   };
-
   const handleExpenseTimeConfirm = async () => {
     setShowExpenseTimePicker(false);
 
     // Convert 12-hour to 24-hour format
     let hour24 = tempHour;
-    if (tempAmPm === 'م' && tempHour !== 12) {
+    if (tempAmPm === 'pm' && tempHour !== 12) {
       hour24 = tempHour + 12;
-    } else if (tempAmPm === 'ص' && tempHour === 12) {
+    } else if (tempAmPm === 'am' && tempHour === 12) {
       hour24 = 0;
     }
-
     const newTime = new Date();
     newTime.setHours(hour24, tempMinute, 0, 0);
     setExpenseReminderTime(newTime);
-
     const timeString = `${hour24.toString().padStart(2, '0')}:${tempMinute.toString().padStart(2, '0')}`;
-
     let notificationSettings = await getNotificationSettings();
 
     // Create default settings if they don't exist
@@ -597,80 +563,63 @@ export const ProfileScreen = ({ navigation }: any) => {
         expenseReminderTime: timeString,
         incomeReminder: 1,
         weeklySummary: 1,
-        monthlySummary: 1,
+        monthlySummary: 1
       };
     }
-
     await upsertNotificationSettings({
       ...notificationSettings,
-      expenseReminderTime: timeString,
+      expenseReminderTime: timeString
     });
-
     if (expenseReminder) {
       try {
         await sendExpenseReminder();
-        alertService.toastSuccess(`تم تعيين وقت تذكير المصاريف إلى ${timeString}`);
+        alertService.toastSuccess(tl("تم تعيين وقت تذكير المصاريف إلى {{}}", [timeString]));
       } catch (error) {
-        alertService.error('خطأ', 'فشل جدولة تذكير المصاريف');
+        alertService.error(tl("خطأ"), tl("فشل جدولة تذكير المصاريف"));
       }
     }
   };
-
   const renderTimePickerWheel = (type: 'daily' | 'expense') => {
-    const hours = Array.from({ length: 12 }, (_, i) => i + 1); // 1-12 for 12-hour format
-    const minutes = Array.from({ length: 60 }, (_, i) => i);
-    const amPmOptions: ('ص' | 'م')[] = ['ص', 'م'];
+    const hours = Array.from({
+      length: 12
+    }, (_, i) => i + 1); // 1-12 for 12-hour format
+    const minutes = Array.from({
+      length: 60
+    }, (_, i) => i);
+    const amPmOptions: Meridiem[] = ['am', 'pm'];
     const itemHeight = 50;
-
     const hourRef = type === 'daily' ? dailyHourScrollRef : expenseHourScrollRef;
     const minuteRef = type === 'daily' ? dailyMinuteScrollRef : expenseMinuteScrollRef;
     const amPmRef = type === 'daily' ? dailyAmPmScrollRef : expenseAmPmScrollRef;
-
     const handleHourScroll = (event: any) => {
       const y = event.nativeEvent.contentOffset.y;
       const index = Math.round(y / itemHeight);
       const hour = Math.max(1, Math.min(12, index + 1));
       setTempHour(hour);
     };
-
     const handleMinuteScroll = (event: any) => {
       const y = event.nativeEvent.contentOffset.y;
       const index = Math.round(y / itemHeight);
       const minute = Math.max(0, Math.min(59, index));
       setTempMinute(minute);
     };
-
     const handleAmPmScroll = (event: any) => {
       const y = event.nativeEvent.contentOffset.y;
       const index = Math.round(y / itemHeight);
-      const amPm = index === 0 ? 'ص' : 'م';
+      const amPm: Meridiem = index === 0 ? 'am' : 'pm';
       setTempAmPm(amPm);
     };
-
-    return (
-      <View style={styles.customTimePickerContainer}>
+    return <View style={styles.customTimePickerContainer}>
         <View style={styles.timePickerWheel}>
           <View style={styles.timePickerSelectionIndicator} />
-          <ScrollView
-            ref={hourRef}
-            style={styles.timePickerScroll}
-            contentContainerStyle={styles.timePickerScrollContent}
-            showsVerticalScrollIndicator={false}
-            snapToInterval={itemHeight}
-            decelerationRate="fast"
-            onMomentumScrollEnd={handleHourScroll}
-            onScrollEndDrag={handleHourScroll}
-          >
-            {hours.map((hour) => (
-              <View key={hour} style={[styles.timePickerItem, { height: itemHeight }]}>
-                <Text style={[
-                  styles.timePickerItemText,
-                  tempHour === hour && styles.timePickerItemTextSelected
-                ]}>
+          <ScrollView ref={hourRef} style={styles.timePickerScroll} contentContainerStyle={styles.timePickerScrollContent} showsVerticalScrollIndicator={false} snapToInterval={itemHeight} decelerationRate="fast" onMomentumScrollEnd={handleHourScroll} onScrollEndDrag={handleHourScroll}>
+            {hours.map(hour => <View key={hour} style={[styles.timePickerItem, {
+            height: itemHeight
+          }]}>
+                <Text style={[styles.timePickerItemText, tempHour === hour && styles.timePickerItemTextSelected]}>
                   {hour.toString().padStart(2, '0')}
                 </Text>
-              </View>
-            ))}
+              </View>)}
           </ScrollView>
         </View>
 
@@ -678,66 +627,39 @@ export const ProfileScreen = ({ navigation }: any) => {
 
         <View style={styles.timePickerWheel}>
           <View style={styles.timePickerSelectionIndicator} />
-          <ScrollView
-            ref={minuteRef}
-            style={styles.timePickerScroll}
-            contentContainerStyle={styles.timePickerScrollContent}
-            showsVerticalScrollIndicator={false}
-            snapToInterval={itemHeight}
-            decelerationRate="fast"
-            onMomentumScrollEnd={handleMinuteScroll}
-            onScrollEndDrag={handleMinuteScroll}
-          >
-            {minutes.map((minute) => (
-              <View key={minute} style={[styles.timePickerItem, { height: itemHeight }]}>
-                <Text style={[
-                  styles.timePickerItemText,
-                  tempMinute === minute && styles.timePickerItemTextSelected
-                ]}>
+          <ScrollView ref={minuteRef} style={styles.timePickerScroll} contentContainerStyle={styles.timePickerScrollContent} showsVerticalScrollIndicator={false} snapToInterval={itemHeight} decelerationRate="fast" onMomentumScrollEnd={handleMinuteScroll} onScrollEndDrag={handleMinuteScroll}>
+            {minutes.map(minute => <View key={minute} style={[styles.timePickerItem, {
+            height: itemHeight
+          }]}>
+                <Text style={[styles.timePickerItemText, tempMinute === minute && styles.timePickerItemTextSelected]}>
                   {minute.toString().padStart(2, '0')}
                 </Text>
-              </View>
-            ))}
+              </View>)}
           </ScrollView>
         </View>
 
         <View style={styles.timePickerWheel}>
           <View style={styles.timePickerSelectionIndicator} />
-          <ScrollView
-            ref={amPmRef}
-            style={styles.timePickerScroll}
-            contentContainerStyle={styles.timePickerScrollContent}
-            showsVerticalScrollIndicator={false}
-            snapToInterval={itemHeight}
-            decelerationRate="fast"
-            onMomentumScrollEnd={handleAmPmScroll}
-            onScrollEndDrag={handleAmPmScroll}
-          >
-            {amPmOptions.map((amPm) => (
-              <View key={amPm} style={[styles.timePickerItem, { height: itemHeight }]}>
-                <Text style={[
-                  styles.timePickerItemText,
-                  tempAmPm === amPm && styles.timePickerItemTextSelected
-                ]}>
-                  {amPm}
+          <ScrollView ref={amPmRef} style={styles.timePickerScroll} contentContainerStyle={styles.timePickerScrollContent} showsVerticalScrollIndicator={false} snapToInterval={itemHeight} decelerationRate="fast" onMomentumScrollEnd={handleAmPmScroll} onScrollEndDrag={handleAmPmScroll}>
+            {amPmOptions.map(amPm => <View key={amPm} style={[styles.timePickerItem, {
+            height: itemHeight
+          }]}>
+                <Text style={[styles.timePickerItemText, tempAmPm === amPm && styles.timePickerItemTextSelected]}>
+                  {amPm === 'am' ? tl("ص") : tl("م")}
                 </Text>
-              </View>
-            ))}
+              </View>)}
           </ScrollView>
         </View>
-      </View>
-    );
+      </View>;
   };
-
   const formatTime = (date: Date): string => {
     const hour24 = date.getHours();
     let hour12 = hour24 % 12;
     if (hour12 === 0) hour12 = 12;
-    const amPm = hour24 >= 12 ? 'م' : 'ص';
+    const amPm = hour24 >= 12 ? tl("م") : tl("ص");
     const minutes = date.getMinutes().toString().padStart(2, '0');
     return `${hour12}:${minutes} ${amPm}`;
   };
-
   const handleCurrencyChange = async (currencyCode: string) => {
     const currency = CURRENCIES.find(c => c.code === currencyCode);
     if (currency) {
@@ -751,12 +673,16 @@ export const ProfileScreen = ({ navigation }: any) => {
         autoBackupEnabled: false,
         autoSyncEnabled: false,
         currency: 'دينار عراقي',
-        language: 'ar',
+        language: 'ar'
       };
-      await upsertAppSettings({ ...settingsToSave, currency: currency.name, themeMode: settingsToSave.themeMode });
+      await upsertAppSettings({
+        ...settingsToSave,
+        currency: currency.name,
+        themeMode: settingsToSave.themeMode
+      });
       notifyCurrencyChanged();
       setShowCurrencyPicker(false);
-      alertService.toastSuccess(`تم تغيير العملة إلى ${currency.name}`);
+      alertService.toastSuccess(tl("تم تغيير العملة إلى {{}}", [currency.name]));
 
       // Reload exchange rate for new currency
       if (currencyCode !== 'USD') {
@@ -771,77 +697,65 @@ export const ProfileScreen = ({ navigation }: any) => {
       }
     }
   };
-
   const handleExportPDF = async () => {
     try {
       setExportingPDF(true);
       const uri = await generateMonthlyReport();
       await sharePDF(uri);
-      alertService.toastSuccess('تم تصدير التقرير بنجاح');
+      alertService.toastSuccess(tl("تم تصدير التقرير بنجاح"));
     } catch (error) {
-      alertService.error('خطأ', 'حدث خطأ أثناء تصدير التقرير');
+      alertService.error(tl("خطأ"), tl("حدث خطأ أثناء تصدير التقرير"));
     } finally {
       setExportingPDF(false);
     }
   };
-
-
-
   const handleSaveExchangeRate = async () => {
     if (selectedCurrency === 'USD') {
-      alertService.warning('تحذير', 'لا يمكن تعديل سعر الصرف للدولار مع نفسه');
+      alertService.warning(tl("تحذير"), tl("لا يمكن تعديل سعر الصرف للدولار مع نفسه"));
       return;
     }
-
     const rate = parseFloat(usdToIqdRate);
     if (isNaN(rate) || rate <= 0) {
-      alertService.warning('تحذير', 'يرجى إدخال سعر صرف صحيح');
+      alertService.warning(tl("تحذير"), tl("يرجى إدخال سعر صرف صحيح"));
       return;
     }
-
     try {
       await upsertExchangeRate({
         fromCurrency: 'USD',
         toCurrency: selectedCurrency,
-        rate: rate,
+        rate: rate
       });
 
       // Also update reverse rate
       await upsertExchangeRate({
         fromCurrency: selectedCurrency,
         toCurrency: 'USD',
-        rate: 1 / rate,
+        rate: 1 / rate
       });
-
       setShowExchangeRateModal(false);
-      alertService.toastSuccess('تم حفظ سعر الصرف بنجاح');
+      alertService.toastSuccess(tl("تم حفظ سعر الصرف بنجاح"));
     } catch (error) {
-      alertService.error('خطأ', 'حدث خطأ أثناء حفظ سعر الصرف');
+      alertService.error(tl("خطأ"), tl("حدث خطأ أثناء حفظ سعر الصرف"));
     }
   };
-
   const handleContactEmail = async () => {
     const subject = encodeURIComponent(CONTACT_INFO.emailSubject);
     const body = encodeURIComponent(CONTACT_INFO.emailBody);
     const mailtoUrl = `mailto:${CONTACT_INFO.email}?subject=${subject}&body=${body}`;
-
     try {
       const canOpen = await Linking.canOpenURL(mailtoUrl);
       if (canOpen) {
         await Linking.openURL(mailtoUrl);
       } else {
-        alertService.warning('تنبيه', 'لا يمكن فتح تطبيق البريد الإلكتروني');
+        alertService.warning(tl("تنبيه"), tl("لا يمكن فتح تطبيق البريد الإلكتروني"));
       }
     } catch (error) {
-      
-      alertService.error('خطأ', 'حدث خطأ أثناء فتح البريد الإلكتروني');
+      alertService.error(tl("خطأ"), tl("حدث خطأ أثناء فتح البريد الإلكتروني"));
     }
   };
-
   const handleContactWhatsApp = async () => {
     const message = encodeURIComponent(CONTACT_INFO.whatsappMessage);
     const whatsappUrl = `https://wa.me/${CONTACT_INFO.whatsappNumber}?text=${message}`;
-
     try {
       const canOpen = await Linking.canOpenURL(whatsappUrl);
       if (canOpen) {
@@ -852,15 +766,13 @@ export const ProfileScreen = ({ navigation }: any) => {
         try {
           await Linking.openURL(whatsappAppUrl);
         } catch {
-          alertService.warning('تنبيه', 'يرجى تثبيت تطبيق WhatsApp');
+          alertService.warning(tl("تنبيه"), tl("يرجى تثبيت تطبيق WhatsApp"));
         }
       }
     } catch (error) {
-      
-      alertService.error('خطأ', 'حدث خطأ أثناء فتح WhatsApp');
+      alertService.error(tl("خطأ"), tl("حدث خطأ أثناء فتح WhatsApp"));
     }
   };
-
   const loadReferralInfo = async () => {
     setLoadingReferral(true);
     try {
@@ -868,26 +780,19 @@ export const ProfileScreen = ({ navigation }: any) => {
       if (result.success && result.data) {
         setReferralInfo(result.data);
       }
-    } catch (err) {
-      
-    } finally {
+    } catch (err) {} finally {
       setLoadingReferral(false);
     }
   };
-
   const handleShareReferral = async () => {
     if (!referralInfo?.referralCode) return;
-
     try {
-      const message = `استخدم كود الإحالة الخاص بي (${referralInfo.referralCode}) في تطبيق "دنانير" لتحصل على 7 أيام اشتراك برو مجاناً!\n\nحمل التطبيق من هنا: ${APP_LINKS.apple}`;
+      const message = tl("استخدم كود الإحالة الخاص بي ({{}}) في تطبيق \"دنانير\" لتحصل على 7 أيام اشتراك برو مجاناً! حمل التطبيق من هنا: {{}}", [referralInfo.referralCode, APP_LINKS.apple]);
       await Share.share({
-        message,
+        message
       });
-    } catch (error) {
-      
-    }
+    } catch (error) {}
   };
-
   const handleShareApp = async () => {
     try {
       // رابط موحد لكل المنصات
@@ -896,17 +801,15 @@ export const ProfileScreen = ({ navigation }: any) => {
       await Share.share({
         message,
         url: Platform.OS === 'ios' ? shareUrl : undefined,
-        title: 'دنانير - تطبيق المالية الشخصية',
+        title: tl("دنانير - تطبيق المالية الشخصية")
       });
     } catch (err: any) {
       if (err?.message !== 'User did not share') {
-        alertService.error('خطأ', 'لم تتم المشاركة');
+        alertService.error(tl("خطأ"), tl("لم تتم المشاركة"));
       }
     }
   };
-
-  const renderProfileSkeleton = () => (
-    <View style={styles.skeletonContainer}>
+  const renderProfileSkeleton = () => <View style={styles.skeletonContainer}>
       <View style={styles.skeletonProfileCard}>
         <View style={styles.skeletonProfileHeader}>
           <View style={styles.skeletonAvatar} />
@@ -935,144 +838,103 @@ export const ProfileScreen = ({ navigation }: any) => {
           </View>
         </View>
       </View>
-    </View>
-  );
-
-  return (
-    <ScreenContainer scrollable={false} edges={['left', 'right']}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {isProfileLoading ? (
-          renderProfileSkeleton()
-        ) : (
-          <>
+    </View>;
+  return <ScreenContainer scrollable={false} edges={['left', 'right']}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {isProfileLoading ? renderProfileSkeleton() : <>
             {/* Premium Profile Section */}
-            <LinearGradient
-              colors={userData?.isPro ? (['#0f0e0a', '#2d2814', '#5c4a1a', '#8B6914'] as any) : (theme.gradients.primary as any)}
-              style={[styles.profileCard, userData?.isPro && styles.profileCardPro]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              {isAuthenticated ? (
-                <>
+            <LinearGradient colors={userData?.isPro ? ['#0f0e0a', '#2d2814', '#5c4a1a', '#8B6914'] as any : theme.gradients.primary as any} style={[styles.profileCard, userData?.isPro && styles.profileCardPro]} start={{
+          x: 0,
+          y: 0
+        }} end={{
+          x: 1,
+          y: 1
+        }}>
+              {isAuthenticated ? <>
                   <View style={styles.profileHeader}>
                     <View style={styles.avatarWrapper}>
                       <View style={[styles.avatarContainer, userData?.isPro && styles.avatarContainerPro]}>
                         <Ionicons name="person" size={28} color={userData?.isPro ? '#C9A227' : theme.colors.primary} />
                       </View>
-                      {userData?.isPro ? (
-                        <View style={styles.proCrownBadge}>
+                      {userData?.isPro ? <View style={styles.proCrownBadge}>
                           <Ionicons name="diamond" size={10} color="#FFF" />
-                        </View>
-                      ) : (
-                        <View style={styles.onlineBadge} />
-                      )}
+                        </View> : <View style={styles.onlineBadge} />}
                     </View>
                     <View style={styles.userInfo}>
                       <View style={styles.userNameRow}>
-                        {userData?.isPro && (
-                          <View style={styles.proCrownBanner}>
+                        {userData?.isPro && <View style={styles.proCrownBanner}>
                             <Ionicons name="diamond" size={12} color="#F5E6A3" />
-                            <Text style={styles.proCrownBannerText}>عضو مميز</Text>
-                          </View>
-                        )}
+                            <Text style={styles.proCrownBannerText}>{tl("عضو مميز")}</Text>
+                          </View>}
                         <Text style={[styles.userNameText, userData?.isPro && styles.userNameTextPro]} numberOfLines={1}>
-                          {userData?.name || 'مستخدم دنانير'}
+                          {userData?.name || tl("مستخدم دنانير")}
                         </Text>
                       </View>
                       <Text style={[styles.userEmail, userData?.isPro && styles.userEmailPro]} numberOfLines={1}>
-                        {userData?.email || userData?.phone || 'لا يوجد بريد إلكتروني'}
+                        {userData?.email || userData?.phone || tl("لا يوجد بريد إلكتروني")}
                       </Text>
                       <View style={[styles.verifiedBadge, userData?.isPro && styles.verifiedBadgePro]}>
                         <Ionicons name={userData?.isPro ? 'diamond' : 'shield-checkmark'} size={12} color="#FFFFFF" />
-                        <Text style={styles.verifiedText}>{userData?.isPro ? 'حساب مميز' : 'حساب موثق'}</Text>
+                        <Text style={styles.verifiedText}>{userData?.isPro ? tl("حساب مميز") : tl("حساب موثق")}</Text>
                       </View>
 
-                      {userData?.isPro && userData?.proExpiresAt && (
-                        <View style={styles.proExpiryBadge}>
+                      {userData?.isPro && userData?.proExpiresAt && <View style={styles.proExpiryBadge}>
                           <Ionicons name="time-outline" size={12} color="#F5E6A3" />
-                          <Text style={styles.proExpiryText}>
-                            متبقي {getDaysRemaining(userData.proExpiresAt)} يوم
-                          </Text>
-                        </View>
-                      )}
+                          <Text style={styles.proExpiryText}>{tl("متبقي")}{getDaysRemaining(userData.proExpiresAt)}{tl("يوم")}</Text>
+                        </View>}
                     </View>
-                    <TouchableOpacity
-                      onPress={() => {
-                        setEditingName(userName);
-                        setShowNameModal(true);
-                      }}
-                      style={styles.editProfileBtn}
-                    >
+                    <TouchableOpacity onPress={() => {
+                setEditingName(userName);
+                setShowNameModal(true);
+              }} style={styles.editProfileBtn}>
                       <Ionicons name="create-outline" size={16} color="#FFFFFF" />
                     </TouchableOpacity>
                   </View>
 
-                  {isAuthenticated && userData?.isPro && (
-                    <View style={styles.proFeaturesRow}>
+                  {isAuthenticated && userData?.isPro && <View style={styles.proFeaturesRow}>
                       <View style={styles.proFeaturePill}>
                         <Ionicons name="cloud-done" size={14} color="#F5E6A3" />
-                        <Text style={styles.proFeaturePillText}>نسخ احتياطي</Text>
+                        <Text style={styles.proFeaturePillText}>{tl("نسخ احتياطي")}</Text>
                       </View>
                       <View style={styles.proFeaturePill}>
                         <Ionicons name="sparkles" size={14} color="#F5E6A3" />
-                        <Text style={styles.proFeaturePillText}>تحليل ذكي</Text>
+                        <Text style={styles.proFeaturePillText}>{tl("تحليل ذكي")}</Text>
                       </View>
                       <View style={styles.proFeaturePill}>
                         <Ionicons name="sync" size={14} color="#F5E6A3" />
-                        <Text style={styles.proFeaturePillText}>مزامنة</Text>
+                        <Text style={styles.proFeaturePillText}>{tl("مزامنة")}</Text>
                       </View>
-                      {userData?.id != null && (
-                        <TouchableOpacity
-                          onPress={async () => {
-                            const id = String(userData.id);
-                            await Clipboard.setStringAsync(id);
-                            alertService.toastSuccess('تم نسخ معرف المستخدم');
-                          }}
-                          style={styles.proFeaturePill}
-                          activeOpacity={0.7}
-                        >
+                      {userData?.id != null && <TouchableOpacity onPress={async () => {
+                const id = String(userData.id);
+                await Clipboard.setStringAsync(id);
+                alertService.toastSuccess(tl("تم نسخ معرف المستخدم"));
+              }} style={styles.proFeaturePill} activeOpacity={0.7}>
                           <Ionicons name="copy-outline" size={14} color="#F5E6A3" />
-                          <Text style={styles.proFeaturePillText}>نسخ المعرف</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  )}
+                          <Text style={styles.proFeaturePillText}>{tl("نسخ المعرف")}</Text>
+                        </TouchableOpacity>}
+                    </View>}
 
-                  {isAuthenticated && !userData?.isPro && userData?.id != null && (
-                    <TouchableOpacity
-                      onPress={async () => {
-                        const id = String(userData.id);
-                        await Clipboard.setStringAsync(id);
-                        alertService.toastSuccess('تم نسخ معرف المستخدم');
-                      }}
-                      style={styles.copyIdButton}
-                      activeOpacity={0.7}
-                    >
+                  {isAuthenticated && !userData?.isPro && userData?.id != null && <TouchableOpacity onPress={async () => {
+              const id = String(userData.id);
+              await Clipboard.setStringAsync(id);
+              alertService.toastSuccess(tl("تم نسخ معرف المستخدم"));
+            }} style={styles.copyIdButton} activeOpacity={0.7}>
                       <Ionicons name="copy-outline" size={14} color="rgba(255, 255, 255, 0.8)" />
-                      <Text style={styles.copyIdLabel}>نسخ معرف المستخدم</Text>
-                    </TouchableOpacity>
-                  )}
-                </>
-              ) : (
-                <View style={styles.unauthProfileHeader}>
+                      <Text style={styles.copyIdLabel}>{tl("نسخ معرف المستخدم")}</Text>
+                    </TouchableOpacity>}
+                </> : <View style={styles.unauthProfileHeader}>
                   <View style={styles.unauthTextContainer}>
-                    <Text style={styles.unauthTitle}>أهلاً بك في دنانير</Text>
-                    <Text style={styles.unauthSubtitle}>سجل دخولك لمزامنة بياناتك والحصول على ميزات إضافية</Text>
+                    <Text style={styles.unauthTitle}>{tl("أهلاً بك في دنانير")}</Text>
+                    <Text style={styles.unauthSubtitle}>{tl("سجل دخولك لمزامنة بياناتك والحصول على ميزات إضافية")}</Text>
                   </View>
-                  <TouchableOpacity
-                    style={styles.loginBtnHeader}
-                    onPress={() => {
-                      authModalService.show({ onSuccess: (user: any) => checkAuthStatus(user) });
-                    }}
-                  >
-                    <Text style={styles.loginBtnHeaderText}>دخول / تسجيل</Text>
+                  <TouchableOpacity style={styles.loginBtnHeader} onPress={() => {
+              authModalService.show({
+                onSuccess: (user: any) => checkAuthStatus(user)
+              });
+            }}>
+                    <Text style={styles.loginBtnHeaderText}>{tl("دخول / تسجيل")}</Text>
                   </TouchableOpacity>
-                </View>
-              )}
+                </View>}
             </LinearGradient>
 
             {/* Account Section - Removed for now */}
@@ -1082,15 +944,15 @@ export const ProfileScreen = ({ navigation }: any) => {
               <View style={styles.sectionContent}>
                 <View style={styles.sectionHeader}>
                   <Ionicons name="person-circle-outline" size={22} color={theme.colors.primary} />
-                  <Text style={styles.sectionTitle}>حسابي والأمان</Text>
+                  <Text style={styles.sectionTitle}>{tl("حسابي والأمان")}</Text>
                 </View>
 
                 {/* Temporarily disabled Security Settings 
-                <TouchableOpacity
+                 <TouchableOpacity
                   onPress={() => setShowAuthSettings(true)}
                   style={styles.premiumRow}
                   activeOpacity={0.7}
-                >
+                 >
                   <View style={[styles.premiumIconBox, { backgroundColor: '#8B5CF620' }]}>
                     <Ionicons name="lock-closed" size={22} color="#8B5CF6" />
                   </View>
@@ -1099,277 +961,233 @@ export const ProfileScreen = ({ navigation }: any) => {
                     <Text style={styles.premiumItemSubtitle}>كلمة مرور، Face ID، أو البصمة</Text>
                   </View>
                   <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={18} color={theme.colors.textSecondary} />
-                </TouchableOpacity>
-                */}
+                 </TouchableOpacity>
+                 */}
 
-                {!isAuthenticated && (
-                  <TouchableOpacity
-                    onPress={() => authModalService.show({ onSuccess: (user: any) => checkAuthStatus(user) })}
-                    style={styles.premiumRow}
-                    activeOpacity={0.7}
-                  >
-                    <View style={[styles.premiumIconBox, { backgroundColor: '#3B82F620' }]}>
+                {!isAuthenticated && <TouchableOpacity onPress={() => authModalService.show({
+              onSuccess: (user: any) => checkAuthStatus(user)
+            })} style={styles.premiumRow} activeOpacity={0.7}>
+                    <View style={[styles.premiumIconBox, {
+                backgroundColor: '#3B82F620'
+              }]}>
                       <Ionicons name="person-add" size={22} color="#3B82F6" />
                     </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.premiumItemTitle}>إنشاء حساب / دخول</Text>
-                      <Text style={styles.premiumItemSubtitle}>لحفظ بياناتك وموعد ميزانيتك</Text>
+                    <View style={{
+                flex: 1
+              }}>
+                      <Text style={styles.premiumItemTitle}>{tl("إنشاء حساب / دخول")}</Text>
+                      <Text style={styles.premiumItemSubtitle}>{tl("لحفظ بياناتك وموعد ميزانيتك")}</Text>
                     </View>
                     <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={18} color={theme.colors.textSecondary} />
-                  </TouchableOpacity>
-                )}
+                  </TouchableOpacity>}
 
-                {isAuthenticated && (
-                  <TouchableOpacity
-                    onPress={handleLogout}
-                    style={[styles.premiumRow, { backgroundColor: '#EF444405', borderColor: '#EF444420' }]}
-                    activeOpacity={0.7}
-                  >
-                    <View style={[styles.premiumIconBox, { backgroundColor: '#EF444420' }]}>
+                {isAuthenticated && <TouchableOpacity onPress={handleLogout} style={[styles.premiumRow, {
+              backgroundColor: '#EF444405',
+              borderColor: '#EF444420'
+            }]} activeOpacity={0.7}>
+                    <View style={[styles.premiumIconBox, {
+                backgroundColor: '#EF444420'
+              }]}>
                       <Ionicons name="log-out" size={22} color="#EF4444" />
                     </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.premiumItemTitle, { color: '#EF4444' }]}>تسجيل الخروج</Text>
-                      <Text style={styles.premiumItemSubtitle}>الخروج من الحساب الحالي</Text>
+                    <View style={{
+                flex: 1
+              }}>
+                      <Text style={[styles.premiumItemTitle, {
+                  color: '#EF4444'
+                }]}>{tl("تسجيل الخروج")}</Text>
+                      <Text style={styles.premiumItemSubtitle}>{tl("الخروج من الحساب الحالي")}</Text>
                     </View>
                     <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={18} color="#EF4444" />
-                  </TouchableOpacity>
-                )}
-                {isAuthenticated && (
-                  <View style={styles.premiumRow}>
-                    <View style={[styles.premiumIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                  </TouchableOpacity>}
+                {isAuthenticated && <View style={styles.premiumRow}>
+                    <View style={[styles.premiumIconBox, {
+                backgroundColor: theme.colors.primary + '15'
+              }]}>
                       <Ionicons name="sync" size={22} color={theme.colors.primary} />
                     </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.premiumItemTitle}>مزامنة تلقائية</Text>
-                      <Text style={styles.premiumItemSubtitle}>مزامنة البيانات تلقائياً عند فتح التطبيق (مميز)</Text>
+                    <View style={{
+                flex: 1
+              }}>
+                      <Text style={styles.premiumItemTitle}>{tl("مزامنة تلقائية")}</Text>
+                      <Text style={styles.premiumItemSubtitle}>{tl("مزامنة البيانات تلقائياً عند فتح التطبيق (مميز)")}</Text>
                     </View>
-                    <Switch
-                      value={autoSyncEnabled}
-                      onValueChange={handleAutoSyncToggle}
-                      trackColor={{ false: '#767577', true: theme.colors.primary }}
-                      thumbColor={autoSyncEnabled ? '#FFFFFF' : '#f4f3f4'}
-                    />
-                  </View>
-                )}
-                {isAuthenticated && (
-                  <TouchableOpacity
-                    onPress={async () => {
-                      if (syncing) return;
-                      const user = await authStorage.getUser<{ isPro?: boolean; is_pro?: boolean }>();
-                      const isPro = user?.isPro === true || (user as any)?.is_pro === true;
-                      if (!isPro) {
-                        alertService.show({
-                          title: 'اشتراك مميز',
-                          message: 'مزامنة البيانات متاحة للمشتركين المميزين فقط.',
-                          type: 'warning',
-                          confirmText: 'حسناً',
-                        });
-                        return;
-                      }
-                      setSyncing(true);
-                      const result = await syncNewToServer();
-                      setSyncing(false);
-                      if (result.success) {
-                        alertService.toastSuccess(result.count > 0 ? `تمت إضافة ${result.count} عنصر جديد` : 'لا توجد بيانات جديدة');
-                      } else {
-                        alertService.error('فشل المزامنة', result.error);
-                      }
-                    }}
-                    style={[styles.premiumRow, { backgroundColor: theme.colors.primary + '05', borderColor: theme.colors.primary + '20' }]}
-                    activeOpacity={0.7}
-                    disabled={syncing}
-                  >
-                    <View style={[styles.premiumIconBox, { backgroundColor: theme.colors.primary + '20' }]}>
-                      {syncing ? (
-                        <ActivityIndicator size="small" color={theme.colors.primary} />
-                      ) : (
-                        <Ionicons name="cloud-upload" size={22} color={theme.colors.primary} />
-                      )}
+                    <Switch value={autoSyncEnabled} onValueChange={handleAutoSyncToggle} trackColor={{
+                false: '#767577',
+                true: theme.colors.primary
+              }} thumbColor={autoSyncEnabled ? '#FFFFFF' : '#f4f3f4'} />
+                  </View>}
+                {isAuthenticated && <TouchableOpacity onPress={async () => {
+              if (syncing) return;
+              const user = await authStorage.getUser<{
+                isPro?: boolean;
+                is_pro?: boolean;
+              }>();
+              const isPro = user?.isPro === true || (user as any)?.is_pro === true;
+              if (!isPro) {
+                alertService.show({
+                  title: tl("اشتراك مميز"),
+                  message: tl("مزامنة البيانات متاحة للمشتركين المميزين فقط."),
+                  type: 'warning',
+                  confirmText: tl("حسناً")
+                });
+                return;
+              }
+              setSyncing(true);
+              const result = await syncNewToServer();
+              setSyncing(false);
+              if (result.success) {
+                alertService.toastSuccess(result.count > 0 ? tl("تمت إضافة {{}} عنصر جديد", [result.count]) : tl("لا توجد بيانات جديدة"));
+              } else {
+                alertService.error(tl("فشل المزامنة"), result.error);
+              }
+            }} style={[styles.premiumRow, {
+              backgroundColor: theme.colors.primary + '05',
+              borderColor: theme.colors.primary + '20'
+            }]} activeOpacity={0.7} disabled={syncing}>
+                    <View style={[styles.premiumIconBox, {
+                backgroundColor: theme.colors.primary + '20'
+              }]}>
+                      {syncing ? <ActivityIndicator size="small" color={theme.colors.primary} /> : <Ionicons name="cloud-upload" size={22} color={theme.colors.primary} />}
                     </View>
-                    <View style={{ flex: 1 }}>
+                    <View style={{
+                flex: 1
+              }}>
                       <Text style={styles.premiumItemTitle}>
-                        {syncing ? 'جاري المزامنة...' : 'مزامنة البيانات'}
+                        {syncing ? tl("جاري المزامنة...") : tl("مزامنة البيانات")}
                       </Text>
-                      <Text style={styles.premiumItemSubtitle}>إضافة البيانات الجديدة للسيرفر (مميز)</Text>
+                      <Text style={styles.premiumItemSubtitle}>{tl("إضافة البيانات الجديدة للسيرفر (مميز)")}</Text>
                     </View>
                     {!syncing && <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={18} color={theme.colors.textSecondary} />}
-                  </TouchableOpacity>
-                )}
+                  </TouchableOpacity>}
               </View>
             </View>
 
             {/* Promo Code Section */}
-            {isAuthenticated && (
-              <View style={styles.sectionCard}>
+            {isAuthenticated && <View style={styles.sectionCard}>
                 <View style={styles.sectionContent}>
                   <View style={styles.sectionHeader}>
                     <Ionicons name="ticket-outline" size={22} color="#D4AF37" />
-                    <Text style={styles.sectionTitle}>كود الخصم (Promo Code)</Text>
+                    <Text style={styles.sectionTitle}>{tl("كود الخصم (Promo Code)")}</Text>
                   </View>
-                  <TouchableOpacity
-                    onPress={() => setShowPromoModal(true)}
-                    style={styles.promoCodeButton}
-                    activeOpacity={0.8}
-                  >
-                    <LinearGradient
-                      colors={[theme.colors.warning || '#D4AF37', theme.colors.warning ? theme.colors.warning + 'B3' : '#B8860B']}
-                      style={styles.promoCodeButtonGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                    >
+                  <TouchableOpacity onPress={() => setShowPromoModal(true)} style={styles.promoCodeButton} activeOpacity={0.8}>
+                    <LinearGradient colors={[theme.colors.warning || '#D4AF37', theme.colors.warning ? theme.colors.warning + 'B3' : '#B8860B']} style={styles.promoCodeButtonGradient} start={{
+                x: 0,
+                y: 0
+              }} end={{
+                x: 1,
+                y: 0
+              }}>
                       <Ionicons name="ticket" size={22} color={theme.colors.textInverse || '#FFFFFF'} />
-                      <Text style={styles.promoCodeButtonText}>استخدام كود برومو (Promo Code)</Text>
+                      <Text style={styles.promoCodeButtonText}>{tl("استخدام كود برومو (Promo Code)")}</Text>
                     </LinearGradient>
                   </TouchableOpacity>
                 </View>
-              </View>
-            )}
+              </View>}
 
             {/* Referral Program Section */}
-            {isAuthenticated && (
-              <View style={styles.sectionCard}>
+            {isAuthenticated && <View style={styles.sectionCard}>
                 <View style={styles.sectionContent}>
                   <View style={styles.sectionHeader}>
                     <Ionicons name="gift-outline" size={22} color="#F59E0B" />
-                    <Text style={styles.sectionTitle}>برنامج الإحالة</Text>
+                    <Text style={styles.sectionTitle}>{tl("برنامج الإحالة")}</Text>
                   </View>
 
                   <View style={styles.referralCard}>
                     <View style={styles.referralHero}>
-                      <View style={[styles.referralIconBox, { backgroundColor: theme.colors.warning + '15' }]}>
+                      <View style={[styles.referralIconBox, {
+                  backgroundColor: theme.colors.warning + '15'
+                }]}>
                         <Ionicons name="gift" size={32} color={theme.colors.warning || '#F59E0B'} />
                       </View>
                       <View style={styles.referralTextContent}>
-                        <Text style={[styles.referralTitleText, { color: theme.colors.textPrimary }]}>ادعُ أصدقاءك واكسب "برو"</Text>
-                        <Text style={[styles.referralSubtitleText, { color: theme.colors.textSecondary }]}>كل صديق يستخدم الكود المخصص لك، ستحصل أنت وهو على 7 أيام اشتراك برو مجاناً!</Text>
+                        <Text style={[styles.referralTitleText, {
+                    color: theme.colors.textPrimary
+                  }]}>{tl("ادعُ أصدقاءك واكسب \"برو\"")}</Text>
+                        <Text style={[styles.referralSubtitleText, {
+                    color: theme.colors.textSecondary
+                  }]}>{tl("كل صديق يستخدم الكود المخصص لك، ستحصل أنت وهو على 7 أيام اشتراك برو مجاناً!")}</Text>
                       </View>
                     </View>
 
-                    {loadingReferral ? (
-                      <ActivityIndicator color={theme.colors.primary} style={{ marginVertical: 20 }} />
-                    ) : referralInfo ? (
-                      <View style={[styles.referralCodeBox, { backgroundColor: theme.colors.surfaceLight, borderColor: theme.colors.border }]}>
+                    {loadingReferral ? <ActivityIndicator color={theme.colors.primary} style={{
+                marginVertical: 20
+              }} /> : referralInfo ? <View style={[styles.referralCodeBox, {
+                backgroundColor: theme.colors.surfaceLight,
+                borderColor: theme.colors.border
+              }]}>
                         <View style={styles.codeContainer}>
-                          <Text style={[styles.codeLabel, { color: theme.colors.textSecondary }]}>الكود المخصص لك:</Text>
+                          <Text style={[styles.codeLabel, {
+                    color: theme.colors.textSecondary
+                  }]}>{tl("الكود المخصص لك:")}</Text>
                           <View style={styles.codeRow}>
-                            <Text style={[styles.codeValue, { color: theme.colors.primary }]}>{referralInfo.referralCode}</Text>
-                            <TouchableOpacity
-                              onPress={async () => {
-                                await Clipboard.setStringAsync(referralInfo.referralCode);
-                                alertService.toastSuccess('تم نسخ الكود');
-                              }}
-                              style={styles.copyButton}
-                            >
+                            <Text style={[styles.codeValue, {
+                      color: theme.colors.primary
+                    }]}>{referralInfo.referralCode}</Text>
+                            <TouchableOpacity onPress={async () => {
+                      await Clipboard.setStringAsync(referralInfo.referralCode);
+                      alertService.toastSuccess(tl("تم نسخ الكود"));
+                    }} style={styles.copyButton}>
                               <Ionicons name="copy-outline" size={20} color={theme.colors.primary} />
                             </TouchableOpacity>
                           </View>
                         </View>
 
                         <View style={styles.referralStatBox}>
-                          <Text style={styles.referralStatLabel}>عدد الإحالات الناجحة:</Text>
+                          <Text style={styles.referralStatLabel}>{tl("عدد الإحالات الناجحة:")}</Text>
                           <Text style={styles.referralStatValue}>{referralInfo.referralCount || 0}</Text>
                         </View>
 
-                        <TouchableOpacity
-                          onPress={handleShareReferral}
-                          style={styles.shareCodeButton}
-                          activeOpacity={0.8}
-                        >
+                        <TouchableOpacity onPress={handleShareReferral} style={styles.shareCodeButton} activeOpacity={0.8}>
                           <Ionicons name="share-social-outline" size={20} color="#FFFFFF" />
-                          <Text style={styles.shareCodeButtonText}>مشاركة الكود مع الأصدقاء</Text>
+                          <Text style={styles.shareCodeButtonText}>{tl("مشاركة الكود مع الأصدقاء")}</Text>
                         </TouchableOpacity>
 
-                        {!userData?.referredBy && (
-                          <TouchableOpacity
-                            onPress={() => setShowReferralModal(true)}
-                            style={styles.referralEntryButton}
-                            activeOpacity={0.8}
-                          >
+                        {!userData?.referredBy && <TouchableOpacity onPress={() => setShowReferralModal(true)} style={styles.referralEntryButton} activeOpacity={0.8}>
                             <Ionicons name="gift-outline" size={20} color={theme.colors.primary} />
-                            <Text style={styles.referralEntryButtonText}>هل لديك كود إحالة؟ أدخله هنا</Text>
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                    ) : (
-                      <Text style={styles.referralErrorText}>فشل تحميل بيانات الإحالة. يرجى سحب الصفحة للتحديث.</Text>
-                    )}
+                            <Text style={styles.referralEntryButtonText}>{tl("هل لديك كود إحالة؟ أدخله هنا")}</Text>
+                          </TouchableOpacity>}
+                      </View> : <Text style={styles.referralErrorText}>{tl("فشل تحميل بيانات الإحالة. يرجى سحب الصفحة للتحديث.")}</Text>}
                   </View>
                 </View>
-              </View>
-            )}
-          </>
-        )}
+              </View>}
+          </>}
 
-      </ScrollView >
+      </ScrollView>
 
-      <AuthSettingsModal
-        visible={showAuthSettings}
-        onClose={() => setShowAuthSettings(false)}
-        onAuthChanged={() => {
-          // Reload settings if needed
-        }}
-      />
+      <AuthSettingsModal visible={showAuthSettings} onClose={() => setShowAuthSettings(false)} onAuthChanged={() => {
+      // Reload settings if needed
+    }} />
 
-      <ReferralModal
-        visible={showReferralModal}
-        onClose={() => setShowReferralModal(false)}
-        onSuccess={async (rewardDays) => {
-          alertService.toastSuccess(`مبروك! حصلت على ${rewardDays} أيام إضافية في اشتراك برو.`);
-          // Refresh user data to hide the apply button
-          await checkAuthStatus(null, true);
-          loadReferralInfo();
-        }}
-      />
+      <ReferralModal visible={showReferralModal} onClose={() => setShowReferralModal(false)} onSuccess={async rewardDays => {
+      alertService.toastSuccess(tl("مبروك! حصلت على {{}} أيام إضافية في اشتراك برو.", [rewardDays]));
+      // Refresh user data to hide the apply button
+      await checkAuthStatus(null, true);
+      loadReferralInfo();
+    }} />
 
-      <PromoCodeModal
-        visible={showPromoModal}
-        onClose={() => setShowPromoModal(false)}
-        onSuccess={async () => {
-          // Success alert is handled inside the modal
-          await checkAuthStatus(null, true);
-          loadReferralInfo();
-        }}
-      />
+      <PromoCodeModal visible={showPromoModal} onClose={() => setShowPromoModal(false)} onSuccess={async () => {
+      // Success alert is handled inside the modal
+      await checkAuthStatus(null, true);
+      loadReferralInfo();
+    }} />
 
 
 
       {/* Exchange Rate Modal */}
-      {
-        showExchangeRateModal && selectedCurrency !== 'USD' && (
-          <ExchangeRateModal
-            visible={showExchangeRateModal}
-            rate={usdToIqdRate}
-            selectedCurrency={selectedCurrency}
-            onRateChange={setUsdToIqdRate}
-            onSave={handleSaveExchangeRate}
-            onClose={() => setShowExchangeRateModal(false)}
-          />
-        )
-      }
+      {showExchangeRateModal && selectedCurrency !== 'USD' && <ExchangeRateModal visible={showExchangeRateModal} rate={usdToIqdRate} selectedCurrency={selectedCurrency} onRateChange={setUsdToIqdRate} onSave={handleSaveExchangeRate} onClose={() => setShowExchangeRateModal(false)} />}
 
       {/* Daily Reminder Time Picker */}
-      <Modal
-        visible={showDailyTimePicker}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowDailyTimePicker(false)}
-      >
+      <Modal visible={showDailyTimePicker} transparent={true} animationType="slide" onRequestClose={() => setShowDailyTimePicker(false)}>
         <View style={styles.timePickerModalOverlay}>
           <View style={styles.timePickerModalContent}>
             <View style={styles.timePickerModalHeader}>
-              <TouchableOpacity
-                onPress={handleDailyTimeConfirm}
-                style={styles.timePickerConfirmButton}
-              >
-                <Text style={styles.timePickerConfirmText}>تأكيد</Text>
+              <TouchableOpacity onPress={handleDailyTimeConfirm} style={styles.timePickerConfirmButton}>
+                <Text style={styles.timePickerConfirmText}>{tl("تأكيد")}</Text>
               </TouchableOpacity>
-              <Text style={styles.timePickerModalTitle}>اختر الوقت</Text>
-              <TouchableOpacity
-                onPress={() => setShowDailyTimePicker(false)}
-                style={styles.timePickerCancelButton}
-              >
-                <Text style={styles.timePickerCancelText}>إلغاء</Text>
+              <Text style={styles.timePickerModalTitle}>{tl("اختر الوقت")}</Text>
+              <TouchableOpacity onPress={() => setShowDailyTimePicker(false)} style={styles.timePickerCancelButton}>
+                <Text style={styles.timePickerCancelText}>{tl("إلغاء")}</Text>
               </TouchableOpacity>
             </View>
             {renderTimePickerWheel('daily')}
@@ -1382,95 +1200,59 @@ export const ProfileScreen = ({ navigation }: any) => {
 
 
       {/* Name Edit Modal */}
-      <Modal
-        visible={showNameModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowNameModal(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
+      <Modal visible={showNameModal} transparent={true} animationType="fade" onRequestClose={() => setShowNameModal(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            <LinearGradient
-              colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-              style={styles.modalContent}
-            >
+            <LinearGradient colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]} style={styles.modalContent}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>تعديل الاسم</Text>
-                <TouchableOpacity
-                  onPress={() => setShowNameModal(false)}
-                  style={styles.closeButton}
-                >
+                <Text style={styles.modalTitle}>{tl("تعديل الاسم")}</Text>
+                <TouchableOpacity onPress={() => setShowNameModal(false)} style={styles.closeButton}>
                   <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
                 </TouchableOpacity>
               </View>
 
               <View style={styles.modalBody}>
-                <Text style={styles.inputLabel}>الاسم</Text>
-                <TextInput
-                  style={styles.nameInput}
-                  value={editingName}
-                  onChangeText={setEditingName}
-                  placeholder="أدخل اسمك"
-                  placeholderTextColor={theme.colors.textMuted}
-                  autoFocus={true}
-                  maxLength={50}
-                />
+                <Text style={styles.inputLabel}>{tl("الاسم")}</Text>
+                <TextInput style={styles.nameInput} value={editingName} onChangeText={setEditingName} placeholder={tl("أدخل اسمك")} placeholderTextColor={theme.colors.textMuted} autoFocus={true} maxLength={50} />
               </View>
 
               <View style={styles.modalActions}>
-                <TouchableOpacity
-                  onPress={() => setShowNameModal(false)}
-                  style={[styles.modalButton, styles.cancelButton]}
-                >
-                  <Text style={styles.cancelButtonText}>إلغاء</Text>
+                <TouchableOpacity onPress={() => setShowNameModal(false)} style={[styles.modalButton, styles.cancelButton]}>
+                  <Text style={styles.cancelButtonText}>{tl("إلغاء")}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={async () => {
-                    if (!editingName.trim()) {
-                      alertService.warning('تنبيه', 'يرجى إدخال الاسم');
-                      return;
+                <TouchableOpacity onPress={async () => {
+                if (!editingName.trim()) {
+                  alertService.warning(tl("تنبيه"), tl("يرجى إدخال الاسم"));
+                  return;
+                }
+                try {
+                  // 1. Update locally
+                  const currentSettings = await getUserSettings();
+                  await upsertUserSettings({
+                    name: editingName.trim() || undefined,
+                    authMethod: currentSettings?.authMethod || 'none',
+                    passwordHash: currentSettings?.passwordHash,
+                    biometricsEnabled: currentSettings?.biometricsEnabled || false
+                  });
+                  setUserName(editingName.trim());
+
+                  // 2. Update on server if authenticated
+                  if (isAuthenticated) {
+                    const result = await authApiService.updateProfile(editingName.trim());
+                    if (result.success && result.user) {
+                      setUserData(result.user);
+                    } else if (!result.success) {
+                      // If server update fails, we still keep local for now but log it
                     }
-
-                    try {
-                      // 1. Update locally
-                      const currentSettings = await getUserSettings();
-                      await upsertUserSettings({
-                        name: editingName.trim() || undefined,
-                        authMethod: currentSettings?.authMethod || 'none',
-                        passwordHash: currentSettings?.passwordHash,
-                        biometricsEnabled: currentSettings?.biometricsEnabled || false,
-                      });
-
-                      setUserName(editingName.trim());
-
-                      // 2. Update on server if authenticated
-                      if (isAuthenticated) {
-                        const result = await authApiService.updateProfile(editingName.trim());
-                        if (result.success && result.user) {
-                          setUserData(result.user);
-                        } else if (!result.success) {
-                          // If server update fails, we still keep local for now but log it
-                          
-                        }
-                      }
-
-                      setShowNameModal(false);
-                      alertService.toastSuccess('تم تحديث الاسم بنجاح');
-                    } catch (error) {
-                      
-                      alertService.error('خطأ', 'فشل تحديث الاسم');
-                    }
-                  }}
-                  style={[styles.modalButton, styles.saveButton]}
-                >
-                  <LinearGradient
-                    colors={theme.gradients.primary as any}
-                    style={styles.saveButtonGradient}
-                  >
-                    <Text style={styles.saveButtonText}>حفظ</Text>
+                  }
+                  setShowNameModal(false);
+                  alertService.toastSuccess(tl("تم تحديث الاسم بنجاح"));
+                } catch (error) {
+                  alertService.error(tl("خطأ"), tl("فشل تحديث الاسم"));
+                }
+              }} style={[styles.modalButton, styles.saveButton]}>
+                  <LinearGradient colors={theme.gradients.primary as any} style={styles.saveButtonGradient}>
+                    <Text style={styles.saveButtonText}>{tl("حفظ")}</Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
@@ -1480,21 +1262,19 @@ export const ProfileScreen = ({ navigation }: any) => {
       </Modal>
 
 
-    </ScreenContainer>
-  );
+    </ScreenContainer>;
 };
-
 const createStyles = (theme: AppTheme) => StyleSheet.create({
   scrollView: {
-    flex: 1,
+    flex: 1
   },
   scrollContent: {
     padding: theme.spacing.md,
     paddingBottom: theme.spacing.xl,
-    direction: 'rtl' as const,
+    direction: isRTL ? 'rtl' : 'ltr'
   },
   skeletonContainer: {
-    gap: theme.spacing.md,
+    gap: theme.spacing.md
   },
   skeletonProfileCard: {
     borderRadius: 24,
@@ -1502,37 +1282,37 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: theme.colors.surfaceCard,
     borderWidth: 1,
     borderColor: theme.colors.border + '30',
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   skeletonProfileHeader: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
-    gap: 12,
+    gap: 12
   },
   skeletonAvatar: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: theme.colors.surfaceLight,
+    backgroundColor: theme.colors.surfaceLight
   },
   skeletonProfileInfo: {
     flex: 1,
-    gap: 8,
+    gap: 8
   },
   skeletonLine: {
     height: 12,
     borderRadius: 8,
-    backgroundColor: theme.colors.surfaceLight,
+    backgroundColor: theme.colors.surfaceLight
   },
   skeletonLineLg: {
     width: '70%',
-    height: 16,
+    height: 16
   },
   skeletonLineMd: {
-    width: '52%',
+    width: '52%'
   },
   skeletonLineSm: {
-    width: '36%',
+    width: '36%'
   },
   skeletonSectionCard: {
     borderRadius: 24,
@@ -1541,30 +1321,30 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border + '30',
     ...getPlatformShadow('sm'),
-    gap: 12,
+    gap: 12
   },
   skeletonSectionHeader: {
     height: 18,
     width: '45%',
     borderRadius: 8,
     backgroundColor: theme.colors.surfaceLight,
-    marginBottom: 2,
+    marginBottom: 2
   },
   skeletonRow: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 8,
+    paddingVertical: 8
   },
   skeletonIcon: {
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: theme.colors.surfaceLight,
+    backgroundColor: theme.colors.surfaceLight
   },
   skeletonTextGroup: {
     flex: 1,
-    gap: 8,
+    gap: 8
   },
   sectionCard: {
     marginBottom: theme.spacing.lg,
@@ -1573,7 +1353,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: theme.colors.border + '30',
-    ...getPlatformShadow('md'),
+    ...getPlatformShadow('md')
   },
   sectionHeader: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
@@ -1582,11 +1362,11 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: theme.spacing.sm,
     paddingBottom: theme.spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border + '20',
+    borderBottomColor: theme.colors.border + '20'
   },
   sectionContent: {
     padding: Platform.OS === 'android' ? 12 : theme.spacing.lg,
-    direction: 'rtl' as const,
+    direction: isRTL ? 'rtl' : 'ltr'
   },
   profileCard: {
     borderRadius: 24,
@@ -1594,17 +1374,25 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: theme.spacing.md,
     ...getPlatformShadow('lg'),
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: 'rgba(255, 255, 255, 0.25)'
   },
   profileCardPro: {
     borderColor: 'rgba(212, 175, 55, 0.6)',
     borderWidth: 1.5,
-    ...(Platform.OS === 'ios'
-      ? { shadowColor: '#D4AF37', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 12 }
-      : { elevation: 8 }),
+    ...(Platform.OS === 'ios' ? {
+      shadowColor: '#D4AF37',
+      shadowOffset: {
+        width: 0,
+        height: 4
+      },
+      shadowOpacity: 0.25,
+      shadowRadius: 12
+    } : {
+      elevation: 8
+    })
   },
   proCrownBanner: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     backgroundColor: 'rgba(212, 175, 55, 0.25)',
     paddingHorizontal: 8,
@@ -1612,35 +1400,38 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 12,
     gap: 4,
     marginBottom: 4,
-    alignSelf: isRTL ? 'flex-start' : 'flex-end',
+    alignSelf: isRTL ? 'flex-start' : 'flex-end'
   },
   proCrownBannerText: {
     fontSize: 10,
     fontWeight: getPlatformFontWeight('700'),
     color: '#F5E6A3',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   profileHeader: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 12
   },
   avatarWrapper: {
-    position: 'relative',
+    position: 'relative'
   },
   avatarContainer: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: theme.colors.surfaceCard,
     alignItems: 'center',
     justifyContent: 'center',
     ...getPlatformShadow('sm'),
+    ...(Platform.OS === 'android' ? {
+      elevation: 0
+    } : {}),
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: theme.colors.border + '40'
   },
   avatarContainerPro: {
-    borderColor: 'rgba(212, 175, 55, 0.6)',
+    borderColor: 'rgba(212, 175, 55, 0.6)'
   },
   proCrownBadge: {
     position: 'absolute',
@@ -1653,7 +1444,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#F5E6A3',
+    borderColor: '#F5E6A3'
   },
   onlineBadge: {
     position: 'absolute',
@@ -1664,43 +1455,46 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 7,
     backgroundColor: '#10B981',
     borderWidth: 2,
-    borderColor: theme.colors.primary,
+    borderColor: theme.colors.primary
   },
   userInfo: {
     flex: 1,
     gap: 3,
-    alignItems: isRTL ? 'flex-start' : 'flex-end',
+    alignItems: isRTL ? 'flex-start' : 'flex-end'
   },
   userNameRow: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 6
   },
   userNameText: {
     fontSize: 18,
     fontWeight: getPlatformFontWeight('800'),
     color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   userNameTextPro: {
     textShadowColor: 'rgba(0,0,0,0.2)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    textShadowOffset: {
+      width: 0,
+      height: 1
+    },
+    textShadowRadius: 2
   },
   proSparkIcon: {
-    opacity: 0.95,
+    opacity: 0.95
   },
   userEmail: {
     fontSize: 12,
     color: 'rgba(255, 255, 255, 0.85)',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   userEmailPro: {
-    color: 'rgba(245, 230, 163, 0.95)',
+    color: 'rgba(245, 230, 163, 0.95)'
   },
   verifiedBadge: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
     alignSelf: isRTL ? 'flex-start' : 'flex-end',
@@ -1708,16 +1502,16 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
     gap: 4,
-    marginTop: 4,
+    marginTop: 4
   },
   verifiedText: {
     fontSize: 10,
     fontWeight: getPlatformFontWeight('600'),
     color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   verifiedBadgePro: {
-    backgroundColor: 'rgba(212, 175, 55, 0.35)',
+    backgroundColor: 'rgba(212, 175, 55, 0.35)'
   },
   proExpiryBadge: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
@@ -1730,13 +1524,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     gap: 4,
     marginTop: 6,
     borderWidth: 1,
-    borderColor: 'rgba(245, 230, 163, 0.3)',
+    borderColor: 'rgba(245, 230, 163, 0.3)'
   },
   proExpiryText: {
     fontSize: 10,
     fontWeight: getPlatformFontWeight('700'),
     color: '#F5E6A3',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   editProfileBtn: {
     width: 36,
@@ -1746,22 +1540,22 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.3)'
   },
   unauthProfileHeader: {
     paddingVertical: 15,
     alignItems: 'center',
-    gap: 20,
+    gap: 20
   },
   unauthTextContainer: {
     alignItems: 'center',
-    gap: 8,
+    gap: 8
   },
   unauthTitle: {
     fontSize: 24,
     fontWeight: getPlatformFontWeight('900'),
     color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   unauthSubtitle: {
     fontSize: 15,
@@ -1769,20 +1563,20 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     textAlign: 'center',
     fontFamily: theme.typography.fontFamily,
     paddingHorizontal: 30,
-    lineHeight: 22,
+    lineHeight: 22
   },
   loginBtnHeader: {
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 24,
-    ...getPlatformShadow('md'),
+    ...getPlatformShadow('md')
   },
   loginBtnHeaderText: {
     color: theme.colors.primary,
     fontWeight: getPlatformFontWeight('900'),
     fontSize: 17,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   statsRow: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
@@ -1790,31 +1584,34 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingTop: 24,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'space-around',
+    justifyContent: 'space-around'
   },
   statBox: {
     alignItems: 'center',
-    gap: 6,
+    gap: 6
   },
   statLabel: {
     fontSize: 13,
     color: 'rgba(255, 255, 255, 0.75)',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   statValue: {
     fontSize: 18,
     fontWeight: getPlatformFontWeight('800'),
     color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   statValuePro: {
     color: '#FDE047',
     textShadowColor: 'rgba(0,0,0,0.2)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    textShadowOffset: {
+      width: 0,
+      height: 1
+    },
+    textShadowRadius: 2
   },
   copyIdButton: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
@@ -1823,28 +1620,28 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingHorizontal: 12,
     gap: 6,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 12,
+    borderRadius: 12
   },
   copyIdLabel: {
     fontSize: 11,
     color: 'rgba(255, 255, 255, 0.9)',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   statDivider: {
     width: 1,
     height: '60%',
     alignSelf: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)'
   },
   proFeaturesRow: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     flexWrap: 'wrap',
     justifyContent: 'flex-start',
     gap: 6,
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(245, 230, 163, 0.2)',
+    borderTopColor: 'rgba(245, 230, 163, 0.2)'
   },
   proFeaturePill: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -1853,13 +1650,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 12,
-    gap: 4,
+    gap: 4
   },
   proFeaturePillText: {
     fontSize: 10,
     fontWeight: getPlatformFontWeight('600'),
     color: 'rgba(255, 255, 255, 0.95)',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   actionItem: {
     borderRadius: 24,
@@ -1867,19 +1664,19 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginTop: theme.spacing.md,
     backgroundColor: theme.colors.surfaceLight,
     borderWidth: 1,
-    borderColor: theme.colors.border + '20',
+    borderColor: theme.colors.border + '20'
   },
   actionItemGradient: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: theme.spacing.md,
+    padding: theme.spacing.md
   },
   actionItemLeft: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     flex: 1,
-    gap: theme.spacing.md,
+    gap: theme.spacing.md
   },
   actionIconContainer: {
     width: 48,
@@ -1887,10 +1684,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 16,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   actionItemInfo: {
-    flex: 1,
+    flex: 1
   },
   actionItemTitleWhite: {
     fontSize: 16,
@@ -1898,15 +1695,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     marginBottom: 4,
-    textAlign: 'left',
+    textAlign: 'left'
   },
   actionItemDescriptionWhite: {
     fontSize: 13,
     color: 'rgba(255, 255, 255, 0.85)',
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'left',
+    textAlign: 'left'
   },
-
   // Premium Custom Action Items (no full color, cleaner look)
   premiumRow: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
@@ -1917,7 +1713,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: 10,
     backgroundColor: theme.colors.surfaceLight,
     borderWidth: 1,
-    borderColor: theme.colors.border + '15',
+    borderColor: theme.colors.border + '15'
   },
   premiumIconBox: {
     width: 44,
@@ -1926,33 +1722,32 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: isRTL ? 0 : 16,
-    marginLeft: isRTL ? 16 : 0,
+    marginLeft: isRTL ? 16 : 0
   },
   premiumItemTitle: {
     fontSize: 16,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'left',
+    textAlign: 'left'
   },
   premiumItemSubtitle: {
     fontSize: 13,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     marginTop: 2,
-    textAlign: 'left',
+    textAlign: 'left'
   },
-
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 20
   },
   modalContainer: {
     width: '100%',
-    maxWidth: 420,
+    maxWidth: 420
   },
   modalContent: {
     backgroundColor: theme.colors.surfaceCard,
@@ -1960,7 +1755,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     overflow: 'hidden',
     ...getPlatformShadow('xl'),
     borderWidth: 1,
-    borderColor: theme.colors.border + '20',
+    borderColor: theme.colors.border + '20'
   },
   modalHeader: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
@@ -1968,13 +1763,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center',
     padding: 24,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border + '15',
+    borderBottomColor: theme.colors.border + '15'
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: getPlatformFontWeight('800'),
     color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   closeButton: {
     width: 36,
@@ -1982,10 +1777,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 18,
     backgroundColor: theme.colors.surfaceLight,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   modalBody: {
-    padding: 24,
+    padding: 24
   },
   inputLabel: {
     fontSize: 15,
@@ -1993,7 +1788,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: 10,
-    textAlign: isRTL ? 'right' : 'left',
+    textAlign: isRTL ? 'right' : 'left'
   },
   nameInput: {
     backgroundColor: theme.colors.surfaceLight,
@@ -2004,52 +1799,52 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'right' : 'left',
     borderWidth: 1,
-    borderColor: theme.colors.border + '40',
+    borderColor: theme.colors.border + '40'
   },
   modalActions: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     padding: 24,
     gap: 12,
     borderTopWidth: 1,
-    borderTopColor: theme.colors.border + '15',
+    borderTopColor: theme.colors.border + '15'
   },
   modalButton: {
     flex: 1,
     borderRadius: 16,
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   cancelButton: {
     backgroundColor: theme.colors.surfaceLight,
     padding: 14,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   cancelButtonText: {
     fontSize: 16,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   saveButton: {
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   saveButtonGradient: {
     padding: 14,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   saveButtonText: {
     fontSize: 16,
     fontWeight: getPlatformFontWeight('800'),
     color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: getPlatformFontWeight('800'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: isRTL ? 'left' : 'right',
+    textAlign: isRTL ? 'left' : 'right'
   },
   accountInfo: {
     marginBottom: theme.spacing.md,
@@ -2057,12 +1852,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: theme.colors.surfaceLight,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: theme.colors.border + '15',
+    borderColor: theme.colors.border + '15'
   },
   accountInfoLeft: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
-    gap: theme.spacing.md,
+    gap: theme.spacing.md
   },
   accountIconContainer: {
     width: 48,
@@ -2070,88 +1865,88 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 16,
     backgroundColor: theme.colors.primary + '15',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   accountInfoText: {
-    flex: 1,
+    flex: 1
   },
   accountStatusText: {
     fontSize: 16,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    marginBottom: 4,
+    marginBottom: 4
   },
   accountPhoneText: {
     fontSize: 13,
     color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   loginButton: {
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...getPlatformShadow('md'),
+    ...getPlatformShadow('md')
   },
   loginButtonGradient: {
-    flexDirection: 'row-reverse',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
     padding: theme.spacing.md,
-    gap: theme.spacing.sm,
+    gap: theme.spacing.sm
   },
   loginButtonText: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   logoutButton: {
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
     marginTop: theme.spacing.md,
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   logoutButtonGradient: {
-    flexDirection: 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
     padding: theme.spacing.md,
-    gap: theme.spacing.sm,
+    gap: theme.spacing.sm
   },
   logoutButtonText: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   listItemTitle: {
     fontFamily: theme.typography.fontFamily,
     fontSize: 16,
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.textPrimary,
+    color: theme.colors.textPrimary
   },
   listItemDescription: {
     fontFamily: theme.typography.fontFamily,
     fontSize: 13,
     color: theme.colors.textSecondary,
-    marginTop: 2,
+    marginTop: 2
   },
   notificationItem: {
     marginBottom: theme.spacing.lg,
     paddingBottom: theme.spacing.md,
-    direction: 'rtl' as const,
+    direction: isRTL ? 'rtl' : 'ltr'
   },
   notificationItemHeader: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 12
   },
   notificationItemLeft: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     flex: 1,
-    gap: 16,
+    gap: 16
   },
   notificationIconContainer: {
     width: 44,
@@ -2159,10 +1954,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 14,
     backgroundColor: theme.colors.primary + '10',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   notificationItemInfo: {
-    flex: 1,
+    flex: 1
   },
   notificationItemTitle: {
     fontSize: 16,
@@ -2170,13 +1965,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: 4,
-    textAlign: 'left',
+    textAlign: 'left'
   },
   notificationItemDescription: {
     fontSize: 13,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'left',
+    textAlign: 'left'
   },
   timePickerButton: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
@@ -2187,7 +1982,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 16,
     marginTop: 8,
     borderWidth: 1,
-    borderColor: theme.colors.border + '20',
+    borderColor: theme.colors.border + '20'
   },
   timePickerText: {
     flex: 1,
@@ -2195,64 +1990,64 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: isRTL ? 'left' : 'right',
+    textAlign: isRTL ? 'left' : 'right'
   },
   testNotificationButton: {
     marginTop: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   testNotificationButtonGradient: {
-    flexDirection: 'row-reverse',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
-    gap: theme.spacing.sm,
+    gap: theme.spacing.sm
   },
   testNotificationButtonText: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textInverse,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   exportButton: {
     borderRadius: 20,
     overflow: 'hidden',
     marginTop: 8,
-    ...getPlatformShadow('md'),
+    ...getPlatformShadow('md')
   },
   exportButtonGradient: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
-    gap: 10,
+    gap: 10
   },
   exportButtonText: {
     fontSize: 16,
     fontWeight: getPlatformFontWeight('800'),
     fontFamily: theme.typography.fontFamily,
-    color: '#FFFFFF',
+    color: '#FFFFFF'
   },
   currencyItem: {
     borderRadius: 20,
     overflow: 'hidden',
     marginTop: 10,
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   currencyItemGradient: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: 16
   },
   currencyItemLeft: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     flex: 1,
-    gap: 16,
+    gap: 16
   },
   currencyIconContainer: {
     width: 44,
@@ -2260,10 +2055,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   currencyItemInfo: {
-    flex: 1,
+    flex: 1
   },
   currencyItemTitle: {
     fontSize: theme.typography.sizes.md,
@@ -2272,7 +2067,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
     textAlign: 'left',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   currencyItemTitleWhite: {
     fontSize: 16,
@@ -2280,20 +2075,20 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     marginBottom: 4,
-    textAlign: 'left',
+    textAlign: 'left'
   },
   currencyItemDescription: {
     fontSize: theme.typography.sizes.sm,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'left',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   currencyItemDescriptionWhite: {
     fontSize: 13,
     color: 'rgba(255, 255, 255, 0.9)',
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'left',
+    textAlign: 'left'
   },
   currencyPicker: {
     marginTop: 12,
@@ -2302,7 +2097,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     padding: 12,
     gap: 8,
     borderWidth: 1,
-    borderColor: theme.colors.border + '20',
+    borderColor: theme.colors.border + '20'
   },
   currencyOption: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
@@ -2310,41 +2105,41 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderRadius: 14,
-    backgroundColor: theme.colors.surfaceCard,
+    backgroundColor: theme.colors.surfaceCard
   },
   currencyOptionSelected: {
     backgroundColor: theme.colors.primary + '10',
     borderWidth: 1,
-    borderColor: theme.colors.primary + '30',
+    borderColor: theme.colors.primary + '30'
   },
   currencyOptionText: {
     fontSize: 15,
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'left',
+    textAlign: 'left'
   },
   currencyOptionTextSelected: {
     color: theme.colors.primary,
-    fontWeight: getPlatformFontWeight('800'),
+    fontWeight: getPlatformFontWeight('800')
   },
   authItem: {
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
     marginTop: theme.spacing.sm,
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   authItemGradient: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: theme.spacing.md,
-    direction: 'rtl' as const,
+    direction: isRTL ? 'rtl' : 'ltr'
   },
   authItemLeft: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     flex: 1,
-    gap: theme.spacing.md,
+    gap: theme.spacing.md
   },
   authIconContainer: {
     width: 40,
@@ -2352,10 +2147,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   authItemInfo: {
-    flex: 1,
+    flex: 1
   },
   authItemTitle: {
     fontSize: theme.typography.sizes.md,
@@ -2364,7 +2159,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
     textAlign: 'left',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   authItemTitleWhite: {
     fontSize: theme.typography.sizes.md,
@@ -2373,39 +2168,39 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
     textAlign: 'left',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   authItemDescription: {
     fontSize: theme.typography.sizes.sm,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'left',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   authItemDescriptionWhite: {
     fontSize: theme.typography.sizes.sm,
     color: 'rgba(255, 255, 255, 0.9)',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'left',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   exchangeRateItem: {
     borderRadius: 20,
     overflow: 'hidden',
     marginTop: 12,
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   exchangeRateItemGradient: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: 16
   },
   exchangeRateItemLeft: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     flex: 1,
-    gap: 16,
+    gap: 16
   },
   exchangeRateIconContainer: {
     width: 44,
@@ -2413,10 +2208,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   exchangeRateItemInfo: {
-    flex: 1,
+    flex: 1
   },
   exchangeRateItemTitleWhite: {
     fontSize: 16,
@@ -2424,13 +2219,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     marginBottom: 4,
-    textAlign: 'left',
+    textAlign: 'left'
   },
   exchangeRateItemDescriptionWhite: {
     fontSize: 13,
     color: 'rgba(255, 255, 255, 0.9)',
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'left',
+    textAlign: 'left'
   },
   contactItem: {
     borderRadius: 24,
@@ -2438,19 +2233,19 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginTop: 14,
     ...getPlatformShadow('md'),
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.2)'
   },
   contactItemGradient: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    padding: 20
   },
   contactItemLeft: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     flex: 1,
-    gap: 16,
+    gap: 16
   },
   contactIconContainer: {
     width: 52,
@@ -2459,18 +2254,18 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   contactItemInfo: {
     flex: 1,
-    gap: 2,
+    gap: 2
   },
   contactItemTitleWhite: {
     fontSize: 17,
     fontWeight: getPlatformFontWeight('800'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'left',
+    textAlign: 'left'
   },
   contactItemDescriptionWhite: {
     fontSize: 13,
@@ -2478,48 +2273,48 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     textAlign: 'left',
     lineHeight: 18,
-    fontWeight: getPlatformFontWeight('500'),
+    fontWeight: getPlatformFontWeight('500')
   },
   copyrightWrapper: {
     marginTop: theme.spacing.xl,
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.lg
   },
   copyrightCard: {
     borderRadius: 28,
     padding: 32,
     alignItems: 'center',
     gap: 12,
-    ...getPlatformShadow('md'),
+    ...getPlatformShadow('md')
   },
   copyrightLogo: {
     width: 140,
     height: 45,
     marginBottom: 8,
-    tintColor: '#FFFFFF',
+    tintColor: '#FFFFFF'
   },
   copyrightText: {
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.9)',
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'center',
+    textAlign: 'center'
   },
   versionText: {
     fontSize: 12,
     color: 'rgba(255, 255, 255, 0.6)',
     fontFamily: theme.typography.fontFamily,
     fontWeight: getPlatformFontWeight('600'),
-    marginTop: 4,
+    marginTop: 4
   },
   exchangeRateModalOverlay: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
+    position: 'relative'
   },
   exchangeRateModalBackdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    zIndex: 1,
+    zIndex: 1
   },
   exchangeRateModalContainer: {
     width: '90%',
@@ -2528,30 +2323,30 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     overflow: 'hidden',
     ...getPlatformShadow('lg'),
     zIndex: 2,
-    position: 'relative',
+    position: 'relative'
   },
   exchangeRateModalGradient: {
     width: '100%',
-    minHeight: 300,
+    minHeight: 300
   },
   exchangeRateModalSafeArea: {
-    width: '100%',
+    width: '100%'
   },
   exchangeRateModalHeader: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    borderBottomColor: theme.colors.border
   },
   exchangeRateModalCloseButton: {
     padding: theme.spacing.xs,
     width: 36,
     height: 36,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   exchangeRateModalTitle: {
     fontSize: theme.typography.sizes.lg,
@@ -2559,34 +2354,34 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
-    flex: 1,
+    flex: 1
   },
   exchangeRateModalContent: {
-    padding: theme.spacing.lg,
+    padding: theme.spacing.lg
   },
   exchangeRateInfoCard: {
     borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
     marginBottom: theme.spacing.lg,
-    ...getPlatformShadow('md'),
+    ...getPlatformShadow('md')
   },
   exchangeRateInfoCardGradient: {
-    padding: theme.spacing.lg,
+    padding: theme.spacing.lg
   },
   exchangeRateInfoCardContent: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: theme.spacing.md,
+    gap: theme.spacing.md
   },
   exchangeRateInfoCardText: {
     fontSize: theme.typography.sizes.xl,
     fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   exchangeRateInputSection: {
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.lg
   },
   exchangeRateInputLabel: {
     fontSize: theme.typography.sizes.sm,
@@ -2594,7 +2389,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.sm,
-    textAlign: isRTL ? 'right' : 'left',
+    textAlign: isRTL ? 'right' : 'left'
   },
   exchangeRateInputContainer: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -2605,7 +2400,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingVertical: theme.spacing.sm,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   exchangeRateInput: {
     flex: 1,
@@ -2614,14 +2409,18 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'right' : 'left',
-    paddingVertical: theme.spacing.xs,
+    paddingVertical: theme.spacing.xs
   },
   exchangeRateInputUnit: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    ...(isRTL ? { marginLeft: theme.spacing.sm } : { marginRight: theme.spacing.sm }),
+    ...(isRTL ? {
+      marginLeft: theme.spacing.sm
+    } : {
+      marginRight: theme.spacing.sm
+    })
   },
   exchangeRateHint: {
     fontSize: theme.typography.sizes.xs,
@@ -2629,12 +2428,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     marginTop: theme.spacing.xs,
     textAlign: isRTL ? 'right' : 'left',
-    opacity: 0.7,
+    opacity: 0.7
   },
   exchangeRateModalActions: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     gap: theme.spacing.md,
-    marginTop: theme.spacing.md,
+    marginTop: theme.spacing.md
   },
   exchangeRateCancelButton: {
     flex: 1,
@@ -2644,38 +2443,38 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.border
   },
   exchangeRateCancelButtonText: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   exchangeRateSaveButton: {
     flex: 1,
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   exchangeRateSaveButtonGradient: {
     padding: theme.spacing.md,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   exchangeRateSaveButtonText: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   placeholder: {
-    width: 40,
+    width: 40
   },
   timePickerModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-end'
   },
   timePickerModalContent: {
     backgroundColor: '#FFFFFF',
@@ -2684,15 +2483,15 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingBottom: theme.spacing.xxl,
     maxHeight: '50%',
     ...getPlatformShadow('lg'),
-    direction: 'rtl' as const,
+    direction: isRTL ? 'rtl' : 'ltr'
   },
   timePickerModalHeader: {
-    flexDirection: 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: theme.spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    borderBottomColor: theme.colors.border
   },
   timePickerModalTitle: {
     fontSize: theme.typography.sizes.lg,
@@ -2700,29 +2499,29 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     flex: 1,
-    textAlign: 'center',
+    textAlign: 'center'
   },
   timePickerCancelButton: {
     padding: theme.spacing.sm,
     minWidth: 60,
-    alignItems: 'flex-end',
+    alignItems: 'flex-end'
   },
   timePickerCancelText: {
     fontSize: theme.typography.sizes.md,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: getPlatformFontWeight('600'),
+    fontWeight: getPlatformFontWeight('600')
   },
   timePickerConfirmButton: {
     padding: theme.spacing.sm,
     minWidth: 60,
-    alignItems: 'flex-start',
+    alignItems: 'flex-start'
   },
   timePickerConfirmText: {
     fontSize: theme.typography.sizes.md,
     color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: getPlatformFontWeight('700'),
+    fontWeight: getPlatformFontWeight('700')
   },
   customTimePickerContainer: {
     flexDirection: 'row-reverse',
@@ -2731,41 +2530,41 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingVertical: theme.spacing.lg,
     backgroundColor: '#FFFFFF',
     minHeight: 250,
-    position: 'relative',
+    position: 'relative'
   },
   timePickerWheel: {
     height: 250,
     width: 80,
     overflow: 'hidden',
-    position: 'relative',
+    position: 'relative'
   },
   timePickerScroll: {
-    flex: 1,
+    flex: 1
   },
   timePickerScrollContent: {
-    paddingVertical: 100,
+    paddingVertical: 100
   },
   timePickerItem: {
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   timePickerItemText: {
     fontSize: 24,
     fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textMuted,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   timePickerItemTextSelected: {
     fontSize: 28,
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.primary,
+    color: theme.colors.primary
   },
   timePickerSeparator: {
     fontSize: 32,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    marginHorizontal: theme.spacing.md,
+    marginHorizontal: theme.spacing.md
   },
   timePickerSelectionIndicator: {
     position: 'absolute',
@@ -2777,7 +2576,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    pointerEvents: 'none',
+    pointerEvents: 'none'
   },
   referralCard: {
     backgroundColor: theme.colors.surfaceCard,
@@ -2786,13 +2585,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginTop: 12,
     borderWidth: 1,
     borderColor: theme.colors.borderLight,
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   referralHero: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
     alignItems: 'center',
     gap: 16,
-    marginBottom: 20,
+    marginBottom: 20
   },
   referralIconBox: {
     width: 56,
@@ -2800,10 +2599,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 18,
     backgroundColor: '#F59E0B15',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   referralTextContent: {
-    flex: 1,
+    flex: 1
   },
   referralTitleText: {
     fontSize: 16,
@@ -2811,44 +2610,44 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: '#1E293B',
     fontFamily: theme.typography.fontFamily,
     marginBottom: 4,
-    textAlign: 'left',
+    textAlign: 'left'
   },
   referralSubtitleText: {
     fontSize: 13,
     color: '#64748B',
     fontFamily: theme.typography.fontFamily,
     lineHeight: 18,
-    textAlign: 'left',
+    textAlign: 'left'
   },
   referralCodeBox: {
     backgroundColor: theme.colors.surfaceLight,
     borderRadius: 20,
     padding: 16,
     borderWidth: 1,
-    borderColor: theme.colors.borderLight,
+    borderColor: theme.colors.borderLight
   },
   codeContainer: {
-    marginBottom: 16,
+    marginBottom: 16
   },
   codeLabel: {
     fontSize: 12,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: 8,
-    textAlign: 'center',
+    textAlign: 'center'
   },
   codeRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 12,
+    gap: 12
   },
   codeValue: {
     fontSize: 24,
     fontWeight: getPlatformFontWeight('900'),
     color: theme.colors.primary,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    letterSpacing: 4,
+    letterSpacing: 4
   },
   copyButton: {
     width: 40,
@@ -2856,7 +2655,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 12,
     backgroundColor: theme.colors.primary + '15',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   referralStatBox: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
@@ -2866,18 +2665,18 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: 20,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: theme.colors.borderLight,
+    borderTopColor: theme.colors.borderLight
   },
   referralStatLabel: {
     fontSize: 14,
     color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   referralStatValue: {
     fontSize: 16,
     fontWeight: getPlatformFontWeight('800'),
     color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   shareCodeButton: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
@@ -2887,20 +2686,20 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 10,
-    ...getPlatformShadow('md'),
+    ...getPlatformShadow('md')
   },
   shareCodeButtonText: {
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: getPlatformFontWeight('700'),
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   promoCodeButton: {
     marginTop: 12,
     height: 54,
     borderRadius: 16,
     overflow: 'hidden',
-    ...getPlatformShadow('md'),
+    ...getPlatformShadow('md')
   },
   promoCodeButtonGradient: {
     flex: 1,
@@ -2908,13 +2707,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    paddingHorizontal: 20,
+    paddingHorizontal: 20
   },
   promoCodeButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: getPlatformFontWeight('900'),
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   referralEntryButton: {
     marginTop: 12,
@@ -2926,13 +2725,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     borderWidth: 1.5,
-    borderColor: theme.colors.primary + '30',
+    borderColor: theme.colors.primary + '30'
   },
   referralEntryButtonText: {
     color: theme.colors.primary,
     fontSize: 15,
     fontWeight: getPlatformFontWeight('700'),
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   referralErrorText: {
     fontSize: 13,
@@ -2941,10 +2740,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     backgroundColor: '#EF444410',
     padding: 12,
-    borderRadius: 12,
-  },
+    borderRadius: 12
+  }
 });
-
 interface ExchangeRateModalProps {
   visible: boolean;
   rate: string;
@@ -2953,65 +2751,56 @@ interface ExchangeRateModalProps {
   onSave: () => void;
   onClose: () => void;
 }
-
 const ExchangeRateModal: React.FC<ExchangeRateModalProps> = ({
   visible,
   rate,
   selectedCurrency,
   onRateChange,
   onSave,
-  onClose,
+  onClose
 }) => {
-  const { theme } = useAppTheme();
+  const {
+    theme
+  } = useAppTheme();
+  const {
+    language
+  } = useLocalization();
   const styles = useThemedStyles(createStyles);
-
-  return (
-    <Modal
-      visible={visible}
-      animationType="fade"
-      transparent={true}
-      onRequestClose={onClose}
-    >
+  return <Modal visible={visible} animationType="fade" transparent={true} onRequestClose={onClose}>
       <View style={styles.exchangeRateModalOverlay}>
-        <TouchableOpacity
-          style={styles.exchangeRateModalBackdrop}
-          activeOpacity={1}
-          onPress={onClose}
-        />
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ width: '100%', alignItems: 'center' }}
-        >
+        <TouchableOpacity style={styles.exchangeRateModalBackdrop} activeOpacity={1} onPress={onClose} />
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{
+        width: '100%',
+        alignItems: 'center'
+      }}>
           <View style={styles.exchangeRateModalContainer}>
-            <LinearGradient
-              colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]}
-              style={styles.exchangeRateModalGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
+            <LinearGradient colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]} style={styles.exchangeRateModalGradient} start={{
+            x: 0,
+            y: 0
+          }} end={{
+            x: 1,
+            y: 1
+          }}>
               <SafeAreaView edges={['top']} style={styles.exchangeRateModalSafeArea}>
                 {/* Header */}
                 <View style={styles.exchangeRateModalHeader}>
-                  <TouchableOpacity
-                    onPress={onClose}
-                    style={styles.exchangeRateModalCloseButton}
-                    activeOpacity={0.7}
-                  >
+                  <TouchableOpacity onPress={onClose} style={styles.exchangeRateModalCloseButton} activeOpacity={0.7}>
                     <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
                   </TouchableOpacity>
-                  <Text style={styles.exchangeRateModalTitle}>تعديل سعر الصرف</Text>
+                  <Text style={styles.exchangeRateModalTitle}>{tl("تعديل سعر الصرف")}</Text>
                   <View style={styles.placeholder} />
                 </View>
 
                 {/* Content */}
                 <View style={styles.exchangeRateModalContent}>
                   <View style={styles.exchangeRateInfoCard}>
-                    <LinearGradient
-                      colors={theme.gradients.primary as any}
-                      style={styles.exchangeRateInfoCardGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                    >
+                    <LinearGradient colors={theme.gradients.primary as any} style={styles.exchangeRateInfoCardGradient} start={{
+                    x: 0,
+                    y: 0
+                  }} end={{
+                    x: 1,
+                    y: 1
+                  }}>
                       <View style={styles.exchangeRateInfoCardContent}>
                         <Ionicons name="cash" size={32} color="#FFFFFF" />
                         <Text style={styles.exchangeRateInfoCardText}>
@@ -3022,49 +2811,32 @@ const ExchangeRateModal: React.FC<ExchangeRateModalProps> = ({
                   </View>
 
                   <View style={styles.exchangeRateInputSection}>
-                    <Text style={styles.exchangeRateInputLabel}>
-                      سعر الصرف (1 دولار = ? {CURRENCIES.find(c => c.code === selectedCurrency)?.name || 'دينار عراقي'})
+                    <Text style={styles.exchangeRateInputLabel}>{tl("سعر الصرف (1 دولار = ?")}{getCurrencyDisplayName(selectedCurrency, language)}
                     </Text>
                     <View style={styles.exchangeRateInputContainer}>
-                      <TextInput
-                        style={styles.exchangeRateInput}
-                        value={rate}
-                        onChangeText={(val) => onRateChange(convertArabicToEnglish(val))}
-                        placeholder="1315"
-                        placeholderTextColor={theme.colors.textSecondary}
-                        keyboardType="decimal-pad"
-                        textAlign={isRTL ? 'right' : 'left'}
-                      />
+                      <TextInput style={styles.exchangeRateInput} value={rate} onChangeText={val => onRateChange(convertArabicToEnglish(val))} placeholder="1315" placeholderTextColor={theme.colors.textSecondary} keyboardType="decimal-pad" textAlign={isRTL ? 'right' : 'left'} />
                       <Text style={styles.exchangeRateInputUnit}>
                         {selectedCurrency}
                       </Text>
                     </View>
-                    <Text style={styles.exchangeRateHint}>
-                      أدخل سعر الصرف الحالي للدولار مقابل {CURRENCIES.find(c => c.code === selectedCurrency)?.name || 'الدينار العراقي'}
+                    <Text style={styles.exchangeRateHint}>{tl("أدخل سعر الصرف الحالي للدولار مقابل")}{getCurrencyDisplayName(selectedCurrency, language)}
                     </Text>
                   </View>
 
                   {/* Actions */}
                   <View style={styles.exchangeRateModalActions}>
-                    <TouchableOpacity
-                      onPress={onClose}
-                      style={styles.exchangeRateCancelButton}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.exchangeRateCancelButtonText}>إلغاء</Text>
+                    <TouchableOpacity onPress={onClose} style={styles.exchangeRateCancelButton} activeOpacity={0.7}>
+                      <Text style={styles.exchangeRateCancelButtonText}>{tl("إلغاء")}</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={onSave}
-                      style={styles.exchangeRateSaveButton}
-                      activeOpacity={0.7}
-                    >
-                      <LinearGradient
-                        colors={theme.gradients.primary as any}
-                        style={styles.exchangeRateSaveButtonGradient}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                      >
-                        <Text style={styles.exchangeRateSaveButtonText}>حفظ</Text>
+                    <TouchableOpacity onPress={onSave} style={styles.exchangeRateSaveButton} activeOpacity={0.7}>
+                      <LinearGradient colors={theme.gradients.primary as any} style={styles.exchangeRateSaveButtonGradient} start={{
+                      x: 0,
+                      y: 0
+                    }} end={{
+                      x: 1,
+                      y: 0
+                    }}>
+                        <Text style={styles.exchangeRateSaveButtonText}>{tl("حفظ")}</Text>
                       </LinearGradient>
                     </TouchableOpacity>
                   </View>
@@ -3074,6 +2846,5 @@ const ExchangeRateModal: React.FC<ExchangeRateModalProps> = ({
           </View>
         </KeyboardAvoidingView>
       </View>
-    </Modal>
-  );
+    </Modal>;
 };

@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../../../utils/theme-context';
 import { getPlatformFontWeight } from '../../../utils/theme-constants';
 import { FONT_SIZE, RADIUS, SPACING } from '../../tokens';
-import { isRTL } from '../../../utils/rtl';
+import { useLocalization } from '../../../localization';
 
 interface AppHeaderProps {
   title: string;
@@ -35,6 +35,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   style,
 }) => {
   const { theme } = useAppTheme();
+  const { isRTL } = useLocalization();
 
   return (
     <View

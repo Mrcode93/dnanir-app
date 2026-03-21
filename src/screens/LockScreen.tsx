@@ -1,27 +1,22 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  Animated,
-  KeyboardAvoidingView,
-  Platform as RNPlatform,
-} from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Animated, KeyboardAvoidingView, Platform as RNPlatform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, useAppTheme, useThemedStyles } from '../utils/theme';
 import { useLockScreen } from '../hooks/useLockScreen';
 import { convertArabicToEnglishSimple } from '../utils/numbers';
-
+import { tl, useLocalization } from "../localization";
 interface LockScreenProps {
   onUnlock: () => void;
 }
-
-export const LockScreen: React.FC<LockScreenProps> = ({ onUnlock }) => {
-  const { theme } = useAppTheme();
+export const LockScreen: React.FC<LockScreenProps> = ({
+  onUnlock
+}) => {
+  useLocalization();
+  const {
+    theme
+  } = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const {
     password,
@@ -30,21 +25,12 @@ export const LockScreen: React.FC<LockScreenProps> = ({ onUnlock }) => {
     biometricType,
     shakeAnim,
     handlePasswordSubmit,
-    handleBiometricAuth,
+    handleBiometricAuth
   } = useLockScreen(onUnlock);
-
   const translateX = shakeAnim;
-
-  return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <LinearGradient
-        colors={[theme.colors.primary, '#2563EB', '#1D4ED8']}
-        style={styles.gradient}
-      >
-        <KeyboardAvoidingView
-          behavior={RNPlatform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardView}
-        >
+  return <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <LinearGradient colors={[theme.colors.primary, '#2563EB', '#1D4ED8']} style={styles.gradient}>
+        <KeyboardAvoidingView behavior={RNPlatform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardView}>
           <View style={styles.content}>
             <View style={styles.iconContainer}>
               <View style={styles.lockIcon}>
@@ -52,95 +38,58 @@ export const LockScreen: React.FC<LockScreenProps> = ({ onUnlock }) => {
               </View>
             </View>
 
-            <Text style={styles.title}>التطبيق محمي</Text>
+            <Text style={styles.title}>{tl("التطبيق محمي")}</Text>
             <Text style={styles.subtitle}>
-              {authMethod === 'biometric'
-                ? `استخدم ${biometricType} للفتح`
-                : 'أدخل كلمة المرور للفتح'}
+              {authMethod === 'biometric' ? tl("استخدم {{}} للفتح", [biometricType]) : tl("أدخل كلمة المرور للفتح")}
             </Text>
 
-            {authMethod === 'password' && (
-              <Animated.View style={[styles.inputContainer, { transform: [{ translateX }] }]}>
-                <TextInput
-                  value={password}
-                  onChangeText={(v) => setPassword(convertArabicToEnglishSimple(v))}
-                  placeholder="كلمة المرور"
-                  placeholderTextColor={theme.colors.textSecondary}
-                  secureTextEntry
-                  style={styles.input}
-                  autoFocus
-                  onSubmitEditing={handlePasswordSubmit}
-                />
-                <TouchableOpacity
-                  onPress={handlePasswordSubmit}
-                  style={styles.submitButton}
-                >
+            {authMethod === 'password' && <Animated.View style={[styles.inputContainer, {
+            transform: [{
+              translateX
+            }]
+          }]}>
+                <TextInput value={password} onChangeText={v => setPassword(convertArabicToEnglishSimple(v))} placeholder={tl("كلمة المرور")} placeholderTextColor={theme.colors.textSecondary} secureTextEntry style={styles.input} autoFocus onSubmitEditing={handlePasswordSubmit} />
+                <TouchableOpacity onPress={handlePasswordSubmit} style={styles.submitButton}>
                   <Ionicons name="arrow-forward" size={24} color={theme.colors.textInverse} />
                 </TouchableOpacity>
-              </Animated.View>
-            )}
+              </Animated.View>}
 
-            {authMethod === 'biometric' && (
-              <TouchableOpacity
-                onPress={handleBiometricAuth}
-                style={styles.biometricButton}
-              >
-                <LinearGradient
-                  colors={['rgba(255, 255, 255, 0.2)', 'rgba(255, 255, 255, 0.1)']}
-                  style={styles.biometricButtonGradient}
-                >
-                  <Ionicons
-                    name={biometricType.includes('Face') ? 'person' : 'finger-print'}
-                    size={48}
-                    color={theme.colors.textInverse}
-                  />
-                  <Text style={styles.biometricButtonText}>
-                    اضغط للمصادقة بـ {biometricType}
+            {authMethod === 'biometric' && <TouchableOpacity onPress={handleBiometricAuth} style={styles.biometricButton}>
+                <LinearGradient colors={['rgba(255, 255, 255, 0.2)', 'rgba(255, 255, 255, 0.1)']} style={styles.biometricButtonGradient}>
+                  <Ionicons name={biometricType.includes('Face') ? 'person' : 'finger-print'} size={48} color={theme.colors.textInverse} />
+                  <Text style={styles.biometricButtonText}>{tl("اضغط للمصادقة بـ")}{biometricType}
                   </Text>
                 </LinearGradient>
-              </TouchableOpacity>
-            )}
+              </TouchableOpacity>}
 
-            {authMethod === 'password' && biometricType && (
-              <TouchableOpacity
-                onPress={handleBiometricAuth}
-                style={styles.biometricFallback}
-              >
-                <Ionicons
-                  name={biometricType.includes('Face') ? 'person' : 'finger-print'}
-                  size={24}
-                  color={theme.colors.textInverse}
-                />
-                <Text style={styles.biometricFallbackText}>
-                  أو استخدم {biometricType}
+            {authMethod === 'password' && biometricType && <TouchableOpacity onPress={handleBiometricAuth} style={styles.biometricFallback}>
+                <Ionicons name={biometricType.includes('Face') ? 'person' : 'finger-print'} size={24} color={theme.colors.textInverse} />
+                <Text style={styles.biometricFallbackText}>{tl("أو استخدم")}{biometricType}
                 </Text>
-              </TouchableOpacity>
-            )}
+              </TouchableOpacity>}
           </View>
         </KeyboardAvoidingView>
       </LinearGradient>
-    </SafeAreaView>
-  );
+    </SafeAreaView>;
 };
-
 const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
-    flex: 1,
+    flex: 1
   },
   gradient: {
-    flex: 1,
+    flex: 1
   },
   keyboardView: {
-    flex: 1,
+    flex: 1
   },
   content: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: theme.spacing.xl,
+    padding: theme.spacing.xl
   },
   iconContainer: {
-    marginBottom: theme.spacing.xl,
+    marginBottom: theme.spacing.xl
   },
   lockIcon: {
     width: 120,
@@ -150,7 +99,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.3)'
   },
   title: {
     fontSize: theme.typography.sizes.xxl,
@@ -158,14 +107,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textInverse,
     marginBottom: theme.spacing.sm,
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'center',
+    textAlign: 'center'
   },
   subtitle: {
     fontSize: theme.typography.sizes.md,
     color: 'rgba(255, 255, 255, 0.9)',
     marginBottom: theme.spacing.xl,
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'center',
+    textAlign: 'center'
   },
   inputContainer: {
     flexDirection: 'row-reverse',
@@ -178,7 +127,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingVertical: theme.spacing.sm,
     marginBottom: theme.spacing.md,
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.3)'
   },
   input: {
     flex: 1,
@@ -186,41 +135,41 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textInverse,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
-    paddingVertical: theme.spacing.sm,
+    paddingVertical: theme.spacing.sm
   },
   submitButton: {
-    padding: theme.spacing.sm,
+    padding: theme.spacing.sm
   },
   biometricButton: {
     width: '100%',
     maxWidth: 400,
     borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.md
   },
   biometricButtonGradient: {
     padding: theme.spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.3)'
   },
   biometricButtonText: {
     fontSize: theme.typography.sizes.md,
     color: theme.colors.textInverse,
     marginTop: theme.spacing.md,
     fontFamily: theme.typography.fontFamily,
-    fontWeight: getPlatformFontWeight('600'),
+    fontWeight: getPlatformFontWeight('600')
   },
   biometricFallback: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: theme.spacing.sm,
-    marginTop: theme.spacing.md,
+    marginTop: theme.spacing.md
   },
   biometricFallbackText: {
     fontSize: theme.typography.sizes.sm,
     color: 'rgba(255, 255, 255, 0.8)',
-    fontFamily: theme.typography.fontFamily,
-  },
+    fontFamily: theme.typography.fontFamily
+  }
 });

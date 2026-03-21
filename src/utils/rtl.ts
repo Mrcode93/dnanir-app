@@ -1,19 +1,58 @@
-import { I18nManager, Platform } from 'react-native';
+import { I18nManager } from 'react-native';
+import * as Updates from 'expo-updates';
 
-// Force LTR for app - always return false
-// Note: On iOS, I18nManager.forceRTL() doesn't work dynamically,
-// so we always use LTR layout regardless of I18nManager.isRTL value
-// Enable RTL for app
-export const isRTL = true;
+export let isRTL = true;
+let nativeDirectionReloadInFlight = false;
+
+export const setRTL = (value: boolean) => {
+  isRTL = value;
+};
+
+export const syncNativeRTLDirection = async (value: boolean): Promise<boolean> => {
+  setRTL(value);
+
+  if (I18nManager.isRTL === value) {
+    I18nManager.swapLeftAndRightInRTL(false);
+    return false;
+  }
+
+  I18nManager.allowRTL(value);
+  I18nManager.forceRTL(value);
+  I18nManager.swapLeftAndRightInRTL(false);
+
+  if (nativeDirectionReloadInFlight) {
+    return true;
+  }
+
+  nativeDirectionReloadInFlight = true;
+
+  try {
+    await Updates.reloadAsync();
+  } catch (error) {
+    nativeDirectionReloadInFlight = false;
+    throw error;
+  }
+
+  return true;
+};
 
 export const rtlStyles = {
-  flexDirection: 'row-reverse' as const,
-  textAlign: 'right' as const,
-  writingDirection: 'rtl' as const,
+  get flexDirection() {
+    return isRTL ? 'row-reverse' : 'row';
+  },
+  get textAlign() {
+    return isRTL ? 'right' : 'left';
+  },
+  get writingDirection() {
+    return isRTL ? 'rtl' : 'ltr';
+  },
 };
 
 export const getFlexDirection = (reverse: boolean = false) => {
-  return reverse ? 'row-reverse' : 'row';
+  if (reverse) {
+    return isRTL ? 'row' : 'row-reverse';
+  }
+  return isRTL ? 'row-reverse' : 'row';
 };
 
 export const getMarginStart = (value: number) => ({

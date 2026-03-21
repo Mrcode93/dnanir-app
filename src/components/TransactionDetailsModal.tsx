@@ -6,7 +6,6 @@ import {
     TouchableOpacity,
     ScrollView,
     Share,
-    Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,6 +18,7 @@ import { CustomCategory } from '../database/database';
 import { usePrivacy } from '../context/PrivacyContext';
 import { ConfirmAlert } from './ConfirmAlert';
 import { resolveIoniconName } from '../utils/icon-utils';
+import { alertService } from '../services/alertService';
 import { AppBottomSheet, AppButton } from '../design-system';
 
 interface TransactionDetailsModalProps {
@@ -45,7 +45,7 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
     const { formatCurrency, currencyCode } = useCurrency();
     const { isPrivacyEnabled } = usePrivacy();
     const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
-    const [showConfirmAlert, setShowConfirmAlert] = useState(false);
+    const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
     const isExpense = type === 'expense';
     const expense = isExpense ? (item as Expense) : null;
@@ -185,13 +185,17 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
     };
 
     const handleDelete = () => {
-        setShowConfirmAlert(true);
+        setIsConfirmingDelete(true);
     };
 
-    const handleConfirmDelete = () => {
-        setShowConfirmAlert(false);
+    const handleConfirmDeleteActual = () => {
+        setIsConfirmingDelete(false);
         onDelete?.();
         onClose();
+    };
+
+    const handleCancelDelete = () => {
+        setIsConfirmingDelete(false);
     };
 
     return (
@@ -201,170 +205,190 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
                 onClose={onClose}
                 maxHeight="90%"
             >
-                {/* Hero Header */}
-                <LinearGradient
-                    colors={categoryInfo.colors as any}
-                    style={styles.heroHeader}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                >
-                    <View style={styles.heroIconContainer}>
-                        <Ionicons name={categoryIcon} size={32} color="#FFFFFF" />
-                    </View>
-                    <View style={styles.heroInfo}>
-                        <Text style={styles.heroTypeLabel}>
-                            {isExpense ? 'مصروف' : 'دخل'}
+                {isConfirmingDelete ? (
+                    <View style={styles.confirmContainer}>
+                        <View style={[styles.confirmIconBg, { backgroundColor: theme.colors.error + '15' }]}>
+                            <Ionicons name="trash-outline" size={44} color={theme.colors.error} />
+                        </View>
+                        <Text style={styles.confirmTitle}>تأكيد الحذف</Text>
+                        <Text style={styles.confirmText}>
+                            هل أنت متأكد من حذف {isExpense ? 'هذا المصروف' : 'هذا الدخل'}؟ لا يمكن التراجع عن هذا الإجراء.
                         </Text>
-                        <Text style={styles.heroTitle} numberOfLines={2}>{title}</Text>
-                    </View>
-                    <TouchableOpacity onPress={onClose} style={styles.heroCloseBtn}>
-                        <Ionicons name="close" size={22} color="rgba(255,255,255,0.8)" />
-                    </TouchableOpacity>
-                </LinearGradient>
-
-                {/* Amount Section */}
-                <View style={styles.amountSection}>
-                    <View style={styles.amountRow}>
-                        <Text style={[
-                            styles.amountValue,
-                            { color: isExpense ? theme.colors.error : theme.colors.success }
-                        ]}>
-                            {isPrivacyEnabled
-                                ? '****'
-                                : `${isExpense ? '-' : '+'}${formatCurrencyAmount(item.amount, itemCurrency)}`}
-                        </Text>
-                        <View style={[styles.amountBadge, { backgroundColor: (isExpense ? theme.colors.error : theme.colors.success) + '15' }]}>
-                            <Text style={[styles.amountBadgeText, { color: isExpense ? theme.colors.error : theme.colors.success }]}>
-                                {currencyInfo?.symbol || itemCurrency}
-                            </Text>
+                        
+                        <View style={styles.confirmActionsRow}>
+                            <AppButton
+                                label="إلغاء"
+                                onPress={handleCancelDelete}
+                                variant="secondary"
+                                style={styles.actionBtnFlex}
+                            />
+                            <AppButton
+                                label="تأكيد الحذف"
+                                onPress={handleConfirmDeleteActual}
+                                variant="danger"
+                                style={styles.actionBtnFlex}
+                            />
                         </View>
                     </View>
-                    {convertedAmount !== null && itemCurrency !== currencyCode && (
-                        <Text style={styles.convertedAmount}>
-                            ≈ {isPrivacyEnabled ? '****' : formatCurrency(convertedAmount)}
-                        </Text>
-                    )}
-                </View>
-
-                <ScrollView
-                    style={styles.detailsScroll}
-                    showsVerticalScrollIndicator={false}
-                    contentContainerStyle={styles.detailsScrollContent}
-                >
-                    {/* Details Grid */}
-                    <View style={styles.detailsGrid}>
-                        {/* Category */}
-                        <View style={styles.detailCard}>
-                            <View style={[styles.detailIconBg, { backgroundColor: categoryInfo.colors[0] + '15' }]}>
-                                <Ionicons name={categoryIcon} size={20} color={categoryInfo.colors[0]} />
+                ) : (
+                    <>
+                        {/* Hero Header */}
+                        <LinearGradient
+                            colors={categoryInfo.colors as any}
+                            style={styles.heroHeader}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                        >
+                            <View style={styles.heroIconContainer}>
+                                <Ionicons name={categoryIcon} size={32} color="#FFFFFF" />
                             </View>
-                            <Text style={styles.detailLabel}>
-                                {isExpense ? 'الفئة' : 'المصدر'}
-                            </Text>
-                            <Text style={styles.detailValue} numberOfLines={1}>{categoryInfo.label}</Text>
-                        </View>
-
-                        {/* Date */}
-                        <View style={styles.detailCard}>
-                            <View style={[styles.detailIconBg, { backgroundColor: theme.colors.info + '15' }]}>
-                                <Ionicons name="calendar" size={20} color={theme.colors.info} />
+                            <View style={styles.heroInfo}>
+                                <Text style={styles.heroTypeLabel}>
+                                    {isExpense ? 'مصروف' : 'دخل'}
+                                </Text>
+                                <Text style={styles.heroTitle} numberOfLines={2}>{title}</Text>
                             </View>
-                            <Text style={styles.detailLabel}>التاريخ</Text>
-                            <Text style={styles.detailValue} numberOfLines={1}>
-                                {date.toLocaleDateString('ar-IQ-u-nu-latn', { month: 'short', day: 'numeric', year: 'numeric' })}
-                            </Text>
-                        </View>
+                            <TouchableOpacity onPress={onClose} style={styles.heroCloseBtn}>
+                                <Ionicons name="close" size={22} color="rgba(255,255,255,0.8)" />
+                            </TouchableOpacity>
+                        </LinearGradient>
 
-                        {/* Day of Week */}
-                        <View style={styles.detailCard}>
-                            <View style={[styles.detailIconBg, { backgroundColor: theme.colors.primary + '15' }]}>
-                                <Ionicons name="today" size={20} color={theme.colors.primary} />
-                            </View>
-                            <Text style={styles.detailLabel}>اليوم</Text>
-                            <Text style={styles.detailValue} numberOfLines={1}>
-                                {date.toLocaleDateString('ar-IQ-u-nu-latn', { weekday: 'long' })}
-                            </Text>
-                        </View>
-
-                        {/* Currency */}
-                        <View style={styles.detailCard}>
-                            <View style={[styles.detailIconBg, { backgroundColor: theme.colors.success + '15' }]}>
-                                <Ionicons name="cash" size={20} color={theme.colors.success} />
-                            </View>
-                            <Text style={styles.detailLabel}>العملة</Text>
-                            <Text style={styles.detailValue} numberOfLines={1}>
-                                {currencyInfo?.name || itemCurrency}
-                            </Text>
-                        </View>
-                    </View>
-
-                    {/* Description */}
-                    {description ? (
-                        <View style={styles.descriptionSection}>
-                            <View style={styles.descriptionHeader}>
-                                <Ionicons name="document-text-outline" size={18} color={theme.colors.textSecondary} />
-                                <Text style={styles.descriptionLabel}>ملاحظات</Text>
-                            </View>
-                            <Text style={styles.descriptionText}>{description}</Text>
-                        </View>
-                    ) : null}
-
-                    {/* Receipt Image Indicator - for expenses with receipt */}
-                    {receiptImage ? (
-                        <View style={styles.receiptSection}>
-                            <View style={styles.receiptIndicator}>
-                                <View style={[styles.detailIconBg, { backgroundColor: theme.colors.primary + '15' }]}>
-                                    <Ionicons name="camera" size={20} color={theme.colors.primary} />
+                        {/* Amount Section */}
+                        <View style={styles.amountSection}>
+                            <View style={styles.amountRow}>
+                                <Text style={[
+                                    styles.amountValue,
+                                    { color: isExpense ? theme.colors.error : theme.colors.success }
+                                ]}>
+                                    {isPrivacyEnabled
+                                        ? '****'
+                                        : `${isExpense ? '-' : '+'}${formatCurrencyAmount(item.amount, itemCurrency)}`}
+                                </Text>
+                                <View style={[styles.amountBadge, { backgroundColor: (isExpense ? theme.colors.error : theme.colors.success) + '15' }]}>
+                                    <Text style={[styles.amountBadgeText, { color: isExpense ? theme.colors.error : theme.colors.success }]}>
+                                        {currencyInfo?.symbol || itemCurrency}
+                                    </Text>
                                 </View>
-                                <Text style={styles.receiptText}>تم إرفاق صورة وصل</Text>
-                                <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
                             </View>
+                            {convertedAmount !== null && itemCurrency !== currencyCode && (
+                                <Text style={styles.convertedAmount}>
+                                    ≈ {isPrivacyEnabled ? '****' : formatCurrency(convertedAmount)}
+                                </Text>
+                            )}
                         </View>
-                    ) : null}
-                </ScrollView>
 
-                {/* Action Buttons */}
-                <View style={styles.actionsRow}>
-                    <AppButton
-                        label="مشاركة"
-                        onPress={handleShare}
-                        variant="ghost"
-                        leftIcon="share-outline"
-                        style={styles.actionBtnFlex}
-                    />
+                        <ScrollView
+                            style={styles.detailsScroll}
+                            showsVerticalScrollIndicator={false}
+                            contentContainerStyle={styles.detailsScrollContent}
+                        >
+                            {/* Details Grid */}
+                            <View style={styles.detailsGrid}>
+                                {/* Category */}
+                                <View style={styles.detailCard}>
+                                    <View style={[styles.detailIconBg, { backgroundColor: categoryInfo.colors[0] + '15' }]}>
+                                        <Ionicons name={categoryIcon} size={20} color={categoryInfo.colors[0]} />
+                                    </View>
+                                    <Text style={styles.detailLabel}>
+                                        {isExpense ? 'الفئة' : 'المصدر'}
+                                    </Text>
+                                    <Text style={styles.detailValue} numberOfLines={1}>{categoryInfo.label}</Text>
+                                </View>
 
-                    {onEdit && (
-                        <AppButton
-                            label="تعديل"
-                            onPress={() => { onClose(); setTimeout(() => onEdit(), 300); }}
-                            variant="secondary"
-                            leftIcon="create-outline"
-                            style={styles.actionBtnFlex}
-                        />
-                    )}
+                                {/* Date */}
+                                <View style={styles.detailCard}>
+                                    <View style={[styles.detailIconBg, { backgroundColor: theme.colors.info + '15' }]}>
+                                        <Ionicons name="calendar" size={20} color={theme.colors.info} />
+                                    </View>
+                                    <Text style={styles.detailLabel}>التاريخ</Text>
+                                    <Text style={styles.detailValue} numberOfLines={1}>
+                                        {date.toLocaleDateString('ar-IQ-u-nu-latn', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                    </Text>
+                                </View>
 
-                    {onDelete && (
-                        <AppButton
-                            label="حذف"
-                            onPress={handleDelete}
-                            variant="danger"
-                            leftIcon="trash-outline"
-                            style={styles.actionBtnFlex}
-                        />
-                    )}
-                </View>
+                                {/* Day of Week */}
+                                <View style={styles.detailCard}>
+                                    <View style={[styles.detailIconBg, { backgroundColor: theme.colors.primary + '15' }]}>
+                                        <Ionicons name="today" size={20} color={theme.colors.primary} />
+                                    </View>
+                                    <Text style={styles.detailLabel}>اليوم</Text>
+                                    <Text style={styles.detailValue} numberOfLines={1}>
+                                        {date.toLocaleDateString('ar-IQ-u-nu-latn', { weekday: 'long' })}
+                                    </Text>
+                                </View>
+
+                                {/* Currency */}
+                                <View style={styles.detailCard}>
+                                    <View style={[styles.detailIconBg, { backgroundColor: theme.colors.success + '15' }]}>
+                                        <Ionicons name="cash" size={20} color={theme.colors.success} />
+                                    </View>
+                                    <Text style={styles.detailLabel}>العملة</Text>
+                                    <Text style={styles.detailValue} numberOfLines={1}>
+                                        {currencyInfo?.name || itemCurrency}
+                                    </Text>
+                                </View>
+                            </View>
+
+                            {/* Description */}
+                            {description ? (
+                                <View style={styles.descriptionSection}>
+                                    <View style={styles.descriptionHeader}>
+                                        <Ionicons name="document-text-outline" size={18} color={theme.colors.textSecondary} />
+                                        <Text style={styles.descriptionLabel}>ملاحظات</Text>
+                                    </View>
+                                    <Text style={styles.descriptionText}>{description}</Text>
+                                </View>
+                            ) : null}
+
+                            {/* Receipt Image Indicator - for expenses with receipt */}
+                            {receiptImage ? (
+                                <View style={styles.receiptSection}>
+                                    <View style={styles.receiptIndicator}>
+                                        <View style={[styles.detailIconBg, { backgroundColor: theme.colors.primary + '15' }]}>
+                                            <Ionicons name="camera" size={20} color={theme.colors.primary} />
+                                        </View>
+                                        <Text style={styles.receiptText}>تم إرفاق صورة وصل</Text>
+                                        <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
+                                    </View>
+                                </View>
+                            ) : null}
+                            {/* Actions Grid */}
+                            <View style={[styles.actionsGrid, { borderTopWidth: 0, marginTop: 24 }]}>
+                                <View style={styles.actionRow}>
+                                    <AppButton
+                                        label="مشاركة"
+                                        onPress={handleShare}
+                                        variant="ghost"
+                                        leftIcon="share-outline"
+                                        style={styles.actionBtnFlex}
+                                    />
+                                    {onEdit && (
+                                        <AppButton
+                                            label="تعديل"
+                                            onPress={() => { onClose(); setTimeout(() => onEdit(), 300); }}
+                                            variant="secondary"
+                                            leftIcon="create-outline"
+                                            style={styles.actionBtnFlex}
+                                        />
+                                    )}
+                                </View>
+
+                                <View style={styles.actionRow}>
+                                    {onDelete && (
+                                        <AppButton
+                                            label="حذف"
+                                            onPress={handleDelete}
+                                            variant="danger"
+                                            leftIcon="trash-outline"
+                                            style={styles.actionBtnFlex}
+                                        />
+                                    )}
+                                </View>
+                            </View>
+                        </ScrollView>
+                    </>
+                )}
             </AppBottomSheet>
-
-            <ConfirmAlert
-                visible={showConfirmAlert}
-                title="تأكيد الحذف"
-                message={`هل أنت متأكد من حذف ${isExpense ? 'هذا المصروف' : 'هذا الدخل'}؟`}
-                confirmText="حذف"
-                cancelText="إلغاء"
-                onConfirm={handleConfirmDelete}
-                onCancel={() => setShowConfirmAlert(false)}
-                type="danger"
-            />
         </>
     );
 };
@@ -546,17 +570,52 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     },
 
     // Actions
-    actionsRow: {
-        flexDirection: isRTL ? 'row-reverse' : 'row',
-        justifyContent: 'center',
+    actionsGrid: {
+        marginTop: 12,
+        paddingHorizontal: 16,
+        paddingBottom: 20,
         gap: 12,
-        paddingHorizontal: 20,
-        paddingTop: 12,
-        paddingBottom: 8,
-        borderTopWidth: 1,
-        borderTopColor: theme.colors.border,
+    },
+    actionRow: {
+        flexDirection: isRTL ? 'row-reverse' : 'row',
+        gap: 12,
     },
     actionBtnFlex: {
         flex: 1,
+    },
+    // Confirmation UI
+    confirmContainer: {
+        alignItems: 'center',
+        paddingVertical: 32,
+        paddingHorizontal: 16,
+    },
+    confirmIconBg: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 20,
+    },
+    confirmTitle: {
+        fontSize: 22,
+        fontWeight: getPlatformFontWeight('800'),
+        color: theme.colors.textPrimary,
+        fontFamily: theme.typography.fontFamily,
+        marginBottom: 12,
+        textAlign: 'center',
+    },
+    confirmText: {
+        fontSize: 16,
+        color: theme.colors.textSecondary,
+        fontFamily: theme.typography.fontFamily,
+        textAlign: 'center',
+        lineHeight: 24,
+        marginBottom: 32,
+    },
+    confirmActionsRow: {
+        flexDirection: isRTL ? 'row-reverse' : 'row',
+        gap: 12,
+        width: '100%',
     },
 });

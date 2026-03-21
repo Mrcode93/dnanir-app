@@ -6,6 +6,7 @@ import {
     TextInput,
     Keyboard,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, useAppTheme, useThemedStyles } from '../utils/theme';
 import { FinancialGoal, CURRENCIES } from '../types';
@@ -104,22 +105,32 @@ export const AddGoalAmountModal: React.FC<AddGoalAmountModalProps> = ({
             title="إضافة للهدف"
             subtitle="سجل مبلغاً جديداً تم توفيره لهذا الهدف"
         >
-            <View style={styles.goalInfo}>
-                <View style={styles.goalRow}>
-                    <Text style={styles.goalLabel}>الهدف</Text>
-                    <Text style={styles.goalValue} numberOfLines={1}>{goal.title}</Text>
+            <View style={styles.headerIconWrapper}>
+                <LinearGradient
+                    colors={[theme.colors.success + '15', theme.colors.success + '30'] as any}
+                    style={styles.headerIconContainer}
+                >
+                    <Ionicons name="sparkles-outline" size={32} color={theme.colors.success} />
+                </LinearGradient>
+            </View>
+
+            <View style={styles.goalInfoCard}>
+                <View style={styles.goalInfoInner}>
+                    <Text style={styles.goalInfoLabel}>الهدف النشط</Text>
+                    <Text style={styles.goalInfoValue} numberOfLines={1}>{goal.title}</Text>
                 </View>
-                <View style={styles.goalRow}>
-                    <Text style={styles.goalLabel}>المتبقي</Text>
-                    <Text style={[styles.goalValue, styles.remainingAmount]}>
+                <View style={styles.divider} />
+                <View style={styles.goalInfoInner}>
+                    <Text style={styles.goalInfoLabel}>المبلغ المتبقي</Text>
+                    <Text style={styles.remainingValue}>
                         {formatCurrencyAmount(remaining, goalCurrency)}
                     </Text>
                 </View>
             </View>
 
-            <View style={styles.amountContainer}>
-                <Text style={styles.amountLabel}>المبلغ المراد إضافته</Text>
-                <View style={styles.amountInputWrapper}>
+            <View style={styles.inputSection}>
+                <Text style={styles.inputLabel}>المبلغ المراد إضافته</Text>
+                <View style={styles.inputWrapper}>
                     <TextInput
                         value={amount}
                         onChangeText={(val) => {
@@ -132,7 +143,7 @@ export const AddGoalAmountModal: React.FC<AddGoalAmountModalProps> = ({
                         placeholderTextColor={theme.colors.textMuted}
                         autoFocus
                     />
-                    <Text style={styles.currencyText}>
+                    <Text style={styles.currencySymbol}>
                         {currencyInfo?.symbol || goalCurrency}
                     </Text>
                 </View>
@@ -160,87 +171,103 @@ export const AddGoalAmountModal: React.FC<AddGoalAmountModalProps> = ({
 };
 
 const createStyles = (theme: AppTheme) => StyleSheet.create({
-    goalInfo: {
-        backgroundColor: theme.colors.surfaceLight,
-        borderRadius: theme.borderRadius.sm,
-        padding: theme.spacing.sm,
-        marginBottom: theme.spacing.sm,
-        gap: 6,
+    headerIconWrapper: {
+        marginBottom: theme.spacing.md,
+        alignItems: 'center',
     },
-    goalRow: {
+    headerIconContainer: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1.5,
+        borderColor: theme.colors.success + '40',
+    },
+    goalInfoCard: {
+        width: '100%',
+        backgroundColor: theme.colors.surfaceCard,
+        borderRadius: theme.borderRadius.xxl,
+        padding: theme.spacing.md,
+        marginBottom: theme.spacing.lg,
+        borderWidth: 1,
+        borderColor: theme.colors.border + '50',
+    },
+    goalInfoInner: {
         flexDirection: isRTL ? 'row-reverse' : 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        gap: theme.spacing.sm,
     },
-    goalLabel: {
-        fontSize: theme.typography.sizes.sm,
+    divider: {
+        height: 1,
+        backgroundColor: theme.colors.border + '30',
+        marginVertical: theme.spacing.sm,
+    },
+    goalInfoLabel: {
+        fontSize: theme.typography.sizes.xs,
         color: theme.colors.textSecondary,
         fontFamily: theme.typography.fontFamily,
-        minWidth: 70,
-        textAlign: 'right',
     },
-    goalValue: {
-        fontSize: theme.typography.sizes.md,
-        fontWeight: getPlatformFontWeight('600'),
-        color: theme.colors.textPrimary,
-        fontFamily: theme.typography.fontFamily,
-        flex: 1,
-        textAlign: 'left',
-    },
-    remainingAmount: {
-        fontSize: theme.typography.sizes.lg,
-        fontWeight: getPlatformFontWeight('700'),
-        color: theme.colors.error,
-    },
-    amountContainer: {
-        marginBottom: theme.spacing.md,
-    },
-    amountLabel: {
+    goalInfoValue: {
         fontSize: theme.typography.sizes.sm,
         fontWeight: getPlatformFontWeight('600'),
         color: theme.colors.textPrimary,
         fontFamily: theme.typography.fontFamily,
-        marginBottom: theme.spacing.xs,
-        textAlign: isRTL ? 'right' : 'left',
+        maxWidth: '60%',
     },
-    amountInputWrapper: {
+    remainingValue: {
+        fontSize: theme.typography.sizes.md,
+        fontWeight: getPlatformFontWeight('700'),
+        color: theme.colors.success,
+        fontFamily: theme.typography.fontFamily,
+    },
+    inputSection: {
+        width: '100%',
+        marginBottom: theme.spacing.xl,
+    },
+    inputLabel: {
+        fontSize: theme.typography.sizes.xs,
+        fontWeight: getPlatformFontWeight('600'),
+        color: theme.colors.textSecondary,
+        fontFamily: theme.typography.fontFamily,
+        marginBottom: theme.spacing.sm,
+        textAlign: 'center',
+    },
+    inputWrapper: {
         flexDirection: isRTL ? 'row-reverse' : 'row',
         alignItems: 'center',
+        justifyContent: 'center',
         backgroundColor: theme.colors.surfaceLight,
-        borderRadius: theme.borderRadius.sm,
-        paddingHorizontal: theme.spacing.sm,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
+        borderRadius: theme.borderRadius.xl,
+        paddingHorizontal: theme.spacing.md,
+        height: 64,
+        borderWidth: 2,
+        borderColor: theme.colors.success + '20',
     },
     amountInput: {
         flex: 1,
-        fontSize: theme.typography.sizes.xl,
-        fontWeight: getPlatformFontWeight('700'),
+        fontSize: theme.typography.sizes.xxl + 4,
+        fontWeight: getPlatformFontWeight('800'),
         color: theme.colors.textPrimary,
         fontFamily: theme.typography.fontFamily,
-        paddingVertical: theme.spacing.sm,
-        textAlign: 'right',
+        textAlign: 'center',
     },
-    currencyText: {
-        fontSize: theme.typography.sizes.sm,
-        color: theme.colors.textSecondary,
+    currencySymbol: {
+        fontSize: theme.typography.sizes.md,
+        fontWeight: getPlatformFontWeight('700'),
+        color: theme.colors.success,
         fontFamily: theme.typography.fontFamily,
-        marginLeft: isRTL ? 0 : theme.spacing.xs,
-        marginRight: isRTL ? theme.spacing.xs : 0,
+        opacity: 0.8,
     },
     actions: {
+        width: '100%',
         flexDirection: isRTL ? 'row-reverse' : 'row',
-        gap: theme.spacing.sm,
-        marginTop: theme.spacing.sm,
-        paddingTop: theme.spacing.sm,
-        borderTopWidth: 1,
-        borderTopColor: theme.colors.border,
+        gap: theme.spacing.md,
     },
     cancelButton: {
         flex: 1,
     },
     addButton: {
-        flex: 1.4,
+        flex: 2,
     },
 });

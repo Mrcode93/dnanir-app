@@ -1,4 +1,5 @@
 import * as SQLite from 'expo-sqlite';
+import { encryptField, decryptField } from '../utils/encryption';
 
 let db: SQLite.SQLiteDatabase | null = null;
 let hasBaseAmountColumnsCache: boolean | null = null;
@@ -39,6 +40,9 @@ export const initDatabase = async () => {
     } catch (e) {
       // Column already exists, ignore
     }
+    try {
+      await db.execAsync('ALTER TABLE expenses ADD COLUMN enc_blob TEXT;');
+    } catch (e) { /* column already exists */ }
 
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS income (
@@ -82,6 +86,9 @@ export const initDatabase = async () => {
     } catch (e) {
       // Column already exists, ignore
     }
+    try {
+      await db.execAsync('ALTER TABLE income ADD COLUMN enc_blob TEXT;');
+    } catch (e) { /* column already exists */ }
 
     hasBaseAmountColumnsCache = true;
 
@@ -308,6 +315,19 @@ export const initDatabase = async () => {
     `);
 
     await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS debtors (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        phone TEXT,
+        image_path TEXT,
+        createdAt TEXT NOT NULL,
+        synced_at INTEGER DEFAULT 0,
+        enc_blob TEXT,
+        UNIQUE(name)
+      );
+    `);
+
+    await db.execAsync(`
       CREATE TABLE IF NOT EXISTS debts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         debtorName TEXT NOT NULL,
@@ -319,9 +339,12 @@ export const initDatabase = async () => {
         type TEXT NOT NULL,
         currency TEXT DEFAULT 'IQD',
         isPaid INTEGER DEFAULT 0,
-        createdAt TEXT NOT NULL
+        createdAt TEXT NOT NULL,
+        debtorId INTEGER,
+        FOREIGN KEY (debtorId) REFERENCES debtors(id)
       );
     `);
+
     try {
       await db.execAsync('ALTER TABLE debts ADD COLUMN base_total_amount REAL;');
       await db.execAsync('ALTER TABLE debts ADD COLUMN base_remaining_amount REAL;');
@@ -332,8 +355,41 @@ export const initDatabase = async () => {
       await db.execAsync('ALTER TABLE debts ADD COLUMN synced_at INTEGER;');
     } catch (e) { }
     try {
+      await db.execAsync('ALTER TABLE debts ADD COLUMN enc_blob TEXT;');
+    } catch (e) { /* column already exists */ }
+    try {
       await db.execAsync("ALTER TABLE debts ADD COLUMN direction TEXT DEFAULT 'owed_by_me';");
     } catch (e) { }
+    try {
+      await db.execAsync('ALTER TABLE debts ADD COLUMN debtorId INTEGER;');
+    } catch (e) { }
+
+    // Migration: Populate debtors Table from existing debts
+    try {
+      const debtsToMigrate = await db.getAllAsync<{ id: number, debtorName: string, createdAt: string }>(
+        'SELECT id, debtorName, createdAt FROM debts WHERE debtorId IS NULL'
+      );
+      if (debtsToMigrate && debtsToMigrate.length > 0) {
+        for (const debt of debtsToMigrate) {
+          let debtorId: number;
+          const existingDebtor = await db.getFirstAsync<{ id: number }>('SELECT id FROM debtors WHERE name = ?', [debt.debtorName]);
+          
+          if (existingDebtor) {
+            debtorId = existingDebtor.id;
+          } else {
+            const result = await db.runAsync(
+              'INSERT INTO debtors (name, createdAt) VALUES (?, ?)',
+              [debt.debtorName, debt.createdAt || new Date().toISOString()]
+            );
+            debtorId = result.lastInsertRowId;
+          }
+          
+          await db.runAsync('UPDATE debts SET debtorId = ? WHERE id = ?', [debtorId, debt.id]);
+        }
+      }
+    } catch (migrationError) {
+      
+    }
 
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS debt_installments (
@@ -857,8 +913,10 @@ export const addExpense = async (expense: Omit<import('../types').Expense, 'id'>
   let baseAmount = expense.base_amount !== undefined ? expense.base_amount : expense.amount;
   if (isNaN(baseAmount)) baseAmount = expense.amount;
 
+  const encBlob = encryptField({ title: expense.title, description: expense.description ?? null });
+
   const result = await database.runAsync(
-    'INSERT INTO expenses (title, amount, base_amount, category, date, description, currency, receipt_image_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO expenses (title, amount, base_amount, category, date, description, currency, receipt_image_path, enc_blob) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     [
       expense.title ? String(expense.title) : 'مصروف',
       Number(expense.amount) || 0,
@@ -867,7 +925,8 @@ export const addExpense = async (expense: Omit<import('../types').Expense, 'id'>
       expense.date ? String(expense.date) : new Date().toISOString().split('T')[0],
       expense.description ? String(expense.description) : null,
       expense.currency ? String(expense.currency) : 'IQD',
-      expense.receipt_image_path ? String(expense.receipt_image_path) : null
+      expense.receipt_image_path ? String(expense.receipt_image_path) : null,
+      encBlob,
     ]
   );
 
@@ -890,12 +949,18 @@ export const addExpense = async (expense: Omit<import('../types').Expense, 'id'>
   return result.lastInsertRowId;
 };
 
+function decryptExpenseRow<T extends { enc_blob?: string | null; title?: string; description?: string | null }>(row: T): T {
+  const dec = decryptField<{ title?: string; description?: string | null }>(row.enc_blob);
+  if (!dec) return row;
+  return { ...row, ...(dec.title !== undefined ? { title: dec.title } : {}), ...(dec.description !== undefined ? { description: dec.description } : {}) };
+}
+
 export const getExpenses = async (): Promise<import('../types').Expense[]> => {
   const database = getDb();
   const result = await database.getAllAsync<import('../types').Expense>(
     'SELECT * FROM expenses ORDER BY date DESC, id DESC'
   );
-  return result;
+  return result.map(decryptExpenseRow);
 };
 
 export const getRecentExpensesForShortcutRanking = async (
@@ -946,7 +1011,7 @@ export const getExpensesByRange = async (startDate: string, endDate: string): Pr
     'SELECT * FROM expenses WHERE date >= ? AND date <= ? ORDER BY date DESC, id DESC',
     [startDate, endDate]
   );
-  return result;
+  return result.map(decryptExpenseRow);
 };
 
 export const getRecentTransactions = async (limit: number = 5): Promise<(import('../types').Expense | import('../types').Income | any)[]> => {
@@ -965,7 +1030,9 @@ export const getRecentTransactions = async (limit: number = 5): Promise<(import(
   `;
 
   const result = await database.getAllAsync<any>(query, [limit]);
-  return result;
+  return result.map((row: any) =>
+    row.type === 'expense' ? decryptExpenseRow(row) : decryptIncomeRow(row)
+  );
 };
 
 export const getTransactionsPaginated = async (options: {
@@ -1051,7 +1118,8 @@ export const getExpensesPaginated = async (options: {
   query += ' ORDER BY date DESC, id DESC LIMIT ? OFFSET ?';
   params.push(limit, offset);
 
-  return await database.getAllAsync<import('../types').Expense>(query, params);
+  const result = await database.getAllAsync<import('../types').Expense>(query, params);
+  return result.map(decryptExpenseRow);
 };
 
 export const getExpensesTotalAmount = async (options: {
@@ -1091,8 +1159,10 @@ export const updateExpense = async (id: number, expense: Omit<import('../types')
   let baseAmount = expense.base_amount !== undefined ? expense.base_amount : expense.amount;
   if (isNaN(baseAmount)) baseAmount = expense.amount;
 
+  const encBlob = encryptField({ title: expense.title, description: expense.description ?? null });
+
   await database.runAsync(
-    'UPDATE expenses SET title = ?, amount = ?, base_amount = ?, category = ?, date = ?, description = ?, currency = ?, receipt_image_path = ? WHERE id = ?',
+    'UPDATE expenses SET title = ?, amount = ?, base_amount = ?, category = ?, date = ?, description = ?, currency = ?, receipt_image_path = ?, enc_blob = ? WHERE id = ?',
     [
       expense.title ? String(expense.title) : 'مصروف',
       Number(expense.amount) || 0,
@@ -1102,6 +1172,7 @@ export const updateExpense = async (id: number, expense: Omit<import('../types')
       expense.description ? String(expense.description) : null,
       expense.currency ? String(expense.currency) : 'IQD',
       expense.receipt_image_path ? String(expense.receipt_image_path) : null,
+      encBlob,
       id
     ]
   );
@@ -1129,13 +1200,21 @@ export const deleteExpense = async (id: number): Promise<void> => {
 };
 
 // Income operations
+function decryptIncomeRow<T extends { enc_blob?: string | null; source?: string; description?: string | null }>(row: T): T {
+  const dec = decryptField<{ source?: string; description?: string | null }>(row.enc_blob);
+  if (!dec) return row;
+  return { ...row, ...(dec.source !== undefined ? { source: dec.source } : {}), ...(dec.description !== undefined ? { description: dec.description } : {}) };
+}
+
 export const addIncome = async (income: Omit<import('../types').Income, 'id'>): Promise<number> => {
   const database = getDb();
   let baseAmount = income.base_amount !== undefined ? income.base_amount : income.amount;
   if (isNaN(baseAmount)) baseAmount = income.amount;
 
+  const encBlob = encryptField({ source: income.source, description: income.description ?? null });
+
   const result = await database.runAsync(
-    'INSERT INTO income (source, amount, base_amount, date, description, currency, category) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO income (source, amount, base_amount, date, description, currency, category, enc_blob) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     [
       income.source ? String(income.source) : 'أخرى',
       Number(income.amount) || 0,
@@ -1143,7 +1222,8 @@ export const addIncome = async (income: Omit<import('../types').Income, 'id'>): 
       income.date ? String(income.date) : new Date().toISOString().split('T')[0],
       income.description ? String(income.description) : null,
       income.currency ? String(income.currency) : 'IQD',
-      income.category ? String(income.category) : 'other'
+      income.category ? String(income.category) : 'other',
+      encBlob,
     ]
   );
 
@@ -1171,7 +1251,7 @@ export const getIncome = async (): Promise<import('../types').Income[]> => {
   const result = await database.getAllAsync<import('../types').Income>(
     'SELECT * FROM income ORDER BY date DESC, id DESC'
   );
-  return result;
+  return result.map(decryptIncomeRow);
 };
 
 export const getRecentIncomeForShortcutRanking = async (
@@ -1222,7 +1302,7 @@ export const getIncomeByRange = async (startDate: string, endDate: string): Prom
     'SELECT * FROM income WHERE date >= ? AND date <= ? ORDER BY date DESC, id DESC',
     [startDate, endDate]
   );
-  return result;
+  return result.map(decryptIncomeRow);
 };
 
 export const getIncomePaginated = async (options: {
@@ -1258,7 +1338,8 @@ export const getIncomePaginated = async (options: {
   query += ' ORDER BY date DESC, id DESC LIMIT ? OFFSET ?';
   params.push(limit, offset);
 
-  return await database.getAllAsync<import('../types').Income>(query, params);
+  const result = await database.getAllAsync<import('../types').Income>(query, params);
+  return result.map(decryptIncomeRow);
 };
 
 export const getIncomeTotalAmount = async (options: {
@@ -1298,8 +1379,10 @@ export const updateIncome = async (id: number, income: Omit<import('../types').I
   let baseAmount = income.base_amount !== undefined ? income.base_amount : income.amount;
   if (isNaN(baseAmount)) baseAmount = income.amount;
 
+  const encBlob = encryptField({ source: income.source, description: income.description ?? null });
+
   await database.runAsync(
-    'UPDATE income SET source = ?, amount = ?, base_amount = ?, date = ?, description = ?, currency = ?, category = ? WHERE id = ?',
+    'UPDATE income SET source = ?, amount = ?, base_amount = ?, date = ?, description = ?, currency = ?, category = ?, enc_blob = ? WHERE id = ?',
     [
       income.source ? String(income.source) : 'أخرى',
       Number(income.amount) || 0,
@@ -1308,6 +1391,7 @@ export const updateIncome = async (id: number, income: Omit<import('../types').I
       income.description ? String(income.description) : null,
       income.currency ? String(income.currency) : 'IQD',
       income.category ? String(income.category) : 'other',
+      encBlob,
       id
     ]
   );
@@ -1344,7 +1428,7 @@ export const getUnsyncedExpenses = async (): Promise<import('../types').Expense[
   const result = await database.getAllAsync<import('../types').Expense>(
     'SELECT * FROM expenses WHERE synced_at IS NULL ORDER BY id ASC'
   );
-  return result;
+  return result.map(decryptExpenseRow);
 };
 
 export const getUnsyncedIncome = async (): Promise<import('../types').Income[]> => {
@@ -1356,7 +1440,7 @@ export const getUnsyncedIncome = async (): Promise<import('../types').Income[]> 
   const result = await database.getAllAsync<import('../types').Income>(
     'SELECT * FROM income WHERE synced_at IS NULL ORDER BY id ASC'
   );
-  return result;
+  return result.map(decryptIncomeRow);
 };
 
 export const markExpensesSynced = async (ids: number[]): Promise<void> => {
@@ -1449,6 +1533,8 @@ export const getUnsyncedAppSettings = () => getUnsyncedFromTable<import('../type
 export const getUnsyncedNotificationSettings = () => getUnsyncedFromTable<NotificationSettings>('notification_settings');
 export const getUnsyncedSavings = () => getUnsyncedFromTable<import('../types').Savings>('savings');
 export const getUnsyncedSavingsTransactions = () => getUnsyncedFromTable<import('../types').SavingsTransaction>('savings_transactions');
+export const getUnsyncedDebtors = () => getUnsyncedFromTable<any>('debtors');
+export const getUnsyncedDebtPayments = () => getUnsyncedFromTable<any>('debt_payments');
 
 export const markFinancialGoalsSynced = (ids: number[]) => markTableSynced('financial_goals', ids);
 export const markCustomCategoriesSynced = (ids: number[]) => markTableSynced('custom_categories', ids);
@@ -1466,6 +1552,8 @@ export const markAppSettingsSynced = (ids: number[]) => markTableSynced('app_set
 export const markNotificationSettingsSynced = (ids: number[]) => markTableSynced('notification_settings', ids);
 export const markSavingsSynced = (ids: number[]) => markTableSynced('savings', ids);
 export const markSavingsTransactionsSynced = (ids: number[]) => markTableSynced('savings_transactions', ids);
+export const markDebtorsSynced = (ids: number[]) => markTableSynced('debtors', ids);
+export const markDebtPaymentsSynced = (ids: number[]) => markTableSynced('debt_payments', ids);
 
 export const getAvailableMonths = async (): Promise<{ year: number; month: number }[]> => {
   const database = getDb();
@@ -2325,31 +2413,28 @@ export const getAllExchangeRates = async (): Promise<ExchangeRate[]> => {
 
 export const clearAllData = async (): Promise<void> => {
   const database = getDb();
-  await database.execAsync(`
-    DELETE FROM expenses;
-    DELETE FROM income;
-    DELETE FROM user_settings;
-    DELETE FROM app_settings;
-    DELETE FROM notification_settings;
-    DELETE FROM financial_goals;
-    DELETE FROM custom_categories;
-    DELETE FROM budgets;
-    DELETE FROM recurring_expenses;
-    DELETE FROM exchange_rates;
-    DELETE FROM debt_installments;
-    DELETE FROM debts;
-    DELETE FROM bill_payments;
-    DELETE FROM bills;
-    DELETE FROM challenges;
-    DELETE FROM achievements;
-    DELETE FROM expense_shortcuts;
-    DELETE FROM income_shortcuts;
-    DELETE FROM notifications;
-    DELETE FROM ai_insights_cache;
-    DELETE FROM goal_plan_cache;
-    DELETE FROM savings_transactions;
-    DELETE FROM savings;
-  `);
+  
+  // Tables in order of deletion to respect foreign keys if any
+  const tables = [
+    'debt_installments', 'debt_payments', 'debts', 'debtors', 
+    'bill_payments', 'bills', 
+    'savings_transactions', 'savings',
+    'expenses', 'income', 
+    'financial_goals', 'budgets', 'recurring_expenses',
+    'challenges', 'achievements', 'notifications',
+    'expense_shortcuts', 'income_shortcuts',
+    'user_settings', 'app_settings', 'notification_settings',
+    'custom_categories', 'exchange_rates', 
+    'ai_insights_cache', 'goal_plan_cache'
+  ];
+
+  for (const table of tables) {
+    try {
+      await database.runAsync(`DELETE FROM ${table}`);
+    } catch (err) {
+      // 
+    }
+  }
 };
 
 /**
@@ -2372,6 +2457,7 @@ export const cleanupOldAiCache = async (): Promise<void> => {
 // Debt operations
 export interface Debt {
   id: number;
+  debtorId?: number;
   debtorName: string;
   totalAmount: number;
   remainingAmount: number;
@@ -2398,19 +2484,27 @@ export interface DebtInstallment {
   createdAt: string;
 }
 
+function decryptDebtRow<T extends { enc_blob?: string | null; debtorName?: string; description?: string | null }>(row: T): T {
+  const dec = decryptField<{ debtorName?: string; description?: string | null }>(row.enc_blob);
+  if (!dec) return row;
+  return { ...row, ...(dec.debtorName !== undefined ? { debtorName: dec.debtorName } : {}), ...(dec.description !== undefined ? { description: dec.description } : {}) };
+}
+
 export const addDebt = async (debt: Omit<Debt, 'id' | 'createdAt'>): Promise<number> => {
   const database = getDb();
   const createdAt = new Date().toISOString();
   const direction = debt.direction || 'owed_by_me';
-  
+
   let baseTotal = debt.base_total_amount !== undefined ? debt.base_total_amount : debt.totalAmount;
   if (isNaN(baseTotal)) baseTotal = debt.totalAmount;
-  
+
   let baseRemaining = debt.base_remaining_amount !== undefined ? debt.base_remaining_amount : debt.remainingAmount;
   if (isNaN(baseRemaining)) baseRemaining = debt.remainingAmount;
 
+  const encBlob = encryptField({ debtorName: debt.debtorName, description: debt.description ?? null });
+
   const result = await database.runAsync(
-    'INSERT INTO debts (debtorName, totalAmount, base_total_amount, remainingAmount, base_remaining_amount, startDate, dueDate, description, type, direction, currency, isPaid, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO debts (debtorName, totalAmount, base_total_amount, remainingAmount, base_remaining_amount, startDate, dueDate, description, type, direction, currency, isPaid, createdAt, enc_blob, debtorId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     [
       debt.debtorName,
       debt.totalAmount,
@@ -2425,9 +2519,107 @@ export const addDebt = async (debt: Omit<Debt, 'id' | 'createdAt'>): Promise<num
       debt.currency || 'IQD',
       debt.isPaid ? 1 : 0,
       createdAt,
+      encBlob,
+      debt.debtorId || null,
     ]
   );
   return result.lastInsertRowId;
+};
+
+export interface Debtor {
+  id: number;
+  name: string;
+  phone?: string;
+  image_path?: string;
+  createdAt: string;
+  synced_at?: number;
+}
+
+export const addDebtor = async (debtor: Omit<Debtor, 'id' | 'createdAt'>): Promise<number> => {
+  const database = getDb();
+  const createdAt = new Date().toISOString();
+  
+  // Try to find by name first to avoid duplicates
+  const existing = await database.getFirstAsync<{ id: number }>('SELECT id FROM debtors WHERE name = ?', [debtor.name]);
+  if (existing) {
+    if (debtor.phone) {
+      await database.runAsync('UPDATE debtors SET phone = ? WHERE id = ?', [debtor.phone, existing.id]);
+    }
+    return existing.id;
+  }
+
+  const result = await database.runAsync(
+    'INSERT INTO debtors (name, phone, image_path, createdAt) VALUES (?, ?, ?, ?)',
+    [debtor.name, debtor.phone || null, debtor.image_path || null, createdAt]
+  );
+  return result.lastInsertRowId;
+};
+
+export const updateDebtor = async (id: number, debtor: Partial<Debtor>): Promise<void> => {
+  const database = getDb();
+  const fields: string[] = [];
+  const values: any[] = [];
+
+  if (debtor.name !== undefined) { fields.push('name = ?'); values.push(debtor.name); }
+  if (debtor.phone !== undefined) { fields.push('phone = ?'); values.push(debtor.phone); }
+  if (debtor.image_path !== undefined) { fields.push('image_path = ?'); values.push(debtor.image_path); }
+  
+  if (fields.length === 0) return;
+
+  values.push(id);
+  await database.runAsync(
+    `UPDATE debtors SET ${fields.join(', ')} WHERE id = ?`,
+    values
+  );
+};
+
+export const getDebtor = async (id: number): Promise<Debtor | null> => {
+  const database = getDb();
+  return await database.getFirstAsync<Debtor>('SELECT * FROM debtors WHERE id = ?', [id]);
+};
+
+export const deleteDebtor = async (id: number): Promise<void> => {
+  const database = getDb();
+  // This will NOT delete debts associated with the debtor, but will set their debtorId to null if FK is configured Correctly
+  // Or we just delete the debtor and leave the debts (orphan state but still have debtorName)
+  await database.runAsync('DELETE FROM debtors WHERE id = ?', [id]);
+  await database.runAsync('UPDATE debts SET debtorId = NULL WHERE debtorId = ?', [id]);
+};
+
+export const getDebtors = async (): Promise<Debtor[]> => {
+  const database = getDb();
+  return await database.getAllAsync<Debtor>('SELECT * FROM debtors ORDER BY name ASC');
+};
+
+export interface DebtorSummary extends Debtor {
+  totalOwedToMe: number;
+  totalOwedByMe: number;
+  netBalance: number;
+  totalDebts: number;
+}
+
+export const getDebtorSummaries = async (): Promise<DebtorSummary[]> => {
+  const debtors = await getDebtors();
+  const allDebts = await getDebts();
+  
+  return debtors.map(debtor => {
+    const personDebts = allDebts.filter(d => d.debtorId === debtor.id || (!d.debtorId && d.debtorName === debtor.name));
+    let toMe = 0;
+    let byMe = 0;
+    personDebts.forEach(d => {
+      if (d.isPaid) return;
+      if (d.direction === 'owed_to_me') toMe += d.remainingAmount;
+      else byMe += d.remainingAmount;
+    });
+    
+    return {
+      ...debtor,
+      totalOwedToMe: toMe,
+      totalOwedByMe: byMe,
+      netBalance: toMe - byMe,
+      totalDebts: personDebts.length
+    };
+  }).sort((a, b) => Math.abs(b.netBalance) - Math.abs(a.netBalance));
 };
 
 export const getDebts = async (): Promise<Debt[]> => {
@@ -2435,11 +2627,14 @@ export const getDebts = async (): Promise<Debt[]> => {
   const result = await database.getAllAsync<any>(
     'SELECT * FROM debts ORDER BY dueDate ASC'
   );
-  return result.map((item: any) => ({
-    ...item,
-    isPaid: item.isPaid === 1,
-    direction: item.direction === 'owed_to_me' ? 'owed_to_me' : 'owed_by_me',
-  }));
+  return result.map((item: any) => {
+    const decrypted = decryptDebtRow(item);
+    return {
+      ...decrypted,
+      isPaid: item.isPaid === 1,
+      direction: item.direction === 'owed_to_me' ? 'owed_to_me' : 'owed_by_me',
+    };
+  });
 };
 
 export const getDebt = async (id: number): Promise<import('../types').Debt | null> => {
@@ -2449,8 +2644,9 @@ export const getDebt = async (id: number): Promise<import('../types').Debt | nul
     [id]
   );
   if (result) {
+    const decrypted = decryptDebtRow(result);
     return {
-      ...result,
+      ...decrypted,
       isPaid: result.isPaid === 1,
       direction: result.direction === 'owed_to_me' ? 'owed_to_me' : 'owed_by_me',
     };
@@ -2466,6 +2662,10 @@ export const updateDebt = async (id: number, debt: Partial<Debt>): Promise<void>
   if (debt.debtorName !== undefined) {
     updates.push('debtorName = ?');
     values.push(debt.debtorName);
+  }
+  if (debt.debtorId !== undefined) {
+    updates.push('debtorId = ?');
+    values.push(debt.debtorId);
   }
   if (debt.totalAmount !== undefined) {
     updates.push('totalAmount = ?');
@@ -2510,6 +2710,19 @@ export const updateDebt = async (id: number, debt: Partial<Debt>): Promise<void>
   if (debt.isPaid !== undefined) {
     updates.push('isPaid = ?');
     values.push(debt.isPaid ? 1 : 0);
+  }
+
+  // Re-encrypt enc_blob if any sensitive field changed
+  if (debt.debtorName !== undefined || debt.description !== undefined) {
+    // Fetch current values to merge with partial update
+    const current = await database.getFirstAsync<any>('SELECT debtorName, description FROM debts WHERE id = ?', [id]);
+    const newName = debt.debtorName !== undefined ? debt.debtorName : current?.debtorName;
+    const newDesc = debt.description !== undefined ? debt.description : current?.description;
+    const encBlob = encryptField({ debtorName: newName, description: newDesc ?? null });
+    if (encBlob !== null) {
+      updates.push('enc_blob = ?');
+      values.push(encBlob);
+    }
   }
 
   if (updates.length > 0) {
@@ -2632,6 +2845,11 @@ export const getDebtPayments = async (debtId: number): Promise<DebtPayment[]> =>
     installmentId: payment.installmentId || undefined,
     description: payment.description || undefined,
   }));
+};
+
+export const getDebtPaymentsForAll = async (): Promise<DebtPayment[]> => {
+  const database = getDb();
+  return await database.getAllAsync<DebtPayment>('SELECT * FROM debt_payments ORDER BY paymentDate DESC');
 };
 
 export const getUpcomingDebtPayments = async (days: number = 7): Promise<{ debt: Debt; installment?: DebtInstallment }[]> => {
@@ -3409,6 +3627,8 @@ export const exportNewDataOnly = async (): Promise<{ items: { type: string; loca
     notificationSettings,
     savings,
     savingsTransactions,
+    debtorsRaw,
+    debtPayments,
   ] = await Promise.all([
     getUnsyncedExpenses(),
     getUnsyncedIncome(),
@@ -3428,6 +3648,8 @@ export const exportNewDataOnly = async (): Promise<{ items: { type: string; loca
     getUnsyncedNotificationSettings(),
     getUnsyncedSavings(),
     getUnsyncedSavingsTransactions(),
+    getUnsyncedDebtors(),
+    getUnsyncedDebtPayments(),
   ]);
 
   const items: { type: string; localId: number; data: Record<string, unknown> }[] = [];
@@ -3502,6 +3724,12 @@ export const exportNewDataOnly = async (): Promise<{ items: { type: string; loca
   for (const st of savingsTransactions) {
     items.push({ type: 'savings_transaction', localId: (st as any).id, data: st as unknown as Record<string, unknown> });
   }
+  for (const d of debtorsRaw) {
+    items.push({ type: 'debtor', localId: d.id, data: d as unknown as Record<string, unknown> });
+  }
+  for (const dp of debtPayments) {
+    items.push({ type: 'debt_payment', localId: dp.id, data: dp as unknown as Record<string, unknown> });
+  }
 
   return { items };
 };
@@ -3527,6 +3755,8 @@ export const exportFullData = async (): Promise<Record<string, unknown>> => {
     notifications,
     savings,
     savings_transactions,
+    debt_payments,
+    debtors,
   ] = await Promise.all([
     getExpenses(),
     getIncome(),
@@ -3547,6 +3777,8 @@ export const exportFullData = async (): Promise<Record<string, unknown>> => {
     getNotifications(),
     getSavings(),
     getSavingsTransactionsForAll(),
+    getDebtPaymentsForAll(),
+    getDebtors(),
   ]);
 
   const debt_installments: any[] = [];
@@ -3585,6 +3817,8 @@ export const exportFullData = async (): Promise<Record<string, unknown>> => {
     notifications,
     savings,
     savings_transactions,
+    debt_payments,
+    debtors,
   };
 };
 
@@ -3593,29 +3827,59 @@ export const importFullData = async (data: Record<string, unknown>): Promise<voi
   const database = getDb();
   await clearAllData();
 
-  const safe = (v: any) => (v === undefined || v === null ? null : v);
-  const num = (v: any) => (typeof v === 'number' ? v : 0);
-  const str = (v: any, def: string) => (v != null && String(v).trim() !== '' ? String(v) : def);
-  const def = (v: any, d: any) => (v !== undefined && v !== null ? v : d);
-
   const runSection = async (name: string, fn: () => Promise<void>) => {
     try {
       await fn();
     } catch (err: any) {
+      
       throw new Error(`${name}: ${err?.message ?? err}`);
     }
   };
 
+  const toSql = (v: any) => {
+    if (v === undefined || v === null) return null;
+    if (typeof v === 'boolean') return v ? 1 : 0;
+    if (typeof v === 'number' || typeof v === 'string') return v;
+    return String(v);
+  };
+
   const expenses = (data.expenses as any[]) || [];
+  await runSection('debtors', async () => {
+    const debtors = (data.debtors as any[]) || [];
+    for (const de of debtors) {
+      await database.runAsync(
+        'INSERT OR REPLACE INTO debtors (id, name, phone, image_path, createdAt, synced_at, enc_blob) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [
+          toSql(de.id), 
+          toSql(de.name) ?? 'غير معروف', 
+          toSql(de.phone), 
+          toSql(de.image_path), 
+          toSql(de.createdAt) ?? new Date().toISOString(), 
+          toSql(de.synced_at),
+          toSql(de.enc_blob)
+        ]
+      );
+    }
+  });
+
   await runSection('expenses', async () => {
     for (const e of expenses) {
-      const title = str(e.title, 'بدون عنوان');
-      const amount = num(e.amount);
-      const category = str(e.category, 'أخرى');
-      const date = str(e.date, new Date().toISOString().slice(0, 10));
+      const amount = typeof e.amount === 'number' ? e.amount : 0;
       await database.runAsync(
-        'INSERT INTO expenses (id, title, amount, base_amount, category, date, description, currency, receipt_image_path, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [def(e.id, null), title, amount, safe(e.base_amount) ?? amount, category, date, safe(e.description), safe(e.currency) ?? 'IQD', safe(e.receipt_image_path), safe(e.synced_at)]
+        'INSERT OR REPLACE INTO expenses (id, title, amount, base_amount, category, date, description, currency, receipt_image_path, synced_at, enc_blob) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          toSql(e.id), 
+          toSql(e.title) ?? 'بدون عنوان', 
+          amount, 
+          toSql(e.base_amount) ?? amount, 
+          toSql(e.category) ?? 'other', 
+          toSql(e.date) ?? new Date().toISOString().slice(0, 10), 
+          toSql(e.description), 
+          toSql(e.currency) ?? 'IQD', 
+          toSql(e.receipt_image_path), 
+          toSql(e.synced_at),
+          toSql(e.enc_blob)
+        ]
       );
     }
   });
@@ -3623,12 +3887,21 @@ export const importFullData = async (data: Record<string, unknown>): Promise<voi
   const income = (data.income as any[]) || [];
   await runSection('income', async () => {
     for (const i of income) {
-      const source = str(i.source, 'دخل');
-      const amount = num(i.amount);
-      const date = str(i.date, new Date().toISOString().slice(0, 10));
+      const amount = typeof i.amount === 'number' ? i.amount : 0;
       await database.runAsync(
-        'INSERT INTO income (id, source, amount, base_amount, date, description, currency, category, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [def(i.id, null), source, amount, safe(i.base_amount) ?? amount, date, safe(i.description), safe(i.currency) ?? 'IQD', safe(i.category) ?? 'other', safe(i.synced_at)]
+        'INSERT OR REPLACE INTO income (id, source, amount, base_amount, date, description, currency, category, synced_at, enc_blob) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          toSql(i.id), 
+          toSql(i.source) ?? 'دخل', 
+          amount, 
+          toSql(i.base_amount) ?? amount, 
+          toSql(i.date) ?? new Date().toISOString().slice(0, 10), 
+          toSql(i.description), 
+          toSql(i.currency) ?? 'IQD', 
+          toSql(i.category) ?? 'other', 
+          toSql(i.synced_at),
+          toSql(i.enc_blob)
+        ]
       );
     }
   });
@@ -3639,8 +3912,19 @@ export const importFullData = async (data: Record<string, unknown>): Promise<voi
     if (user_settings.length > 0) {
       const u = user_settings[0];
       await database.runAsync(
-        'INSERT INTO user_settings (id, name, authMethod, passwordHash, biometricsEnabled, synced_at) VALUES (?, ?, ?, ?, ?, ?)',
-        [u.id, safe(u.name), safe(u.authMethod), safe(u.passwordHash), u.biometricsEnabled ? 1 : 0, safe(u.synced_at)]
+        'INSERT INTO user_settings (id, name, authMethod, passwordHash, biometricsEnabled, synced_at, userId, phone, email, isPro) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          toSql(u.id), 
+          toSql(u.name), 
+          toSql(u.authMethod), 
+          toSql(u.passwordHash), 
+          toSql(u.biometricsEnabled), 
+          toSql(u.synced_at),
+          toSql(u.userId),
+          toSql(u.phone),
+          toSql(u.email),
+          toSql(u.isPro)
+        ]
       );
     }
   });
@@ -3652,7 +3936,16 @@ export const importFullData = async (data: Record<string, unknown>): Promise<voi
       const a = app_settings[0];
       await database.runAsync(
         'INSERT INTO app_settings (id, notificationsEnabled, darkModeEnabled, autoBackupEnabled, autoSyncEnabled, currency, language, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [a.id, a.notificationsEnabled ? 1 : 0, a.darkModeEnabled ? 1 : 0, a.autoBackupEnabled ? 1 : 0, a.autoSyncEnabled ? 1 : 0, safe(a.currency), safe(a.language), safe(a.synced_at)]
+        [
+          toSql(a.id), 
+          toSql(a.notificationsEnabled), 
+          toSql(a.darkModeEnabled), 
+          toSql(a.autoBackupEnabled), 
+          toSql(a.autoSyncEnabled), 
+          toSql(a.currency), 
+          toSql(a.language), 
+          toSql(a.synced_at)
+        ]
       );
     }
   });
@@ -3664,7 +3957,17 @@ export const importFullData = async (data: Record<string, unknown>): Promise<voi
       const n = notification_settings[0];
       await database.runAsync(
         'INSERT INTO notification_settings (id, dailyReminder, dailyReminderTime, expenseReminder, expenseReminderTime, incomeReminder, weeklySummary, monthlySummary, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [n.id, num(n.dailyReminder), safe(n.dailyReminderTime), num(n.expenseReminder), safe(n.expenseReminderTime), num(n.incomeReminder), num(n.weeklySummary), num(n.monthlySummary), safe(n.synced_at)]
+        [
+          toSql(n.id), 
+          toSql(n.dailyReminder) || 0, 
+          toSql(n.dailyReminderTime), 
+          toSql(n.expenseReminder) || 0, 
+          toSql(n.expenseReminderTime), 
+          toSql(n.incomeReminder) || 0, 
+          toSql(n.weeklySummary) || 0, 
+          toSql(n.monthlySummary) || 0, 
+          toSql(n.synced_at)
+        ]
       );
     }
   });
@@ -3672,11 +3975,17 @@ export const importFullData = async (data: Record<string, unknown>): Promise<voi
   await runSection('custom_categories', async () => {
     const custom_categories = (data.custom_categories as any[]) || [];
     for (const c of custom_categories) {
-      const type = str(c.type, 'expense');
-      const createdAt = str(c.createdAt, new Date().toISOString());
       await database.runAsync(
-        'INSERT INTO custom_categories (id, name, type, icon, color, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [c.id, str(c.name, 'فئة'), type, safe(c.icon) ?? 'ellipse', safe(c.color) ?? '#6B7280', createdAt, safe(c.synced_at)]
+        'INSERT OR REPLACE INTO custom_categories (id, name, type, icon, color, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [
+          toSql(c.id), 
+          toSql(c.name) ?? 'فئة', 
+          toSql(c.type) ?? 'expense', 
+          toSql(c.icon) ?? 'ellipse', 
+          toSql(c.color) ?? '#6B7280', 
+          toSql(c.createdAt) ?? new Date().toISOString(), 
+          toSql(c.synced_at)
+        ]
       );
     }
   });
@@ -3685,11 +3994,16 @@ export const importFullData = async (data: Record<string, unknown>): Promise<voi
     const budgets = (data.budgets as any[]) || [];
     for (const b of budgets) {
       const now = new Date();
-      const month = str(b.month, String(now.getMonth() + 1));
-      const year = num(b.year) || now.getFullYear();
       await database.runAsync(
-        'INSERT INTO budgets (id, category, amount, month, year, synced_at) VALUES (?, ?, ?, ?, ?, ?)',
-        [b.id, str(b.category, 'أخرى'), num(b.amount), month, year, safe(b.synced_at)]
+        'INSERT OR REPLACE INTO budgets (id, category, amount, month, year, synced_at) VALUES (?, ?, ?, ?, ?, ?)',
+        [
+          toSql(b.id), 
+          toSql(b.category) ?? 'أخرى', 
+          toSql(b.amount) || 0, 
+          toSql(b.month) ?? String(now.getMonth() + 1), 
+          toSql(b.year) || now.getFullYear(), 
+          toSql(b.synced_at)
+        ]
       );
     }
   });
@@ -3698,8 +4012,19 @@ export const importFullData = async (data: Record<string, unknown>): Promise<voi
     const financial_goals = (data.financial_goals as any[]) || [];
     for (const g of financial_goals) {
       await database.runAsync(
-        'INSERT INTO financial_goals (id, title, targetAmount, currentAmount, targetDate, category, description, createdAt, completed, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [g.id, str(g.title, 'هدف'), num(g.targetAmount), num(g.currentAmount), str(g.targetDate, new Date().toISOString().slice(0, 10)), str(g.category, 'أخرى'), safe(g.description), str(g.createdAt, new Date().toISOString()), g.completed ? 1 : 0, safe(g.synced_at)]
+        'INSERT OR REPLACE INTO financial_goals (id, title, targetAmount, currentAmount, targetDate, category, description, createdAt, completed, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          toSql(g.id), 
+          toSql(g.title) ?? 'هدف', 
+          toSql(g.targetAmount) || 0, 
+          toSql(g.currentAmount) || 0, 
+          toSql(g.targetDate) ?? new Date().toISOString().slice(0, 10), 
+          toSql(g.category) ?? 'أخرى', 
+          toSql(g.description), 
+          toSql(g.createdAt) ?? new Date().toISOString(), 
+          toSql(g.completed), 
+          toSql(g.synced_at)
+        ]
       );
     }
   });
@@ -3707,27 +4032,51 @@ export const importFullData = async (data: Record<string, unknown>): Promise<voi
   await runSection('recurring_expenses', async () => {
     const recurring_expenses = (data.recurring_expenses as any[]) || [];
     for (const r of recurring_expenses) {
-      const recurrenceType = str(r.recurrenceType ?? r.frequency, 'monthly');
-      const recurrenceValue = num(r.recurrenceValue) || 1;
-      const startDate = str(r.startDate, new Date().toISOString().slice(0, 10));
-      const createdAt = str(r.createdAt, new Date().toISOString());
       await database.runAsync(
-        'INSERT INTO recurring_expenses (id, title, amount, category, recurrenceType, recurrenceValue, startDate, endDate, description, isActive, lastProcessedDate, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [r.id, str(r.title, 'بدون عنوان'), num(r.amount), str(r.category, 'أخرى'), recurrenceType, recurrenceValue, startDate, safe(r.endDate), safe(r.description), r.isActive !== false ? 1 : 0, safe(r.lastProcessedDate), createdAt, safe(r.synced_at)]
+        'INSERT OR REPLACE INTO recurring_expenses (id, title, amount, category, recurrenceType, recurrenceValue, startDate, endDate, description, isActive, lastProcessedDate, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          toSql(r.id), 
+          toSql(r.title) ?? 'بدون عنوان', 
+          toSql(r.amount) || 0, 
+          toSql(r.category) ?? 'أخرى', 
+          toSql(r.recurrenceType ?? r.frequency) ?? 'monthly', 
+          toSql(r.recurrenceValue) || 1, 
+          toSql(r.startDate) ?? new Date().toISOString().slice(0, 10), 
+          toSql(r.endDate), 
+          toSql(r.description), 
+          toSql(r.isActive !== false), 
+          toSql(r.lastProcessedDate), 
+          toSql(r.createdAt) ?? new Date().toISOString(), 
+          toSql(r.synced_at)
+        ]
       );
     }
   });
 
   await runSection('debts', async () => {
     const debts = (data.debts as any[]) || [];
-    const dirCol = 'direction';
     for (const d of debts) {
-      const startDate = str(d.startDate, new Date().toISOString().slice(0, 10));
-      const createdAt = str(d.createdAt, new Date().toISOString());
-      const direction = d[dirCol] === 'owed_to_me' ? 'owed_to_me' : 'owed_by_me';
+      const direction = d.direction === 'owed_to_me' ? 'owed_to_me' : 'owed_by_me';
       await database.runAsync(
-        'INSERT INTO debts (id, debtorName, totalAmount, remainingAmount, startDate, dueDate, description, type, direction, currency, isPaid, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [d.id, str(d.debtorName, 'دين'), num(d.totalAmount), num(d.remainingAmount), startDate, safe(d.dueDate), safe(d.description), str(d.type, 'debt'), direction, safe(d.currency) ?? 'IQD', d.isPaid ? 1 : 0, createdAt, safe(d.synced_at)]
+        'INSERT OR REPLACE INTO debts (id, debtorName, totalAmount, base_total_amount, remainingAmount, base_remaining_amount, startDate, dueDate, description, type, direction, currency, isPaid, createdAt, synced_at, enc_blob) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          toSql(d.id), 
+          toSql(d.debtorName) ?? 'دين', 
+          toSql(d.totalAmount) || 0, 
+          (toSql(d.base_total_amount) ?? toSql(d.totalAmount)) || 0,
+          toSql(d.remainingAmount) || 0, 
+          (toSql(d.base_remaining_amount) ?? toSql(d.remainingAmount)) || 0,
+          toSql(d.startDate) ?? new Date().toISOString().slice(0, 10), 
+          toSql(d.dueDate), 
+          toSql(d.description), 
+          toSql(d.type) ?? 'debt', 
+          direction, 
+          toSql(d.currency) ?? 'IQD', 
+          toSql(d.isPaid), 
+          toSql(d.createdAt) ?? new Date().toISOString(), 
+          toSql(d.synced_at),
+          toSql(d.enc_blob)
+        ]
       );
     }
   });
@@ -3735,11 +4084,19 @@ export const importFullData = async (data: Record<string, unknown>): Promise<voi
   await runSection('debt_installments', async () => {
     const debt_installments = (data.debt_installments as any[]) || [];
     for (const di of debt_installments) {
-      const dueDate = str(di.dueDate, new Date().toISOString().slice(0, 10));
-      const createdAt = str(di.createdAt, new Date().toISOString());
       await database.runAsync(
-        'INSERT INTO debt_installments (id, debtId, amount, dueDate, isPaid, paidDate, installmentNumber, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [di.id, di.debtId, num(di.amount), dueDate, di.isPaid ? 1 : 0, safe(di.paidDate), num(di.installmentNumber), createdAt]
+        'INSERT OR REPLACE INTO debt_installments (id, debtId, amount, dueDate, isPaid, paidDate, installmentNumber, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          toSql(di.id), 
+          toSql(di.debtId), 
+          toSql(di.amount) || 0, 
+          toSql(di.dueDate) ?? new Date().toISOString().slice(0, 10), 
+          toSql(di.isPaid), 
+          toSql(di.paidDate), 
+          toSql(di.installmentNumber) || 1, 
+          toSql(di.createdAt) ?? new Date().toISOString(), 
+          toSql(di.synced_at)
+        ]
       );
     }
   });
@@ -3747,12 +4104,27 @@ export const importFullData = async (data: Record<string, unknown>): Promise<voi
   await runSection('bills', async () => {
     const bills = (data.bills as any[]) || [];
     for (const b of bills) {
-      const title = str(b.title ?? b.name, 'فاتورة');
-      const dueDate = str(b.dueDate ?? b.dueDay, new Date().toISOString().slice(0, 10));
-      const createdAt = str(b.createdAt, new Date().toISOString());
       await database.runAsync(
-        'INSERT INTO bills (id, title, amount, category, dueDate, recurrenceType, recurrenceValue, description, currency, isPaid, paidDate, reminderDaysBefore, image_path, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [b.id, title, num(b.amount), str(b.category, 'أخرى'), dueDate, safe(b.recurrenceType), safe(b.recurrenceValue), safe(b.description), safe(b.currency) ?? 'IQD', b.isPaid ? 1 : 0, safe(b.paidDate), num(b.reminderDaysBefore) || 3, safe(b.image_path), createdAt, safe(b.synced_at)]
+        'INSERT OR REPLACE INTO bills (id, title, amount, base_amount, category, dueDate, recurrenceType, recurrenceValue, description, currency, isPaid, paidDate, reminderDaysBefore, image_path, createdAt, synced_at, enc_blob) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          toSql(b.id), 
+          toSql(b.title ?? b.name) ?? 'فاتورة', 
+          toSql(b.amount) || 0, 
+          (toSql(b.base_amount) ?? toSql(b.amount)) || 0,
+          toSql(b.category) ?? 'أخرى', 
+          toSql(b.dueDate ?? b.dueDay) ?? new Date().toISOString().slice(0, 10), 
+          toSql(b.recurrenceType), 
+          toSql(b.recurrenceValue), 
+          toSql(b.description), 
+          toSql(b.currency) ?? 'IQD', 
+          toSql(b.isPaid), 
+          toSql(b.paidDate), 
+          toSql(b.reminderDaysBefore) || 3, 
+          toSql(b.image_path), 
+          toSql(b.createdAt) ?? new Date().toISOString(), 
+          toSql(b.synced_at),
+          toSql(b.enc_blob)
+        ]
       );
     }
   });
@@ -3760,11 +4132,34 @@ export const importFullData = async (data: Record<string, unknown>): Promise<voi
   await runSection('bill_payments', async () => {
     const bill_payments = (data.bill_payments as any[]) || [];
     for (const bp of bill_payments) {
-      const paymentDate = str(bp.paymentDate ?? bp.paidDate, new Date().toISOString().slice(0, 10));
-      const createdAt = str(bp.createdAt, new Date().toISOString());
       await database.runAsync(
-        'INSERT INTO bill_payments (id, billId, amount, paymentDate, description, createdAt) VALUES (?, ?, ?, ?, ?, ?)',
-        [bp.id, bp.billId, num(bp.amount), paymentDate, safe(bp.description), createdAt]
+        'INSERT OR REPLACE INTO bill_payments (id, billId, amount, paymentDate, description, createdAt) VALUES (?, ?, ?, ?, ?, ?)',
+        [
+          toSql(bp.id), 
+          toSql(bp.billId), 
+          toSql(bp.amount) || 0, 
+          toSql(bp.paymentDate ?? bp.paidDate) ?? new Date().toISOString().slice(0, 10), 
+          toSql(bp.description), 
+          toSql(bp.createdAt) ?? new Date().toISOString()
+        ]
+      );
+    }
+  });
+
+  await runSection('debt_payments', async () => {
+    const debt_payments = (data.debt_payments as any[]) || [];
+    for (const dp of debt_payments) {
+      await database.runAsync(
+        'INSERT OR REPLACE INTO debt_payments (id, debtId, amount, paymentDate, installmentId, description, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [
+          toSql(dp.id), 
+          toSql(dp.debtId), 
+          toSql(dp.amount) || 0, 
+          toSql(dp.paymentDate ?? dp.date) ?? new Date().toISOString().slice(0, 10), 
+          toSql(dp.installmentId), 
+          toSql(dp.description), 
+          toSql(dp.createdAt) ?? new Date().toISOString()
+        ]
       );
     }
   });
@@ -3772,10 +4167,28 @@ export const importFullData = async (data: Record<string, unknown>): Promise<voi
   await runSection('challenges', async () => {
     const challenges = (data.challenges as any[]) || [];
     for (const ch of challenges) {
-      const createdAt = str(ch.createdAt, new Date().toISOString());
       await database.runAsync(
-        'INSERT INTO challenges (id, type, title, description, category, icon, startDate, endDate, targetValue, targetCategory, currentProgress, targetProgress, completed, completedAt, reward, isCustom, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [ch.id, str(ch.type, 'custom'), str(ch.title, 'تحدي'), str(ch.description, ''), str(ch.category, 'أخرى'), str(ch.icon, 'flag'), str(ch.startDate, new Date().toISOString().slice(0, 10)), str(ch.endDate, new Date().toISOString().slice(0, 10)), num(ch.targetValue), safe(ch.targetCategory), num(ch.currentProgress), num(ch.targetProgress) || 1, ch.completed ? 1 : 0, safe(ch.completedAt), safe(ch.reward), ch.isCustom ? 1 : 0, createdAt, safe(ch.synced_at)]
+        'INSERT OR REPLACE INTO challenges (id, type, title, description, category, icon, startDate, endDate, targetValue, targetCategory, currentProgress, targetProgress, completed, completedAt, reward, isCustom, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          toSql(ch.id), 
+          toSql(ch.type) ?? 'custom', 
+          toSql(ch.title) ?? 'تحدي', 
+          toSql(ch.description) ?? '', 
+          toSql(ch.category) ?? 'أخرى', 
+          toSql(ch.icon) ?? 'flag', 
+          toSql(ch.startDate) ?? new Date().toISOString().slice(0, 10), 
+          toSql(ch.endDate) ?? new Date().toISOString().slice(0, 10), 
+          toSql(ch.targetValue) || 0, 
+          toSql(ch.targetCategory), 
+          toSql(ch.currentProgress) || 0, 
+          toSql(ch.targetProgress) || 1, 
+          toSql(ch.completed), 
+          toSql(ch.completedAt), 
+          toSql(ch.reward), 
+          toSql(ch.isCustom), 
+          toSql(ch.createdAt) ?? new Date().toISOString(), 
+          toSql(ch.synced_at)
+        ]
       );
     }
   });
@@ -3784,8 +4197,20 @@ export const importFullData = async (data: Record<string, unknown>): Promise<voi
     const achievements = (data.achievements as any[]) || [];
     for (const ac of achievements) {
       await database.runAsync(
-        'INSERT INTO achievements (id, type, title, description, icon, category, progress, targetProgress, unlockedAt, isUnlocked, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [ac.id, str(ac.type, 'default'), str(ac.title, ''), str(ac.description, ''), str(ac.icon, 'trophy'), str(ac.category, 'أخرى'), num(ac.progress), num(ac.targetProgress) || 1, safe(ac.unlockedAt), ac.isUnlocked ? 1 : 0, safe(ac.synced_at)]
+        'INSERT OR REPLACE INTO achievements (id, type, title, description, icon, category, progress, targetProgress, unlockedAt, isUnlocked, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          toSql(ac.id), 
+          toSql(ac.type) ?? 'default', 
+          toSql(ac.title) ?? '', 
+          toSql(ac.description) ?? '', 
+          toSql(ac.icon) ?? 'trophy', 
+          toSql(ac.category) ?? 'أخرى', 
+          toSql(ac.progress) || 0, 
+          toSql(ac.targetProgress) || 1, 
+          toSql(ac.unlockedAt), 
+          toSql(ac.isUnlocked), 
+          toSql(ac.synced_at)
+        ]
       );
     }
   });
@@ -3793,10 +4218,18 @@ export const importFullData = async (data: Record<string, unknown>): Promise<voi
   await runSection('expense_shortcuts', async () => {
     const expense_shortcuts = (data.expense_shortcuts as any[]) || [];
     for (const es of expense_shortcuts) {
-      const createdAt = str(es.createdAt, new Date().toISOString());
       await database.runAsync(
-        'INSERT INTO expense_shortcuts (id, title, amount, category, currency, description, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [es.id, str(es.title, 'اختصار'), num(es.amount), str(es.category, 'أخرى'), safe(es.currency) ?? 'IQD', safe(es.description), createdAt, safe(es.synced_at)]
+        'INSERT OR REPLACE INTO expense_shortcuts (id, title, amount, category, currency, description, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          toSql(es.id), 
+          toSql(es.title) ?? 'اختصار', 
+          toSql(es.amount) || 0, 
+          toSql(es.category) ?? 'أخرى', 
+          toSql(es.currency) ?? 'IQD', 
+          toSql(es.description), 
+          toSql(es.createdAt) ?? new Date().toISOString(), 
+          toSql(es.synced_at)
+        ]
       );
     }
   });
@@ -3804,10 +4237,18 @@ export const importFullData = async (data: Record<string, unknown>): Promise<voi
   await runSection('income_shortcuts', async () => {
     const income_shortcuts = (data.income_shortcuts as any[]) || [];
     for (const is_ of income_shortcuts) {
-      const createdAt = str(is_.createdAt, new Date().toISOString());
       await database.runAsync(
-        'INSERT INTO income_shortcuts (id, source, amount, incomeSource, currency, description, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [is_.id, str(is_.source, 'دخل'), num(is_.amount), str(is_.incomeSource ?? is_.source, 'دخل'), safe(is_.currency) ?? 'IQD', safe(is_.description), createdAt, safe(is_.synced_at)]
+        'INSERT OR REPLACE INTO income_shortcuts (id, source, amount, incomeSource, currency, description, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          toSql(is_.id), 
+          toSql(is_.source) ?? 'دخل', 
+          toSql(is_.amount) || 0, 
+          toSql(is_.incomeSource ?? is_.source) ?? 'دخل', 
+          toSql(is_.currency) ?? 'IQD', 
+          toSql(is_.description), 
+          toSql(is_.createdAt) ?? new Date().toISOString(), 
+          toSql(is_.synced_at)
+        ]
       );
     }
   });
@@ -3815,10 +4256,15 @@ export const importFullData = async (data: Record<string, unknown>): Promise<voi
   await runSection('exchange_rates', async () => {
     const exchange_rates = (data.exchange_rates as any[]) || [];
     for (const er of exchange_rates) {
-      const updatedAt = str(er.updatedAt, new Date().toISOString());
       await database.runAsync(
-        'INSERT INTO exchange_rates (id, fromCurrency, toCurrency, rate, updatedAt) VALUES (?, ?, ?, ?, ?)',
-        [er.id, str(er.baseCurrency ?? er.fromCurrency, 'USD'), str(er.targetCurrency ?? er.toCurrency, 'IQD'), num(er.rate), updatedAt]
+        'INSERT OR REPLACE INTO exchange_rates (id, fromCurrency, toCurrency, rate, updatedAt) VALUES (?, ?, ?, ?, ?)',
+        [
+          toSql(er.id), 
+          toSql(er.baseCurrency ?? er.fromCurrency) ?? 'USD', 
+          toSql(er.targetCurrency ?? er.toCurrency) ?? 'IQD', 
+          toSql(er.rate) || 0, 
+          toSql(er.updatedAt) ?? new Date().toISOString()
+        ]
       );
     }
   });
@@ -3827,8 +4273,17 @@ export const importFullData = async (data: Record<string, unknown>): Promise<voi
     const notifications = (data.notifications as any[]) || [];
     for (const n of notifications) {
       await database.runAsync(
-        'INSERT INTO notifications (id, title, body, data, date, read, type, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [n.id, str(n.title, ''), str(n.body, ''), typeof n.data === 'string' ? n.data : JSON.stringify(n.data || {}), num(n.date) || Date.now(), n.read ? 1 : 0, str(n.type, 'default'), safe(n.synced_at)]
+        'INSERT OR REPLACE INTO notifications (id, title, body, data, date, read, type, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          toSql(n.id), 
+          toSql(n.title) ?? '', 
+          toSql(n.body) ?? '', 
+          typeof n.data === 'string' ? n.data : JSON.stringify(n.data || {}), 
+          toSql(n.date) || Date.now(), 
+          toSql(n.read), 
+          toSql(n.type) ?? 'default', 
+          toSql(n.synced_at)
+        ]
       );
     }
   });
@@ -3837,8 +4292,23 @@ export const importFullData = async (data: Record<string, unknown>): Promise<voi
     const savings = (data.savings as any[]) || [];
     for (const s of savings) {
       await database.runAsync(
-        'INSERT INTO savings (id, title, targetAmount, currentAmount, currency, description, icon, color, createdAt, updatedAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [s.id, str(s.title, 'حصالة'), num(s.targetAmount), num(s.currentAmount), str(s.currency, 'IQD'), safe(s.description), str(s.icon, 'wallet'), str(s.color, '#10B981'), str(s.createdAt, new Date().toISOString()), str(s.updatedAt, new Date().toISOString()), safe(s.synced_at)]
+        'INSERT OR REPLACE INTO savings (id, title, targetAmount, base_target_amount, currentAmount, base_current_amount, currency, description, icon, color, createdAt, updatedAt, synced_at, enc_blob) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          toSql(s.id), 
+          toSql(s.title) ?? 'حصالة', 
+          toSql(s.targetAmount) || 0, 
+          (toSql(s.base_target_amount) ?? toSql(s.targetAmount)) || 0,
+          toSql(s.currentAmount) || 0, 
+          (toSql(s.base_current_amount) ?? toSql(s.currentAmount)) || 0,
+          toSql(s.currency) ?? 'IQD', 
+          toSql(s.description), 
+          toSql(s.icon) ?? 'wallet', 
+          toSql(s.color) ?? '#10B981', 
+          toSql(s.createdAt) ?? new Date().toISOString(), 
+          toSql(s.updatedAt) ?? new Date().toISOString(), 
+          toSql(s.synced_at),
+          toSql(s.enc_blob)
+        ]
       );
     }
   });
@@ -3847,8 +4317,17 @@ export const importFullData = async (data: Record<string, unknown>): Promise<voi
     const savings_transactions = (data.savings_transactions as any[]) || [];
     for (const st of savings_transactions) {
       await database.runAsync(
-        'INSERT INTO savings_transactions (id, savingsId, amount, type, date, description, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [st.id, num(st.savingsId), num(st.amount), str(st.type, 'deposit'), str(st.date, new Date().toISOString().slice(0, 10)), safe(st.description), str(st.createdAt, new Date().toISOString()), safe(st.synced_at)]
+        'INSERT OR REPLACE INTO savings_transactions (id, savingsId, amount, type, date, description, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          toSql(st.id), 
+          toSql(st.savingsId) || 0, 
+          toSql(st.amount) || 0, 
+          toSql(st.type) ?? 'deposit', 
+          toSql(st.date) ?? new Date().toISOString().slice(0, 10), 
+          toSql(st.description), 
+          toSql(st.createdAt) ?? new Date().toISOString(), 
+          toSql(st.synced_at)
+        ]
       );
     }
   });

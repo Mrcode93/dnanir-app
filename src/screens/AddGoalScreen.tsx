@@ -1,13 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Keyboard,
-  TextInput,
-  Switch,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Keyboard, TextInput, Switch } from 'react-native';
 import { CustomDatePicker } from '../components/CustomDatePicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,12 +14,11 @@ import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers
 import { Platform } from 'react-native';
 import { ScreenContainer, AppHeader, AppButton } from '../design-system';
 import { CurrencyPickerModal } from '../components/CurrencyPickerModal';
-
+import { getCurrencyDisplayName, tl, useLocalization } from "../localization";
 interface AddGoalScreenProps {
   navigation: any;
   route: any;
 }
-
 const categoryIcons: Record<GoalCategory, string> = {
   emergency: 'shield',
   vacation: 'airplane',
@@ -36,9 +27,8 @@ const categoryIcons: Record<GoalCategory, string> = {
   wedding: 'heart',
   education: 'school',
   business: 'briefcase',
-  other: 'star',
+  other: 'star'
 };
-
 const categoryColors: Record<GoalCategory, string[]> = {
   emergency: ['#EF4444', '#DC2626'],
   vacation: ['#8B5CF6', '#7C3AED'],
@@ -47,24 +37,34 @@ const categoryColors: Record<GoalCategory, string[]> = {
   wedding: ['#EC4899', '#DB2777'],
   education: ['#06B6D4', '#0891B2'],
   business: ['#F59E0B', '#D97706'],
-  other: ['#6B7280', '#4B5563'],
+  other: ['#6B7280', '#4B5563']
 };
-
 export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
   navigation,
-  route,
+  route
 }) => {
-  const { theme } = useAppTheme();
+  const {
+    language
+  } = useLocalization();
+  const {
+    theme
+  } = useAppTheme();
   const styles = useThemedStyles(createStyles);
-  const { currencyCode, formatCurrency } = useCurrency();
+  const {
+    currencyCode,
+    formatCurrency
+  } = useCurrency();
   const [editingGoal, setEditingGoal] = useState<FinancialGoal | null>(null);
-
+  useEffect(() => {
+    if (route.params?.goal) {
+      setEditingGoal(route.params.goal);
+    }
+  }, [route.params?.goal]);
   useEffect(() => {
     if (!isInitialized) {
       setIsInitialized(true);
     }
   }, []);
-
   const [title, setTitle] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
   const [currentAmount, setCurrentAmount] = useState('0');
@@ -81,7 +81,6 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
   const amountInputRef = useRef<TextInput>(null);
   const currentAmountInputRef = useRef<TextInput>(null);
   const [convertedTargetAmount, setConvertedTargetAmount] = useState<number | null>(null);
-
   useEffect(() => {
     if (editingGoal) {
       setTitle(editingGoal.title);
@@ -97,11 +96,9 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
       resetForm();
     }
   }, [editingGoal]);
-
   useEffect(() => {
     setCurrency(currencyCode);
   }, [currencyCode]);
-
   useEffect(() => {
     const convertAmount = async () => {
       const cleanTargetAmount = targetAmount.replace(/,/g, '');
@@ -118,7 +115,6 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
     };
     convertAmount();
   }, [targetAmount, currency, currencyCode]);
-
   const resetForm = () => {
     setTitle('');
     setTargetAmount('');
@@ -130,30 +126,23 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
     setCompleted(false);
     setCurrency(currencyCode);
   };
-
   const handleClose = useCallback(() => {
     Keyboard.dismiss();
     navigation.goBack();
   }, [navigation]);
-
   const handleSave = async () => {
     Keyboard.dismiss();
-
     const cleanTargetAmount = targetAmount.replace(/,/g, '');
     const cleanCurrentAmount = currentAmount.replace(/,/g, '');
-
     if (!title.trim()) {
-      alertService.warning('تنبيه', 'يرجى إدخال عنوان الهدف');
+      alertService.warning(tl("تنبيه"), tl("يرجى إدخال عنوان الهدف"));
       return;
     }
-
     if (!cleanTargetAmount.trim() || isNaN(Number(cleanTargetAmount)) || Number(cleanTargetAmount) <= 0) {
-      alertService.warning('تنبيه', 'يرجى إدخال مبلغ مستهدف صحيح');
+      alertService.warning(tl("تنبيه"), tl("يرجى إدخال مبلغ مستهدف صحيح"));
       return;
     }
-
     setLoading(true);
-
     try {
       const goalData = {
         title: title.trim(),
@@ -163,77 +152,46 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
         category,
         description: description.trim() || undefined,
         completed,
-        currency,
+        currency
       };
-
       if (editingGoal) {
         await updateFinancialGoal(editingGoal.id, goalData);
-        alertService.toastSuccess('تم تحديث الهدف بنجاح');
+        alertService.toastSuccess(tl("تم تحديث الهدف بنجاح"));
       } else {
         await addFinancialGoal(goalData);
-        alertService.toastSuccess('تم إضافة الهدف بنجاح');
+        alertService.toastSuccess(tl("تم إضافة الهدف بنجاح"));
       }
-
       handleClose();
     } catch (error) {
-
-      alertService.error('خطأ', 'حدث خطأ أثناء حفظ الهدف');
+      alertService.error(tl("خطأ"), tl("حدث خطأ أثناء حفظ الهدف"));
     } finally {
       setLoading(false);
     }
   };
-
-  const categories = Object.entries(GOAL_CATEGORIES) as [GoalCategory, { label: string; icon: string }][];
-
-  const saveFooter = (
-    <AppButton
-      label={loading ? 'جاري الحفظ...' : editingGoal ? 'تحديث الهدف' : 'حفظ الهدف'}
-      onPress={handleSave}
-      variant="primary"
-      size="lg"
-      loading={loading}
-      disabled={!title || !targetAmount || loading}
-      leftIcon="checkmark-circle"
-      style={{ backgroundColor: categoryColors[category][0] }}
-    />
-  );
-
-  return (
-    <ScreenContainer
-      scrollable
-      footer={saveFooter}
-      edges={['top', 'bottom']}
-      style={{ backgroundColor: theme.colors.surfaceCard }}
-    >
+  const categories = Object.entries(GOAL_CATEGORIES) as [GoalCategory, {
+    label: string;
+    icon: string;
+  }][];
+  const saveFooter = <AppButton label={loading ? tl("جاري الحفظ...") : editingGoal ? tl("تحديث الهدف") : tl("حفظ الهدف")} onPress={handleSave} variant="primary" size="lg" loading={loading} disabled={!title || !targetAmount || loading} leftIcon="checkmark-circle" style={{
+    backgroundColor: categoryColors[category][0]
+  }} />;
+  return <ScreenContainer scrollable edges={['top', 'bottom']} scrollPadBottom={32} style={{
+    backgroundColor: theme.colors.surfaceCard
+  }}>
       {/* Header */}
-      <AppHeader
-        title={editingGoal ? 'تعديل الهدف' : 'إضافة هدف جديد'}
-        onBack={handleClose}
-        backIcon={isRTL ? 'chevron-forward' : 'chevron-back'}
-        action={
-          <View style={[styles.headerIcon, { backgroundColor: categoryColors[category][0] + '20' }]}>
-            <Ionicons
-              name={categoryIcons[category] as any}
-              size={24}
-              color={categoryColors[category][0]}
-            />
-          </View>
-        }
-      />
+      <AppHeader title={editingGoal ? tl("تعديل الهدف") : tl("إضافة هدف جديد")} onBack={handleClose} backIcon={isRTL ? 'chevron-forward' : 'chevron-back'} action={<View style={[styles.headerIcon, {
+      backgroundColor: categoryColors[category][0] + '20'
+    }]}>
+            <Ionicons name={categoryIcons[category] as any} size={24} color={categoryColors[category][0]} />
+          </View>} />
 
       {/* Title Input */}
       <View style={styles.inputCard}>
         <View style={styles.inputHeader}>
           <Ionicons name="bookmark-outline" size={20} color={theme.colors.primary} />
-          <Text style={styles.inputLabel}>عنوان الهدف</Text>
+          <Text style={styles.inputLabel}>{tl("عنوان الهدف")}</Text>
         </View>
-        <TextInput
-          style={styles.textInput}
-          value={title}
-          onChangeText={setTitle}
-          placeholder="مثال: توفير لسيارة جديدة"
-          placeholderTextColor={theme.colors.textMuted}
-        />
+        <TextInput style={styles.textInput} value={title} onChangeText={setTitle} placeholder={tl("مثال: توفير لسيارة جديدة")} placeholderTextColor={theme.colors.textMuted} />
       </View>
 
       {/* Amount Card */}
@@ -242,49 +200,33 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
           <View style={styles.amountIconBg}>
             <Ionicons name="flag-outline" size={24} color={categoryColors[category][0]} />
           </View>
-          <Text style={styles.amountLabel}>المبلغ المستهدف</Text>
+          <Text style={styles.amountLabel}>{tl("المبلغ المستهدف")}</Text>
         </View>
 
         <View style={styles.amountInputContainer}>
-          <TextInput
-            ref={amountInputRef}
-            style={styles.amountInput}
-            value={targetAmount}
-            onChangeText={(val) => {
-              const cleaned = convertArabicToEnglish(val);
-              setTargetAmount(formatNumberWithCommas(cleaned));
-            }}
-            placeholder="0"
-            placeholderTextColor={theme.colors.textMuted}
-            keyboardType="decimal-pad"
-          />
-          <Text style={[styles.currencyLabel, { color: categoryColors[category][0] }]}>
-            {CURRENCIES.find(c => c.code === currency)?.symbol || 'د.ع'}
+          <TextInput ref={amountInputRef} style={styles.amountInput} value={targetAmount} onChangeText={val => {
+          const cleaned = convertArabicToEnglish(val);
+          setTargetAmount(formatNumberWithCommas(cleaned));
+        }} placeholder="0" placeholderTextColor={theme.colors.textMuted} keyboardType="decimal-pad" />
+        <Text style={[styles.currencyLabel, {
+          color: categoryColors[category][0]
+        }]}>
+            {CURRENCIES.find(c => c.code === currency)?.symbol || tl("د.ع")}
           </Text>
         </View>
 
-        {convertedTargetAmount !== null && currency !== currencyCode && (
-          <Text style={styles.convertedAmountText}>
+        {convertedTargetAmount !== null && currency !== currencyCode && <Text style={styles.convertedAmountText}>
             ≈ {formatCurrency(convertedTargetAmount)}
-          </Text>
-        )}
+          </Text>}
 
         {/* Current Amount */}
         <View style={styles.currentAmountRow}>
-          <Text style={styles.currentAmountLabel}>المبلغ الحالي:</Text>
+          <Text style={styles.currentAmountLabel}>{tl("المبلغ الحالي:")}</Text>
           <View style={styles.currentAmountInput}>
-            <TextInput
-              ref={currentAmountInputRef}
-              style={styles.currentAmountTextInput}
-              value={currentAmount}
-              onChangeText={(val) => {
-                const cleaned = convertArabicToEnglish(val);
-                setCurrentAmount(formatNumberWithCommas(cleaned));
-              }}
-              placeholder="0"
-              placeholderTextColor={theme.colors.textMuted}
-              keyboardType="decimal-pad"
-            />
+            <TextInput ref={currentAmountInputRef} style={styles.currentAmountTextInput} value={currentAmount} onChangeText={val => {
+            const cleaned = convertArabicToEnglish(val);
+            setCurrentAmount(formatNumberWithCommas(cleaned));
+          }} placeholder="0" placeholderTextColor={theme.colors.textMuted} keyboardType="decimal-pad" />
             <Text style={styles.currentAmountCurrency}>
               {CURRENCIES.find(c => c.code === currency)?.symbol}
             </Text>
@@ -292,41 +234,19 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
         </View>
 
         {/* Currency Selection */}
-        <AppButton
-          label={CURRENCIES.find(c => c.code === currency)?.name || 'دينار عراقي'}
-          onPress={() => setShowCurrencyPicker(true)}
-          variant="secondary"
-          leftIcon="cash-outline"
-          rightIcon="chevron-down"
-          style={styles.currencySelector}
-          labelStyle={styles.currencySelectorText}
-        />
+        <AppButton label={getCurrencyDisplayName(currency)} onPress={() => setShowCurrencyPicker(true)} variant="secondary" leftIcon="cash-outline" rightIcon="chevron-down" style={styles.currencySelector} labelStyle={styles.currencySelectorText} />
       </View>
 
       {/* Category Selection */}
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>نوع الهدف</Text>
+        <Text style={styles.sectionLabel}>{tl("نوع الهدف")}</Text>
         <View style={styles.categoriesGrid}>
           {categories.map(([catKey, catInfo]) => {
-            const isSelected = category === catKey;
-            return (
-              <AppButton
-                key={catKey}
-                label={catInfo.label}
-                onPress={() => setCategory(catKey)}
-                variant={isSelected ? 'primary' : 'secondary'}
-                leftIcon={isSelected ? (categoryIcons[catKey] as any) : (`${categoryIcons[catKey]}-outline` as any)}
-                style={[
-                  styles.categoryCard,
-                  isSelected && { backgroundColor: categoryColors[catKey][0] }
-                ]}
-                labelStyle={[
-                  styles.categoryCardLabel,
-                  isSelected && styles.categoryCardLabelActive
-                ]}
-              />
-            );
-          })}
+          const isSelected = category === catKey;
+          return <AppButton key={catKey} label={tl(catInfo.label)} onPress={() => setCategory(catKey)} variant={isSelected ? 'primary' : 'secondary'} leftIcon={isSelected ? categoryIcons[catKey] as any : `${categoryIcons[catKey]}-outline` as any} style={[styles.categoryCard, isSelected && {
+            backgroundColor: categoryColors[catKey][0]
+          }]} labelStyle={[styles.categoryCardLabel, isSelected && styles.categoryCardLabelActive]} />;
+        })}
         </View>
       </View>
 
@@ -338,120 +258,87 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
               <Ionicons name="calendar" size={18} color={theme.colors.primary} />
             </View>
             <View>
-              <Text style={styles.optionTitle}>تاريخ الهدف</Text>
-              <Text style={styles.optionSubtitle}>حدد موعد لتحقيق هدفك</Text>
+              <Text style={styles.optionTitle}>{tl("تاريخ الهدف")}</Text>
+              <Text style={styles.optionSubtitle}>{tl("حدد موعد لتحقيق هدفك")}</Text>
             </View>
           </View>
-          <Switch
-            value={hasTargetDate}
-            onValueChange={setHasTargetDate}
-            trackColor={{ false: '#767577', true: categoryColors[category][0] }}
-            thumbColor={hasTargetDate ? '#FFFFFF' : '#f4f3f4'}
-          />
+          <Switch value={hasTargetDate} onValueChange={setHasTargetDate} trackColor={{
+          false: '#767577',
+          true: categoryColors[category][0]
+        }} thumbColor={hasTargetDate ? '#FFFFFF' : '#f4f3f4'} />
         </View>
 
-        {hasTargetDate && (
-          <AppButton
-            label={targetDate
-              ? targetDate.toLocaleDateString('ar-IQ-u-nu-latn', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })
-              : 'اختر التاريخ'}
-            onPress={() => setShowDatePicker(true)}
-            variant="secondary"
-            leftIcon="calendar-outline"
-            style={styles.dateSelector}
-            labelStyle={styles.dateValue}
-          />
-        )}
+        {hasTargetDate && <AppButton label={targetDate ? targetDate.toLocaleDateString(language === 'ar' ? 'ar-IQ-u-nu-latn' : 'en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+      }) : tl("اختر التاريخ")} onPress={() => setShowDatePicker(true)} variant="secondary" leftIcon="calendar-outline" style={styles.dateSelector} labelStyle={styles.dateValue} />}
 
-        {showDatePicker && (
-          <CustomDatePicker
-            value={targetDate || new Date()}
-            onChange={(event, selectedDate) => {
-              if (selectedDate) {
-                setTargetDate(selectedDate);
-              }
-              if (Platform.OS === 'android') setShowDatePicker(false);
-            }}
-            onClose={() => setShowDatePicker(false)}
-            minimumDate={new Date()}
-          />
-        )}
+        {showDatePicker && <CustomDatePicker value={targetDate || new Date()} onChange={(event, selectedDate) => {
+        if (selectedDate) {
+          setTargetDate(selectedDate);
+        }
+        if (Platform.OS === 'android') setShowDatePicker(false);
+      }} onClose={() => setShowDatePicker(false)} minimumDate={new Date()} />}
       </View>
 
       {/* Description */}
       <View style={styles.inputCard}>
         <View style={styles.inputHeader}>
           <Ionicons name="document-text-outline" size={20} color={theme.colors.primary} />
-          <Text style={styles.inputLabel}>وصف (اختياري)</Text>
+          <Text style={styles.inputLabel}>{tl("وصف (اختياري)")}</Text>
         </View>
-        <TextInput
-          style={[styles.textInput, styles.textArea]}
-          value={description}
-          onChangeText={setDescription}
-          placeholder="أضف ملاحظات حول هدفك..."
-          placeholderTextColor={theme.colors.textMuted}
-          multiline
-          numberOfLines={3}
-        />
+        <TextInput style={[styles.textInput, styles.textArea]} value={description} onChangeText={setDescription} placeholder={tl("أضف ملاحظات حول هدفك...")} placeholderTextColor={theme.colors.textMuted} multiline numberOfLines={3} />
       </View>
 
       {/* Completed Checkbox (only for editing) */}
-      {editingGoal && (
-        <View style={styles.section}>
-          <TouchableOpacity
-            style={styles.checkboxContainer}
-            onPress={() => setCompleted(!completed)}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={completed ? "checkbox" : "checkbox-outline"}
-              size={26}
-              color={completed ? categoryColors[category][0] : theme.colors.textSecondary}
-            />
-            <Text style={styles.checkboxLabel}>تم إنجاز الهدف</Text>
+      {editingGoal && <View style={styles.section}>
+          <TouchableOpacity style={styles.checkboxContainer} onPress={() => setCompleted(!completed)} activeOpacity={0.7}>
+            <Ionicons name={completed ? "checkbox" : "checkbox-outline"} size={26} color={completed ? categoryColors[category][0] : theme.colors.textSecondary} />
+            <Text style={styles.checkboxLabel}>{tl("تم إنجاز الهدف")}</Text>
           </TouchableOpacity>
-        </View>
-      )}
-    <CurrencyPickerModal
-      visible={showCurrencyPicker}
-      selectedCurrency={currency}
-      onSelect={(code) => { setCurrency(code); setShowCurrencyPicker(false); }}
-      onClose={() => setShowCurrencyPicker(false)}
-    />
-    </ScreenContainer>
-  );
-};
+        </View>}
+      {/* Save Button */}
+      <View style={{
+      paddingHorizontal: 16,
+      marginTop: 12,
+      marginBottom: 20
+    }}>
+        {saveFooter}
+      </View>
 
+      <CurrencyPickerModal visible={showCurrencyPicker} selectedCurrency={currency} onSelect={code => {
+      setCurrency(code);
+      setShowCurrencyPicker(false);
+    }} onClose={() => setShowCurrencyPicker(false)} />
+    </ScreenContainer>;
+};
 const createStyles = (theme: AppTheme) => StyleSheet.create({
   headerIcon: {
     width: 44,
     height: 44,
     borderRadius: 14,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   inputCard: {
     backgroundColor: theme.colors.surfaceCard,
     borderRadius: 16,
     padding: 10,
     marginBottom: 10,
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   inputHeader: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     gap: theme.spacing.sm,
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.md
   },
   inputLabel: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   textInput: {
     fontSize: theme.typography.sizes.sm,
@@ -460,24 +347,24 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: theme.colors.surfaceLight,
     borderRadius: 12,
     padding: 10,
-    textAlign: isRTL ? 'right' : 'left',
+    textAlign: isRTL ? 'right' : 'left'
   },
   textArea: {
     minHeight: 60,
-    textAlignVertical: 'top',
+    textAlignVertical: 'top'
   },
   amountCard: {
     backgroundColor: theme.colors.surfaceCard,
     borderRadius: 20,
     padding: 10,
     marginBottom: 10,
-    ...getPlatformShadow('md'),
+    ...getPlatformShadow('md')
   },
   amountHeader: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     gap: 10,
-    marginBottom: 10,
+    marginBottom: 10
   },
   amountIconBg: {
     width: 48,
@@ -485,13 +372,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 14,
     backgroundColor: theme.colors.surfaceLight,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   amountLabel: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   amountInputContainer: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -500,7 +387,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: theme.colors.surfaceLight,
     borderRadius: 16,
     padding: 10,
-    marginBottom: 10,
+    marginBottom: 10
   },
   amountInput: {
     flex: 1,
@@ -508,13 +395,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'center',
+    textAlign: 'center'
   },
   currencyLabel: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
     fontFamily: theme.typography.fontFamily,
-    marginHorizontal: 10,
+    marginHorizontal: 10
   },
   convertedAmountText: {
     fontSize: theme.typography.sizes.xs,
@@ -522,7 +409,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
     marginBottom: 10,
-    fontStyle: 'italic',
+    fontStyle: 'italic'
   },
   currentAmountRow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -531,12 +418,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: 10,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
+    borderTopColor: theme.colors.border
   },
   currentAmountLabel: {
     fontSize: theme.typography.sizes.sm,
     color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   currentAmountInput: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -544,7 +431,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: theme.colors.surfaceLight,
     borderRadius: 10,
     paddingHorizontal: 10,
-    paddingVertical: 10,
+    paddingVertical: 10
   },
   currentAmountTextInput: {
     fontSize: theme.typography.sizes.lg,
@@ -552,44 +439,49 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     minWidth: 60,
-    textAlign: 'center',
+    textAlign: 'center'
   },
   currentAmountCurrency: {
     fontSize: theme.typography.sizes.md,
     color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily,
-    marginLeft: theme.spacing.xs,
+    marginLeft: theme.spacing.xs
   },
   currencySelector: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: theme.spacing.sm,
-    padding: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    // Reduced vertical padding
+    paddingHorizontal: theme.spacing.md,
     backgroundColor: theme.colors.surfaceLight,
-    borderRadius: 12,
+    borderRadius: 12
   },
   currencySelectorText: {
     fontSize: theme.typography.sizes.md,
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
+    lineHeight: 22,
+    // Add line height to prevent clipping
+    paddingBottom: Platform.OS === 'ios' ? 2 : 0 // Extra space for Arabic fonts on iOS
   },
   currencyDropdown: {
     marginTop: 10,
     backgroundColor: theme.colors.surface,
     borderRadius: 12,
     padding: 10,
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   currencyOption: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     padding: 10,
     borderRadius: 10,
-    gap: 10,
+    gap: 10
   },
   currencyOptionSelected: {
-    backgroundColor: theme.colors.primaryLight,
+    backgroundColor: theme.colors.primaryLight
   },
   currencySymbol: {
     fontSize: theme.typography.sizes.md,
@@ -597,20 +489,20 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily,
     width: 40,
-    textAlign: 'center',
+    textAlign: 'center'
   },
   currencyOptionText: {
     flex: 1,
     fontSize: theme.typography.sizes.md,
     color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   currencyOptionTextSelected: {
     fontWeight: getPlatformFontWeight('700'),
-    color: theme.colors.primary,
+    color: theme.colors.primary
   },
   section: {
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.md
   },
   sectionLabel: {
     fontSize: theme.typography.sizes.md,
@@ -618,24 +510,24 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: 10,
-    textAlign: isRTL ? 'right' : 'left',
+    textAlign: isRTL ? 'right' : 'left'
   },
   categoriesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 10
   },
   categoryCard: {
     width: '23%',
     borderRadius: 14,
     overflow: 'hidden',
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   categoryCardGradient: {
     padding: 10,
     alignItems: 'center',
     minHeight: 60,
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   categoryCardLabel: {
     fontSize: theme.typography.sizes.xs,
@@ -643,10 +535,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
-    marginTop: 5,
+    marginTop: 5
   },
   categoryCardLabelActive: {
-    color: theme.colors.background,
+    color: theme.colors.background
   },
   optionRow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -655,12 +547,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: theme.colors.surfaceCard,
     padding: theme.spacing.md,
     borderRadius: 16,
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   optionInfo: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    gap: theme.spacing.md,
+    gap: theme.spacing.md
   },
   optionIconContainer: {
     width: 40,
@@ -668,18 +560,18 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 12,
     backgroundColor: theme.colors.primaryLight,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   optionTitle: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   optionSubtitle: {
     fontSize: theme.typography.sizes.sm,
     color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   dateSelector: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -688,14 +580,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: theme.colors.surfaceLight,
     padding: theme.spacing.md,
     borderRadius: 12,
-    marginTop: theme.spacing.md,
+    marginTop: theme.spacing.md
   },
   dateValue: {
     flex: 1,
     fontSize: theme.typography.sizes.md,
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: isRTL ? 'right' : 'left',
+    textAlign: isRTL ? 'right' : 'left'
   },
   checkboxContainer: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -704,12 +596,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     padding: theme.spacing.md,
     borderRadius: 16,
     gap: theme.spacing.md,
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   checkboxLabel: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily,
-  },
+    fontFamily: theme.typography.fontFamily
+  }
 });

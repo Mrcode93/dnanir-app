@@ -11,7 +11,7 @@ import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { useAppTheme } from '../../../utils/theme-context';
 import { getPlatformFontWeight, getPlatformShadow } from '../../../utils/theme-constants';
 import { FONT_SIZE, RADIUS, SPACING } from '../../tokens';
-import { isRTL } from '../../../utils/rtl';
+import { useLocalization } from '../../../localization';
 
 interface SectionCardProps {
   title?: string;
@@ -28,6 +28,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   flush = false,
 }) => {
   const { theme } = useAppTheme();
+  const { isRTL } = useLocalization();
 
   return (
     <View

@@ -16,6 +16,7 @@ import { useThemedStyles, useAppTheme } from '../utils/theme-context';
 import { isRTL } from '../utils/rtl';
 import { onboardingStorage } from '../services/onboardingStorage';
 import { authModalService } from '../services/authModalService';
+import { useLocalization } from '../localization';
 
 const { width, height } = Dimensions.get('window');
 
@@ -26,6 +27,7 @@ type OnboardingScreenProps = {
 
 export const OnboardingScreen = ({ navigation, onFinish }: OnboardingScreenProps) => {
   const { theme } = useAppTheme();
+  const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
   const [isCompleting, setIsCompleting] = useState(false);
 
@@ -89,10 +91,8 @@ export const OnboardingScreen = ({ navigation, onFinish }: OnboardingScreenProps
 
           {/* Middle Section: Welcome Text */}
           <View style={styles.textSection}>
-            <Text style={styles.title}>مرحباً بك في دنانير</Text>
-            <Text style={styles.subtitle}>
-              تحكّم بأموالك بطريقة ذكية وسهلة. تابع مصروفاتك، افهم دخلك، وحقق أهدافك المالية بثقة وأمان.
-            </Text>
+            <Text style={styles.title}>{t('onboarding.title')}</Text>
+            <Text style={styles.subtitle}>{t('onboarding.subtitle')}</Text>
           </View>
 
           {/* Bottom Section: Action Buttons */}
@@ -103,7 +103,7 @@ export const OnboardingScreen = ({ navigation, onFinish }: OnboardingScreenProps
               disabled={isCompleting}
               activeOpacity={0.9}
             >
-              <Text style={styles.primaryButtonText}>إنشاء حساب جديد</Text>
+              <Text style={styles.primaryButtonText}>{t('onboarding.createAccount')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -112,7 +112,7 @@ export const OnboardingScreen = ({ navigation, onFinish }: OnboardingScreenProps
               disabled={isCompleting}
               activeOpacity={0.8}
             >
-              <Text style={styles.secondaryButtonText}>تسجيل الدخول</Text>
+              <Text style={styles.secondaryButtonText}>{t('onboarding.signIn')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -121,14 +121,14 @@ export const OnboardingScreen = ({ navigation, onFinish }: OnboardingScreenProps
               disabled={isCompleting}
               activeOpacity={0.7}
             >
-              <Text style={styles.skipButtonText}>التخطي والاستمرار كضيف</Text>
+              <Text style={styles.skipButtonText}>{t('onboarding.continueAsGuest')}</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Footer Info */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>بذكاء، تدير دنانير حياتك المالية</Text>
+          <Text style={styles.footerText}>{t('onboarding.footer')}</Text>
         </View>
       </SafeAreaView>
     </View>

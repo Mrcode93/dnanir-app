@@ -250,25 +250,24 @@ export const AddBudgetModal: React.FC<AddBudgetModalProps> = ({
             })}
           </View>
         </View>
+        {/* Save Button */}
+        <View style={[styles.actions, { borderTopWidth: 0, marginTop: 20 }]}>
+          <AppButton
+            label="إلغاء"
+            onPress={onClose}
+            variant="secondary"
+            style={styles.cancelButton}
+          />
+          <AppButton
+            label={budget ? 'تحديث' : 'حفظ الميزانية'}
+            onPress={handleSave}
+            variant="primary"
+            disabled={!amount || !selectedCategory}
+            leftIcon="checkmark"
+            style={styles.saveButton}
+          />
+        </View>
       </ScrollView>
-
-      {/* Actions */}
-      <View style={styles.actions}>
-        <AppButton
-          label="إلغاء"
-          onPress={onClose}
-          variant="secondary"
-          style={styles.cancelButton}
-        />
-        <AppButton
-          label={budget ? 'تحديث' : 'حفظ الميزانية'}
-          onPress={handleSave}
-          variant="primary"
-          disabled={!amount || !selectedCategory}
-          leftIcon="checkmark"
-          style={styles.saveButton}
-        />
-      </View>
 
       <CurrencyPickerModal
         visible={showCurrencyPicker}

@@ -361,24 +361,24 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
             style={styles.input}
           />
         </View>
+        {/* Save Button */}
+        <View style={[styles.actions, { borderTopWidth: 0, marginTop: 20 }]}>
+          <AppButton
+            label="إلغاء"
+            onPress={handleClose}
+            variant="secondary"
+            style={styles.actionButton}
+          />
+          <AppButton
+            label={loading ? 'جاري الحفظ...' : editingExpense ? 'تحديث' : 'حفظ'}
+            onPress={handleSave}
+            variant="primary"
+            loading={loading}
+            disabled={loading}
+            style={styles.actionButton}
+          />
+        </View>
       </ScrollView>
-
-      <View style={styles.actions}>
-        <AppButton
-          label="إلغاء"
-          onPress={handleClose}
-          variant="secondary"
-          style={styles.actionButton}
-        />
-        <AppButton
-          label={loading ? 'جاري الحفظ...' : editingExpense ? 'تحديث' : 'حفظ'}
-          onPress={handleSave}
-          variant="primary"
-          loading={loading}
-          disabled={loading}
-          style={styles.actionButton}
-        />
-      </View>
     </AppBottomSheet>
   );
 };

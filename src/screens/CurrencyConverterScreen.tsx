@@ -1,15 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  ActivityIndicator,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,12 +12,22 @@ import { alertService } from '../services/alertService';
 import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 import { usePrivacy } from '../context/PrivacyContext';
 import { CurrencyPickerModal } from '../components/CurrencyPickerModal';
-
-export const CurrencyConverterScreen = ({ navigation }: any) => {
-  const { theme } = useAppTheme();
+import { tl, useLocalization } from "../localization";
+export const CurrencyConverterScreen = ({
+  navigation
+}: any) => {
+  useLocalization();
+  const {
+    theme
+  } = useAppTheme();
   const styles = useThemedStyles(createStyles);
-  const { currencyCode, formatCurrency } = useCurrency();
-  const { isPrivacyEnabled } = usePrivacy();
+  const {
+    currencyCode,
+    formatCurrency
+  } = useCurrency();
+  const {
+    isPrivacyEnabled
+  } = usePrivacy();
   const [fromCurrency, setFromCurrency] = useState<string>(currencyCode);
   const [toCurrency, setToCurrency] = useState<string>('USD');
   const [amount, setAmount] = useState<string>('');
@@ -36,14 +36,12 @@ export const CurrencyConverterScreen = ({ navigation }: any) => {
   const [loading, setLoading] = useState(false);
   const [showFromPicker, setShowFromPicker] = useState(false);
   const [showToPicker, setShowToPicker] = useState(false);
-
   useEffect(() => {
     setFromCurrency(currencyCode);
     setAmount('');
     setConvertedAmount(null);
     setExchangeRate(null);
   }, [currencyCode]);
-
   useEffect(() => {
     const cleanAmount = amount.replace(/,/g, '');
     if (cleanAmount && fromCurrency && toCurrency && parseFloat(cleanAmount) > 0) {
@@ -53,7 +51,6 @@ export const CurrencyConverterScreen = ({ navigation }: any) => {
       setExchangeRate(null);
     }
   }, [amount, fromCurrency, toCurrency]);
-
   const handleConvert = async () => {
     const cleanAmount = amount.replace(/,/g, '');
     const numAmount = parseFloat(cleanAmount);
@@ -62,28 +59,23 @@ export const CurrencyConverterScreen = ({ navigation }: any) => {
       setExchangeRate(null);
       return;
     }
-
     if (fromCurrency === toCurrency) {
       setConvertedAmount(numAmount);
       setExchangeRate(1);
       return;
     }
-
     setLoading(true);
     try {
       const rate = await getOrFetchExchangeRate(fromCurrency, toCurrency);
       const converted = await convertCurrency(numAmount, fromCurrency, toCurrency);
-
       setExchangeRate(rate);
       setConvertedAmount(converted);
     } catch (error) {
-
-      alertService.error('خطأ', 'حدث خطأ أثناء تحويل العملة');
+      alertService.error(tl("خطأ"), tl("حدث خطأ أثناء تحويل العملة"));
     } finally {
       setLoading(false);
     }
   };
-
   const swapCurrencies = () => {
     const temp = fromCurrency;
     setFromCurrency(toCurrency);
@@ -93,7 +85,6 @@ export const CurrencyConverterScreen = ({ navigation }: any) => {
       setConvertedAmount(parseFloat(amount.replace(/,/g, '')));
     }
   };
-
   const selectCurrency = (currencyCode: string, type: 'from' | 'to') => {
     if (type === 'from') {
       setFromCurrency(currencyCode);
@@ -103,36 +94,22 @@ export const CurrencyConverterScreen = ({ navigation }: any) => {
       setShowToPicker(false);
     }
   };
-
   const fromCurrencyData = CURRENCIES.find(c => c.code === fromCurrency);
   const toCurrencyData = CURRENCIES.find(c => c.code === toCurrency);
-
-  return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
+  return <SafeAreaView style={styles.container} edges={['bottom']}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardView}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {/* From Currency Card */}
           <View style={styles.card}>
-            <Text style={styles.cardLabel}>من</Text>
-            <TouchableOpacity
-              onPress={() => setShowFromPicker(true)}
-              style={styles.currencySelector}
-              activeOpacity={0.7}
-            >
-              <LinearGradient
-                colors={theme.gradients.primary as any}
-                style={styles.currencySelectorGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
+            <Text style={styles.cardLabel}>{tl("من")}</Text>
+            <TouchableOpacity onPress={() => setShowFromPicker(true)} style={styles.currencySelector} activeOpacity={0.7}>
+              <LinearGradient colors={theme.gradients.primary as any} style={styles.currencySelectorGradient} start={{
+              x: 0,
+              y: 0
+            }} end={{
+              x: 1,
+              y: 0
+            }}>
                 <View style={styles.currencySelectorContent}>
                   <View style={styles.currencyIconContainer}>
                     <Ionicons name="cash" size={16} color="#FFFFFF" />
@@ -148,34 +125,23 @@ export const CurrencyConverterScreen = ({ navigation }: any) => {
 
             <View style={styles.amountInputContainer}>
               <Text style={styles.currencySymbol}>{fromCurrencyData?.symbol}</Text>
-              <TextInput
-                style={styles.amountInput}
-                value={amount}
-                onChangeText={(val) => {
-                  const cleaned = convertArabicToEnglish(val);
-                  setAmount(formatNumberWithCommas(cleaned));
-                }}
-                placeholder="0.00"
-                placeholderTextColor={theme.colors.textSecondary}
-                keyboardType="decimal-pad"
-                textAlign={isRTL ? 'right' : 'left'}
-              />
+              <TextInput style={styles.amountInput} value={amount} onChangeText={val => {
+              const cleaned = convertArabicToEnglish(val);
+              setAmount(formatNumberWithCommas(cleaned));
+            }} placeholder="0.00" placeholderTextColor={theme.colors.textSecondary} keyboardType="decimal-pad" textAlign={isRTL ? 'right' : 'left'} />
             </View>
           </View>
 
           {/* Swap Button */}
           <View style={styles.swapButtonContainer}>
-            <TouchableOpacity
-              onPress={swapCurrencies}
-              style={styles.swapButton}
-              activeOpacity={0.7}
-            >
-              <LinearGradient
-                colors={['#8B5CF6', '#7C3AED']}
-                style={styles.swapButtonGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
+            <TouchableOpacity onPress={swapCurrencies} style={styles.swapButton} activeOpacity={0.7}>
+              <LinearGradient colors={['#8B5CF6', '#7C3AED']} style={styles.swapButtonGradient} start={{
+              x: 0,
+              y: 0
+            }} end={{
+              x: 1,
+              y: 1
+            }}>
                 <Ionicons name="swap-vertical" size={20} color="#FFFFFF" />
               </LinearGradient>
             </TouchableOpacity>
@@ -183,18 +149,15 @@ export const CurrencyConverterScreen = ({ navigation }: any) => {
 
           {/* To Currency Card */}
           <View style={styles.card}>
-            <Text style={styles.cardLabel}>إلى</Text>
-            <TouchableOpacity
-              onPress={() => setShowToPicker(true)}
-              style={styles.currencySelector}
-              activeOpacity={0.7}
-            >
-              <LinearGradient
-                colors={['#10B981', '#059669']}
-                style={styles.currencySelectorGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
+            <Text style={styles.cardLabel}>{tl("إلى")}</Text>
+            <TouchableOpacity onPress={() => setShowToPicker(true)} style={styles.currencySelector} activeOpacity={0.7}>
+              <LinearGradient colors={['#10B981', '#059669']} style={styles.currencySelectorGradient} start={{
+              x: 0,
+              y: 0
+            }} end={{
+              x: 1,
+              y: 0
+            }}>
                 <View style={styles.currencySelectorContent}>
                   <View style={styles.currencyIconContainer}>
                     <Ionicons name="cash" size={16} color="#FFFFFF" />
@@ -209,68 +172,48 @@ export const CurrencyConverterScreen = ({ navigation }: any) => {
             </TouchableOpacity>
 
             <View style={styles.resultContainer}>
-              {loading ? (
-                <View style={styles.loadingContainer}>
+              {loading ? <View style={styles.loadingContainer}>
                   <ActivityIndicator size="small" color={theme.colors.primary} />
-                  <Text style={styles.loadingText}>جاري التحويل...</Text>
-                </View>
-              ) : convertedAmount !== null ? (
-                <>
+                  <Text style={styles.loadingText}>{tl("جاري التحويل...")}</Text>
+                </View> : convertedAmount !== null ? <>
                   <Text style={styles.convertedAmount}>
                     {isPrivacyEnabled ? '****' : formatCurrencyAmount(convertedAmount, toCurrency)}
                   </Text>
-                  {!isPrivacyEnabled && exchangeRate !== null && exchangeRate !== 1 && (
-                    <View style={styles.rateInfo}>
+                  {!isPrivacyEnabled && exchangeRate !== null && exchangeRate !== 1 && <View style={styles.rateInfo}>
                       <View style={styles.rateInfoContainer}>
                         <Ionicons name="trending-up" size={16} color={theme.colors.primary} />
                         <Text style={styles.exchangeRateText}>
                           1 {fromCurrency} = {exchangeRate.toFixed(4)} {toCurrency}
                         </Text>
                       </View>
-                    </View>
-                  )}
-                </>
-              ) : (
-                <Text style={styles.placeholderText}>0.00</Text>
-              )}
+                    </View>}
+                </> : <Text style={styles.placeholderText}>0.00</Text>}
             </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
       {/* Currency Picker Modals */}
-      <CurrencyPickerModal
-        visible={showFromPicker}
-        selectedCurrency={fromCurrency}
-        onSelect={(code) => selectCurrency(code, 'from')}
-        onClose={() => setShowFromPicker(false)}
-      />
+      <CurrencyPickerModal visible={showFromPicker} selectedCurrency={fromCurrency} onSelect={code => selectCurrency(code, 'from')} onClose={() => setShowFromPicker(false)} />
 
-      <CurrencyPickerModal
-        visible={showToPicker}
-        selectedCurrency={toCurrency}
-        onSelect={(code) => selectCurrency(code, 'to')}
-        onClose={() => setShowToPicker(false)}
-      />
-    </SafeAreaView>
-  );
+      <CurrencyPickerModal visible={showToPicker} selectedCurrency={toCurrency} onSelect={code => selectCurrency(code, 'to')} onClose={() => setShowToPicker(false)} />
+    </SafeAreaView>;
 };
-
 const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.background
   },
   keyboardView: {
-    flex: 1,
+    flex: 1
   },
   scrollView: {
-    flex: 1,
+    flex: 1
   },
   scrollContent: {
     padding: theme.spacing.sm,
     paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.lg,
+    paddingBottom: theme.spacing.lg
   },
   card: {
     backgroundColor: theme.colors.surfaceCard,
@@ -279,7 +222,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: theme.spacing.md,
     ...getPlatformShadow('sm'),
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.border
   },
   cardLabel: {
     fontSize: theme.typography.sizes.xs,
@@ -287,22 +230,22 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.sm,
-    textAlign: isRTL ? 'right' : 'left',
+    textAlign: isRTL ? 'right' : 'left'
   },
   currencySelector: {
     borderRadius: theme.borderRadius.sm,
     overflow: 'hidden',
     marginBottom: theme.spacing.sm,
-    ...getPlatformShadow('sm'),
+    ...getPlatformShadow('sm')
   },
   currencySelectorGradient: {
     paddingVertical: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.sm
   },
   currencySelectorContent: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'space-between'
   },
   currencyIconContainer: {
     width: 28,
@@ -311,23 +254,27 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    ...(isRTL ? { marginLeft: theme.spacing.xs } : { marginRight: theme.spacing.xs }),
+    ...(isRTL ? {
+      marginLeft: theme.spacing.xs
+    } : {
+      marginRight: theme.spacing.xs
+    })
   },
   currencyInfo: {
     flex: 1,
-    alignItems: isRTL ? 'flex-end' : 'flex-start',
+    alignItems: isRTL ? 'flex-end' : 'flex-start'
   },
   currencyCode: {
     fontSize: theme.typography.sizes.sm,
     fontWeight: getPlatformFontWeight('700'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
-    marginBottom: 1,
+    marginBottom: 1
   },
   currencyName: {
     fontSize: theme.typography.sizes.xs,
     color: 'rgba(255, 255, 255, 0.9)',
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   amountInputContainer: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -337,7 +284,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
     borderWidth: 1.5,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.border
   },
   amountInput: {
     flex: 1,
@@ -346,30 +293,34 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'right' : 'left',
-    paddingVertical: 0,
+    paddingVertical: 0
   },
   currencySymbol: {
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.primary,
-    ...(isRTL ? { marginLeft: theme.spacing.sm } : { marginRight: theme.spacing.sm }),
-    fontFamily: theme.typography.fontFamily,
+    ...(isRTL ? {
+      marginLeft: theme.spacing.sm
+    } : {
+      marginRight: theme.spacing.sm
+    }),
+    fontFamily: theme.typography.fontFamily
   },
   swapButtonContainer: {
     alignItems: 'center',
-    marginVertical: theme.spacing.xs,
+    marginVertical: theme.spacing.xs
   },
   swapButton: {
     borderRadius: 25,
     overflow: 'hidden',
-    ...getPlatformShadow('md'),
+    ...getPlatformShadow('md')
   },
   swapButtonGradient: {
     width: 50,
     height: 50,
     borderRadius: 25,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   resultContainer: {
     backgroundColor: theme.colors.surfaceLight,
@@ -379,17 +330,17 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderColor: theme.colors.border,
     minHeight: 70,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   loadingContainer: {
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   loadingText: {
     marginTop: theme.spacing.xs,
     fontSize: theme.typography.sizes.xs,
     color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fontFamily,
+    fontFamily: theme.typography.fontFamily
   },
   convertedAmount: {
     fontSize: theme.typography.sizes.xl,
@@ -397,12 +348,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'center',
-    marginBottom: theme.spacing.xs,
+    marginBottom: theme.spacing.xs
   },
   rateInfo: {
     width: '100%',
     alignItems: 'center',
-    marginTop: theme.spacing.xs,
+    marginTop: theme.spacing.xs
   },
   rateInfoContainer: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -411,38 +362,46 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing.xs,
     borderRadius: theme.borderRadius.sm,
-    ...(isRTL ? { marginRight: 0 } : { marginLeft: 0 }),
+    ...(isRTL ? {
+      marginRight: 0
+    } : {
+      marginLeft: 0
+    })
   },
   exchangeRateText: {
     fontSize: theme.typography.sizes.xs,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    ...(isRTL ? { marginRight: theme.spacing.xs } : { marginLeft: theme.spacing.xs }),
+    ...(isRTL ? {
+      marginRight: theme.spacing.xs
+    } : {
+      marginLeft: theme.spacing.xs
+    })
   },
   placeholderText: {
     fontSize: theme.typography.sizes.xl,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    opacity: 0.3,
+    opacity: 0.3
   },
   pickerModalContainer: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 1000,
+    zIndex: 1000
   },
   pickerBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-end'
   },
   pickerContainer: {
     maxHeight: '60%',
     borderTopLeftRadius: theme.borderRadius.xxl,
     borderTopRightRadius: theme.borderRadius.xxl,
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   pickerGradient: {
-    maxHeight: '100%',
+    maxHeight: '100%'
   },
   pickerHeader: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -450,24 +409,24 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     justifyContent: 'space-between',
     padding: theme.spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    borderBottomColor: theme.colors.border
   },
   pickerTitle: {
     fontSize: theme.typography.sizes.lg,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: isRTL ? 'right' : 'left',
+    textAlign: isRTL ? 'right' : 'left'
   },
   pickerCloseButton: {
     padding: theme.spacing.xs,
     width: 36,
     height: 36,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   pickerScrollView: {
-    maxHeight: 350,
+    maxHeight: 350
   },
   pickerItem: {
     flexDirection: isRTL ? 'row' : 'row-reverse',
@@ -476,14 +435,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     padding: theme.spacing.sm,
     paddingHorizontal: theme.spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    borderBottomColor: theme.colors.border
   },
   pickerItemSelected: {
-    backgroundColor: theme.colors.surfaceLight,
+    backgroundColor: theme.colors.surfaceLight
   },
   pickerItemContent: {
     flex: 1,
-    alignItems: isRTL ? 'flex-end' : 'flex-start',
+    alignItems: isRTL ? 'flex-end' : 'flex-start'
   },
   pickerItemCode: {
     fontSize: theme.typography.sizes.sm,
@@ -491,12 +450,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: 2,
-    textAlign: isRTL ? 'right' : 'left',
+    textAlign: isRTL ? 'right' : 'left'
   },
   pickerItemName: {
     fontSize: theme.typography.sizes.xs,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: isRTL ? 'right' : 'left',
-  },
+    textAlign: isRTL ? 'right' : 'left'
+  }
 });

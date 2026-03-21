@@ -29,7 +29,19 @@ import { AlertProvider } from './src/components/AlertProvider';
 import { SplashScreen as CustomSplashScreen } from './src/components/SplashScreen';
 import { PrivacyProvider } from './src/context/PrivacyContext';
 import PushNotificationManager from './src/components/PushNotificationManager';
+import { AppUpdateHandler } from './src/components/AppUpdateHandler';
 import { initializeWidgetData } from './src/services/widgetDataService';
+import { restoreEncryptionKeyFromStorage, resetLockout } from './src/utils/encryption';
+import { syncNativeRTLDirection } from './src/utils/rtl';
+import {
+  LocalizationProvider,
+  type AppLanguage,
+  isLanguageRTL,
+  isSupportedLanguage,
+  setCurrentLanguage,
+  tl as translateLiteral,
+  translate as translateText,
+} from './src/localization';
 
 // Prevent valid splash screen from auto-hiding
 // We call this at top level to catch it as early as possible
@@ -70,8 +82,11 @@ export default function App() {
   const [initError, setInitError] = useState<string | null>(null);
   const [initRunId, setInitRunId] = useState(0);
   const [isSplashDone, setIsSplashDone] = useState(false);
+  const [hasHydratedAppSettings, setHasHydratedAppSettings] = useState(false);
   const systemColorScheme = useColorScheme();
   const [themeMode, setThemeMode] = useState<ThemeMode>('system');
+  const [appLanguage, setAppLanguage] = useState<AppLanguage>('ar');
+  const isAppRTL = isLanguageRTL(appLanguage);
   const isDark = useMemo(() => {
     if (themeMode === 'system') {
       return (systemColorScheme || Appearance.getColorScheme()) === 'dark';
@@ -105,48 +120,99 @@ export default function App() {
     'DINNext-Medium': require('./assets/fonts/din-next-lt-w23-medium.ttf'),
     'DINNext-Light': require('./assets/fonts/din-next-lt-w23-ultra-light-1.ttf'),
   });
+  const uiDirectionKey = `${appLanguage}-${isAppRTL ? 'rtl' : 'ltr'}`;
+
+  const handleSetLanguage = useCallback((language: AppLanguage) => {
+    setCurrentLanguage(language);
+    setAppLanguage(language);
+  }, []);
+
+  const localizationValue = useMemo(() => ({
+    language: appLanguage,
+    isRTL: isAppRTL,
+    setLanguage: handleSetLanguage,
+    t: (key: string, params?: Record<string, string | number | undefined>) => {
+      return translateText(key, params, appLanguage);
+    },
+    tl: (text: string, params?: Array<string | number | undefined> | Record<string, string | number | undefined>) => {
+      return translateLiteral(text, params, appLanguage);
+    },
+  }), [appLanguage, handleSetLanguage, isAppRTL]);
 
   useEffect(() => {
-    try {
-      if (I18nManager.isRTL) {
-        I18nManager.allowRTL(false);
-        I18nManager.forceRTL(false);
+    let cancelled = false;
+
+    const applyDirection = async () => {
+      setCurrentLanguage(appLanguage);
+
+      try {
+        if (hasHydratedAppSettings && I18nManager.isRTL !== isAppRTL) {
+          await syncNativeRTLDirection(isAppRTL);
+          return;
+        }
+
+        I18nManager.allowRTL(isAppRTL);
+        I18nManager.forceRTL(isAppRTL);
         I18nManager.swapLeftAndRightInRTL(false);
+
+        const isAndroid = Platform.OS === 'android';
+        const defaultTypographyStyle = {
+          fontFamily: 'DINNext-Regular',
+          ...(isAndroid
+            ? {
+              textAlign: isAppRTL ? 'right' as const : 'left' as const,
+              writingDirection: isAppRTL ? 'rtl' as const : 'ltr' as const,
+              includeFontPadding: false as const,
+            }
+            : {}),
+        };
+
+        if (cancelled) {
+          return;
+        }
+
+        (Text as any).defaultProps = {
+          ...(Text as any).defaultProps,
+          ...(isAndroid ? { allowFontScaling: false, maxFontSizeMultiplier: 1 } : {}),
+          style: [
+            defaultTypographyStyle,
+            (Text as any).defaultProps?.style,
+          ],
+        };
+
+        (TextInput as any).defaultProps = {
+          ...(TextInput as any).defaultProps,
+          ...(isAndroid ? { allowFontScaling: false, maxFontSizeMultiplier: 1 } : {}),
+          style: [
+            defaultTypographyStyle,
+            (TextInput as any).defaultProps?.style,
+          ],
+        };
+      } catch (error) {
+        // console.error('RTL initialization error:', error);
       }
+    };
 
-      const isAndroid = Platform.OS === 'android';
-      const defaultTypographyStyle = {
-        fontFamily: 'DINNext-Regular',
-        ...(isAndroid
-          ? {
-            textAlign: 'right' as const,
-            writingDirection: 'rtl' as const,
-            includeFontPadding: false as const,
-          }
-          : {}),
-      };
+    applyDirection();
 
-      (Text as any).defaultProps = {
-        ...(Text as any).defaultProps,
-        ...(isAndroid ? { allowFontScaling: false, maxFontSizeMultiplier: 1 } : {}),
-        style: [
-          defaultTypographyStyle,
-          (Text as any).defaultProps?.style,
-        ],
-      };
+    return () => {
+      cancelled = true;
+    };
+  }, [appLanguage, hasHydratedAppSettings, isAppRTL]);
 
-      (TextInput as any).defaultProps = {
-        ...(TextInput as any).defaultProps,
-        ...(isAndroid ? { allowFontScaling: false, maxFontSizeMultiplier: 1 } : {}),
-        style: [
-          defaultTypographyStyle,
-          (TextInput as any).defaultProps?.style,
-        ],
-      };
-    } catch (error) {
-      // console.error('LTR initialization error:', error);
+  useEffect(() => {
+    if (!__DEV__) {
+      return;
     }
-  }, []);
+
+    console.log('[RTL Debug][App]', {
+      appLanguage,
+      isAppRTL,
+      uiDirectionKey,
+      i18nManagerIsRTL: I18nManager.isRTL,
+      platform: Platform.OS,
+    });
+  }, [appLanguage, isAppRTL, uiDirectionKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -188,10 +254,24 @@ export default function App() {
         setIsDbReady(true);
         dbReadyRef.current = true;
 
+        // Restore encryption key from secure storage (no password needed after first login)
+        await restoreEncryptionKeyFromStorage().catch(() => {});
+        // TEMPORARY: Clear lockout once for the user
+        await resetLockout().catch(() => {});
+
         // Load dark mode preference from DB
         try {
           const { getAppSettings } = await import('./src/database/database');
           const appSettings = await getAppSettings();
+          const nextLanguage: AppLanguage = isSupportedLanguage(appSettings?.language || '')
+            ? (appSettings?.language as AppLanguage)
+            : 'ar';
+
+          if (!cancelled) {
+            setCurrentLanguage(nextLanguage);
+            setAppLanguage(nextLanguage);
+          }
+
           if (!cancelled && appSettings?.themeMode) {
             setThemeMode(appSettings.themeMode);
           } else if (!cancelled && appSettings?.darkModeEnabled) {
@@ -199,6 +279,10 @@ export default function App() {
           }
         } catch (e) {
           // console.warn('Failed to load theme setting:', e);
+        } finally {
+          if (!cancelled) {
+            setHasHydratedAppSettings(true);
+          }
         }
 
         // Only await the auth check — it's needed to decide lock screen
@@ -216,7 +300,7 @@ export default function App() {
       } catch (error) {
         // console.error('Failed to initialize app:', error);
         if (!cancelled) {
-          setInitError('تعذر تهيئة قاعدة البيانات. يرجى إعادة المحاولة.');
+          setInitError(translateText('app.databaseInitFailed'));
         }
       } finally {
         if (!cancelled) {
@@ -448,10 +532,10 @@ export default function App() {
         style={styles.loadingContainer}
         onLayout={onLayoutRootView}
       >
-        <Text style={styles.errorTitle}>تعذر فتح التطبيق</Text>
+        <Text style={styles.errorTitle}>{translateText('app.failedToOpen', undefined, appLanguage)}</Text>
         <Text style={styles.errorMessage}>{initError}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={handleRetryInitialization}>
-          <Text style={styles.retryButtonText}>إعادة المحاولة</Text>
+          <Text style={styles.retryButtonText}>{translateText('common.retry', undefined, appLanguage)}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -471,19 +555,24 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: activeTheme.colors.background }} onLayout={onLayoutRootView}>
       <SafeAreaProvider>
-        <PrivacyProvider>
-          <ThemeProvider value={{ theme: activeTheme, themeMode, setThemeMode, isDark }}>
-            <PaperProvider theme={paperTheme}>
-              <Portal.Host>
-                <AlertProvider>
-                  <PushNotificationManager />
-                  <AppNavigator />
-                  <StatusBar style={isDark ? "light" : "dark"} backgroundColor={activeTheme.colors.background} />
-                </AlertProvider>
-              </Portal.Host>
-            </PaperProvider>
-          </ThemeProvider>
-        </PrivacyProvider>
+        <LocalizationProvider value={localizationValue}>
+          <View key={uiDirectionKey} style={{ flex: 1 }}>
+            <PrivacyProvider>
+              <ThemeProvider value={{ theme: activeTheme, themeMode, setThemeMode, isDark }}>
+                <PaperProvider theme={paperTheme}>
+                  <Portal.Host>
+                    <AlertProvider>
+                      <AppNavigator />
+                      <PushNotificationManager />
+                    </AlertProvider>
+                    <AppUpdateHandler />
+                    <StatusBar style={isDark ? "light" : "dark"} backgroundColor={activeTheme.colors.background} />
+                  </Portal.Host>
+                </PaperProvider>
+              </ThemeProvider>
+            </PrivacyProvider>
+          </View>
+        </LocalizationProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

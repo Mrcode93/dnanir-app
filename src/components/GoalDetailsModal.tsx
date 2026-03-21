@@ -4,7 +4,6 @@ import {
     Text,
     StyleSheet,
     ScrollView,
-    Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,6 +13,7 @@ import { isRTL } from '../utils/rtl';
 import { useCurrency } from '../hooks/useCurrency';
 import { convertCurrency, formatCurrencyAmount } from '../services/currencyService';
 import { usePrivacy } from '../context/PrivacyContext';
+import { alertService } from '../services/alertService';
 import { ConfirmAlert } from './ConfirmAlert';
 import { AppBottomSheet, AppButton } from '../design-system';
 
@@ -42,7 +42,7 @@ export const GoalDetailsModal: React.FC<GoalDetailsModalProps> = ({
     const styles = useThemedStyles(createStyles);
     const { formatCurrency, currencyCode } = useCurrency();
     const { isPrivacyEnabled } = usePrivacy();
-    const [showConfirmAlert, setShowConfirmAlert] = useState(false);
+    const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const [convertedCurrent, setConvertedCurrent] = useState<number | null>(null);
     const [convertedTarget, setConvertedTarget] = useState<number | null>(null);
 
@@ -94,13 +94,17 @@ export const GoalDetailsModal: React.FC<GoalDetailsModalProps> = ({
     const categoryColors = getCategoryColors();
 
     const handleDelete = () => {
-        setShowConfirmAlert(true);
+        setIsConfirmingDelete(true);
     };
 
     const handleConfirmDelete = () => {
-        setShowConfirmAlert(false);
+        setIsConfirmingDelete(false);
         onDelete?.();
         onClose();
+    };
+
+    const handleCancelDelete = () => {
+        setIsConfirmingDelete(false);
     };
 
     return (
@@ -110,172 +114,190 @@ export const GoalDetailsModal: React.FC<GoalDetailsModalProps> = ({
                 onClose={onClose}
                 maxHeight="90%"
             >
-                {/* Hero Header */}
-                <LinearGradient
-                    colors={categoryColors as any}
-                    style={styles.heroHeader}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                >
-                    <View style={styles.heroIconContainer}>
-                        <Ionicons name={categoryInfo.icon as any} size={32} color="#FFFFFF" />
+                {isConfirmingDelete ? (
+                    <View style={styles.confirmContainer}>
+                        <View style={[styles.confirmIconBg, { backgroundColor: theme.colors.error + '15' }]}>
+                            <Ionicons name="trash-outline" size={40} color={theme.colors.error} />
+                        </View>
+                        <Text style={styles.confirmTitle}>تأكيد الحذف</Text>
+                        <Text style={styles.confirmText}>هل أنت متأكد من حذف هذا الهدف؟ لا يمكن التراجع عن هذا الإجراء.</Text>
+                        
+                        <View style={styles.confirmActionsRow}>
+                            <AppButton
+                                label="إلغاء"
+                                onPress={handleCancelDelete}
+                                variant="secondary"
+                                style={styles.actionBtnFlex}
+                            />
+                            <AppButton
+                                label="تأكيد الحذف"
+                                onPress={handleConfirmDelete}
+                                variant="danger"
+                                style={styles.actionBtnFlex}
+                            />
+                        </View>
                     </View>
-                    <View style={styles.heroInfo}>
-                        <Text style={styles.heroTypeLabel}>هدف مالي</Text>
-                        <Text style={styles.heroTitle} numberOfLines={2}>{goal.title}</Text>
-                    </View>
-                </LinearGradient>
-
-                {/* Progress Section */}
-                <View style={styles.progressSection}>
-                    <View style={styles.progressHeader}>
-                        <Text style={styles.progressLabel}>التقدم الحالي</Text>
-                        <Text style={styles.progressPercent}>
-                            {isPrivacyEnabled ? '**%' : `${Math.round(progress)}%`}
-                        </Text>
-                    </View>
-                    <View style={styles.progressBar}>
+                ) : (
+                    <>
+                        {/* Hero Header */}
                         <LinearGradient
-                            colors={['#FFFFFF', '#FFFFFF']}
-                            style={[styles.progressFill, { width: `${Math.min(progress, 100)}%`, backgroundColor: categoryColors[0] }]}
-                        />
-                    </View>
-                </View>
-
-                <ScrollView
-                    style={styles.detailsScroll}
-                    showsVerticalScrollIndicator={false}
-                    contentContainerStyle={styles.detailsScrollContent}
-                >
-                    {/* Amounts Grid */}
-                    <View style={styles.detailsGrid}>
-                        {/* المحقق */}
-                        <View style={styles.detailCard}>
-                            <View style={[styles.detailIconBg, { backgroundColor: theme.colors.success + '15' }]}>
-                                <Ionicons name="cash" size={20} color={theme.colors.success} />
+                            colors={categoryColors as any}
+                            style={styles.heroHeader}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                        >
+                            <View style={styles.heroIconContainer}>
+                                <Ionicons name={categoryInfo.icon as any} size={32} color="#FFFFFF" />
                             </View>
-                            <Text style={styles.detailLabel}>المحقق</Text>
-                            <Text style={styles.detailValue} numberOfLines={1}>
-                                {isPrivacyEnabled ? '****' : formatCurrencyAmount(goal.currentAmount, goalCurrency)}
-                            </Text>
-                            {convertedCurrent !== null && goalCurrency !== currencyCode && (
-                                <Text style={styles.convertedText}>≈ {formatCurrency(convertedCurrent)}</Text>
-                            )}
-                        </View>
-
-                        {/* المستهدف */}
-                        <View style={styles.detailCard}>
-                            <View style={[styles.detailIconBg, { backgroundColor: theme.colors.primary + '15' }]}>
-                                <Ionicons name="flag" size={20} color={theme.colors.primary} />
+                            <View style={styles.heroInfo}>
+                                <Text style={styles.heroTypeLabel}>هدف مالي</Text>
+                                <Text style={styles.heroTitle} numberOfLines={2}>{goal.title}</Text>
                             </View>
-                            <Text style={styles.detailLabel}>المستهدف</Text>
-                            <Text style={styles.detailValue} numberOfLines={1}>
-                                {isPrivacyEnabled ? '****' : formatCurrencyAmount(goal.targetAmount, goalCurrency)}
-                            </Text>
-                            {convertedTarget !== null && goalCurrency !== currencyCode && (
-                                <Text style={styles.convertedText}>≈ {formatCurrency(convertedTarget)}</Text>
-                            )}
-                        </View>
+                        </LinearGradient>
 
-                        {/* المتبقي */}
-                        {!isCompleted && (
-                            <View style={styles.detailCard}>
-                                <View style={[styles.detailIconBg, { backgroundColor: theme.colors.error + '15' }]}>
-                                    <Ionicons name="time" size={20} color={theme.colors.error} />
-                                </View>
-                                <Text style={styles.detailLabel}>المتبقي</Text>
-                                <Text style={[styles.detailValue, { color: theme.colors.error }]} numberOfLines={1}>
-                                    {isPrivacyEnabled ? '****' : formatCurrencyAmount(goal.targetAmount - goal.currentAmount, goalCurrency)}
+                        {/* Progress Section */}
+                        <View style={styles.progressSection}>
+                            <View style={styles.progressHeader}>
+                                <Text style={styles.progressLabel}>التقدم الحالي</Text>
+                                <Text style={styles.progressPercent}>
+                                    {isPrivacyEnabled ? '**%' : `${Math.round(progress)}%`}
                                 </Text>
                             </View>
-                        )}
-
-                        {/* الفئة */}
-                        <View style={styles.detailCard}>
-                            <View style={[styles.detailIconBg, { backgroundColor: theme.colors.info + '15' }]}>
-                                <Ionicons name={categoryInfo.icon as any} size={20} color={theme.colors.info} />
+                            <View style={styles.progressBar}>
+                                <LinearGradient
+                                    colors={['#FFFFFF', '#FFFFFF']}
+                                    style={[styles.progressFill, { width: `${Math.min(progress, 100)}%`, backgroundColor: categoryColors[0] }]}
+                                />
                             </View>
-                            <Text style={styles.detailLabel}>الفئة</Text>
-                            <Text style={styles.detailValue} numberOfLines={1}>{categoryInfo.label}</Text>
                         </View>
-                    </View>
 
-                    {/* Estimated Time */}
-                    {estimatedTime && !isCompleted && (
-                        <View style={styles.infoSection}>
-                            <View style={styles.infoHeader}>
-                                <Ionicons name="hourglass-outline" size={18} color={theme.colors.primary} />
-                                <Text style={styles.infoLabel}>الوقت المتوقع لتحقيق الهدف</Text>
+                        <ScrollView
+                            style={styles.detailsScroll}
+                            showsVerticalScrollIndicator={false}
+                            contentContainerStyle={styles.detailsScrollContent}
+                        >
+                            {/* Amounts Grid */}
+                            <View style={styles.detailsGrid}>
+                                {/* المحقق */}
+                                <View style={styles.detailCard}>
+                                    <View style={[styles.detailIconBg, { backgroundColor: theme.colors.success + '15' }]}>
+                                        <Ionicons name="cash" size={20} color={theme.colors.success} />
+                                    </View>
+                                    <Text style={styles.detailLabel}>المحقق</Text>
+                                    <Text style={styles.detailValue} numberOfLines={1}>
+                                        {isPrivacyEnabled ? '****' : formatCurrencyAmount(goal.currentAmount, goalCurrency)}
+                                    </Text>
+                                    {convertedCurrent !== null && goalCurrency !== currencyCode && (
+                                        <Text style={styles.convertedText}>≈ {formatCurrency(convertedCurrent)}</Text>
+                                    )}
+                                </View>
+
+                                {/* المستهدف */}
+                                <View style={styles.detailCard}>
+                                    <View style={[styles.detailIconBg, { backgroundColor: theme.colors.primary + '15' }]}>
+                                        <Ionicons name="flag" size={20} color={theme.colors.primary} />
+                                    </View>
+                                    <Text style={styles.detailLabel}>المستهدف</Text>
+                                    <Text style={styles.detailValue} numberOfLines={1}>
+                                        {isPrivacyEnabled ? '****' : formatCurrencyAmount(goal.targetAmount, goalCurrency)}
+                                    </Text>
+                                    {convertedTarget !== null && goalCurrency !== currencyCode && (
+                                        <Text style={styles.convertedText}>≈ {formatCurrency(convertedTarget)}</Text>
+                                    )}
+                                </View>
+
+                                {/* المتبقي */}
+                                {!isCompleted && (
+                                    <View style={styles.detailCard}>
+                                        <View style={[styles.detailIconBg, { backgroundColor: theme.colors.error + '15' }]}>
+                                            <Ionicons name="time" size={20} color={theme.colors.error} />
+                                        </View>
+                                        <Text style={styles.detailLabel}>المتبقي</Text>
+                                        <Text style={[styles.detailValue, { color: theme.colors.error }]} numberOfLines={1}>
+                                            {isPrivacyEnabled ? '****' : formatCurrencyAmount(goal.targetAmount - goal.currentAmount, goalCurrency)}
+                                        </Text>
+                                    </View>
+                                )}
+
+                                {/* الفئة */}
+                                <View style={styles.detailCard}>
+                                    <View style={[styles.detailIconBg, { backgroundColor: theme.colors.info + '15' }]}>
+                                        <Ionicons name={categoryInfo.icon as any} size={20} color={theme.colors.info} />
+                                    </View>
+                                    <Text style={styles.detailLabel}>الفئة</Text>
+                                    <Text style={styles.detailValue} numberOfLines={1}>{categoryInfo.label}</Text>
+                                </View>
                             </View>
-                            <Text style={styles.infoText}>{estimatedTime}</Text>
-                        </View>
-                    )}
 
-                    {/* Description */}
-                    {goal.description ? (
-                        <View style={styles.infoSection}>
-                            <View style={styles.infoHeader}>
-                                <Ionicons name="document-text-outline" size={18} color={theme.colors.textSecondary} />
-                                <Text style={styles.infoLabel}>ملاحظات</Text>
+                            {/* Estimated Time */}
+                            {estimatedTime && !isCompleted && (
+                                <View style={styles.infoSection}>
+                                    <View style={styles.infoHeader}>
+                                        <Ionicons name="hourglass-outline" size={18} color={theme.colors.primary} />
+                                        <Text style={styles.infoLabel}>الوقت المتوقع لتحقيق الهدف</Text>
+                                    </View>
+                                    <Text style={styles.infoText}>{estimatedTime}</Text>
+                                </View>
+                            )}
+
+                            {/* Description */}
+                            {goal.description ? (
+                                <View style={styles.infoSection}>
+                                    <View style={styles.infoHeader}>
+                                        <Ionicons name="document-text-outline" size={18} color={theme.colors.textSecondary} />
+                                        <Text style={styles.infoLabel}>ملاحظات</Text>
+                                    </View>
+                                    <Text style={styles.infoText}>{goal.description}</Text>
+                                </View>
+                            ) : null}
+                            {/* Actions Grid */}
+                            <View style={[styles.actionsGrid, { borderTopWidth: 0, marginTop: 24 }]}>
+                                <View style={styles.actionRow}>
+                                    {!isCompleted && onAddAmount && (
+                                        <AppButton
+                                            label="إضافة مبلغ"
+                                            onPress={() => { onClose(); setTimeout(() => onAddAmount(), 300); }}
+                                            variant="success"
+                                            leftIcon="add-circle"
+                                            style={styles.actionBtnFlex}
+                                        />
+                                    )}
+
+                                    {onPlan && (
+                                        <AppButton
+                                            label="خطة الذكاء"
+                                            onPress={() => { onClose(); setTimeout(() => onPlan(), 300); }}
+                                            variant="primary"
+                                            leftIcon="sparkles"
+                                            style={styles.actionBtnFlex}
+                                        />
+                                    )}
+                                </View>
+
+                                <View style={styles.actionRow}>
+                                    {onEdit && (
+                                        <AppButton
+                                            label="تعديل"
+                                            onPress={() => { onClose(); setTimeout(() => onEdit(), 300); }}
+                                            variant="secondary"
+                                            leftIcon="create-outline"
+                                            style={styles.actionBtnFlex}
+                                        />
+                                    )}
+
+                                    <AppButton
+                                        label="حذف"
+                                        onPress={handleDelete}
+                                        variant="danger"
+                                        leftIcon="trash-outline"
+                                        style={styles.actionBtnFlex}
+                                    />
+                                </View>
                             </View>
-                            <Text style={styles.infoText}>{goal.description}</Text>
-                        </View>
-                    ) : null}
-                </ScrollView>
-
-                {/* Action Buttons Row 1: Main Actions */}
-                <View style={styles.mainActions}>
-                    {!isCompleted && onAddAmount && (
-                        <AppButton
-                            label="إضافة مبلغ للهدف"
-                            onPress={() => { onClose(); setTimeout(() => onAddAmount(), 300); }}
-                            variant="success"
-                            leftIcon="add-circle"
-                        />
-                    )}
-
-                    {onPlan && (
-                        <AppButton
-                            label="خطة الذكاء الاصطناعي"
-                            onPress={() => { onClose(); setTimeout(() => onPlan(), 300); }}
-                            variant="primary"
-                            leftIcon="sparkles"
-                        />
-                    )}
-                </View>
-
-                {/* Action Buttons Row 2: Secondary Actions */}
-                <View style={styles.secondaryActions}>
-                    {onEdit && (
-                        <AppButton
-                            label="تعديل"
-                            onPress={() => { onClose(); setTimeout(() => onEdit(), 300); }}
-                            variant="secondary"
-                            leftIcon="create-outline"
-                            style={styles.actionBtnFlex}
-                        />
-                    )}
-
-                    <AppButton
-                        label="حذف"
-                        onPress={handleDelete}
-                        variant="danger"
-                        leftIcon="trash-outline"
-                        style={styles.actionBtnFlex}
-                    />
-                </View>
+                        </ScrollView>
+                    </>
+                )}
             </AppBottomSheet>
-
-            <ConfirmAlert
-                visible={showConfirmAlert}
-                title="تأكيد الحذف"
-                message="هل أنت متأكد من حذف هذا الهدف؟ لا يمكن التراجع عن هذا الإجراء."
-                confirmText="حذف"
-                cancelText="إلغاء"
-                onConfirm={handleConfirmDelete}
-                onCancel={() => setShowConfirmAlert(false)}
-                type="danger"
-            />
         </>
     );
 };
@@ -431,19 +453,52 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         lineHeight: 22,
         textAlign: isRTL ? 'right' : 'left',
     },
-    mainActions: {
+    actionsGrid: {
         marginTop: 12,
         paddingHorizontal: 16,
-        paddingBottom: 8,
-        gap: 10,
+        paddingBottom: 20,
+        gap: 12,
     },
-    secondaryActions: {
+    actionRow: {
         flexDirection: isRTL ? 'row-reverse' : 'row',
-        paddingHorizontal: 16,
-        paddingBottom: 8,
         gap: 12,
     },
     actionBtnFlex: {
         flex: 1,
+    },
+    // Confirmation UI
+    confirmContainer: {
+        alignItems: 'center',
+        paddingVertical: 32,
+        paddingHorizontal: 16,
+    },
+    confirmIconBg: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 20,
+    },
+    confirmTitle: {
+        fontSize: 22,
+        fontWeight: getPlatformFontWeight('800'),
+        color: theme.colors.textPrimary,
+        fontFamily: theme.typography.fontFamily,
+        marginBottom: 12,
+        textAlign: 'center',
+    },
+    confirmText: {
+        fontSize: 16,
+        color: theme.colors.textSecondary,
+        fontFamily: theme.typography.fontFamily,
+        textAlign: 'center',
+        lineHeight: 24,
+        marginBottom: 32,
+    },
+    confirmActionsRow: {
+        flexDirection: isRTL ? 'row-reverse' : 'row',
+        gap: 12,
+        width: '100%',
     },
 });

@@ -218,7 +218,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontWeight: getPlatformFontWeight('700'),
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr',
     flex: 1,
   },
   monthList: {
@@ -279,7 +279,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr',
   },
   textSelected: {
     flex: 1,
@@ -288,7 +288,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr',
   },
   checkCircle: {
     width: 24,

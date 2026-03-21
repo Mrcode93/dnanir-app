@@ -3,6 +3,7 @@ import { API_ENDPOINTS } from '../config/api';
 import { authStorage } from './authStorage';
 import { authEventService } from './authEventService';
 import { saveUserProfile } from '../database/database';
+import { initEncryptionKey, clearEncryptionKey, restoreEncryptionKeyFromStorage } from '../utils/encryption';
 
 export interface RegisterRequest {
   phone: string;
@@ -28,6 +29,7 @@ export interface UserData {
   isPro?: boolean;
   proExpiresAt?: string | null;
   hasUnlimitedAi?: boolean;
+  wrappedDek?: string | null;
 }
 
 export interface AuthResponse {
@@ -83,6 +85,8 @@ export const authApiService = {
 
     if (response.success && response.data) {
       await storeAuthData(response.data);
+      // Run PBKDF2 in background — login is instant, DEK ready in ~2s
+      initEncryptionKey(data.password, response.data.user.id, response.data.user.wrappedDek).catch(() => {});
       return { success: true, user: response.data.user };
     }
 
@@ -104,6 +108,8 @@ export const authApiService = {
 
     if (response.success && response.data) {
       await storeAuthData(response.data);
+      // Run PBKDF2 in background — login is instant, DEK ready in ~2s
+      initEncryptionKey(data.password, response.data.user.id, response.data.user.wrappedDek).catch(() => {});
       return { success: true, user: response.data.user };
     }
 
@@ -147,6 +153,7 @@ export const authApiService = {
    * Logout user (clear tokens and profile data)
    */
   async logout(): Promise<void> {
+    await clearEncryptionKey();
     await authStorage.clearAuthData();
 
     // Clear user profile from local database
@@ -154,7 +161,7 @@ export const authApiService = {
       const { clearUserProfile } = await import('../database/database');
       await clearUserProfile();
     } catch (error) {
-      
+
       // Don't fail logout if profile clear fails
     }
 

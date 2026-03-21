@@ -409,25 +409,24 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
                       </TouchableOpacity>
                     </View>
                   )}
-      </ScrollView>
-
-      {/* Actions */}
-      <View style={styles.actions}>
-        <AppButton
-          label="إلغاء"
-          onPress={handleClose}
-          variant="secondary"
-          style={styles.cancelButton}
-        />
-        <AppButton
-          label={editingGoal ? 'تحديث' : 'حفظ'}
-          onPress={handleSave}
-          variant="primary"
-          loading={loading}
-          leftIcon="checkmark-circle"
-          style={styles.saveButton}
-        />
-      </View>
+                  {/* Save Button */}
+                  <View style={[styles.actions, { borderTopWidth: 0, marginTop: 12 }]}>
+                    <AppButton
+                      label="إلغاء"
+                      onPress={handleClose}
+                      variant="secondary"
+                      style={styles.cancelButton}
+                    />
+                    <AppButton
+                      label={editingGoal ? 'تحديث' : 'حفظ'}
+                      onPress={handleSave}
+                      variant="primary"
+                      loading={loading}
+                      leftIcon="checkmark-circle"
+                      style={styles.saveButton}
+                    />
+                  </View>
+                </ScrollView>
 
       <CurrencyPickerModal
         visible={showCurrencyPicker}

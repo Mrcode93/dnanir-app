@@ -299,7 +299,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     padding: theme.spacing.lg,
     ...getPlatformShadow('lg'),
     overflow: 'hidden',
-    direction: 'ltr',
+    direction: isRTL ? 'rtl' : 'ltr',
   },
   header: {
     flexDirection: 'row',
@@ -325,14 +325,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr',
   },
   category: {
     fontSize: theme.typography.sizes.sm,
     color: 'rgba(255, 255, 255, 0.8)',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr',
   },
   headerRight: {
     flexDirection: 'row',
@@ -349,7 +349,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   progressContainer: {
     marginBottom: theme.spacing.md,
-    direction: 'rtl',
+    direction: isRTL ? 'rtl' : 'ltr',
   },
   progressBar: {
     height: 10,
@@ -408,7 +408,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginTop: 2,
     fontStyle: 'italic',
     textAlign: 'right',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr',
   },
   remainingContainer: {
     flexDirection: 'row',
@@ -427,7 +427,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr',
     marginBottom: theme.spacing.xs,
   },
   estimatedTimeContainer: {
@@ -452,7 +452,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     fontWeight: getPlatformFontWeight('600'),
     textAlign: 'right',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr',
     marginBottom: 2,
   },
   estimatedTimeExplanation: {
@@ -460,7 +460,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.75)',
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr',
     fontStyle: 'italic',
   },
   completedContainer: {
@@ -478,6 +478,6 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontWeight: getPlatformFontWeight('600'),
     fontFamily: theme.typography.fontFamily,
     textAlign: 'right',
-    writingDirection: 'rtl',
+    writingDirection: isRTL ? 'rtl' : 'ltr',
   },
 });

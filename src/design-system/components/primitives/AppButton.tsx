@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../../../utils/theme-context';
 import { getPlatformFontWeight } from '../../../utils/theme-constants';
 import { BUTTON, FONT_SIZE } from '../../tokens';
+import { useLocalization } from '../../../localization';
 
 export type AppButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'success';
 export type AppButtonSize = 'sm' | 'md' | 'lg';
@@ -64,10 +65,11 @@ export const AppButton: React.FC<AppButtonProps> = ({
   rightIcon,
 }) => {
   const { theme } = useAppTheme();
+  const { isRTL } = useLocalization();
 
   const bgColor: Record<AppButtonVariant, string> = {
     primary: theme.colors.primary,
-    secondary: theme.colors.surface,
+    secondary: theme.colors.surfaceLight,
     danger: theme.colors.error,
     ghost: 'transparent',
     success: theme.colors.success,
@@ -89,13 +91,13 @@ export const AppButton: React.FC<AppButtonProps> = ({
   const containerStyle: ViewStyle = {
     height: h,
     borderRadius: r,
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     opacity: isDisabled ? 0.5 : 1,
-    borderWidth: variant === 'ghost' ? 1 : 0,
-    borderColor: variant === 'ghost' ? theme.colors.primary : undefined,
+    borderWidth: (variant === 'ghost' || variant === 'secondary') ? 1 : 0,
+    borderColor: variant === 'ghost' ? theme.colors.primary : theme.colors.border,
   };
 
   const iconSize = size === 'sm' ? 16 : size === 'lg' ? 20 : 18;

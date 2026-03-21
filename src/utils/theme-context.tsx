@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useMemo } from 'react';
 import { lightTheme, AppTheme } from './theme-constants';
+import { useLocalization } from '../localization';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -30,5 +31,6 @@ export const useThemedStyles = <T extends Record<string, any>>(
     factory: (theme: AppTheme) => T
 ): T => {
     const { theme: activeTheme } = useAppTheme();
-    return useMemo(() => factory(activeTheme), [activeTheme, factory]);
+    const { isRTL } = useLocalization();
+    return useMemo(() => factory(activeTheme), [activeTheme, factory, isRTL]);
 };

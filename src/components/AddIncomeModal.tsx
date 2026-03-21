@@ -510,41 +510,40 @@ export const AddIncomeModal: React.FC<AddIncomeModalProps> = ({
                       />
                     </View>
                   </View>
-      </ScrollView>
-
-      {/* Actions */}
-      <View style={styles.actions}>
-        <AppButton
-          label="إلغاء"
-          onPress={handleClose}
-          variant="secondary"
-          style={styles.cancelButton}
-        />
-        {!income && (
-          <TouchableOpacity
-            onPress={() => setShowManageShortcuts(true)}
-            style={styles.addShortcutActionButton}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={[theme.colors.primary + '15', theme.colors.primary + '25'] as any}
-              style={styles.addShortcutActionGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <Ionicons name="flash" size={20} color={theme.colors.primary} />
-            </LinearGradient>
-          </TouchableOpacity>
-        )}
-        <AppButton
-          label={income ? 'تحديث' : 'حفظ'}
-          onPress={handleSave}
-          variant="primary"
-          loading={loading}
-          leftIcon="checkmark-circle"
-          style={styles.saveButton}
-        />
-      </View>
+                  {/* Save Button */}
+                  <View style={[styles.actions, { borderTopWidth: 0, marginTop: 20 }]}>
+                    <AppButton
+                      label="إلغاء"
+                      onPress={handleClose}
+                      variant="secondary"
+                      style={styles.cancelButton}
+                    />
+                    {!income && (
+                      <TouchableOpacity
+                        onPress={() => setShowManageShortcuts(true)}
+                        style={styles.addShortcutActionButton}
+                        activeOpacity={0.8}
+                      >
+                        <LinearGradient
+                          colors={[theme.colors.primary + '15', theme.colors.primary + '25'] as any}
+                          style={styles.addShortcutActionGradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                        >
+                          <Ionicons name="flash" size={20} color={theme.colors.primary} />
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    )}
+                    <AppButton
+                      label={income ? 'تحديث' : 'حفظ'}
+                      onPress={handleSave}
+                      variant="primary"
+                      loading={loading}
+                      leftIcon="checkmark-circle"
+                      style={styles.saveButton}
+                    />
+                  </View>
+                </ScrollView>
 
       {/* Currency Picker */}
       <CurrencyPickerModal

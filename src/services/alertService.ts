@@ -1,4 +1,5 @@
 import { CustomAlert, AlertType } from '../components/CustomAlert';
+import { t } from '../localization';
 
 export interface AlertOptions {
   title: string;
@@ -84,8 +85,8 @@ class AlertService {
       title,
       message,
       type: 'warning',
-      confirmText: 'تأكيد',
-      cancelText: 'إلغاء',
+      confirmText: t('common.confirm'),
+      cancelText: t('common.cancel'),
       showCancel: true,
       onConfirm,
       onCancel,
