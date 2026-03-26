@@ -48,9 +48,9 @@ export const getBillsDueInPeriod = async (
 /**
  * Estimate total recurring expenses amount for a given month (active recurring only)
  */
-export const getRecurringEstimatedForMonth = async (year: number, month: number): Promise<number> => {
+export const getRecurringEstimatedForMonth = async (year: number, month: number, walletId?: number): Promise<number> => {
   const { getRecurringExpenses } = await import('../database/database');
-  const list = await getRecurringExpenses(true);
+  const list = await getRecurringExpenses(true, walletId);
   const firstDay = new Date(year, month - 1, 1);
   const lastDay = new Date(year, month, 0);
   let total = 0;
@@ -70,11 +70,11 @@ export const getRecurringEstimatedForMonth = async (year: number, month: number)
   return Math.round(total);
 };
 
-export const calculateFinancialSummary = async (): Promise<FinancialSummary> => {
+export const calculateFinancialSummary = async (walletId?: number): Promise<FinancialSummary> => {
   const { getFinancialStatsAggregated, getExpensesByCategoryAggregated } = await import('../database/database');
 
-  const stats = await getFinancialStatsAggregated();
-  const categories = await getExpensesByCategoryAggregated();
+  const stats = await getFinancialStatsAggregated(undefined, undefined, walletId);
+  const categories = await getExpensesByCategoryAggregated(undefined, undefined, walletId);
 
   const topExpenseCategories = categories
     .map((item) => ({
@@ -184,9 +184,9 @@ export const generateFinancialInsights = (summary: FinancialSummary): FinancialI
   return insights;
 };
 
-export const getCurrentMonthData = async () => {
+export const getCurrentMonthData = async (walletId?: number) => {
   const now = new Date();
-  return getMonthData(now.getFullYear(), now.getMonth() + 1);
+  return getMonthData(now.getFullYear(), now.getMonth() + 1, walletId);
 };
 
 /**
@@ -194,7 +194,7 @@ export const getCurrentMonthData = async () => {
  * @param months Number of months to analyze (default: 6)
  * @returns Average monthly savings amount
  */
-export const calculateAverageMonthlySavings = async (months: number = 6): Promise<number> => {
+export const calculateAverageMonthlySavings = async (months: number = 6, walletId?: number): Promise<number> => {
   try {
     const now = new Date();
 
@@ -211,7 +211,7 @@ export const calculateAverageMonthlySavings = async (months: number = 6): Promis
       const lastDay = `${year}-${(month + 1).toString().padStart(2, '0')}-${lastDayObj.getDate().toString().padStart(2, '0')}`;
 
       const { getFinancialStatsAggregated } = await import('../database/database');
-      const stats = await getFinancialStatsAggregated(firstDay, lastDay);
+      const stats = await getFinancialStatsAggregated(firstDay, lastDay, walletId);
 
       monthlySavings.push(stats.balance);
     }
@@ -294,7 +294,7 @@ export const calculateTimeToReachGoal = (
  * For the current month, "bills due" = unpaid bills from today through end of next month (all upcoming).
  * For past months, "bills due" = unpaid bills with due date within that month only.
  */
-export const getMonthData = async (year: number, month: number) => {
+export const getMonthData = async (year: number, month: number, walletId?: number) => {
   const now = new Date();
   const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
 
@@ -318,12 +318,12 @@ export const getMonthData = async (year: number, month: number) => {
   const { getExpensesByRange, getIncomeByRange, getFinancialStatsAggregated, getExpensesByCategoryAggregated } = await import('../database/database');
 
   const [expenses, income, stats, categories, billsDueResult, recurringTotal] = await Promise.all([
-    getExpensesByRange(firstDay, lastDay),
-    getIncomeByRange(firstDay, lastDay),
-    getFinancialStatsAggregated(firstDay, lastDay),
-    getExpensesByCategoryAggregated(firstDay, lastDay),
+    getExpensesByRange(firstDay, lastDay, walletId),
+    getIncomeByRange(firstDay, lastDay, walletId),
+    getFinancialStatsAggregated(firstDay, lastDay, walletId),
+    getExpensesByCategoryAggregated(firstDay, lastDay, walletId),
     getBillsDueInPeriod(billsStart, billsEnd),
-    getRecurringEstimatedForMonth(year, month),
+    getRecurringEstimatedForMonth(year, month, walletId),
   ]);
 
   const topExpenseCategories = categories.map((item) => ({
@@ -352,10 +352,11 @@ export const getMonthData = async (year: number, month: number) => {
  */
 export const comparePeriods = async (
   period1: { year: number; month: number },
-  period2: { year: number; month: number }
+  period2: { year: number; month: number },
+  walletId?: number
 ) => {
-  const data1 = await getMonthData(period1.year, period1.month);
-  const data2 = await getMonthData(period2.year, period2.month);
+  const data1 = await getMonthData(period1.year, period1.month, walletId);
+  const data2 = await getMonthData(period2.year, period2.month, walletId);
 
   const incomeChange = data2.totalIncome - data1.totalIncome;
   const incomeChangePercent =
@@ -431,7 +432,7 @@ export const comparePeriods = async (
 /**
  * Predict next month's expenses based on historical data
  */
-export const predictNextMonthExpenses = async (monthsToAnalyze: number = 3): Promise<{
+export const predictNextMonthExpenses = async (monthsToAnalyze: number = 3, walletId?: number): Promise<{
   predictedTotal: number;
   predictedByCategory: Array<{ category: string; amount: number }>;
   confidence: 'high' | 'medium' | 'low';
@@ -454,7 +455,7 @@ export const predictNextMonthExpenses = async (monthsToAnalyze: number = 3): Pro
 
       // Push the promise immediately
       promises.push(
-        getExpensesByRange(firstDay, lastDay).then(monthExpenses => {
+        getExpensesByRange(firstDay, lastDay, walletId).then(monthExpenses => {
           const total = monthExpenses.reduce((sum, exp) => sum + exp.amount, 0);
           const byCategory = new Map<string, number>();
 
@@ -523,7 +524,7 @@ export const predictNextMonthExpenses = async (monthsToAnalyze: number = 3): Pro
     const lastDayNextStr = `${nextYear}-${nextMonth.toString().padStart(2, '0')}-${lastDayNext.getDate().toString().padStart(2, '0')}`;
     const [billsNext, recurringNext] = await Promise.all([
       getBillsDueInPeriod(firstDayNext, lastDayNextStr),
-      getRecurringEstimatedForMonth(nextYear, nextMonth),
+      getRecurringEstimatedForMonth(nextYear, nextMonth, walletId),
     ]);
     const basePredicted = Math.round(avgTotal);
     const withBillsAndRecurring = basePredicted + billsNext.totalAmount + recurringNext;
@@ -554,7 +555,7 @@ export const predictNextMonthExpenses = async (monthsToAnalyze: number = 3): Pro
 /**
  * Get monthly trend data for the last N months
  */
-export const getMonthlyTrendData = async (months: number = 6): Promise<Array<{
+export const getMonthlyTrendData = async (months: number = 6, walletId?: number): Promise<Array<{
   month: string;
   year: number;
   monthNumber: number;
@@ -588,8 +589,8 @@ export const getMonthlyTrendData = async (months: number = 6): Promise<Array<{
 
       // Create a promise for this month's data
       const monthPromise = Promise.all([
-        getExpensesByRange(firstDay, lastDay),
-        getIncomeByRange(firstDay, lastDay)
+        getExpensesByRange(firstDay, lastDay, walletId),
+        getIncomeByRange(firstDay, lastDay, walletId)
       ]).then(([expenses, income]) => {
         const totalIncome = income.reduce((sum, inc) => sum + inc.amount, 0);
         const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);

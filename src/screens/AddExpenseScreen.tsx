@@ -18,6 +18,7 @@ import { getSmartExpenseShortcuts } from '../services/smartShortcutsService';
 import { resolveIoniconName, toOutlineIoniconName } from '../utils/icon-utils';
 import { ScreenContainer, AppHeader, AppButton, AppBottomSheet } from '../design-system';
 import { tl, useLocalization } from "../localization";
+import { useWallets } from '../context/WalletContext';
 interface AddExpenseScreenProps {
   navigation: any;
   route: any;
@@ -61,6 +62,8 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
   const [date, setDate] = useState(new Date());
   const [description, setDescription] = useState('');
   const [currency, setCurrency] = useState<string>(currencyCode);
+  const { wallets, selectedWallet } = useWallets();
+  const [walletId, setWalletId] = useState<number | undefined>(undefined);
 
   // UI State
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -114,11 +117,13 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
         } else {
           setCategory(expense.category as ExpenseCategory);
         }
+        setWalletId(expense.walletId);
         isInitialized.current = true;
       }
     } else {
       if (!isInitialized.current) {
         resetForm(route?.params?.initialDate ? new Date(route.params.initialDate) : undefined);
+        setWalletId(selectedWallet?.id || wallets.find(w => w.isDefault)?.id || wallets[0]?.id);
         loadShortcuts();
         isInitialized.current = true;
         setTimeout(() => {
@@ -171,7 +176,8 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
         date: formatDateLocal(date),
         description: description.trim(),
         currency: currency,
-        category: category
+        category: category,
+        walletId: walletId
       };
       if (expense) {
         await updateExpense(expense.id, data);
@@ -221,7 +227,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
   const saveFooter = <AppButton label={expense ? tl("تحديث المصروف") : tl("حفظ المصروف")} onPress={handleSave} variant="primary" size="lg" loading={loading} disabled={loading} style={{
     backgroundColor: currentCategoryInfo.color || theme.colors.success
   }} />;
-  return <ScreenContainer scrollable edges={['top']}>
+  return <ScreenContainer scrollable edges={[]}>
       <AppHeader title={expense ? tl("تعديل مصروف") : tl("مصروف جديد")} backIcon="close" onBack={handleClose} />
 
       {/* Amount Section */}
@@ -319,6 +325,40 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
           })}
           </Text>
         </TouchableOpacity>
+
+        <View style={styles.divider} />
+
+        {/* Wallet Selection */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>{tl("المحفظة")}</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, flexDirection: isRTL ? 'row-reverse' : 'row' }}>
+            {wallets.map(w => {
+              const isSelected = walletId === w.id;
+              return (
+                <TouchableOpacity
+                  key={w.id}
+                  style={[
+                    styles.walletChip,
+                    isSelected && { borderColor: w.color || theme.colors.primary, backgroundColor: (w.color || theme.colors.primary) + '15' }
+                  ]}
+                  onPress={() => setWalletId(w.id)}
+                >
+                  <Ionicons 
+                    name={(w.icon as any) || 'wallet'} 
+                    size={16} 
+                    color={isSelected ? (w.color || theme.colors.primary) : theme.colors.textSecondary} 
+                  />
+                  <Text style={[
+                    styles.walletChipText,
+                    isSelected && { color: w.color || theme.colors.primary, fontWeight: 'bold' }
+                  ]}>
+                    {w.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
 
         <View style={styles.divider} />
 
@@ -584,5 +624,20 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontSize: theme.typography.sizes.md,
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily
+  },
+  walletChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    backgroundColor: 'rgba(150, 150, 150, 0.05)',
+    gap: 6,
+  },
+  walletChipText: {
+    fontSize: 14,
+    color: '#666',
   }
 });

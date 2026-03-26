@@ -1,16 +1,14 @@
 import { I18nManager } from 'react-native';
 import * as Updates from 'expo-updates';
 
-export let isRTL = true;
+export const isRTL = true;
 let nativeDirectionReloadInFlight = false;
 
-export const setRTL = (value: boolean) => {
-  isRTL = value;
+export const setRTL = (_value: boolean) => {
+  // Always true for this app
 };
 
 export const syncNativeRTLDirection = async (value: boolean): Promise<boolean> => {
-  setRTL(value);
-
   if (I18nManager.isRTL === value) {
     I18nManager.swapLeftAndRightInRTL(false);
     return false;
@@ -37,22 +35,13 @@ export const syncNativeRTLDirection = async (value: boolean): Promise<boolean> =
 };
 
 export const rtlStyles = {
-  get flexDirection() {
-    return isRTL ? 'row-reverse' : 'row';
-  },
-  get textAlign() {
-    return isRTL ? 'right' : 'left';
-  },
-  get writingDirection() {
-    return isRTL ? 'rtl' : 'ltr';
-  },
+  flexDirection: 'row-reverse' as const,
+  textAlign: 'right' as const,
+  writingDirection: 'rtl' as const,
 };
 
 export const getFlexDirection = (reverse: boolean = false) => {
-  if (reverse) {
-    return isRTL ? 'row' : 'row-reverse';
-  }
-  return isRTL ? 'row-reverse' : 'row';
+  return reverse ? 'row' : 'row-reverse';
 };
 
 export const getMarginStart = (value: number) => ({

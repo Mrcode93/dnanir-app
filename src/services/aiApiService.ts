@@ -4,7 +4,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 export interface ReceiptOCRRequest {
   imageBase64: string;
-  language?: 'ar' | 'en' | 'ar+en';
+  language?: 'ar';
 }
 
 export interface ReceiptOCRResponse {
@@ -83,7 +83,7 @@ export const aiApiService = {
    */
   async processReceiptOCR(
     imageUri: string,
-    language: 'ar' | 'en' | 'ar+en' = 'ar+en'
+    language: 'ar' = 'ar'
   ): Promise<{ success: boolean; data?: ReceiptOCRResponse; error?: string }> {
     try {
       // Read image file and convert to base64 using legacy API
@@ -277,6 +277,7 @@ export const aiApiService = {
       };
       currency?: string;
       analysisType?: 'full' | 'savings' | 'comparison';
+      walletId?: number;
     }
   ): Promise<{
     success: boolean;

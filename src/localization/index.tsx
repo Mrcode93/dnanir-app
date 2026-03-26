@@ -1,11 +1,9 @@
 import React, { createContext, useContext } from 'react';
 import { setRTL } from '../utils/rtl';
 import { ar } from './resources/ar';
-import { en } from './resources/en';
 import { literalAr } from './resources/literal-ar';
-import { literalEn } from './resources/literal-en';
 
-export type AppLanguage = 'ar' | 'en';
+export type AppLanguage = 'ar';
 export type TranslationParams = Record<string, string | number | undefined>;
 export type TranslateFn = (key: string, params?: TranslationParams) => string;
 export type TranslateLiteralParams =
@@ -15,57 +13,49 @@ export type TranslateLiteralFn = (text: string, params?: TranslateLiteralParams)
 
 const resources = {
   ar,
-  en,
 } as const;
 
 const literalResources = {
   ar: literalAr,
-  en: literalEn,
 } as const;
 
 const languageDisplayNames = {
   ar: {
     ar: 'العربية (العراق)',
-    en: 'Arabic (Iraq)',
     native: 'العربية (العراق)',
-  },
-  en: {
-    ar: 'الإنجليزية',
-    en: 'English',
-    native: 'English',
   },
 } as const;
 
 const currencyDisplayNames: Record<string, Record<AppLanguage, string>> = {
-  IQD: { ar: 'دينار عراقي', en: 'Iraqi Dinar' },
-  USD: { ar: 'دولار أمريكي', en: 'US Dollar' },
-  EUR: { ar: 'يورو', en: 'Euro' },
-  GBP: { ar: 'جنيه إسترليني', en: 'British Pound' },
-  SAR: { ar: 'ريال سعودي', en: 'Saudi Riyal' },
-  AED: { ar: 'درهم إماراتي', en: 'UAE Dirham' },
-  KWD: { ar: 'دينار كويتي', en: 'Kuwaiti Dinar' },
-  EGP: { ar: 'جنيه مصري', en: 'Egyptian Pound' },
-  QAR: { ar: 'ريال قطري', en: 'Qatari Riyal' },
-  BHD: { ar: 'دينار بحريني', en: 'Bahraini Dinar' },
-  OMR: { ar: 'ريال عماني', en: 'Omani Rial' },
-  JOD: { ar: 'دينار أردني', en: 'Jordanian Dinar' },
-  LBP: { ar: 'ليرة لبنانية', en: 'Lebanese Pound' },
-  SYP: { ar: 'ليرة سورية', en: 'Syrian Pound' },
-  TND: { ar: 'دينار تونسي', en: 'Tunisian Dinar' },
-  MAD: { ar: 'درهم مغربي', en: 'Moroccan Dirham' },
-  DZD: { ar: 'دينار جزائري', en: 'Algerian Dinar' },
-  LYD: { ar: 'دينار ليبي', en: 'Libyan Dinar' },
-  SDG: { ar: 'جنيه سوداني', en: 'Sudanese Pound' },
-  YER: { ar: 'ريال يمني', en: 'Yemeni Rial' },
-  TRY: { ar: 'ليرة تركية', en: 'Turkish Lira' },
-  CAD: { ar: 'دولار كندي', en: 'Canadian Dollar' },
-  AUD: { ar: 'دولار أسترالي', en: 'Australian Dollar' },
-  CHF: { ar: 'فرنك سويسري', en: 'Swiss Franc' },
-  CNY: { ar: 'يوان صيني', en: 'Chinese Yuan' },
-  JPY: { ar: 'ين ياباني', en: 'Japanese Yen' },
-  INR: { ar: 'روبية هندية', en: 'Indian Rupee' },
-  RUB: { ar: 'روبل روسي', en: 'Russian Ruble' },
-  BRL: { ar: 'ريال برازيلي', en: 'Brazilian Real' },
+  IQD: { ar: 'دينار عراقي' },
+  USD: { ar: 'دولار أمريكي' },
+  EUR: { ar: 'يورو' },
+  GBP: { ar: 'جنيه إسترليني' },
+  SAR: { ar: 'ريال سعودي' },
+  AED: { ar: 'درهم إماراتي' },
+  KWD: { ar: 'دينار كويتي' },
+  EGP: { ar: 'جنيه مصري' },
+  QAR: { ar: 'ريال قطري' },
+  BHD: { ar: 'دينار بحريني' },
+  OMR: { ar: 'ريال عماني' },
+  JOD: { ar: 'دينار أردني' },
+  LBP: { ar: 'ليرة لبنانية' },
+  SYP: { ar: 'ليرة سورية' },
+  TND: { ar: 'دينار تونسي' },
+  MAD: { ar: 'درهم مغربي' },
+  DZD: { ar: 'دينار جزائري' },
+  LYD: { ar: 'دينار ليبي' },
+  SDG: { ar: 'جنيه سوداني' },
+  YER: { ar: 'ريال يمني' },
+  TRY: { ar: 'ليرة تركية' },
+  CAD: { ar: 'دولار كندي' },
+  AUD: { ar: 'دولار أسترالي' },
+  CHF: { ar: 'فرنك سويسري' },
+  CNY: { ar: 'يوان صيني' },
+  JPY: { ar: 'ين ياباني' },
+  INR: { ar: 'روبية هندية' },
+  RUB: { ar: 'روبل روسي' },
+  BRL: { ar: 'ريال برازيلي' },
 };
 
 let currentLanguage: AppLanguage = 'ar';
@@ -114,7 +104,7 @@ const interpolateLiteral = (
 };
 
 export const isSupportedLanguage = (value: string): value is AppLanguage => {
-  return value === 'ar' || value === 'en';
+  return value === 'ar';
 };
 
 export const isLanguageRTL = (language: AppLanguage) => language === 'ar';
@@ -132,12 +122,9 @@ export const translate = (
   language: AppLanguage = currentLanguage,
 ): string => {
   const requestedValue = getNestedValue(resources[language], key);
-  const fallbackValue = getNestedValue(resources.ar, key);
   const resolvedValue = typeof requestedValue === 'string'
     ? requestedValue
-    : typeof fallbackValue === 'string'
-      ? fallbackValue
-      : key;
+    : key;
 
   return interpolate(resolvedValue, params);
 };
@@ -149,8 +136,7 @@ export const translateLiteral = (
   params?: TranslateLiteralParams,
   language: AppLanguage = currentLanguage,
 ): string => {
-  const template = literalResources[language][text]
-    || literalResources.ar[text]
+  const template = literalResources[language][text as keyof typeof literalAr]
     || text;
 
   return interpolateLiteral(template, params);
@@ -162,7 +148,7 @@ export const getLanguageDisplayName = (
   language: AppLanguage,
   locale: AppLanguage = currentLanguage,
 ): string => {
-  return languageDisplayNames[language][locale];
+  return languageDisplayNames[language][locale as keyof (typeof languageDisplayNames)['ar']];
 };
 
 export const getLanguageNativeName = (language: AppLanguage): string => {

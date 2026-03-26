@@ -158,7 +158,7 @@ export const AddBudgetScreen: React.FC<AddBudgetScreenProps> = ({
   };
   const allCategories = customCategories.map(c => c.name);
   const saveFooter = <AppButton label={loading ? tl("جاري الحفظ...") : editingBudget ? tl("تحديث الميزانية") : tl("حفظ الميزانية")} onPress={handleSave} variant="primary" size="lg" loading={loading} disabled={!amount || !selectedCategory || loading} leftIcon="checkmark-circle" />;
-  return <ScreenContainer scrollable edges={['top', 'bottom']} scrollPadBottom={32} style={{
+  return <ScreenContainer scrollable edges={['bottom', 'left', 'right']} scrollPadBottom={32} style={{
     backgroundColor: theme.colors.surfaceCard
   }}>
       {/* Header */}

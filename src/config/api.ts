@@ -26,7 +26,7 @@ export const API_CONFIG = {
   TIMEOUT: 30000, // 30 seconds (default)
   OCR_TIMEOUT: 60000, // 60 seconds for OCR requests (longer processing time)
   VERSION: '1.1.8',
-  ENABLE_LOGGING: false,
+  ENABLE_LOGGING: true,
 };
 
 // Helper to get full URL

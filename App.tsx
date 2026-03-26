@@ -30,6 +30,7 @@ import { SplashScreen as CustomSplashScreen } from './src/components/SplashScree
 import { PrivacyProvider } from './src/context/PrivacyContext';
 import PushNotificationManager from './src/components/PushNotificationManager';
 import { AppUpdateHandler } from './src/components/AppUpdateHandler';
+import { WalletProvider } from './src/context/WalletContext';
 import { initializeWidgetData } from './src/services/widgetDataService';
 import { restoreEncryptionKeyFromStorage, resetLockout } from './src/utils/encryption';
 import { syncNativeRTLDirection } from './src/utils/rtl';
@@ -143,16 +144,16 @@ export default function App() {
     let cancelled = false;
 
     const applyDirection = async () => {
-      setCurrentLanguage(appLanguage);
+      setCurrentLanguage('ar');
 
       try {
-        if (hasHydratedAppSettings && I18nManager.isRTL !== isAppRTL) {
-          await syncNativeRTLDirection(isAppRTL);
+        if (hasHydratedAppSettings && I18nManager.isRTL) {
+          await syncNativeRTLDirection(false);
           return;
         }
 
-        I18nManager.allowRTL(isAppRTL);
-        I18nManager.forceRTL(isAppRTL);
+        I18nManager.allowRTL(false);
+        I18nManager.forceRTL(false);
         I18nManager.swapLeftAndRightInRTL(false);
 
         const isAndroid = Platform.OS === 'android';
@@ -160,8 +161,8 @@ export default function App() {
           fontFamily: 'DINNext-Regular',
           ...(isAndroid
             ? {
-              textAlign: isAppRTL ? 'right' as const : 'left' as const,
-              writingDirection: isAppRTL ? 'rtl' as const : 'ltr' as const,
+              textAlign: 'right' as const,
+              writingDirection: 'rtl' as const,
               includeFontPadding: false as const,
             }
             : {}),
@@ -198,21 +199,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [appLanguage, hasHydratedAppSettings, isAppRTL]);
-
-  useEffect(() => {
-    if (!__DEV__) {
-      return;
-    }
-
-    console.log('[RTL Debug][App]', {
-      appLanguage,
-      isAppRTL,
-      uiDirectionKey,
-      i18nManagerIsRTL: I18nManager.isRTL,
-      platform: Platform.OS,
-    });
-  }, [appLanguage, isAppRTL, uiDirectionKey]);
+  }, [hasHydratedAppSettings]);
 
   useEffect(() => {
     let cancelled = false;
@@ -304,10 +291,10 @@ export default function App() {
         }
       } finally {
         if (!cancelled) {
-          // Initialize widget data
-        await initializeWidgetData();
-        
-        setIsLoading(false);
+          // Initialize widget data in background to avoid blocking splash screen finish
+          initializeWidgetData().catch(() => {});
+          
+          setIsLoading(false);
         }
       }
     };
@@ -520,7 +507,7 @@ export default function App() {
   if (!isSplashDone) {
     return (
       <CustomSplashScreen
-        ready={!isLoading && fontsLoaded && isDbReady}
+        ready={(!isLoading && fontsLoaded && isDbReady) || initError !== null}
         onFinish={() => setIsSplashDone(true)}
       />
     );
@@ -557,20 +544,22 @@ export default function App() {
       <SafeAreaProvider>
         <LocalizationProvider value={localizationValue}>
           <View key={uiDirectionKey} style={{ flex: 1 }}>
-            <PrivacyProvider>
-              <ThemeProvider value={{ theme: activeTheme, themeMode, setThemeMode, isDark }}>
-                <PaperProvider theme={paperTheme}>
-                  <Portal.Host>
-                    <AlertProvider>
-                      <AppNavigator />
-                      <PushNotificationManager />
-                    </AlertProvider>
-                    <AppUpdateHandler />
-                    <StatusBar style={isDark ? "light" : "dark"} backgroundColor={activeTheme.colors.background} />
-                  </Portal.Host>
-                </PaperProvider>
-              </ThemeProvider>
-            </PrivacyProvider>
+                    <PrivacyProvider>
+                      <WalletProvider>
+                        <ThemeProvider value={{ theme: activeTheme, themeMode, setThemeMode, isDark }}>
+                          <PaperProvider theme={paperTheme}>
+                            <Portal.Host>
+                              <AlertProvider>
+                                <AppNavigator />
+                                <PushNotificationManager />
+                              </AlertProvider>
+                              <AppUpdateHandler />
+                              <StatusBar style={isDark ? "light" : "dark"} backgroundColor={activeTheme.colors.background} />
+                            </Portal.Host>
+                          </PaperProvider>
+                        </ThemeProvider>
+                      </WalletProvider>
+                    </PrivacyProvider>
           </View>
         </LocalizationProvider>
       </SafeAreaProvider>

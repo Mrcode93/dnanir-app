@@ -15,6 +15,7 @@ import { authStorage } from '../services/authStorage';
 import { alertService } from '../services/alertService';
 import { authApiService } from '../services/authApiService';
 import { isRTL } from '../utils/rtl';
+import { useWallets } from '../context/WalletContext';
 import { tl, useLocalization } from "../localization";
 export const AISmartInsightsScreen = ({
   navigation
@@ -35,6 +36,7 @@ export const AISmartInsightsScreen = ({
   const [insights, setInsights] = useState<SmartInsightsData | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [needsAuth, setNeedsAuth] = useState(false);
+  const { selectedWallet } = useWallets();
   const [usage, setUsage] = useState<{
     insightsUsed: number;
     limit: number;
@@ -85,7 +87,11 @@ export const AISmartInsightsScreen = ({
       const month = now.getMonth() + 1;
       const prevMonth = month === 1 ? 12 : month - 1;
       const prevYear = month === 1 ? year - 1 : year;
-      const [current, previous, currency] = await Promise.all([getCurrentMonthData(), getMonthData(prevYear, prevMonth), getSelectedCurrencyCode()]);
+      const [current, previous, currency] = await Promise.all([
+        getCurrentMonthData(selectedWallet?.id), 
+        getMonthData(prevYear, prevMonth, selectedWallet?.id), 
+        getSelectedCurrencyCode()
+      ]);
       const lastDay = new Date(year, month, 0).getDate();
       const today = now.getDate();
       const daysLeftInMonth = Math.max(0, lastDay - today);
@@ -122,7 +128,8 @@ export const AISmartInsightsScreen = ({
       const result = await aiApiService.getSmartInsights({
         summary,
         currency: currencyCode || currency,
-        analysisType: 'full'
+        analysisType: 'full',
+        walletId: selectedWallet?.id
       });
       if (result.success && result.data) {
         setInsights(result.data);
@@ -131,7 +138,7 @@ export const AISmartInsightsScreen = ({
 
         // Save to local database (always save, even if there's an error)
         try {
-          await saveAiInsightsCache(result.data as unknown as Record<string, unknown>, 'full');
+          await saveAiInsightsCache(result.data as unknown as Record<string, unknown>, 'full', selectedWallet?.id);
         } catch (cacheError) {
 
           // Don't fail the whole operation if cache save fails
@@ -184,7 +191,8 @@ export const AISmartInsightsScreen = ({
   }, [usage, runAnalyze]);
   useFocusEffect(useCallback(() => {
     const task = InteractionManager.runAfterInteractions(() => {
-      getAiInsightsCache().then(cached => {
+      setInsights(null); // Clear old insights before loading from cache
+      getAiInsightsCache(selectedWallet?.id).then(cached => {
         if (cached?.data) {
           setInsights(cached.data as unknown as SmartInsightsData);
         }
@@ -192,7 +200,7 @@ export const AISmartInsightsScreen = ({
       loadUsage();
     });
     return () => task.cancel();
-  }, [loadUsage]));
+  }, [loadUsage, selectedWallet?.id]));
   React.useEffect(() => {
     if (authChecked && !needsAuth) {
       loadUsage();

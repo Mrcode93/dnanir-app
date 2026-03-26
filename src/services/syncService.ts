@@ -35,6 +35,9 @@ import {
   markSavingsTransactionsSynced,
   markDebtorsSynced,
   markDebtPaymentsSynced,
+  markDebtInstallmentsSynced,
+  markBillPaymentsSynced,
+  markWalletsSynced,
 } from '../database/database';
 
 export type SyncResult =
@@ -42,8 +45,8 @@ export type SyncResult =
   | { success: false; error: string; code?: 'NOT_AUTHENTICATED' | 'NOT_PRO' | 'NETWORK' };
 
 export type FullSyncResult =
-  | { success: true; exportedAt: string }
-  | { success: false; error: string; code?: 'NOT_AUTHENTICATED' | 'NOT_PRO' | 'NETWORK' };
+  | { success: true; exportedAt?: string; count?: number }
+  | { success: false; error: string; code?: 'NOT_AUTHENTICATED' | 'NOT_PRO' | 'NETWORK' | 'NO_BACKUP' | 'BACKUP_OLDER'; serverData?: any };
 
 export type NewSyncResult =
   | { success: true; count: number }
@@ -226,6 +229,14 @@ export async function syncFullToServer(): Promise<FullSyncResult> {
     await markAllExpensesAndIncomeSynced();
     const exportedAt = response.data?.data?.exportedAt || (rawPayload.exportedAt as string) || new Date().toISOString();
     
+    // Save lastFullSyncAt locally to track data age
+    try {
+      const { getDb } = await import('../database/database');
+      await getDb().runAsync('UPDATE app_settings SET lastFullSyncAt = ?', [exportedAt]);
+    } catch (e) {
+      console.log('[Sync] Failed to save lastFullSyncAt', e);
+    }
+
     return { success: true, exportedAt };
   } catch (err: any) {
     const message = err?.message || err?.error || 'فشل في رفع النسخة الاحتياطية';
@@ -314,6 +325,9 @@ export async function syncNewToServer(): Promise<NewSyncResult> {
       if (byType('savings_transaction').length) await markSavingsTransactionsSynced(byType('savings_transaction'));
       if (byType('debtor').length) await markDebtorsSynced(byType('debtor'));
       if (byType('debt_payment').length) await markDebtPaymentsSynced(byType('debt_payment'));
+      if (byType('debt_installment').length) await markDebtInstallmentsSynced(byType('debt_installment'));
+      if (byType('bill_payment').length) await markBillPaymentsSynced(byType('bill_payment'));
+      if (byType('wallet').length) await markWalletsSynced(byType('wallet'));
     }
 
     return { success: true, count: syncedCount };
@@ -325,20 +339,23 @@ export async function syncNewToServer(): Promise<NewSyncResult> {
 
 export type RestoreFromServerResult =
   | { success: true }
-  | { success: false; error: string; code?: 'NOT_AUTHENTICATED' | 'NOT_PRO' | 'NETWORK' | 'NO_BACKUP' };
+  | { success: false; error: string; code?: 'NOT_AUTHENTICATED' | 'NOT_PRO' | 'NETWORK' | 'NO_BACKUP' | 'BACKUP_OLDER'; serverData?: any };
 
 /**
  * Restore full data from server (Pro only). Replaces local data with server snapshot.
  */
-export async function getFullFromServer(): Promise<Exclude<RestoreFromServerResult, { success: true }> | { success: true }> {
+export async function getFullFromServer(force: boolean = false): Promise<RestoreFromServerResult> {
+  console.log('[Sync] Starting full restore from server...');
   try {
     const token = await apiClient.getAccessToken();
     if (!token) {
+      console.log('[Sync] Failed: No access token');
       return { success: false, error: 'يجب تسجيل الدخول أولاً', code: 'NOT_AUTHENTICATED' };
     }
 
     const user = await authStorage.getUser<{ isPro?: boolean }>();
     if (!user?.isPro) {
+      console.log('[Sync] Failed: User is not Pro');
       return {
         success: false,
         error: 'استعادة البيانات من السيرفر متاحة لمشتركي الخطة المميزة فقط',
@@ -346,47 +363,75 @@ export async function getFullFromServer(): Promise<Exclude<RestoreFromServerResu
       };
     }
 
-    const response = await apiClient.get<{ 
-      success?: boolean; 
-      data?: Record<string, unknown>; 
-      wrapped_dek?: string;
-      exportedAt?: string 
-    }>(
-      API_ENDPOINTS.SYNC.FULL
-    );
-
-    if (!response.success || !response.data?.data) {
-      const msg =
-        (response as any).message ||
-        (response as any).error ||
-        'لا توجد نسخة احتياطية على السيرفر';
-      return { success: false, error: msg, code: response.success === false ? 'NO_BACKUP' : 'NETWORK' };
+    const { waitForEncryptionReady } = await import('../utils/encryption');
+    console.log('[Sync] Waiting for encryption engine...');
+    const isReady = await waitForEncryptionReady(10000);
+    if (!isReady) {
+      console.log('[Sync] Failed: Encryption timeout');
+      return { success: false, error: 'مفتاح التشفير غير جاهز. يرجى المحاولة لاحقاً.', code: 'NETWORK' };
     }
 
-    if (response.data.wrapped_dek) {
-      await SecureStore.setItemAsync('dnanir_dek_wrapped', response.data.wrapped_dek);
-      // We also need to re-init the encryption key in memory using this new wrapped key
-      // but we need the password. However, if the user just logged in, they provide password
-      // only then. For now, we save it; it will be used on next app start or login.
+    console.log('[Sync] Fetching full backup from API...');
+    const response = await apiClient.get<any>(API_ENDPOINTS.SYNC.FULL);
+    
+    if (!response.success || !response.data) {
+      console.log('[Sync] Failed: No backup data found', response);
+      const msg = response.error || 'لا توجد نسخة احتياطية على السيرفر';
+      return { success: false, error: msg, code: 'NO_BACKUP' };
     }
 
-    const rawData = response.data.data as Record<string, unknown>;
+    const { decryptFromStorage, isEncryptedEnvelope } = await import('../utils/encryption');
+    let serverBody = response.data;
+    let payload: Record<string, any> = {};
 
-    // Decrypt if the backup was encrypted before it was uploaded
-    let payload = await decryptFromStorage<Record<string, unknown>>(rawData);
+    try {
+      // Handle new wrapped DEK if present
+      if (serverBody.wrapped_dek) {
+        console.log('[Sync] New wrapped DEK found from server, saving...');
+        const SecureStore = await import('expo-secure-store');
+        await SecureStore.setItemAsync('dnanir_dek_wrapped', serverBody.wrapped_dek);
+      }
 
-    // Deep decrypt: if the server returned items that are individually encrypted,
-    // decrypt them now before importing into the local database.
-    for (const key of Object.keys(payload)) {
+      // Determine the raw data to decrypt
+      // The backup can be nested: { success: true, data: { data: "AES...", ... } }
+      // Or plain: { achievements: [], ... }
+      let rawData = serverBody.data || serverBody;
+      
+      // If rawData is already a proper backup object (has tables), we use it directly
+      // Otherwise if it's an encrypted envelope (string or object with 'cipher'), we decrypt it
+      if (isEncryptedEnvelope(rawData)) {
+        console.log('[Sync] Step 1: Decrypting main payload...');
+        try {
+          const decoded = await decryptFromStorage(rawData);
+          payload = decoded as Record<string, unknown>;
+        } catch (err) {
+          console.log('[Sync] Decrypting main payload FAILED', err);
+          throw err;
+        }
+      } else {
+        console.log('[Sync] Payload appears to be already decrypted or plain.');
+        payload = rawData as Record<string, any>;
+      }
+
+    // Verify it looks like a backup (should have exportedAt or some tables)
+    if (!payload || (typeof payload === 'object' && Object.keys(payload).length < 2)) {
+       console.log('[Sync] Failed: Decoded payload is invalid', payload);
+       return { success: false, error: 'النسخة الاحتياطية تالفة أو غير صالحة', code: 'NO_BACKUP' };
+    }
+
+    console.log('[Sync] Step 2: Decrypting individual items...');
+    const keys = Object.keys(payload);
+    for (const key of keys) {
       const list = payload[key];
       if (Array.isArray(list)) {
+        console.log(`[Sync] Decrypting ${list.length} items for table: ${key}`);
         payload[key] = await Promise.all(
           list.map(async (item) => {
             if (isEncryptedEnvelope(item)) {
               try {
                 return await decryptFromStorage(item);
               } catch (e) {
-                // Failed to decrypt individual item (maybe wrong key or corrupted)
+                console.log(`[Sync] Warning: Failed to decrypt item in ${key}`, e);
                 return item;
               }
             }
@@ -396,10 +441,20 @@ export async function getFullFromServer(): Promise<Exclude<RestoreFromServerResu
       }
     }
 
-    const { importFullData } = await import('../database/database');
-    await importFullData(payload);
-    return { success: true };
+      console.log('[Sync] Step 3: Importing into database...');
+      const { importFullData } = await import('../database/database');
+      await importFullData(payload, force);
+
+      console.log('[Sync] Full restoration SUCCESSFUL');
+      return { success: true };
+    } catch (err: any) {
+      if (err.message === 'BACKUP_OLDER_THAN_CURRENT') {
+        return { success: false, error: 'النسخة الاحتياطية أقدم من البيانات الحالية على جهازك', code: 'BACKUP_OLDER', serverData: payload };
+      }
+      throw err;
+    }
   } catch (err: any) {
+    console.log('[Sync] Full restoration CRITICAL ERROR', err);
     const message = err?.message || err?.error || 'فشل في استعادة البيانات';
     return { success: false, error: message, code: 'NETWORK' };
   }

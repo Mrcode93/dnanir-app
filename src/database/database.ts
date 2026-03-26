@@ -11,6 +11,20 @@ export const initDatabase = async () => {
     // Enable foreign keys
     await db.execAsync('PRAGMA foreign_keys = ON;');
 
+    const addColumnIfNeeded = async (table: string, column: string, definition: string) => {
+      try {
+        const info = await db!.getAllAsync<any>(`PRAGMA table_info(${table})`);
+        const exists = info.some(col => col.name === column);
+        if (!exists) {
+          await db!.execAsync(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition};`);
+          return true;
+        }
+      } catch (e) {
+        console.error(`Error adding column ${column} to ${table}:`, e);
+      }
+      return false;
+    };
+
     // Create tables
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS expenses (
@@ -20,29 +34,25 @@ export const initDatabase = async () => {
         category TEXT NOT NULL,
         date TEXT NOT NULL,
         description TEXT,
-        currency TEXT DEFAULT 'IQD'
+        currency TEXT DEFAULT 'IQD',
+        walletId INTEGER
       );
       CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);
     `);
     await db.execAsync('CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category);');
     await db.execAsync('CREATE INDEX IF NOT EXISTS idx_expenses_date_category ON expenses(date, category);');
 
-    // Add base_amount column if it doesn't exist
-    try {
-      await db.execAsync('ALTER TABLE expenses ADD COLUMN base_amount REAL;');
-      // Initialize existing records
-      await db.execAsync('UPDATE expenses SET base_amount = amount WHERE base_amount IS NULL;');
-    } catch (e) {
-      // Column already exists, ignore
-    }
-    try {
-      await db.execAsync('ALTER TABLE expenses ADD COLUMN synced_at INTEGER;');
-    } catch (e) {
-      // Column already exists, ignore
-    }
-    try {
-      await db.execAsync('ALTER TABLE expenses ADD COLUMN enc_blob TEXT;');
-    } catch (e) { /* column already exists */ }
+    // Safe migrations
+    await addColumnIfNeeded('expenses', 'base_amount', 'REAL');
+    await addColumnIfNeeded('expenses', 'synced_at', 'INTEGER');
+    await addColumnIfNeeded('expenses', 'enc_blob', 'TEXT');
+    await addColumnIfNeeded('expenses', 'walletId', 'INTEGER');
+
+    // Create index after column exists
+    await db.execAsync('CREATE INDEX IF NOT EXISTS idx_expenses_wallet ON expenses(walletId);');
+
+    // Initialize existing records for base_amount
+    await db.execAsync('UPDATE expenses SET base_amount = amount WHERE base_amount IS NULL;');
 
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS income (
@@ -52,43 +62,27 @@ export const initDatabase = async () => {
         base_amount REAL,
         date TEXT NOT NULL,
         description TEXT,
-        currency TEXT DEFAULT 'IQD'
+        currency TEXT DEFAULT 'IQD',
+        walletId INTEGER
       );
       CREATE INDEX IF NOT EXISTS idx_income_date ON income(date);
     `);
 
-    // Add base_amount column if it doesn't exist
-    try {
-      await db.execAsync('ALTER TABLE income ADD COLUMN base_amount REAL;');
-      // Initialize existing records
-      await db.execAsync('UPDATE income SET base_amount = amount WHERE base_amount IS NULL;');
-    } catch (e) {
-      // Column already exists, ignore
-    }
+    await addColumnIfNeeded('income', 'base_amount', 'REAL');
+    await addColumnIfNeeded('income', 'currency', 'TEXT DEFAULT "IQD"');
+    await addColumnIfNeeded('income', 'category', 'TEXT');
+    await addColumnIfNeeded('income', 'synced_at', 'INTEGER');
+    await addColumnIfNeeded('income', 'enc_blob', 'TEXT');
+    await addColumnIfNeeded('income', 'walletId', 'INTEGER');
 
-    // Add currency column if it doesn't exist (for existing databases)
-    try {
-      await db.execAsync('ALTER TABLE income ADD COLUMN currency TEXT DEFAULT "IQD";');
-    } catch (e) {
-      // Column already exists, ignore
-    }
+    // Create index after column exists
+    await db.execAsync('CREATE INDEX IF NOT EXISTS idx_income_wallet ON income(walletId);');
 
-    // Add category column if it doesn't exist (for existing databases)
-    try {
-      await db.execAsync('ALTER TABLE income ADD COLUMN category TEXT;');
-    } catch (e) {
-      // Column already exists, ignore
-    }
+    // Initialize existing records
+    await db.execAsync('UPDATE income SET base_amount = amount WHERE base_amount IS NULL;');
+
     await db.execAsync('CREATE INDEX IF NOT EXISTS idx_income_category ON income(category);');
     await db.execAsync('CREATE INDEX IF NOT EXISTS idx_income_date_category ON income(date, category);');
-    try {
-      await db.execAsync('ALTER TABLE income ADD COLUMN synced_at INTEGER;');
-    } catch (e) {
-      // Column already exists, ignore
-    }
-    try {
-      await db.execAsync('ALTER TABLE income ADD COLUMN enc_blob TEXT;');
-    } catch (e) { /* column already exists */ }
 
     hasBaseAmountColumnsCache = true;
 
@@ -101,21 +95,11 @@ export const initDatabase = async () => {
         biometricsEnabled INTEGER DEFAULT 0
       );
     `);
-    try {
-      await db.execAsync('ALTER TABLE user_settings ADD COLUMN synced_at INTEGER;');
-    } catch (e) { }
-    try {
-      await db.execAsync('ALTER TABLE user_settings ADD COLUMN userId TEXT;');
-    } catch (e) { }
-    try {
-      await db.execAsync('ALTER TABLE user_settings ADD COLUMN phone TEXT;');
-    } catch (e) { }
-    try {
-      await db.execAsync('ALTER TABLE user_settings ADD COLUMN email TEXT;');
-    } catch (e) { }
-    try {
-      await db.execAsync('ALTER TABLE user_settings ADD COLUMN isPro INTEGER DEFAULT 0;');
-    } catch (e) { }
+    await addColumnIfNeeded('user_settings', 'synced_at', 'INTEGER');
+    await addColumnIfNeeded('user_settings', 'userId', 'TEXT');
+    await addColumnIfNeeded('user_settings', 'phone', 'TEXT');
+    await addColumnIfNeeded('user_settings', 'email', 'TEXT');
+    await addColumnIfNeeded('user_settings', 'isPro', 'INTEGER DEFAULT 0');
 
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS app_settings (
@@ -128,18 +112,12 @@ export const initDatabase = async () => {
         language TEXT DEFAULT 'ar'
       );
     `);
-    try {
-      await db.execAsync("ALTER TABLE app_settings ADD COLUMN themeMode TEXT DEFAULT 'light';");
-    } catch (e) { }
-    try {
-      await db.execAsync('ALTER TABLE app_settings ADD COLUMN synced_at INTEGER;');
-    } catch (e) { }
-    try {
-      await db.execAsync('ALTER TABLE app_settings ADD COLUMN autoSyncEnabled INTEGER DEFAULT 0;');
-    } catch (e) { }
-    try {
-      await db.execAsync('ALTER TABLE app_settings ADD COLUMN lastAutoSyncTime INTEGER;');
-    } catch (e) { }
+
+    await addColumnIfNeeded('app_settings', 'themeMode', "TEXT DEFAULT 'light'");
+    await addColumnIfNeeded('app_settings', 'synced_at', 'INTEGER');
+    await addColumnIfNeeded('app_settings', 'autoSyncEnabled', 'INTEGER DEFAULT 0');
+    await addColumnIfNeeded('app_settings', 'lastAutoSyncTime', 'INTEGER');
+    await addColumnIfNeeded('app_settings', 'lastFullSyncAt', 'TEXT');
 
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS notification_settings (
@@ -154,15 +132,8 @@ export const initDatabase = async () => {
       );
     `);
 
-    // Add expenseReminderTime column if it doesn't exist (for existing databases)
-    try {
-      await db.execAsync('ALTER TABLE notification_settings ADD COLUMN expenseReminderTime TEXT DEFAULT "20:00";');
-    } catch (e) {
-      // Column already exists, ignore
-    }
-    try {
-      await db.execAsync('ALTER TABLE notification_settings ADD COLUMN synced_at INTEGER;');
-    } catch (e) { }
+    await addColumnIfNeeded('notification_settings', 'expenseReminderTime', 'TEXT DEFAULT "20:00"');
+    await addColumnIfNeeded('notification_settings', 'synced_at', 'INTEGER');
 
     // Initialize default notification settings if table is empty
     try {
@@ -192,24 +163,14 @@ export const initDatabase = async () => {
       );
     `);
 
-    // Add currency column if it doesn't exist (for existing databases)
-    try {
-      await db.execAsync('ALTER TABLE financial_goals ADD COLUMN currency TEXT DEFAULT "IQD";');
-    } catch (e) {
-      // Column already exists, ignore
-    }
-    // Add base_amount columns if they don't exist
-    try {
-      await db.execAsync('ALTER TABLE financial_goals ADD COLUMN base_target_amount REAL;');
-      await db.execAsync('ALTER TABLE financial_goals ADD COLUMN base_current_amount REAL;');
-      await db.execAsync('UPDATE financial_goals SET base_target_amount = targetAmount WHERE base_target_amount IS NULL;');
-      await db.execAsync('UPDATE financial_goals SET base_current_amount = currentAmount WHERE base_current_amount IS NULL;');
-    } catch (e) {
-      // Column already exists, ignore
-    }
-    try {
-      await db.execAsync('ALTER TABLE financial_goals ADD COLUMN synced_at INTEGER;');
-    } catch (e) { }
+    await addColumnIfNeeded('financial_goals', 'currency', 'TEXT DEFAULT "IQD"');
+    await addColumnIfNeeded('financial_goals', 'base_target_amount', 'REAL');
+    await addColumnIfNeeded('financial_goals', 'base_current_amount', 'REAL');
+    await addColumnIfNeeded('financial_goals', 'synced_at', 'INTEGER');
+
+    // Initialize goals base columns
+    await db.execAsync('UPDATE financial_goals SET base_target_amount = targetAmount WHERE base_target_amount IS NULL;');
+    await db.execAsync('UPDATE financial_goals SET base_current_amount = currentAmount WHERE base_current_amount IS NULL;');
 
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS custom_categories (
@@ -221,9 +182,7 @@ export const initDatabase = async () => {
         createdAt TEXT NOT NULL
       );
     `);
-    try {
-      await db.execAsync('ALTER TABLE custom_categories ADD COLUMN synced_at INTEGER;');
-    } catch (e) { }
+    await addColumnIfNeeded('custom_categories', 'synced_at', 'INTEGER');
 
     // Migrate custom_categories: change UNIQUE(name) to UNIQUE(name, type)
     try {
@@ -345,24 +304,16 @@ export const initDatabase = async () => {
       );
     `);
 
-    try {
-      await db.execAsync('ALTER TABLE debts ADD COLUMN base_total_amount REAL;');
-      await db.execAsync('ALTER TABLE debts ADD COLUMN base_remaining_amount REAL;');
-      await db.execAsync('UPDATE debts SET base_total_amount = totalAmount WHERE base_total_amount IS NULL;');
-      await db.execAsync('UPDATE debts SET base_remaining_amount = remainingAmount WHERE base_remaining_amount IS NULL;');
-    } catch (e) { }
-    try {
-      await db.execAsync('ALTER TABLE debts ADD COLUMN synced_at INTEGER;');
-    } catch (e) { }
-    try {
-      await db.execAsync('ALTER TABLE debts ADD COLUMN enc_blob TEXT;');
-    } catch (e) { /* column already exists */ }
-    try {
-      await db.execAsync("ALTER TABLE debts ADD COLUMN direction TEXT DEFAULT 'owed_by_me';");
-    } catch (e) { }
-    try {
-      await db.execAsync('ALTER TABLE debts ADD COLUMN debtorId INTEGER;');
-    } catch (e) { }
+    await addColumnIfNeeded('debts', 'base_total_amount', 'REAL');
+    await addColumnIfNeeded('debts', 'base_remaining_amount', 'REAL');
+    await addColumnIfNeeded('debts', 'synced_at', 'INTEGER');
+    await addColumnIfNeeded('debts', 'enc_blob', 'TEXT');
+    await addColumnIfNeeded('debts', 'direction', "TEXT DEFAULT 'owed_by_me'");
+    await addColumnIfNeeded('debts', 'debtorId', 'INTEGER');
+
+    // Initialize missing records
+    await db.execAsync('UPDATE debts SET base_total_amount = totalAmount WHERE base_total_amount IS NULL;');
+    await db.execAsync('UPDATE debts SET base_remaining_amount = remainingAmount WHERE base_remaining_amount IS NULL;');
 
     // Migration: Populate debtors Table from existing debts
     try {
@@ -373,7 +324,7 @@ export const initDatabase = async () => {
         for (const debt of debtsToMigrate) {
           let debtorId: number;
           const existingDebtor = await db.getFirstAsync<{ id: number }>('SELECT id FROM debtors WHERE name = ?', [debt.debtorName]);
-          
+
           if (existingDebtor) {
             debtorId = existingDebtor.id;
           } else {
@@ -383,12 +334,12 @@ export const initDatabase = async () => {
             );
             debtorId = result.lastInsertRowId;
           }
-          
+
           await db.runAsync('UPDATE debts SET debtorId = ? WHERE id = ?', [debtorId, debt.id]);
         }
       }
     } catch (migrationError) {
-      
+
     }
 
     await db.execAsync(`
@@ -401,9 +352,11 @@ export const initDatabase = async () => {
         paidDate TEXT,
         installmentNumber INTEGER NOT NULL,
         createdAt TEXT NOT NULL,
+        synced_at INTEGER,
         FOREIGN KEY (debtId) REFERENCES debts(id) ON DELETE CASCADE
       );
     `);
+    await addColumnIfNeeded('debt_installments', 'synced_at', 'INTEGER');
 
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS debt_payments (
@@ -414,10 +367,12 @@ export const initDatabase = async () => {
         installmentId INTEGER,
         description TEXT,
         createdAt TEXT NOT NULL,
+        synced_at INTEGER,
         FOREIGN KEY (debtId) REFERENCES debts(id) ON DELETE CASCADE,
         FOREIGN KEY (installmentId) REFERENCES debt_installments(id) ON DELETE SET NULL
       );
     `);
+    await addColumnIfNeeded('debt_payments', 'synced_at', 'INTEGER');
 
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS challenges (
@@ -441,15 +396,8 @@ export const initDatabase = async () => {
       );
     `);
 
-    // Add isCustom column if it doesn't exist (for existing databases)
-    try {
-      await db.execAsync('ALTER TABLE challenges ADD COLUMN isCustom INTEGER DEFAULT 0;');
-    } catch (e) {
-      // Column already exists, ignore
-    }
-    try {
-      await db.execAsync('ALTER TABLE challenges ADD COLUMN synced_at INTEGER;');
-    } catch (e) { }
+    await addColumnIfNeeded('challenges', 'isCustom', 'INTEGER DEFAULT 0');
+    await addColumnIfNeeded('challenges', 'synced_at', 'INTEGER');
 
     // Achievements and Badges table
     await db.execAsync(`
@@ -466,9 +414,7 @@ export const initDatabase = async () => {
         isUnlocked INTEGER DEFAULT 0
       );
     `);
-    try {
-      await db.execAsync('ALTER TABLE achievements ADD COLUMN synced_at INTEGER;');
-    } catch (e) { }
+    await addColumnIfNeeded('achievements', 'synced_at', 'INTEGER');
 
     // Expense Shortcuts table
     await db.execAsync(`
@@ -482,9 +428,7 @@ export const initDatabase = async () => {
         createdAt TEXT NOT NULL
       );
     `);
-    try {
-      await db.execAsync('ALTER TABLE expense_shortcuts ADD COLUMN synced_at INTEGER;');
-    } catch (e) { }
+    await addColumnIfNeeded('expense_shortcuts', 'synced_at', 'INTEGER');
 
     // Income Shortcuts table
     await db.execAsync(`
@@ -498,9 +442,7 @@ export const initDatabase = async () => {
         createdAt TEXT NOT NULL
       );
     `);
-    try {
-      await db.execAsync('ALTER TABLE income_shortcuts ADD COLUMN synced_at INTEGER;');
-    } catch (e) { }
+    await addColumnIfNeeded('income_shortcuts', 'synced_at', 'INTEGER');
 
     // Bills table
     await db.execAsync(`
@@ -523,19 +465,12 @@ export const initDatabase = async () => {
     `);
     await db.execAsync('CREATE INDEX IF NOT EXISTS idx_bills_due_date_paid ON bills(dueDate, isPaid);');
 
-    // Add image_path column if it doesn't exist (for existing databases)
-    try {
-      await db.execAsync('ALTER TABLE bills ADD COLUMN image_path TEXT;');
-    } catch (e) {
-      // Column already exists, ignore
-    }
-    try {
-      await db.execAsync('ALTER TABLE bills ADD COLUMN base_amount REAL;');
-      await db.execAsync('UPDATE bills SET base_amount = amount WHERE base_amount IS NULL;');
-    } catch (e) { }
-    try {
-      await db.execAsync('ALTER TABLE bills ADD COLUMN synced_at INTEGER;');
-    } catch (e) { }
+    await addColumnIfNeeded('bills', 'image_path', 'TEXT');
+    await addColumnIfNeeded('bills', 'base_amount', 'REAL');
+    await addColumnIfNeeded('bills', 'synced_at', 'INTEGER');
+
+    // Initialize missing records
+    await db.execAsync('UPDATE bills SET base_amount = amount WHERE base_amount IS NULL;');
 
     // Bill payment history table
     await db.execAsync(`
@@ -546,16 +481,13 @@ export const initDatabase = async () => {
         paymentDate TEXT NOT NULL,
         description TEXT,
         createdAt TEXT NOT NULL,
+        synced_at INTEGER,
         FOREIGN KEY (billId) REFERENCES bills(id) ON DELETE CASCADE
       );
     `);
+    await addColumnIfNeeded('bill_payments', 'synced_at', 'INTEGER');
 
-    // Add receipt_image_path column to expenses if it doesn't exist
-    try {
-      await db.execAsync('ALTER TABLE expenses ADD COLUMN receipt_image_path TEXT;');
-    } catch (e) {
-      // Column already exists, ignore
-    }
+    await addColumnIfNeeded('expenses', 'receipt_image_path', 'TEXT');
 
     // Notifications table
     await db.execAsync(`
@@ -570,15 +502,8 @@ export const initDatabase = async () => {
       );
     `);
 
-    // Add type column if it doesn't exist (for existing databases)
-    try {
-      await db.execAsync('ALTER TABLE notifications ADD COLUMN type TEXT DEFAULT "default";');
-    } catch (e) {
-      // Column already exists, ignore
-    }
-    try {
-      await db.execAsync('ALTER TABLE notifications ADD COLUMN synced_at INTEGER;');
-    } catch (e) { }
+    await addColumnIfNeeded('notifications', 'type', 'TEXT DEFAULT "default"');
+    await addColumnIfNeeded('notifications', 'synced_at', 'INTEGER');
 
     // AI Smart Insights cache (last response stored locally)
     await db.execAsync(`
@@ -588,7 +513,8 @@ export const initDatabase = async () => {
         analysis_type TEXT DEFAULT 'full',
         month INTEGER NOT NULL,
         year INTEGER NOT NULL,
-        created_at INTEGER NOT NULL
+        created_at INTEGER NOT NULL,
+        walletId INTEGER
       );
     `);
 
@@ -610,16 +536,13 @@ export const initDatabase = async () => {
       );
     `);
 
-    // Add base_amount columns if they don't exist
-    try {
-      await db.execAsync('ALTER TABLE savings ADD COLUMN base_target_amount REAL;');
-      await db.execAsync('ALTER TABLE savings ADD COLUMN base_current_amount REAL;');
-      await db.execAsync('UPDATE savings SET base_target_amount = targetAmount WHERE base_target_amount IS NULL;');
-      await db.execAsync('UPDATE savings SET base_current_amount = currentAmount WHERE base_current_amount IS NULL;');
-    } catch (e) { }
-    try {
-      await db.execAsync('ALTER TABLE savings ADD COLUMN synced_at INTEGER;');
-    } catch (e) { }
+    await addColumnIfNeeded('savings', 'base_target_amount', 'REAL');
+    await addColumnIfNeeded('savings', 'base_current_amount', 'REAL');
+    await addColumnIfNeeded('savings', 'synced_at', 'INTEGER');
+
+    // Initialize missing records
+    await db.execAsync('UPDATE savings SET base_target_amount = targetAmount WHERE base_target_amount IS NULL;');
+    await db.execAsync('UPDATE savings SET base_current_amount = currentAmount WHERE base_current_amount IS NULL;');
 
     // Savings transactions table
     await db.execAsync(`
@@ -637,37 +560,22 @@ export const initDatabase = async () => {
     `);
     await db.execAsync('CREATE INDEX IF NOT EXISTS idx_savings_transactions_savings_id ON savings_transactions(savingsId);');
 
-    // Migration: Check if table needs migration (old structure with CHECK constraint)
-    try {
-      const tableInfo = await db.getAllAsync<{ name: string }>("PRAGMA table_info(ai_insights_cache)");
-      const hasMonthColumn = tableInfo.some((col) => col.name === 'month');
-      const hasYearColumn = tableInfo.some((col) => col.name === 'year');
+    // Migration: ensure walletId exists on ai_insights_cache
+    await addColumnIfNeeded('ai_insights_cache', 'walletId', 'INTEGER');
 
-      if (!hasMonthColumn || !hasYearColumn) {
-        // Old table structure exists, migrate it
-        await db.execAsync('CREATE TABLE IF NOT EXISTS ai_insights_cache_new (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT NOT NULL, analysis_type TEXT DEFAULT "full", month INTEGER NOT NULL, year INTEGER NOT NULL, created_at INTEGER NOT NULL);');
-
-        // Copy existing data if any
-        const existingData = await db.getAllAsync<{ data: string; analysis_type: string | null; created_at: number }>('SELECT data, analysis_type, created_at FROM ai_insights_cache');
-        if (existingData.length > 0) {
-          for (const row of existingData) {
-            const createdAt = row.created_at;
-            const date = new Date(createdAt);
-            const month = date.getMonth() + 1;
-            const year = date.getFullYear();
-            await db.runAsync(
-              'INSERT INTO ai_insights_cache_new (data, analysis_type, month, year, created_at) VALUES (?, ?, ?, ?, ?)',
-              [row.data, row.analysis_type || 'full', month, year, createdAt]
-            );
-          }
-        }
-
-        await db.execAsync('DROP TABLE ai_insights_cache;');
-        await db.execAsync('ALTER TABLE ai_insights_cache_new RENAME TO ai_insights_cache;');
+    // Legacy migration check for old Month/Year structure
+    const tableInfo = await db.getAllAsync<{ name: string }>("PRAGMA table_info(ai_insights_cache)");
+    const hasMonthColumn = tableInfo.some((col) => col.name === 'month');
+    if (!hasMonthColumn) {
+      // Migrate old structure if it only has data/analysis_type/created_at
+      await db.execAsync('CREATE TABLE IF NOT EXISTS ai_insights_cache_new (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT NOT NULL, analysis_type TEXT DEFAULT "full", month INTEGER NOT NULL, year INTEGER NOT NULL, created_at INTEGER NOT NULL, walletId INTEGER);');
+      const existingData = await db.getAllAsync<{ data: string; analysis_type: string | null; created_at: number; walletId?: number }>('SELECT * FROM ai_insights_cache');
+      for (const row of existingData) {
+        const d = new Date(row.created_at);
+        await db.runAsync('INSERT INTO ai_insights_cache_new (data, analysis_type, month, year, created_at, walletId) VALUES (?, ?, ?, ?, ?, ?)', [row.data, row.analysis_type || 'full', d.getMonth() + 1, d.getFullYear(), row.created_at, row.walletId || null]);
       }
-    } catch (e) {
-      // Migration failed, table might already be in correct format
-      
+      await db.execAsync('DROP TABLE ai_insights_cache;');
+      await db.execAsync('ALTER TABLE ai_insights_cache_new RENAME TO ai_insights_cache;');
     }
 
     // Goal plan cache (history of plans per goal)
@@ -716,7 +624,7 @@ export const initDatabase = async () => {
       await db.execAsync('CREATE INDEX IF NOT EXISTS idx_goal_plan_cache_month_year ON goal_plan_cache(year, month);');
     } catch (e) {
       // Migration failed, table might already be in correct format
-      
+
     }
     try {
       // Create indexes for better performance
@@ -730,53 +638,134 @@ export const initDatabase = async () => {
 
     // Exchange rates are non-critical for first frame; run in background.
     initializeExchangeRates(db).catch(err => {
-      
+
     });
 
     // Clean up old AI cache (keep last 6 months) - run in background, don't block initialization
     cleanupOldAiCache().catch(err => {
-      
+
     });
+
+    // --- MULTI-WALLET SUPPORT ---
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS wallets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        currency TEXT DEFAULT 'IQD',
+        balance REAL DEFAULT 0,
+        icon TEXT DEFAULT 'wallet',
+        color TEXT DEFAULT '#0B5A7A',
+        isDefault INTEGER DEFAULT 0,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT,
+        synced_at INTEGER
+      );
+    `);
+
+    // Migration for older wallets table versions
+    await addColumnIfNeeded('wallets', 'currency', 'TEXT DEFAULT "IQD"');
+    await addColumnIfNeeded('wallets', 'balance', 'REAL DEFAULT 0');
+    await addColumnIfNeeded('wallets', 'icon', 'TEXT DEFAULT "wallet"');
+    await addColumnIfNeeded('wallets', 'color', 'TEXT DEFAULT "#0B5A7A"');
+    await addColumnIfNeeded('wallets', 'isDefault', 'INTEGER DEFAULT 0');
+    await addColumnIfNeeded('wallets', 'synced_at', 'INTEGER');
+
+    // Migration: Create default wallet if none exists and link records
+    try {
+      const existingWallets = await db.getAllAsync<{ id: number }>('SELECT id FROM wallets LIMIT 1');
+      if (existingWallets.length === 0) {
+        // Create default wallet
+        const now = new Date().toISOString();
+        const result = await db.runAsync(
+          'INSERT INTO wallets (name, currency, balance, icon, color, isDefault, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          ['المحفظة الرئيسية', 'IQD', 0, 'wallet', '#0B5A7A', 1, now]
+        );
+        const defaultWalletId = result.lastInsertRowId;
+
+        // Link all existing expenses and income to this wallet
+        await db.runAsync('UPDATE expenses SET walletId = ? WHERE walletId IS NULL', [defaultWalletId]);
+        await db.runAsync('UPDATE income SET walletId = ? WHERE walletId IS NULL', [defaultWalletId]);
+      } else {
+        // Ensure all records have a walletId (legacy data)
+        const defaultWallet = await db.getFirstAsync<{ id: number }>('SELECT id FROM wallets WHERE isDefault = 1 LIMIT 1')
+          || await db.getFirstAsync<{ id: number }>('SELECT id FROM wallets LIMIT 1');
+
+        if (defaultWallet) {
+          await db.runAsync('UPDATE expenses SET walletId = ? WHERE walletId IS NULL', [defaultWallet.id]);
+          await db.runAsync('UPDATE income SET walletId = ? WHERE walletId IS NULL', [defaultWallet.id]);
+        }
+      }
+    } catch (e) {
+      console.error('Multi-wallet migration error:', e);
+    }
   } catch (error) {
-    // Database initialization error
+    console.error('Database initialization error:', error);
     throw error;
   }
 };
+
+
 
 /**
  * Delete all data from all tables and reset to defaults
  */
 export const deleteAllData = async () => {
   const database = getDb();
-  
+
 
   const tables = [
-    'expenses', 'income', 'financial_goals', 'budgets',
-    'recurring_expenses', 'exchange_rates', 'debt_payments',
-    'debt_installments', 'debts', 'challenges', 'achievements',
-    'expense_shortcuts', 'income_shortcuts', 'bill_payments',
-    'bills', 'notifications', 'ai_insights_cache', 'goal_plan_cache',
-    'custom_categories', 'user_settings', 'app_settings',
-    'notification_settings', 'savings', 'savings_transactions'
+    'savings_transactions',
+    'debt_payments',
+    'debt_installments',
+    'bill_payments',
+    'ai_insights_cache',
+    'goal_plan_cache',
+    'expenses',
+    'income',
+    'savings',
+    'debts',
+    'bills',
+    'financial_goals',
+    'wallets',
+    'debtors',
+    'custom_categories',
+    'user_settings',
+    'app_settings',
+    'notification_settings',
+    'exchange_rates',
+    'recurring_expenses',
+    'expense_shortcuts',
+    'income_shortcuts',
+    'notifications',
+    'challenges',
+    'achievements',
+    'budgets'
   ];
 
   try {
+    // Disable foreign keys temporarily to allow deleting everything without order issues
+    await database.execAsync('PRAGMA foreign_keys = OFF;');
+
     for (const table of tables) {
       try {
         await database.runAsync(`DELETE FROM ${table}`);
       } catch (error) {
-        
+        console.log(`[Database] Skipping delete for ${table}:`, error);
       }
     }
 
-    try {
-      await database.execAsync('VACUUM;');
-    } catch (e) {
-      
-    }
+    // Re-enable foreign keys
+    await database.execAsync('PRAGMA foreign_keys = ON;');
 
     // Re-initialize default categories
     await initializeDefaultCategories(database);
+
+    // Re-initialize default wallet
+    const now = new Date().toISOString();
+    await database.runAsync(
+      'INSERT INTO wallets (name, currency, balance, icon, color, isDefault, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      ['المحفظة الرئيسية', 'IQD', 0, 'wallet', '#0B5A7A', 1, now, now]
+    );
 
     // Re-initialize default settings
     await database.runAsync(
@@ -785,8 +774,8 @@ export const deleteAllData = async () => {
     );
 
     await database.runAsync(
-      'INSERT INTO app_settings (notificationsEnabled, darkModeEnabled, autoBackupEnabled, currency, language) VALUES (?, ?, ?, ?, ?)',
-      [1, 0, 0, 'دينار عراقي', 'ar']
+      'INSERT INTO app_settings (notificationsEnabled, darkModeEnabled, autoBackupEnabled, currency, language, lastFullSyncAt) VALUES (?, ?, ?, ?, ?, ?)',
+      [1, 0, 0, 'دينار عراقي', 'ar', new Date().toISOString()]
     );
 
     await database.runAsync(
@@ -796,7 +785,7 @@ export const deleteAllData = async () => {
 
     return true;
   } catch (error) {
-    
+    console.error('[Database] Reset failed:', error);
     throw error;
   }
 };
@@ -916,7 +905,7 @@ export const addExpense = async (expense: Omit<import('../types').Expense, 'id'>
   const encBlob = encryptField({ title: expense.title, description: expense.description ?? null });
 
   const result = await database.runAsync(
-    'INSERT INTO expenses (title, amount, base_amount, category, date, description, currency, receipt_image_path, enc_blob) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO expenses (title, amount, base_amount, category, date, description, currency, receipt_image_path, enc_blob, walletId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     [
       expense.title ? String(expense.title) : 'مصروف',
       Number(expense.amount) || 0,
@@ -927,6 +916,7 @@ export const addExpense = async (expense: Omit<import('../types').Expense, 'id'>
       expense.currency ? String(expense.currency) : 'IQD',
       expense.receipt_image_path ? String(expense.receipt_image_path) : null,
       encBlob,
+      expense.walletId || (await getWallets())[0]?.id || 1,
     ]
   );
 
@@ -955,21 +945,40 @@ function decryptExpenseRow<T extends { enc_blob?: string | null; title?: string;
   return { ...row, ...(dec.title !== undefined ? { title: dec.title } : {}), ...(dec.description !== undefined ? { description: dec.description } : {}) };
 }
 
-export const getExpenses = async (): Promise<import('../types').Expense[]> => {
+export const getExpenses = async (walletId?: number): Promise<import('../types').Expense[]> => {
   const database = getDb();
-  const result = await database.getAllAsync<import('../types').Expense>(
-    'SELECT * FROM expenses ORDER BY date DESC, id DESC'
-  );
+  let query = 'SELECT * FROM expenses';
+  const params: any[] = [];
+
+  if (walletId) {
+    query += ' WHERE walletId = ?';
+    params.push(walletId);
+  }
+
+  query += ' ORDER BY date DESC, id DESC';
+
+  const result = await database.getAllAsync<import('../types').Expense>(query, params);
   return result.map(decryptExpenseRow);
 };
 
 export const getRecentExpensesForShortcutRanking = async (
-  limit: number = 300
+  limit: number = 300,
+  walletId?: number
 ): Promise<Array<{ title?: string; category?: string; amount: number; base_amount?: number; date: string }>> => {
   const database = getDb();
+  let query = 'SELECT title, category, amount, base_amount, date FROM expenses';
+  const params: any[] = [];
+
+  if (walletId) {
+    query += ' WHERE walletId = ?';
+    params.push(walletId);
+  }
+
+  query += ' ORDER BY date DESC, id DESC LIMIT ?';
+  params.push(limit);
+
   return database.getAllAsync<{ title?: string; category?: string; amount: number; base_amount?: number; date: string }>(
-    'SELECT title, category, amount, base_amount, date FROM expenses ORDER BY date DESC, id DESC LIMIT ?',
-    [limit]
+    query, params
   );
 };
 
@@ -978,12 +987,17 @@ export const getExpensesCount = async (options: {
   endDate?: string;
   searchQuery?: string;
   category?: string;
+  walletId?: number;
 } = {}): Promise<number> => {
-  const { startDate, endDate, searchQuery, category } = options;
+  const { startDate, endDate, searchQuery, category, walletId } = options;
   const database = getDb();
   let query = 'SELECT COUNT(*) as count FROM expenses WHERE 1=1';
   const params: any[] = [];
 
+  if (walletId) {
+    query += ' AND walletId = ?';
+    params.push(walletId);
+  }
   if (startDate) {
     query += ' AND date >= ?';
     params.push(startDate);
@@ -1005,31 +1019,43 @@ export const getExpensesCount = async (options: {
   return result?.count || 0;
 };
 
-export const getExpensesByRange = async (startDate: string, endDate: string): Promise<import('../types').Expense[]> => {
+export const getExpensesByRange = async (startDate: string, endDate: string, walletId?: number): Promise<import('../types').Expense[]> => {
   const database = getDb();
-  const result = await database.getAllAsync<import('../types').Expense>(
-    'SELECT * FROM expenses WHERE date >= ? AND date <= ? ORDER BY date DESC, id DESC',
-    [startDate, endDate]
-  );
+  let query = 'SELECT * FROM expenses WHERE date >= ? AND date <= ?';
+  const params: any[] = [startDate, endDate];
+
+  if (walletId) {
+    query += ' AND walletId = ?';
+    params.push(walletId);
+  }
+
+  query += ' ORDER BY date DESC, id DESC';
+  const result = await database.getAllAsync<import('../types').Expense>(query, params);
   return result.map(decryptExpenseRow);
 };
 
-export const getRecentTransactions = async (limit: number = 5): Promise<(import('../types').Expense | import('../types').Income | any)[]> => {
+export const getRecentTransactions = async (limit: number = 5, walletId?: number): Promise<(import('../types').Expense | import('../types').Income | any)[]> => {
   const database = getDb();
+  const params: any[] = [];
 
   const query = `
     SELECT * FROM (
-      SELECT id, 'expense' as type, title, amount, base_amount, category, date, description, currency, receipt_image_path
+      SELECT id, 'expense' as type, title, amount, base_amount, category, date, description, currency, receipt_image_path, walletId
       FROM expenses
       UNION ALL
-      SELECT id, 'income' as type, source as title, amount, base_amount, category, date, description, currency, null as receipt_image_path
+      SELECT id, 'income' as type, source as title, amount, base_amount, category, date, description, currency, null as receipt_image_path, walletId
       FROM income
     ) 
+    WHERE 1=1
+    ${walletId ? 'AND walletId = ?' : ''}
     ORDER BY date DESC, id DESC
     LIMIT ?
   `;
 
-  const result = await database.getAllAsync<any>(query, [limit]);
+  if (walletId) params.push(walletId);
+  params.push(limit);
+
+  const result = await database.getAllAsync<any>(query, params);
   return result.map((row: any) =>
     row.type === 'expense' ? decryptExpenseRow(row) : decryptIncomeRow(row)
   );
@@ -1043,21 +1069,26 @@ export const getTransactionsPaginated = async (options: {
   searchQuery?: string;
   category?: string;
   type?: 'all' | 'income' | 'expense';
+  walletId?: number;
 }): Promise<any[]> => {
-  const { limit = 20, offset = 0, startDate, endDate, searchQuery, category, type = 'all' } = options;
+  const { limit = 20, offset = 0, startDate, endDate, searchQuery, category, type = 'all', walletId } = options;
   const database = getDb();
 
   let baseQuery = `
     SELECT * FROM (
-      SELECT id, 'expense' as type, title, amount, base_amount, category, date, description, currency, receipt_image_path
+      SELECT id, 'expense' as type, title, amount, base_amount, category, date, description, currency, receipt_image_path, walletId
       FROM expenses
       UNION ALL
-      SELECT id, 'income' as type, source as title, amount, base_amount, category, date, description, currency, null as receipt_image_path
+      SELECT id, 'income' as type, source as title, amount, base_amount, category, date, description, currency, null as receipt_image_path, walletId
       FROM income
     ) WHERE 1=1
   `;
   const params: any[] = [];
 
+  if (walletId) {
+    baseQuery += ' AND walletId = ?';
+    params.push(walletId);
+  }
   if (type !== 'all') {
     baseQuery += ' AND type = ?';
     params.push(type);
@@ -1092,11 +1123,17 @@ export const getExpensesPaginated = async (options: {
   endDate?: string;
   searchQuery?: string;
   category?: string;
+  walletId?: number;
 }): Promise<import('../types').Expense[]> => {
-  const { limit = 20, offset = 0, startDate, endDate, searchQuery, category } = options;
+  const { limit = 20, offset = 0, startDate, endDate, searchQuery, category, walletId } = options;
   const database = getDb();
   let query = 'SELECT * FROM expenses WHERE 1=1';
   const params: any[] = [];
+
+  if (walletId) {
+    query += ' AND walletId = ?';
+    params.push(walletId);
+  }
 
   if (startDate) {
     query += ' AND date >= ?';
@@ -1127,11 +1164,17 @@ export const getExpensesTotalAmount = async (options: {
   endDate?: string;
   searchQuery?: string;
   category?: string;
+  walletId?: number;
 }): Promise<number> => {
-  const { startDate, endDate, searchQuery, category } = options;
+  const { startDate, endDate, searchQuery, category, walletId } = options;
   const database = getDb();
   let query = 'SELECT SUM(base_amount) as total FROM expenses WHERE 1=1';
   const params: any[] = [];
+
+  if (walletId) {
+    query += ' AND walletId = ?';
+    params.push(walletId);
+  }
 
   if (startDate) {
     query += ' AND date >= ?';
@@ -1162,7 +1205,7 @@ export const updateExpense = async (id: number, expense: Omit<import('../types')
   const encBlob = encryptField({ title: expense.title, description: expense.description ?? null });
 
   await database.runAsync(
-    'UPDATE expenses SET title = ?, amount = ?, base_amount = ?, category = ?, date = ?, description = ?, currency = ?, receipt_image_path = ?, enc_blob = ? WHERE id = ?',
+    'UPDATE expenses SET title = ?, amount = ?, base_amount = ?, category = ?, date = ?, description = ?, currency = ?, receipt_image_path = ?, enc_blob = ?, synced_at = NULL WHERE id = ?',
     [
       expense.title ? String(expense.title) : 'مصروف',
       Number(expense.amount) || 0,
@@ -1214,7 +1257,7 @@ export const addIncome = async (income: Omit<import('../types').Income, 'id'>): 
   const encBlob = encryptField({ source: income.source, description: income.description ?? null });
 
   const result = await database.runAsync(
-    'INSERT INTO income (source, amount, base_amount, date, description, currency, category, enc_blob) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO income (source, amount, base_amount, date, description, currency, category, enc_blob, walletId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     [
       income.source ? String(income.source) : 'أخرى',
       Number(income.amount) || 0,
@@ -1224,6 +1267,7 @@ export const addIncome = async (income: Omit<import('../types').Income, 'id'>): 
       income.currency ? String(income.currency) : 'IQD',
       income.category ? String(income.category) : 'other',
       encBlob,
+      income.walletId || (await getWallets())[0]?.id || 1,
     ]
   );
 
@@ -1246,21 +1290,40 @@ export const addIncome = async (income: Omit<import('../types').Income, 'id'>): 
   return result.lastInsertRowId;
 };
 
-export const getIncome = async (): Promise<import('../types').Income[]> => {
+export const getIncome = async (walletId?: number): Promise<import('../types').Income[]> => {
   const database = getDb();
-  const result = await database.getAllAsync<import('../types').Income>(
-    'SELECT * FROM income ORDER BY date DESC, id DESC'
-  );
+  let query = 'SELECT * FROM income';
+  const params: any[] = [];
+
+  if (walletId) {
+    query += ' WHERE walletId = ?';
+    params.push(walletId);
+  }
+
+  query += ' ORDER BY date DESC, id DESC';
+
+  const result = await database.getAllAsync<import('../types').Income>(query, params);
   return result.map(decryptIncomeRow);
 };
 
 export const getRecentIncomeForShortcutRanking = async (
-  limit: number = 300
+  limit: number = 300,
+  walletId?: number
 ): Promise<Array<{ source?: string; category?: string; amount: number; base_amount?: number; date: string }>> => {
   const database = getDb();
+  let query = 'SELECT source, category, amount, base_amount, date FROM income';
+  const params: any[] = [];
+
+  if (walletId) {
+    query += ' WHERE walletId = ?';
+    params.push(walletId);
+  }
+
+  query += ' ORDER BY date DESC, id DESC LIMIT ?';
+  params.push(limit);
+
   return database.getAllAsync<{ source?: string; category?: string; amount: number; base_amount?: number; date: string }>(
-    'SELECT source, category, amount, base_amount, date FROM income ORDER BY date DESC, id DESC LIMIT ?',
-    [limit]
+    query, params
   );
 };
 
@@ -1269,12 +1332,17 @@ export const getIncomeCount = async (options: {
   endDate?: string;
   searchQuery?: string;
   category?: string;
+  walletId?: number;
 } = {}): Promise<number> => {
-  const { startDate, endDate, searchQuery, category } = options;
+  const { startDate, endDate, searchQuery, category, walletId } = options;
   const database = getDb();
   let query = 'SELECT COUNT(*) as count FROM income WHERE 1=1';
   const params: any[] = [];
 
+  if (walletId) {
+    query += ' AND walletId = ?';
+    params.push(walletId);
+  }
   if (startDate) {
     query += ' AND date >= ?';
     params.push(startDate);
@@ -1296,12 +1364,18 @@ export const getIncomeCount = async (options: {
   return result?.count || 0;
 };
 
-export const getIncomeByRange = async (startDate: string, endDate: string): Promise<import('../types').Income[]> => {
+export const getIncomeByRange = async (startDate: string, endDate: string, walletId?: number): Promise<import('../types').Income[]> => {
   const database = getDb();
-  const result = await database.getAllAsync<import('../types').Income>(
-    'SELECT * FROM income WHERE date >= ? AND date <= ? ORDER BY date DESC, id DESC',
-    [startDate, endDate]
-  );
+  let query = 'SELECT * FROM income WHERE date >= ? AND date <= ?';
+  const params: any[] = [startDate, endDate];
+
+  if (walletId) {
+    query += ' AND walletId = ?';
+    params.push(walletId);
+  }
+
+  query += ' ORDER BY date DESC, id DESC';
+  const result = await database.getAllAsync<import('../types').Income>(query, params);
   return result.map(decryptIncomeRow);
 };
 
@@ -1312,11 +1386,17 @@ export const getIncomePaginated = async (options: {
   endDate?: string;
   searchQuery?: string;
   category?: string;
+  walletId?: number;
 }): Promise<import('../types').Income[]> => {
-  const { limit = 20, offset = 0, startDate, endDate, searchQuery, category } = options;
+  const { limit = 20, offset = 0, startDate, endDate, searchQuery, category, walletId } = options;
   const database = getDb();
   let query = 'SELECT * FROM income WHERE 1=1';
   const params: any[] = [];
+
+  if (walletId) {
+    query += ' AND walletId = ?';
+    params.push(walletId);
+  }
 
   if (startDate) {
     query += ' AND date >= ?';
@@ -1347,11 +1427,17 @@ export const getIncomeTotalAmount = async (options: {
   endDate?: string;
   searchQuery?: string;
   category?: string;
+  walletId?: number;
 }): Promise<number> => {
-  const { startDate, endDate, searchQuery, category } = options;
+  const { startDate, endDate, searchQuery, category, walletId } = options;
   const database = getDb();
   let query = 'SELECT SUM(base_amount) as total FROM income WHERE 1=1';
   const params: any[] = [];
+
+  if (walletId) {
+    query += ' AND walletId = ?';
+    params.push(walletId);
+  }
 
   if (startDate) {
     query += ' AND date >= ?';
@@ -1382,7 +1468,7 @@ export const updateIncome = async (id: number, income: Omit<import('../types').I
   const encBlob = encryptField({ source: income.source, description: income.description ?? null });
 
   await database.runAsync(
-    'UPDATE income SET source = ?, amount = ?, base_amount = ?, date = ?, description = ?, currency = ?, category = ?, enc_blob = ? WHERE id = ?',
+    'UPDATE income SET source = ?, amount = ?, base_amount = ?, date = ?, description = ?, currency = ?, category = ?, enc_blob = ?, synced_at = NULL WHERE id = ?',
     [
       income.source ? String(income.source) : 'أخرى',
       Number(income.amount) || 0,
@@ -1489,6 +1575,21 @@ export const markAllExpensesAndIncomeSynced = async (): Promise<void> => {
   if (hasIncomeSynced) {
     await database.runAsync('UPDATE income SET synced_at = ? WHERE synced_at IS NULL', [ts]);
   }
+
+  const tables = [
+    'financial_goals', 'budgets', 'recurring_expenses', 'debts', 'debtors',
+    'debt_installments', 'debt_payments', 'bills', 'bill_payments',
+    'custom_categories', 'challenges', 'achievements', 'expense_shortcuts',
+    'income_shortcuts', 'notifications', 'user_settings', 'app_settings',
+    'notification_settings', 'savings', 'savings_transactions', 'wallets'
+  ];
+
+  for (const table of tables) {
+    const hasSync = await hasSyncedColumn(database, table);
+    if (hasSync) {
+      await database.runAsync(`UPDATE ${table} SET synced_at = ? WHERE synced_at IS NULL`, [ts]);
+    }
+  }
   try {
     const { saveWidgetData } = await import('../services/widgetDataService');
     saveWidgetData().catch(() => { });
@@ -1535,6 +1636,9 @@ export const getUnsyncedSavings = () => getUnsyncedFromTable<import('../types').
 export const getUnsyncedSavingsTransactions = () => getUnsyncedFromTable<import('../types').SavingsTransaction>('savings_transactions');
 export const getUnsyncedDebtors = () => getUnsyncedFromTable<any>('debtors');
 export const getUnsyncedDebtPayments = () => getUnsyncedFromTable<any>('debt_payments');
+export const getUnsyncedDebtInstallments = () => getUnsyncedFromTable<any>('debt_installments');
+export const getUnsyncedBillPayments = () => getUnsyncedFromTable<any>('bill_payments');
+export const getUnsyncedWallets = () => getUnsyncedFromTable<import('../types').Wallet>('wallets');
 
 export const markFinancialGoalsSynced = (ids: number[]) => markTableSynced('financial_goals', ids);
 export const markCustomCategoriesSynced = (ids: number[]) => markTableSynced('custom_categories', ids);
@@ -1554,57 +1658,59 @@ export const markSavingsSynced = (ids: number[]) => markTableSynced('savings', i
 export const markSavingsTransactionsSynced = (ids: number[]) => markTableSynced('savings_transactions', ids);
 export const markDebtorsSynced = (ids: number[]) => markTableSynced('debtors', ids);
 export const markDebtPaymentsSynced = (ids: number[]) => markTableSynced('debt_payments', ids);
+export const markDebtInstallmentsSynced = (ids: number[]) => markTableSynced('debt_installments', ids);
+export const markBillPaymentsSynced = (ids: number[]) => markTableSynced('bill_payments', ids);
+export const markWalletsSynced = (ids: number[]) => markTableSynced('wallets', ids);
 
-export const getAvailableMonths = async (): Promise<{ year: number; month: number }[]> => {
+export const getAvailableMonths = async (walletId?: number): Promise<{ year: number; month: number }[]> => {
   const database = getDb();
 
-  // Use SQLite to get unique year-month strings directly
-  // substr(date, 1, 7) extracts YYYY-MM
-  const query = `
-    SELECT DISTINCT SUBSTR(date, 1, 7) as month_key FROM expenses
-    UNION
-    SELECT DISTINCT SUBSTR(date, 1, 7) as month_key FROM income
-    ORDER BY month_key DESC
+  let query = `
+    SELECT DISTINCT SUBSTR(date, 1, 4) as year, SUBSTR(date, 6, 2) as month 
+    FROM (
+      SELECT date, walletId FROM expenses
+      UNION ALL
+      SELECT date, walletId FROM income
+    )
+    WHERE 1=1
   `;
+  const params: any[] = [];
+  if (walletId) {
+    query += ' AND walletId = ?';
+    params.push(walletId);
+  }
+  query += ' ORDER BY year DESC, month DESC';
 
-  const results = await database.getAllAsync<{ month_key: string }>(query);
-
-  return results.map(row => {
-    const [year, month] = row.month_key.split('-').map(Number);
-    return { year, month };
-  });
+  const results = await database.getAllAsync<any>(query, params);
+  return results.map(row => ({ year: parseInt(row.year), month: parseInt(row.month) }));
 };
 
-export const getAvailableExpenseMonths = async (): Promise<{ year: number; month: number }[]> => {
+export const getAvailableExpenseMonths = async (walletId?: number): Promise<{ year: number; month: number }[]> => {
   const database = getDb();
+  let query = 'SELECT DISTINCT SUBSTR(date, 1, 4) as year, SUBSTR(date, 6, 2) as month FROM expenses WHERE 1=1';
+  const params: any[] = [];
+  if (walletId) {
+    query += ' AND walletId = ?';
+    params.push(walletId);
+  }
+  query += ' ORDER BY year DESC, month DESC';
 
-  const query = `
-    SELECT DISTINCT SUBSTR(date, 1, 7) as month_key FROM expenses
-    ORDER BY month_key DESC
-  `;
-
-  const results = await database.getAllAsync<{ month_key: string }>(query);
-
-  return results.map(row => {
-    const [year, month] = row.month_key.split('-').map(Number);
-    return { year, month };
-  });
+  const results = await database.getAllAsync<any>(query, params);
+  return results.map(row => ({ year: parseInt(row.year), month: parseInt(row.month) }));
 };
 
-export const getAvailableIncomeMonths = async (): Promise<{ year: number; month: number }[]> => {
+export const getAvailableIncomeMonths = async (walletId?: number): Promise<{ year: number; month: number }[]> => {
   const database = getDb();
+  let query = 'SELECT DISTINCT SUBSTR(date, 1, 4) as year, SUBSTR(date, 6, 2) as month FROM income WHERE 1=1';
+  const params: any[] = [];
+  if (walletId) {
+    query += ' AND walletId = ?';
+    params.push(walletId);
+  }
+  query += ' ORDER BY year DESC, month DESC';
 
-  const query = `
-    SELECT DISTINCT SUBSTR(date, 1, 7) as month_key FROM income
-    ORDER BY month_key DESC
-  `;
-
-  const results = await database.getAllAsync<{ month_key: string }>(query);
-
-  return results.map(row => {
-    const [year, month] = row.month_key.split('-').map(Number);
-    return { year, month };
-  });
+  const results = await database.getAllAsync<any>(query, params);
+  return results.map(row => ({ year: parseInt(row.year), month: parseInt(row.month) }));
 };
 
 const hasBaseAmountColumns = async (database: SQLite.SQLiteDatabase): Promise<boolean> => {
@@ -1627,27 +1733,44 @@ const hasBaseAmountColumns = async (database: SQLite.SQLiteDatabase): Promise<bo
   return hasBaseAmountColumnsCache;
 };
 
-export const getFinancialStatsAggregated = async (startDate?: string, endDate?: string) => {
+export const getFinancialStatsAggregated = async (startDate?: string, endDate?: string, walletId?: number) => {
   const database = getDb();
-  let expenseQuery = 'SELECT SUM(base_amount) as total FROM expenses';
-  let incomeQuery = 'SELECT SUM(base_amount) as total FROM income';
-  const params: string[] = [];
+  let expenseQuery = 'SELECT SUM(base_amount) as total FROM expenses WHERE 1=1';
+  let incomeQuery = 'SELECT SUM(base_amount) as total FROM income WHERE 1=1';
+  const params: any[] = [];
 
   const hasBaseAmount = await hasBaseAmountColumns(database);
   if (!hasBaseAmount) {
-    expenseQuery = 'SELECT SUM(amount) as total FROM expenses';
-    incomeQuery = 'SELECT SUM(amount) as total FROM income';
+    expenseQuery = 'SELECT SUM(amount) as total FROM expenses WHERE 1=1';
+    incomeQuery = 'SELECT SUM(amount) as total FROM income WHERE 1=1';
   }
 
   if (startDate && endDate) {
-    expenseQuery += ' WHERE date >= ? AND date <= ?';
-    incomeQuery += ' WHERE date >= ? AND date <= ?';
+    expenseQuery += ' AND date >= ? AND date <= ?';
+    incomeQuery += ' AND date >= ? AND date <= ?';
     params.push(startDate, endDate);
-    params.push(startDate, endDate); // Two pairs of params for two queries
   }
 
-  const expenseResult = await database.getFirstAsync<{ total: number }>(expenseQuery, params.slice(0, 2));
-  const incomeResult = await database.getFirstAsync<{ total: number }>(incomeQuery, params.slice(0, 2));
+  if (walletId) {
+    expenseQuery += ' AND walletId = ?';
+    incomeQuery += ' AND walletId = ?';
+    params.push(walletId);
+  }
+
+  // We need to be careful with params if both date and walletId are present
+  const expenseParams = [];
+  const incomeParams = [];
+  if (startDate && endDate) {
+    expenseParams.push(startDate, endDate);
+    incomeParams.push(startDate, endDate);
+  }
+  if (walletId) {
+    expenseParams.push(walletId);
+    incomeParams.push(walletId);
+  }
+
+  const expenseResult = await database.getFirstAsync<{ total: number }>(expenseQuery, expenseParams);
+  const incomeResult = await database.getFirstAsync<{ total: number }>(incomeQuery, incomeParams);
 
   return {
     totalExpenses: expenseResult?.total || 0,
@@ -1656,17 +1779,22 @@ export const getFinancialStatsAggregated = async (startDate?: string, endDate?: 
   };
 };
 
-export const getExpensesByCategoryAggregated = async (startDate?: string, endDate?: string) => {
+export const getExpensesByCategoryAggregated = async (startDate?: string, endDate?: string, walletId?: number) => {
   const database = getDb();
   const hasBaseAmount = await hasBaseAmountColumns(database);
   const amountCol = hasBaseAmount ? 'base_amount' : 'amount';
 
-  let query = `SELECT category, SUM(${amountCol}) as amount FROM expenses`;
-  const params: string[] = [];
+  let query = `SELECT category, SUM(${amountCol}) as amount FROM expenses WHERE 1=1`;
+  const params: any[] = [];
 
   if (startDate && endDate) {
-    query += ' WHERE date >= ? AND date <= ?';
+    query += ' AND date >= ? AND date <= ?';
     params.push(startDate, endDate);
+  }
+
+  if (walletId) {
+    query += ' AND walletId = ?';
+    params.push(walletId);
   }
 
   query += ' GROUP BY category ORDER BY amount DESC';
@@ -1942,10 +2070,10 @@ export const clearIncome = async (): Promise<void> => {
 export const addFinancialGoal = async (goal: Omit<import('../types').FinancialGoal, 'id' | 'createdAt'>): Promise<number> => {
   const database = getDb();
   const createdAt = new Date().toISOString();
-  
+
   let baseTargetAmount = goal.base_target_amount !== undefined ? goal.base_target_amount : goal.targetAmount;
   if (isNaN(baseTargetAmount)) baseTargetAmount = goal.targetAmount;
-  
+
   let baseCurrentAmount = goal.base_current_amount !== undefined ? goal.base_current_amount : goal.currentAmount || 0;
   if (isNaN(baseCurrentAmount)) baseCurrentAmount = goal.currentAmount || 0;
 
@@ -2041,6 +2169,7 @@ export const updateFinancialGoal = async (id: number, goal: Partial<import('../t
   }
 
   if (updates.length > 0) {
+    updates.push('synced_at = NULL');
     values.push(id);
     await database.runAsync(
       `UPDATE financial_goals SET ${updates.join(', ')} WHERE id = ?`,
@@ -2122,6 +2251,7 @@ export const updateCustomCategory = async (id: number, category: Partial<Omit<Cu
   }
 
   if (updates.length > 0) {
+    updates.push('synced_at = NULL');
     values.push(id);
     await database.runAsync(
       `UPDATE custom_categories SET ${updates.join(', ')} WHERE id = ?`,
@@ -2145,7 +2275,7 @@ export interface Budget {
 export const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt'>): Promise<number> => {
   const database = getDb();
   const createdAt = new Date().toISOString();
-  
+
   let baseAmount = budget.base_amount !== undefined ? budget.base_amount : budget.amount;
   if (isNaN(baseAmount)) baseAmount = budget.amount;
 
@@ -2219,6 +2349,7 @@ export const updateBudget = async (id: number, budget: Partial<Budget>): Promise
   }
 
   if (updates.length > 0) {
+    updates.push('synced_at = NULL');
     values.push(id);
     await database.runAsync(
       `UPDATE budgets SET ${updates.join(', ')} WHERE id = ?`,
@@ -2253,7 +2384,7 @@ export interface RecurringExpense {
 export const addRecurringExpense = async (expense: Omit<RecurringExpense, 'id' | 'createdAt'>): Promise<number> => {
   const database = getDb();
   const createdAt = new Date().toISOString();
-  
+
   let baseAmount = expense.base_amount !== undefined ? expense.base_amount : expense.amount;
   if (isNaN(baseAmount)) baseAmount = expense.amount;
 
@@ -2278,14 +2409,21 @@ export const addRecurringExpense = async (expense: Omit<RecurringExpense, 'id' |
   return result.lastInsertRowId;
 };
 
-export const getRecurringExpenses = async (activeOnly?: boolean): Promise<RecurringExpense[]> => {
+export const getRecurringExpenses = async (activeOnly?: boolean, walletId?: number): Promise<RecurringExpense[]> => {
   const database = getDb();
-  let query = 'SELECT * FROM recurring_expenses';
+  let query = 'SELECT * FROM recurring_expenses WHERE 1=1';
   const params: any[] = [];
+
   if (activeOnly) {
-    query += ' WHERE isActive = 1';
+    query += ' AND isActive = 1';
   }
-  query += ' ORDER BY createdAt DESC';
+
+  if (walletId) {
+    query += ' AND walletId = ?';
+    params.push(walletId);
+  }
+
+  query += ' ORDER BY createdAt DESC'; // Keeping original ORDER BY for consistency, as the instruction didn't explicitly ask to change it.
   const result = await database.getAllAsync<any>(query, params);
   return result.map((exp: any) => ({
     ...exp,
@@ -2363,6 +2501,7 @@ export const updateRecurringExpense = async (id: number, expense: Partial<Recurr
   }
 
   if (updates.length > 0) {
+    updates.push('synced_at = NULL');
     values.push(id);
     await database.runAsync(
       `UPDATE recurring_expenses SET ${updates.join(', ')} WHERE id = ?`,
@@ -2413,27 +2552,38 @@ export const getAllExchangeRates = async (): Promise<ExchangeRate[]> => {
 
 export const clearAllData = async (): Promise<void> => {
   const database = getDb();
-  
+
   // Tables in order of deletion to respect foreign keys if any
   const tables = [
-    'debt_installments', 'debt_payments', 'debts', 'debtors', 
-    'bill_payments', 'bills', 
+    'debt_installments', 'debt_payments', 'debts', 'debtors',
+    'bill_payments', 'bills',
     'savings_transactions', 'savings',
-    'expenses', 'income', 
+    'expenses', 'income',
     'financial_goals', 'budgets', 'recurring_expenses',
     'challenges', 'achievements', 'notifications',
     'expense_shortcuts', 'income_shortcuts',
+    'wallets',
     'user_settings', 'app_settings', 'notification_settings',
-    'custom_categories', 'exchange_rates', 
+    'custom_categories', 'exchange_rates',
     'ai_insights_cache', 'goal_plan_cache'
   ];
 
-  for (const table of tables) {
-    try {
-      await database.runAsync(`DELETE FROM ${table}`);
-    } catch (err) {
-      // 
+  try {
+    // Disable foreign keys temporarily to ignore order during mass clear
+    await database.execAsync('PRAGMA foreign_keys = OFF;');
+
+    for (const table of tables) {
+      try {
+        await database.runAsync(`DELETE FROM ${table}`);
+      } catch (err) {
+        // Skipping table if it doesn't exist
+      }
     }
+
+    // Re-enable (will be checked on commit if in transaction)
+    await database.execAsync('PRAGMA foreign_keys = ON;');
+  } catch (err) {
+    console.log('[Database] Error in clearAllData:', err);
   }
 };
 
@@ -2450,7 +2600,7 @@ export const cleanupOldAiCache = async (): Promise<void> => {
       clearOldGoalPlanCache(6), // Keep 6 months
     ]);
   } catch (error) {
-    
+
   }
 };
 
@@ -2538,12 +2688,12 @@ export interface Debtor {
 export const addDebtor = async (debtor: Omit<Debtor, 'id' | 'createdAt'>): Promise<number> => {
   const database = getDb();
   const createdAt = new Date().toISOString();
-  
+
   // Try to find by name first to avoid duplicates
   const existing = await database.getFirstAsync<{ id: number }>('SELECT id FROM debtors WHERE name = ?', [debtor.name]);
   if (existing) {
     if (debtor.phone) {
-      await database.runAsync('UPDATE debtors SET phone = ? WHERE id = ?', [debtor.phone, existing.id]);
+      await database.runAsync('UPDATE debtors SET phone = ?, synced_at = NULL WHERE id = ?', [debtor.phone, existing.id]);
     }
     return existing.id;
   }
@@ -2563,9 +2713,10 @@ export const updateDebtor = async (id: number, debtor: Partial<Debtor>): Promise
   if (debtor.name !== undefined) { fields.push('name = ?'); values.push(debtor.name); }
   if (debtor.phone !== undefined) { fields.push('phone = ?'); values.push(debtor.phone); }
   if (debtor.image_path !== undefined) { fields.push('image_path = ?'); values.push(debtor.image_path); }
-  
+
   if (fields.length === 0) return;
 
+  fields.push('synced_at = NULL');
   values.push(id);
   await database.runAsync(
     `UPDATE debtors SET ${fields.join(', ')} WHERE id = ?`,
@@ -2601,7 +2752,7 @@ export interface DebtorSummary extends Debtor {
 export const getDebtorSummaries = async (): Promise<DebtorSummary[]> => {
   const debtors = await getDebtors();
   const allDebts = await getDebts();
-  
+
   return debtors.map(debtor => {
     const personDebts = allDebts.filter(d => d.debtorId === debtor.id || (!d.debtorId && d.debtorName === debtor.name));
     let toMe = 0;
@@ -2611,7 +2762,7 @@ export const getDebtorSummaries = async (): Promise<DebtorSummary[]> => {
       if (d.direction === 'owed_to_me') toMe += d.remainingAmount;
       else byMe += d.remainingAmount;
     });
-    
+
     return {
       ...debtor,
       totalOwedToMe: toMe,
@@ -2726,6 +2877,7 @@ export const updateDebt = async (id: number, debt: Partial<Debt>): Promise<void>
   }
 
   if (updates.length > 0) {
+    updates.push('synced_at = NULL');
     values.push(id);
     await database.runAsync(
       `UPDATE debts SET ${updates.join(', ')} WHERE id = ?`,
@@ -2793,6 +2945,7 @@ export const updateDebtInstallment = async (id: number, installment: Partial<Deb
   }
 
   if (updates.length > 0) {
+    updates.push('synced_at = NULL');
     values.push(id);
     await database.runAsync(
       `UPDATE debt_installments SET ${updates.join(', ')} WHERE id = ?`,
@@ -3047,6 +3200,7 @@ export const updateChallenge = async (id: number, challenge: Partial<Challenge>)
   }
 
   if (updates.length > 0) {
+    updates.push('synced_at = NULL');
     values.push(id);
     await database.runAsync(
       `UPDATE challenges SET ${updates.join(', ')} WHERE id = ?`,
@@ -3158,6 +3312,7 @@ export const updateAchievement = async (type: string, achievement: Partial<Achie
   }
 
   if (updates.length > 0) {
+    updates.push('synced_at = NULL');
     values.push(type);
     await database.runAsync(
       `UPDATE achievements SET ${updates.join(', ')} WHERE type = ?`,
@@ -3169,7 +3324,7 @@ export const updateAchievement = async (type: string, achievement: Partial<Achie
 export const unlockAchievement = async (type: string): Promise<void> => {
   const database = getDb();
   await database.runAsync(
-    'UPDATE achievements SET isUnlocked = 1, unlockedAt = ? WHERE type = ?',
+    'UPDATE achievements SET isUnlocked = 1, unlockedAt = ?, synced_at = NULL WHERE type = ?',
     [new Date().toISOString(), type]
   );
 };
@@ -3242,6 +3397,7 @@ export const updateExpenseShortcut = async (id: number, shortcut: Partial<Expens
   }
 
   if (updates.length > 0) {
+    updates.push('synced_at = NULL');
     values.push(id);
     await database.runAsync(
       `UPDATE expense_shortcuts SET ${updates.join(', ')} WHERE id = ?`,
@@ -3318,6 +3474,7 @@ export const updateIncomeShortcut = async (id: number, shortcut: Partial<IncomeS
   }
 
   if (updates.length > 0) {
+    updates.push('synced_at = NULL');
     values.push(id);
     await database.runAsync(
       `UPDATE income_shortcuts SET ${updates.join(', ')} WHERE id = ?`,
@@ -3357,7 +3514,7 @@ export interface BillPayment {
 export const addBill = async (bill: Omit<Bill, 'id' | 'createdAt'>): Promise<number> => {
   const database = getDb();
   const createdAt = new Date().toISOString();
-  
+
   let baseAmount = bill.base_amount !== undefined ? bill.base_amount : bill.amount;
   if (isNaN(baseAmount)) baseAmount = bill.amount;
 
@@ -3466,6 +3623,7 @@ export const updateBill = async (id: number, bill: Partial<Bill>): Promise<void>
   }
 
   if (updates.length > 0) {
+    updates.push('synced_at = NULL');
     values.push(id);
     await database.runAsync(
       `UPDATE bills SET ${updates.join(', ')} WHERE id = ?`,
@@ -3583,12 +3741,12 @@ export const getNotifications = async (): Promise<DBNotification[]> => {
 
 export const markNotificationRead = async (id: number): Promise<void> => {
   const database = getDb();
-  await database.runAsync('UPDATE notifications SET read = 1 WHERE id = ?', [id]);
+  await database.runAsync('UPDATE notifications SET read = 1, synced_at = NULL WHERE id = ?', [id]);
 };
 
 export const markAllNotificationsRead = async (): Promise<void> => {
   const database = getDb();
-  await database.runAsync('UPDATE notifications SET read = 1');
+  await database.runAsync('UPDATE notifications SET read = 1, synced_at = NULL');
 };
 
 export const deleteNotification = async (id: number): Promise<void> => {
@@ -3629,6 +3787,9 @@ export const exportNewDataOnly = async (): Promise<{ items: { type: string; loca
     savingsTransactions,
     debtorsRaw,
     debtPayments,
+    wallets,
+    debtInstallments,
+    billPayments,
   ] = await Promise.all([
     getUnsyncedExpenses(),
     getUnsyncedIncome(),
@@ -3650,9 +3811,17 @@ export const exportNewDataOnly = async (): Promise<{ items: { type: string; loca
     getUnsyncedSavingsTransactions(),
     getUnsyncedDebtors(),
     getUnsyncedDebtPayments(),
+    getUnsyncedWallets(),
+    getUnsyncedDebtInstallments(),
+    getUnsyncedBillPayments(),
   ]);
 
   const items: { type: string; localId: number; data: Record<string, unknown> }[] = [];
+
+  const walletArray = Array.isArray(wallets) ? wallets : [];
+  for (const w of walletArray) {
+    items.push({ type: 'wallet', localId: w.id, data: w as unknown as Record<string, unknown> });
+  }
 
   for (const e of expenses) {
     items.push({ type: 'expense', localId: e.id, data: e as unknown as Record<string, unknown> });
@@ -3730,6 +3899,14 @@ export const exportNewDataOnly = async (): Promise<{ items: { type: string; loca
   for (const dp of debtPayments) {
     items.push({ type: 'debt_payment', localId: dp.id, data: dp as unknown as Record<string, unknown> });
   }
+  const installmentArray = Array.isArray(debtInstallments) ? debtInstallments : [];
+  for (const di of installmentArray) {
+    items.push({ type: 'debt_installment', localId: di.id, data: di as unknown as Record<string, unknown> });
+  }
+  const billPaymentArray = Array.isArray(billPayments) ? billPayments : [];
+  for (const bp of billPaymentArray) {
+    items.push({ type: 'bill_payment', localId: bp.id, data: bp as unknown as Record<string, unknown> });
+  }
 
   return { items };
 };
@@ -3755,8 +3932,10 @@ export const exportFullData = async (): Promise<Record<string, unknown>> => {
     notifications,
     savings,
     savings_transactions,
-    debt_payments,
     debtors,
+    wallets,
+    ai_insights_cache,
+    goal_plan_cache,
   ] = await Promise.all([
     getExpenses(),
     getIncome(),
@@ -3779,6 +3958,9 @@ export const exportFullData = async (): Promise<Record<string, unknown>> => {
     getSavingsTransactionsForAll(),
     getDebtPaymentsForAll(),
     getDebtors(),
+    getWallets(),
+    getDb().getAllAsync('SELECT * FROM ai_insights_cache'),
+    getDb().getAllAsync('SELECT * FROM goal_plan_cache'),
   ]);
 
   const debt_installments: any[] = [];
@@ -3817,520 +3999,675 @@ export const exportFullData = async (): Promise<Record<string, unknown>> => {
     notifications,
     savings,
     savings_transactions,
-    debt_payments,
     debtors,
+    wallets,
+    ai_insights_cache,
+    goal_plan_cache,
   };
 };
 
 /** Restore full data from backup (server or local file). Clears existing data and inserts backup. */
-export const importFullData = async (data: Record<string, unknown>): Promise<void> => {
+export const importFullData = async (data: Record<string, unknown>, force: boolean = false): Promise<void> => {
   const database = getDb();
-  await clearAllData();
 
-  const runSection = async (name: string, fn: () => Promise<void>) => {
-    try {
-      await fn();
-    } catch (err: any) {
-      
-      throw new Error(`${name}: ${err?.message ?? err}`);
+  // New logic: Check if incoming data is older than current data (based on exportedAt/timestamp)
+  try {
+    const exportedAt = data.exportedAt as string;
+    if (exportedAt && !force) {
+      // Find the last local backup timestamp from app_settings or find newest record
+      const appSettings = await database.getFirstAsync<{ lastFullSyncAt?: string }>('SELECT * FROM app_settings ORDER BY id ASC LIMIT 1');
+      if (appSettings?.lastFullSyncAt && new Date(exportedAt) < new Date(appSettings.lastFullSyncAt)) {
+        throw new Error('BACKUP_OLDER_THAN_CURRENT');
+      }
     }
-  };
+  } catch (err: any) {
+    if (err.message === 'BACKUP_OLDER_THAN_CURRENT') throw err;
+    // Otherwise ignore metadata check errors
+  }
 
-  const toSql = (v: any) => {
-    if (v === undefined || v === null) return null;
-    if (typeof v === 'boolean') return v ? 1 : 0;
-    if (typeof v === 'number' || typeof v === 'string') return v;
-    return String(v);
-  };
+  // Disable foreign keys for the entire import process to avoid order issues
+  await database.execAsync('PRAGMA foreign_keys = OFF;');
+  await database.execAsync('BEGIN TRANSACTION;');
 
-  const expenses = (data.expenses as any[]) || [];
-  await runSection('debtors', async () => {
-    const debtors = (data.debtors as any[]) || [];
-    for (const de of debtors) {
-      await database.runAsync(
-        'INSERT OR REPLACE INTO debtors (id, name, phone, image_path, createdAt, synced_at, enc_blob) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [
-          toSql(de.id), 
-          toSql(de.name) ?? 'غير معروف', 
-          toSql(de.phone), 
-          toSql(de.image_path), 
-          toSql(de.createdAt) ?? new Date().toISOString(), 
-          toSql(de.synced_at),
-          toSql(de.enc_blob)
-        ]
+  try {
+    await clearAllData();
+
+    const runSection = async (name: string, fn: () => Promise<void>) => {
+      try {
+        console.log(`[Database] Importing section: ${name}...`);
+        await fn();
+        console.log(`[Database] Section ${name} import successful.`);
+      } catch (err: any) {
+        console.log(`[Database] Section ${name} import FAILED`, err);
+        throw new Error(`${name}: ${err?.message ?? err}`);
+      }
+    };
+
+    const toSql = (v: any) => {
+      if (v === undefined || v === null) return null;
+      if (typeof v === 'boolean') return v ? 1 : 0;
+      if (typeof v === 'number' || typeof v === 'string') return v;
+      return String(v);
+    };
+
+    // Ensure all tables have expected columns for newer schema
+    const allMigrations = [
+      'ALTER TABLE budgets ADD COLUMN currency TEXT DEFAULT "IQD"',
+      'ALTER TABLE budgets ADD COLUMN base_amount REAL',
+      'ALTER TABLE budgets ADD COLUMN createdAt TEXT',
+      'ALTER TABLE budgets ADD COLUMN synced_at INTEGER',
+      'ALTER TABLE income ADD COLUMN currency TEXT DEFAULT "IQD"',
+      'ALTER TABLE income ADD COLUMN category TEXT',
+      'ALTER TABLE income ADD COLUMN synced_at INTEGER',
+      'ALTER TABLE income ADD COLUMN enc_blob TEXT',
+      'ALTER TABLE wallet_transfers ADD COLUMN synced_at INTEGER',
+      'ALTER TABLE expenses ADD COLUMN currency TEXT DEFAULT "IQD"',
+      'ALTER TABLE expenses ADD COLUMN synced_at INTEGER',
+      'ALTER TABLE expenses ADD COLUMN enc_blob TEXT',
+      'ALTER TABLE expenses ADD COLUMN image_path TEXT',
+      'ALTER TABLE expenses ADD COLUMN base_amount REAL',
+      'ALTER TABLE budgets ADD COLUMN synced_at INTEGER'
+    ];
+    for (const sql of allMigrations) {
+      try { await database.execAsync(sql + ';'); } catch (_) { /* ignore already exists */ }
+    }
+
+    await runSection('wallets', async () => {
+      // Ensure all wallet columns exist (older DBs may be missing some)
+      const walletMigrations = [
+        'ALTER TABLE wallets ADD COLUMN currency TEXT DEFAULT "IQD"',
+        'ALTER TABLE wallets ADD COLUMN balance REAL DEFAULT 0',
+        'ALTER TABLE wallets ADD COLUMN icon TEXT DEFAULT "wallet"',
+        'ALTER TABLE wallets ADD COLUMN color TEXT DEFAULT "#0B5A7A"',
+        'ALTER TABLE wallets ADD COLUMN isDefault INTEGER DEFAULT 0',
+        'ALTER TABLE wallets ADD COLUMN synced_at INTEGER',
+        'ALTER TABLE wallets ADD COLUMN updatedAt TEXT',
+      ];
+      for (const sql of walletMigrations) {
+        try { await database.execAsync(sql + ';'); } catch (_) { /* column already exists */ }
+      }
+
+      const wallets = (data.wallets as any[]) || [];
+      for (const w of wallets) {
+        await database.runAsync(
+          'INSERT OR REPLACE INTO wallets (id, name, currency, balance, icon, color, isDefault, createdAt, updatedAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            toSql(w.id),
+            toSql(w.name) ?? 'المحفظة',
+            toSql(w.currency) ?? 'IQD',
+            toSql(w.balance) || 0,
+            toSql(w.icon) ?? 'wallet',
+            toSql(w.color) ?? '#0B5A7A',
+            toSql(w.isDefault),
+            toSql(w.createdAt) ?? new Date().toISOString(),
+            toSql(w.updatedAt) ?? new Date().toISOString(),
+            toSql(w.synced_at)
+          ]
+        );
+      }
+    });
+
+    const expenses = (data.expenses as any[]) || [];
+    await runSection('debtors', async () => {
+      const debtors = (data.debtors as any[]) || [];
+      for (const de of debtors) {
+        await database.runAsync(
+          'INSERT OR REPLACE INTO debtors (id, name, phone, image_path, createdAt, synced_at, enc_blob) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [
+            toSql(de.id),
+            toSql(de.name) ?? 'غير معروف',
+            toSql(de.phone),
+            toSql(de.image_path),
+            toSql(de.createdAt) ?? new Date().toISOString(),
+            toSql(de.synced_at),
+            toSql(de.enc_blob)
+          ]
+        );
+      }
+    });
+
+    await runSection('expenses', async () => {
+      for (const e of expenses) {
+        const amount = typeof e.amount === 'number' ? e.amount : 0;
+        await database.runAsync(
+          'INSERT OR REPLACE INTO expenses (id, title, amount, base_amount, category, date, description, currency, receipt_image_path, synced_at, enc_blob, walletId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            toSql(e.id),
+            toSql(e.title) ?? 'بدون عنوان',
+            amount,
+            toSql(e.base_amount) ?? amount,
+            toSql(e.category) ?? 'other',
+            toSql(e.date) ?? new Date().toISOString().slice(0, 10),
+            toSql(e.description),
+            toSql(e.currency) ?? 'IQD',
+            toSql(e.receipt_image_path),
+            toSql(e.synced_at),
+            toSql(e.enc_blob),
+            toSql(e.walletId)
+          ]
+        );
+      }
+    });
+
+    const income = (data.income as any[]) || [];
+    await runSection('income', async () => {
+      for (const i of income) {
+        const amount = typeof i.amount === 'number' ? i.amount : 0;
+        await database.runAsync(
+          'INSERT OR REPLACE INTO income (id, source, amount, base_amount, date, description, currency, category, synced_at, enc_blob, walletId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            toSql(i.id),
+            toSql(i.source) ?? 'دخل',
+            amount,
+            toSql(i.base_amount) ?? amount,
+            toSql(i.date) ?? new Date().toISOString().slice(0, 10),
+            toSql(i.description),
+            toSql(i.currency) ?? 'IQD',
+            toSql(i.category) ?? 'other',
+            toSql(i.synced_at),
+            toSql(i.enc_blob),
+            toSql(i.walletId)
+          ]
+        );
+      }
+    });
+
+    await runSection('user_settings', async () => {
+      const userSettingsRaw = data.user_settings;
+      const user_settings = Array.isArray(userSettingsRaw) ? userSettingsRaw : (userSettingsRaw ? [userSettingsRaw] : []);
+      if (user_settings.length > 0) {
+        const u = user_settings[0];
+        await database.runAsync(
+          'INSERT OR REPLACE INTO user_settings (id, name, authMethod, passwordHash, biometricsEnabled, synced_at, userId, phone, email, isPro) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            toSql(u.id),
+            toSql(u.name),
+            toSql(u.authMethod),
+            toSql(u.passwordHash),
+            toSql(u.biometricsEnabled),
+            toSql(u.synced_at),
+            toSql(u.userId),
+            toSql(u.phone),
+            toSql(u.email),
+            toSql(u.isPro)
+          ]
+        );
+      }
+    });
+
+    await runSection('app_settings', async () => {
+      const appSettingsRaw = data.app_settings;
+      const app_settings = Array.isArray(appSettingsRaw) ? appSettingsRaw : (appSettingsRaw ? [appSettingsRaw] : []);
+      if (app_settings.length > 0) {
+        const a = app_settings[0];
+        await database.runAsync(
+          'INSERT OR REPLACE INTO app_settings (id, notificationsEnabled, darkModeEnabled, autoBackupEnabled, autoSyncEnabled, currency, language, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            toSql(a.id),
+            toSql(a.notificationsEnabled),
+            toSql(a.darkModeEnabled),
+            toSql(a.autoBackupEnabled),
+            toSql(a.autoSyncEnabled),
+            toSql(a.currency),
+            toSql(a.language),
+            toSql(a.synced_at)
+          ]
+        );
+      }
+    });
+
+    await runSection('notification_settings', async () => {
+      const notifSettingsRaw = data.notification_settings;
+      const notification_settings = Array.isArray(notifSettingsRaw) ? notifSettingsRaw : (notifSettingsRaw ? [notifSettingsRaw] : []);
+      if (notification_settings.length > 0) {
+        const n = notification_settings[0];
+        await database.runAsync(
+          'INSERT OR REPLACE INTO notification_settings (id, dailyReminder, dailyReminderTime, expenseReminder, expenseReminderTime, incomeReminder, weeklySummary, monthlySummary, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            toSql(n.id),
+            toSql(n.dailyReminder) || 0,
+            toSql(n.dailyReminderTime),
+            toSql(n.expenseReminder) || 0,
+            toSql(n.expenseReminderTime),
+            toSql(n.incomeReminder) || 0,
+            toSql(n.weeklySummary) || 0,
+            toSql(n.monthlySummary) || 0,
+            toSql(n.synced_at)
+          ]
+        );
+      }
+    });
+
+    await runSection('custom_categories', async () => {
+      const custom_categories = (data.custom_categories as any[]) || [];
+      for (const c of custom_categories) {
+        await database.runAsync(
+          'INSERT OR REPLACE INTO custom_categories (id, name, type, icon, color, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [
+            toSql(c.id),
+            toSql(c.name) ?? 'فئة',
+            toSql(c.type) ?? 'expense',
+            toSql(c.icon) ?? 'ellipse',
+            toSql(c.color) ?? '#6B7280',
+            toSql(c.createdAt) ?? new Date().toISOString(),
+            toSql(c.synced_at)
+          ]
+        );
+      }
+    });
+
+    await runSection('budgets', async () => {
+      const budgets = (data.budgets as any[]) || [];
+      const now = new Date().toISOString();
+      for (const b of budgets) {
+        // Double check NOT NULL constraints
+        const createdAtValue = toSql(b.createdAt) || toSql(b.created_at) || now;
+        await database.runAsync(
+          'INSERT OR REPLACE INTO budgets (id, category, amount, month, year, createdAt, currency) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [
+            toSql(b.id),
+            toSql(b.category) ?? 'أخرى',
+            toSql(b.amount) || 0,
+            toSql(b.month) ?? String(new Date().getMonth() + 1),
+            toSql(b.year) || new Date().getFullYear(),
+            createdAtValue,
+            toSql(b.currency) || 'IQD'
+          ]
+        );
+      }
+    });
+
+    await runSection('financial_goals', async () => {
+      const financial_goals = (data.financial_goals as any[]) || [];
+      for (const g of financial_goals) {
+        await database.runAsync(
+          'INSERT OR REPLACE INTO financial_goals (id, title, targetAmount, currentAmount, targetDate, category, description, createdAt, completed, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            toSql(g.id),
+            toSql(g.title) ?? 'هدف',
+            toSql(g.targetAmount) || 0,
+            toSql(g.currentAmount) || 0,
+            toSql(g.targetDate) ?? new Date().toISOString().slice(0, 10),
+            toSql(g.category) ?? 'أخرى',
+            toSql(g.description),
+            toSql(g.createdAt) ?? new Date().toISOString(),
+            toSql(g.completed),
+            toSql(g.synced_at)
+          ]
+        );
+      }
+    });
+
+    await runSection('recurring_expenses', async () => {
+      const recurring_expenses = (data.recurring_expenses as any[]) || [];
+      for (const r of recurring_expenses) {
+        await database.runAsync(
+          'INSERT OR REPLACE INTO recurring_expenses (id, title, amount, category, recurrenceType, recurrenceValue, startDate, endDate, description, isActive, lastProcessedDate, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            toSql(r.id),
+            toSql(r.title) ?? 'بدون عنوان',
+            toSql(r.amount) || 0,
+            toSql(r.category) ?? 'أخرى',
+            toSql(r.recurrenceType ?? r.frequency) ?? 'monthly',
+            toSql(r.recurrenceValue) || 1,
+            toSql(r.startDate) ?? new Date().toISOString().slice(0, 10),
+            toSql(r.endDate),
+            toSql(r.description),
+            toSql(r.isActive !== false),
+            toSql(r.lastProcessedDate),
+            toSql(r.createdAt) ?? new Date().toISOString(),
+            toSql(r.synced_at)
+          ]
+        );
+      }
+    });
+
+    await runSection('debts', async () => {
+      const debts = (data.debts as any[]) || [];
+      for (const d of debts) {
+        const direction = d.direction === 'owed_to_me' ? 'owed_to_me' : 'owed_by_me';
+        await database.runAsync(
+          'INSERT OR REPLACE INTO debts (id, debtorName, totalAmount, base_total_amount, remainingAmount, base_remaining_amount, startDate, dueDate, description, type, direction, currency, isPaid, createdAt, synced_at, enc_blob) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            toSql(d.id),
+            toSql(d.debtorName) ?? 'دين',
+            toSql(d.totalAmount) || 0,
+            (toSql(d.base_total_amount) ?? toSql(d.totalAmount)) || 0,
+            toSql(d.remainingAmount) || 0,
+            (toSql(d.base_remaining_amount) ?? toSql(d.remainingAmount)) || 0,
+            toSql(d.startDate) ?? new Date().toISOString().slice(0, 10),
+            toSql(d.dueDate),
+            toSql(d.description),
+            toSql(d.type) ?? 'debt',
+            direction,
+            toSql(d.currency) ?? 'IQD',
+            toSql(d.isPaid),
+            toSql(d.createdAt) ?? new Date().toISOString(),
+            toSql(d.synced_at),
+            toSql(d.enc_blob)
+          ]
+        );
+      }
+    });
+
+    await runSection('debt_installments', async () => {
+      const debt_installments = (data.debt_installments as any[]) || [];
+      for (const di of debt_installments) {
+        await database.runAsync(
+          'INSERT OR REPLACE INTO debt_installments (id, debtId, amount, dueDate, isPaid, paidDate, installmentNumber, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            toSql(di.id),
+            toSql(di.debtId),
+            toSql(di.amount) || 0,
+            toSql(di.dueDate) ?? new Date().toISOString().slice(0, 10),
+            toSql(di.isPaid),
+            toSql(di.paidDate),
+            toSql(di.installmentNumber) || 1,
+            toSql(di.createdAt) ?? new Date().toISOString(),
+            toSql(di.synced_at)
+          ]
+        );
+      }
+    });
+
+    await runSection('bills', async () => {
+      const bills = (data.bills as any[]) || [];
+      for (const b of bills) {
+        await database.runAsync(
+          'INSERT OR REPLACE INTO bills (id, title, amount, base_amount, category, dueDate, recurrenceType, recurrenceValue, description, currency, isPaid, paidDate, reminderDaysBefore, image_path, createdAt, synced_at, enc_blob) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            toSql(b.id),
+            toSql(b.title ?? b.name) ?? 'فاتورة',
+            toSql(b.amount) || 0,
+            (toSql(b.base_amount) ?? toSql(b.amount)) || 0,
+            toSql(b.category) ?? 'أخرى',
+            toSql(b.dueDate ?? b.dueDay) ?? new Date().toISOString().slice(0, 10),
+            toSql(b.recurrenceType),
+            toSql(b.recurrenceValue),
+            toSql(b.description),
+            toSql(b.currency) ?? 'IQD',
+            toSql(b.isPaid),
+            toSql(b.paidDate),
+            toSql(b.reminderDaysBefore) || 3,
+            toSql(b.image_path),
+            toSql(b.createdAt) ?? new Date().toISOString(),
+            toSql(b.synced_at),
+            toSql(b.enc_blob)
+          ]
+        );
+      }
+    });
+
+    await runSection('bill_payments', async () => {
+      const bill_payments = (data.bill_payments as any[]) || [];
+      for (const bp of bill_payments) {
+        await database.runAsync(
+          'INSERT OR REPLACE INTO bill_payments (id, billId, amount, paymentDate, description, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [
+            toSql(bp.id),
+            toSql(bp.billId),
+            toSql(bp.amount) || 0,
+            toSql(bp.paymentDate ?? bp.paidDate) ?? new Date().toISOString().slice(0, 10),
+            toSql(bp.description),
+            toSql(bp.createdAt) ?? new Date().toISOString(),
+            toSql(bp.synced_at)
+          ]
+        );
+      }
+    });
+
+    await runSection('debt_payments', async () => {
+      const debt_payments = (data.debt_payments as any[]) || [];
+      for (const dp of debt_payments) {
+        await database.runAsync(
+          'INSERT OR REPLACE INTO debt_payments (id, debtId, amount, paymentDate, installmentId, description, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            toSql(dp.id),
+            toSql(dp.debtId),
+            toSql(dp.amount) || 0,
+            toSql(dp.paymentDate ?? dp.date) ?? new Date().toISOString().slice(0, 10),
+            toSql(dp.installmentId),
+            toSql(dp.description),
+            toSql(dp.createdAt) ?? new Date().toISOString(),
+            toSql(dp.synced_at)
+          ]
+        );
+      }
+    });
+
+    await runSection('challenges', async () => {
+      const challenges = (data.challenges as any[]) || [];
+      for (const ch of challenges) {
+        await database.runAsync(
+          'INSERT OR REPLACE INTO challenges (id, type, title, description, category, icon, startDate, endDate, targetValue, targetCategory, currentProgress, targetProgress, completed, completedAt, reward, isCustom, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            toSql(ch.id),
+            toSql(ch.type) ?? 'custom',
+            toSql(ch.title) ?? 'تحدي',
+            toSql(ch.description) ?? '',
+            toSql(ch.category) ?? 'أخرى',
+            toSql(ch.icon) ?? 'flag',
+            toSql(ch.startDate) ?? new Date().toISOString().slice(0, 10),
+            toSql(ch.endDate) ?? new Date().toISOString().slice(0, 10),
+            toSql(ch.targetValue) || 0,
+            toSql(ch.targetCategory),
+            toSql(ch.currentProgress) || 0,
+            toSql(ch.targetProgress) || 1,
+            toSql(ch.completed),
+            toSql(ch.completedAt),
+            toSql(ch.reward),
+            toSql(ch.isCustom),
+            toSql(ch.createdAt) ?? new Date().toISOString(),
+            toSql(ch.synced_at)
+          ]
+        );
+      }
+    });
+
+    await runSection('achievements', async () => {
+      const achievements = (data.achievements as any[]) || [];
+      for (const ac of achievements) {
+        await database.runAsync(
+          'INSERT OR REPLACE INTO achievements (id, type, title, description, icon, category, progress, targetProgress, unlockedAt, isUnlocked, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            toSql(ac.id),
+            toSql(ac.type) ?? 'default',
+            toSql(ac.title) ?? '',
+            toSql(ac.description) ?? '',
+            toSql(ac.icon) ?? 'trophy',
+            toSql(ac.category) ?? 'أخرى',
+            toSql(ac.progress) || 0,
+            toSql(ac.targetProgress) || 1,
+            toSql(ac.unlockedAt),
+            toSql(ac.isUnlocked),
+            toSql(ac.synced_at)
+          ]
+        );
+      }
+    });
+
+    await runSection('expense_shortcuts', async () => {
+      const expense_shortcuts = (data.expense_shortcuts as any[]) || [];
+      for (const es of expense_shortcuts) {
+        await database.runAsync(
+          'INSERT OR REPLACE INTO expense_shortcuts (id, title, amount, category, currency, description, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            toSql(es.id),
+            toSql(es.title) ?? 'اختصار',
+            toSql(es.amount) || 0,
+            toSql(es.category) ?? 'أخرى',
+            toSql(es.currency) ?? 'IQD',
+            toSql(es.description),
+            toSql(es.createdAt) ?? new Date().toISOString(),
+            toSql(es.synced_at)
+          ]
+        );
+      }
+    });
+
+    await runSection('income_shortcuts', async () => {
+      const income_shortcuts = (data.income_shortcuts as any[]) || [];
+      for (const is_ of income_shortcuts) {
+        await database.runAsync(
+          'INSERT OR REPLACE INTO income_shortcuts (id, source, amount, incomeSource, currency, description, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            toSql(is_.id),
+            toSql(is_.source) ?? 'دخل',
+            toSql(is_.amount) || 0,
+            toSql(is_.incomeSource ?? is_.source) ?? 'دخل',
+            toSql(is_.currency) ?? 'IQD',
+            toSql(is_.description),
+            toSql(is_.createdAt) ?? new Date().toISOString(),
+            toSql(is_.synced_at)
+          ]
+        );
+      }
+    });
+
+    await runSection('exchange_rates', async () => {
+      const exchange_rates = (data.exchange_rates as any[]) || [];
+      for (const er of exchange_rates) {
+        await database.runAsync(
+          'INSERT OR REPLACE INTO exchange_rates (id, fromCurrency, toCurrency, rate, updatedAt) VALUES (?, ?, ?, ?, ?)',
+          [
+            toSql(er.id),
+            toSql(er.baseCurrency ?? er.fromCurrency) ?? 'USD',
+            toSql(er.targetCurrency ?? er.toCurrency) ?? 'IQD',
+            toSql(er.rate) || 0,
+            toSql(er.updatedAt) ?? new Date().toISOString()
+          ]
+        );
+      }
+    });
+
+    await runSection('notifications', async () => {
+      const notifications = (data.notifications as any[]) || [];
+      for (const n of notifications) {
+        await database.runAsync(
+          'INSERT OR REPLACE INTO notifications (id, title, body, data, date, read, type, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            toSql(n.id),
+            toSql(n.title) ?? '',
+            toSql(n.body) ?? '',
+            typeof n.data === 'string' ? n.data : JSON.stringify(n.data || {}),
+            toSql(n.date) || Date.now(),
+            toSql(n.read),
+            toSql(n.type) ?? 'default',
+            toSql(n.synced_at)
+          ]
+        );
+      }
+    });
+
+    await runSection('savings', async () => {
+      const savings = (data.savings as any[]) || [];
+      for (const s of savings) {
+        await database.runAsync(
+          'INSERT OR REPLACE INTO savings (id, title, targetAmount, base_target_amount, currentAmount, base_current_amount, currency, description, icon, color, createdAt, updatedAt, synced_at, enc_blob) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            toSql(s.id),
+            toSql(s.title) ?? 'حصالة',
+            toSql(s.targetAmount) || 0,
+            (toSql(s.base_target_amount) ?? toSql(s.targetAmount)) || 0,
+            toSql(s.currentAmount) || 0,
+            (toSql(s.base_current_amount) ?? toSql(s.currentAmount)) || 0,
+            toSql(s.currency) ?? 'IQD',
+            toSql(s.description),
+            toSql(s.icon) ?? 'wallet',
+            toSql(s.color) ?? '#10B981',
+            toSql(s.createdAt) ?? new Date().toISOString(),
+            toSql(s.updatedAt) ?? new Date().toISOString(),
+            toSql(s.synced_at),
+            toSql(s.enc_blob)
+          ]
+        );
+      }
+    });
+
+    await runSection('savings_transactions', async () => {
+      const savings_transactions = (data.savings_transactions as any[]) || [];
+      for (const st of savings_transactions) {
+        await database.runAsync(
+          'INSERT OR REPLACE INTO savings_transactions (id, savingsId, amount, type, date, description, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            toSql(st.id),
+            toSql(st.savingsId) || 0,
+            toSql(st.amount) || 0,
+            toSql(st.type) ?? 'deposit',
+            toSql(st.date) ?? new Date().toISOString().slice(0, 10),
+            toSql(st.description),
+            toSql(st.createdAt) ?? new Date().toISOString(),
+            toSql(st.synced_at)
+          ]
+        );
+      }
+    });
+
+    await runSection('ai_insights_cache', async () => {
+      const ai_insights_cache = (data.ai_insights_cache as any[]) || [];
+      for (const row of ai_insights_cache) {
+        await database.runAsync(
+          'INSERT OR REPLACE INTO ai_insights_cache (id, data, analysis_type, month, year, created_at, walletId) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [
+            toSql(row.id),
+            typeof row.data === 'string' ? row.data : JSON.stringify(row.data || {}),
+            toSql(row.analysisType || row.analysis_type),
+            toSql(row.month),
+            toSql(row.year),
+            toSql(row.created_at) || Date.now(),
+            toSql(row.walletId)
+          ]
+        );
+      }
+    });
+
+    await runSection('goal_plan_cache', async () => {
+      const goal_plan_cache = (data.goal_plan_cache as any[]) || [];
+      for (const row of goal_plan_cache) {
+        await database.runAsync(
+          'INSERT OR REPLACE INTO goal_plan_cache (id, goal_id, data, month, year, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+          [
+            toSql(row.id),
+            toSql(row.goalId || row.goal_id),
+            typeof row.data === 'string' ? row.data : JSON.stringify(row.data || {}),
+            toSql(row.month),
+            toSql(row.year),
+            toSql(row.createdAt || row.created_at) || Date.now()
+          ]
+        );
+      }
+    });
+
+    // Update lastFullSyncAt after successful import
+    const exportedAt = data.exportedAt as string;
+    if (exportedAt) {
+      await database.runAsync('UPDATE app_settings SET lastFullSyncAt = ?', [exportedAt]);
+    }
+
+    // Fallback: Ensure at least one wallet exists
+    const currentWallets = await getWallets();
+    if (currentWallets.length === 0) {
+      const now = new Date().toISOString();
+      const result = await database.runAsync(
+        'INSERT INTO wallets (name, currency, balance, icon, color, isDefault, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        ['المحفظة الرئيسية', 'IQD', 0, 'wallet', '#0B5A7A', 1, now, now]
       );
+      const defaultWalletId = result.lastInsertRowId;
+      // Link any orphan transactions to this wallet
+      await database.runAsync('UPDATE expenses SET walletId = ? WHERE walletId IS NULL', [defaultWalletId]);
+      await database.runAsync('UPDATE income SET walletId = ? WHERE walletId IS NULL', [defaultWalletId]);
     }
-  });
 
-  await runSection('expenses', async () => {
-    for (const e of expenses) {
-      const amount = typeof e.amount === 'number' ? e.amount : 0;
-      await database.runAsync(
-        'INSERT OR REPLACE INTO expenses (id, title, amount, base_amount, category, date, description, currency, receipt_image_path, synced_at, enc_blob) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [
-          toSql(e.id), 
-          toSql(e.title) ?? 'بدون عنوان', 
-          amount, 
-          toSql(e.base_amount) ?? amount, 
-          toSql(e.category) ?? 'other', 
-          toSql(e.date) ?? new Date().toISOString().slice(0, 10), 
-          toSql(e.description), 
-          toSql(e.currency) ?? 'IQD', 
-          toSql(e.receipt_image_path), 
-          toSql(e.synced_at),
-          toSql(e.enc_blob)
-        ]
-      );
-    }
-  });
-
-  const income = (data.income as any[]) || [];
-  await runSection('income', async () => {
-    for (const i of income) {
-      const amount = typeof i.amount === 'number' ? i.amount : 0;
-      await database.runAsync(
-        'INSERT OR REPLACE INTO income (id, source, amount, base_amount, date, description, currency, category, synced_at, enc_blob) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [
-          toSql(i.id), 
-          toSql(i.source) ?? 'دخل', 
-          amount, 
-          toSql(i.base_amount) ?? amount, 
-          toSql(i.date) ?? new Date().toISOString().slice(0, 10), 
-          toSql(i.description), 
-          toSql(i.currency) ?? 'IQD', 
-          toSql(i.category) ?? 'other', 
-          toSql(i.synced_at),
-          toSql(i.enc_blob)
-        ]
-      );
-    }
-  });
-
-  await runSection('user_settings', async () => {
-    const userSettingsRaw = data.user_settings;
-    const user_settings = Array.isArray(userSettingsRaw) ? userSettingsRaw : (userSettingsRaw ? [userSettingsRaw] : []);
-    if (user_settings.length > 0) {
-      const u = user_settings[0];
-      await database.runAsync(
-        'INSERT INTO user_settings (id, name, authMethod, passwordHash, biometricsEnabled, synced_at, userId, phone, email, isPro) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [
-          toSql(u.id), 
-          toSql(u.name), 
-          toSql(u.authMethod), 
-          toSql(u.passwordHash), 
-          toSql(u.biometricsEnabled), 
-          toSql(u.synced_at),
-          toSql(u.userId),
-          toSql(u.phone),
-          toSql(u.email),
-          toSql(u.isPro)
-        ]
-      );
-    }
-  });
-
-  await runSection('app_settings', async () => {
-    const appSettingsRaw = data.app_settings;
-    const app_settings = Array.isArray(appSettingsRaw) ? appSettingsRaw : (appSettingsRaw ? [appSettingsRaw] : []);
-    if (app_settings.length > 0) {
-      const a = app_settings[0];
-      await database.runAsync(
-        'INSERT INTO app_settings (id, notificationsEnabled, darkModeEnabled, autoBackupEnabled, autoSyncEnabled, currency, language, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [
-          toSql(a.id), 
-          toSql(a.notificationsEnabled), 
-          toSql(a.darkModeEnabled), 
-          toSql(a.autoBackupEnabled), 
-          toSql(a.autoSyncEnabled), 
-          toSql(a.currency), 
-          toSql(a.language), 
-          toSql(a.synced_at)
-        ]
-      );
-    }
-  });
-
-  await runSection('notification_settings', async () => {
-    const notifSettingsRaw = data.notification_settings;
-    const notification_settings = Array.isArray(notifSettingsRaw) ? notifSettingsRaw : (notifSettingsRaw ? [notifSettingsRaw] : []);
-    if (notification_settings.length > 0) {
-      const n = notification_settings[0];
-      await database.runAsync(
-        'INSERT INTO notification_settings (id, dailyReminder, dailyReminderTime, expenseReminder, expenseReminderTime, incomeReminder, weeklySummary, monthlySummary, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [
-          toSql(n.id), 
-          toSql(n.dailyReminder) || 0, 
-          toSql(n.dailyReminderTime), 
-          toSql(n.expenseReminder) || 0, 
-          toSql(n.expenseReminderTime), 
-          toSql(n.incomeReminder) || 0, 
-          toSql(n.weeklySummary) || 0, 
-          toSql(n.monthlySummary) || 0, 
-          toSql(n.synced_at)
-        ]
-      );
-    }
-  });
-
-  await runSection('custom_categories', async () => {
-    const custom_categories = (data.custom_categories as any[]) || [];
-    for (const c of custom_categories) {
-      await database.runAsync(
-        'INSERT OR REPLACE INTO custom_categories (id, name, type, icon, color, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [
-          toSql(c.id), 
-          toSql(c.name) ?? 'فئة', 
-          toSql(c.type) ?? 'expense', 
-          toSql(c.icon) ?? 'ellipse', 
-          toSql(c.color) ?? '#6B7280', 
-          toSql(c.createdAt) ?? new Date().toISOString(), 
-          toSql(c.synced_at)
-        ]
-      );
-    }
-  });
-
-  await runSection('budgets', async () => {
-    const budgets = (data.budgets as any[]) || [];
-    for (const b of budgets) {
-      const now = new Date();
-      await database.runAsync(
-        'INSERT OR REPLACE INTO budgets (id, category, amount, month, year, synced_at) VALUES (?, ?, ?, ?, ?, ?)',
-        [
-          toSql(b.id), 
-          toSql(b.category) ?? 'أخرى', 
-          toSql(b.amount) || 0, 
-          toSql(b.month) ?? String(now.getMonth() + 1), 
-          toSql(b.year) || now.getFullYear(), 
-          toSql(b.synced_at)
-        ]
-      );
-    }
-  });
-
-  await runSection('financial_goals', async () => {
-    const financial_goals = (data.financial_goals as any[]) || [];
-    for (const g of financial_goals) {
-      await database.runAsync(
-        'INSERT OR REPLACE INTO financial_goals (id, title, targetAmount, currentAmount, targetDate, category, description, createdAt, completed, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [
-          toSql(g.id), 
-          toSql(g.title) ?? 'هدف', 
-          toSql(g.targetAmount) || 0, 
-          toSql(g.currentAmount) || 0, 
-          toSql(g.targetDate) ?? new Date().toISOString().slice(0, 10), 
-          toSql(g.category) ?? 'أخرى', 
-          toSql(g.description), 
-          toSql(g.createdAt) ?? new Date().toISOString(), 
-          toSql(g.completed), 
-          toSql(g.synced_at)
-        ]
-      );
-    }
-  });
-
-  await runSection('recurring_expenses', async () => {
-    const recurring_expenses = (data.recurring_expenses as any[]) || [];
-    for (const r of recurring_expenses) {
-      await database.runAsync(
-        'INSERT OR REPLACE INTO recurring_expenses (id, title, amount, category, recurrenceType, recurrenceValue, startDate, endDate, description, isActive, lastProcessedDate, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [
-          toSql(r.id), 
-          toSql(r.title) ?? 'بدون عنوان', 
-          toSql(r.amount) || 0, 
-          toSql(r.category) ?? 'أخرى', 
-          toSql(r.recurrenceType ?? r.frequency) ?? 'monthly', 
-          toSql(r.recurrenceValue) || 1, 
-          toSql(r.startDate) ?? new Date().toISOString().slice(0, 10), 
-          toSql(r.endDate), 
-          toSql(r.description), 
-          toSql(r.isActive !== false), 
-          toSql(r.lastProcessedDate), 
-          toSql(r.createdAt) ?? new Date().toISOString(), 
-          toSql(r.synced_at)
-        ]
-      );
-    }
-  });
-
-  await runSection('debts', async () => {
-    const debts = (data.debts as any[]) || [];
-    for (const d of debts) {
-      const direction = d.direction === 'owed_to_me' ? 'owed_to_me' : 'owed_by_me';
-      await database.runAsync(
-        'INSERT OR REPLACE INTO debts (id, debtorName, totalAmount, base_total_amount, remainingAmount, base_remaining_amount, startDate, dueDate, description, type, direction, currency, isPaid, createdAt, synced_at, enc_blob) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [
-          toSql(d.id), 
-          toSql(d.debtorName) ?? 'دين', 
-          toSql(d.totalAmount) || 0, 
-          (toSql(d.base_total_amount) ?? toSql(d.totalAmount)) || 0,
-          toSql(d.remainingAmount) || 0, 
-          (toSql(d.base_remaining_amount) ?? toSql(d.remainingAmount)) || 0,
-          toSql(d.startDate) ?? new Date().toISOString().slice(0, 10), 
-          toSql(d.dueDate), 
-          toSql(d.description), 
-          toSql(d.type) ?? 'debt', 
-          direction, 
-          toSql(d.currency) ?? 'IQD', 
-          toSql(d.isPaid), 
-          toSql(d.createdAt) ?? new Date().toISOString(), 
-          toSql(d.synced_at),
-          toSql(d.enc_blob)
-        ]
-      );
-    }
-  });
-
-  await runSection('debt_installments', async () => {
-    const debt_installments = (data.debt_installments as any[]) || [];
-    for (const di of debt_installments) {
-      await database.runAsync(
-        'INSERT OR REPLACE INTO debt_installments (id, debtId, amount, dueDate, isPaid, paidDate, installmentNumber, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [
-          toSql(di.id), 
-          toSql(di.debtId), 
-          toSql(di.amount) || 0, 
-          toSql(di.dueDate) ?? new Date().toISOString().slice(0, 10), 
-          toSql(di.isPaid), 
-          toSql(di.paidDate), 
-          toSql(di.installmentNumber) || 1, 
-          toSql(di.createdAt) ?? new Date().toISOString(), 
-          toSql(di.synced_at)
-        ]
-      );
-    }
-  });
-
-  await runSection('bills', async () => {
-    const bills = (data.bills as any[]) || [];
-    for (const b of bills) {
-      await database.runAsync(
-        'INSERT OR REPLACE INTO bills (id, title, amount, base_amount, category, dueDate, recurrenceType, recurrenceValue, description, currency, isPaid, paidDate, reminderDaysBefore, image_path, createdAt, synced_at, enc_blob) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [
-          toSql(b.id), 
-          toSql(b.title ?? b.name) ?? 'فاتورة', 
-          toSql(b.amount) || 0, 
-          (toSql(b.base_amount) ?? toSql(b.amount)) || 0,
-          toSql(b.category) ?? 'أخرى', 
-          toSql(b.dueDate ?? b.dueDay) ?? new Date().toISOString().slice(0, 10), 
-          toSql(b.recurrenceType), 
-          toSql(b.recurrenceValue), 
-          toSql(b.description), 
-          toSql(b.currency) ?? 'IQD', 
-          toSql(b.isPaid), 
-          toSql(b.paidDate), 
-          toSql(b.reminderDaysBefore) || 3, 
-          toSql(b.image_path), 
-          toSql(b.createdAt) ?? new Date().toISOString(), 
-          toSql(b.synced_at),
-          toSql(b.enc_blob)
-        ]
-      );
-    }
-  });
-
-  await runSection('bill_payments', async () => {
-    const bill_payments = (data.bill_payments as any[]) || [];
-    for (const bp of bill_payments) {
-      await database.runAsync(
-        'INSERT OR REPLACE INTO bill_payments (id, billId, amount, paymentDate, description, createdAt) VALUES (?, ?, ?, ?, ?, ?)',
-        [
-          toSql(bp.id), 
-          toSql(bp.billId), 
-          toSql(bp.amount) || 0, 
-          toSql(bp.paymentDate ?? bp.paidDate) ?? new Date().toISOString().slice(0, 10), 
-          toSql(bp.description), 
-          toSql(bp.createdAt) ?? new Date().toISOString()
-        ]
-      );
-    }
-  });
-
-  await runSection('debt_payments', async () => {
-    const debt_payments = (data.debt_payments as any[]) || [];
-    for (const dp of debt_payments) {
-      await database.runAsync(
-        'INSERT OR REPLACE INTO debt_payments (id, debtId, amount, paymentDate, installmentId, description, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [
-          toSql(dp.id), 
-          toSql(dp.debtId), 
-          toSql(dp.amount) || 0, 
-          toSql(dp.paymentDate ?? dp.date) ?? new Date().toISOString().slice(0, 10), 
-          toSql(dp.installmentId), 
-          toSql(dp.description), 
-          toSql(dp.createdAt) ?? new Date().toISOString()
-        ]
-      );
-    }
-  });
-
-  await runSection('challenges', async () => {
-    const challenges = (data.challenges as any[]) || [];
-    for (const ch of challenges) {
-      await database.runAsync(
-        'INSERT OR REPLACE INTO challenges (id, type, title, description, category, icon, startDate, endDate, targetValue, targetCategory, currentProgress, targetProgress, completed, completedAt, reward, isCustom, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [
-          toSql(ch.id), 
-          toSql(ch.type) ?? 'custom', 
-          toSql(ch.title) ?? 'تحدي', 
-          toSql(ch.description) ?? '', 
-          toSql(ch.category) ?? 'أخرى', 
-          toSql(ch.icon) ?? 'flag', 
-          toSql(ch.startDate) ?? new Date().toISOString().slice(0, 10), 
-          toSql(ch.endDate) ?? new Date().toISOString().slice(0, 10), 
-          toSql(ch.targetValue) || 0, 
-          toSql(ch.targetCategory), 
-          toSql(ch.currentProgress) || 0, 
-          toSql(ch.targetProgress) || 1, 
-          toSql(ch.completed), 
-          toSql(ch.completedAt), 
-          toSql(ch.reward), 
-          toSql(ch.isCustom), 
-          toSql(ch.createdAt) ?? new Date().toISOString(), 
-          toSql(ch.synced_at)
-        ]
-      );
-    }
-  });
-
-  await runSection('achievements', async () => {
-    const achievements = (data.achievements as any[]) || [];
-    for (const ac of achievements) {
-      await database.runAsync(
-        'INSERT OR REPLACE INTO achievements (id, type, title, description, icon, category, progress, targetProgress, unlockedAt, isUnlocked, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [
-          toSql(ac.id), 
-          toSql(ac.type) ?? 'default', 
-          toSql(ac.title) ?? '', 
-          toSql(ac.description) ?? '', 
-          toSql(ac.icon) ?? 'trophy', 
-          toSql(ac.category) ?? 'أخرى', 
-          toSql(ac.progress) || 0, 
-          toSql(ac.targetProgress) || 1, 
-          toSql(ac.unlockedAt), 
-          toSql(ac.isUnlocked), 
-          toSql(ac.synced_at)
-        ]
-      );
-    }
-  });
-
-  await runSection('expense_shortcuts', async () => {
-    const expense_shortcuts = (data.expense_shortcuts as any[]) || [];
-    for (const es of expense_shortcuts) {
-      await database.runAsync(
-        'INSERT OR REPLACE INTO expense_shortcuts (id, title, amount, category, currency, description, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [
-          toSql(es.id), 
-          toSql(es.title) ?? 'اختصار', 
-          toSql(es.amount) || 0, 
-          toSql(es.category) ?? 'أخرى', 
-          toSql(es.currency) ?? 'IQD', 
-          toSql(es.description), 
-          toSql(es.createdAt) ?? new Date().toISOString(), 
-          toSql(es.synced_at)
-        ]
-      );
-    }
-  });
-
-  await runSection('income_shortcuts', async () => {
-    const income_shortcuts = (data.income_shortcuts as any[]) || [];
-    for (const is_ of income_shortcuts) {
-      await database.runAsync(
-        'INSERT OR REPLACE INTO income_shortcuts (id, source, amount, incomeSource, currency, description, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [
-          toSql(is_.id), 
-          toSql(is_.source) ?? 'دخل', 
-          toSql(is_.amount) || 0, 
-          toSql(is_.incomeSource ?? is_.source) ?? 'دخل', 
-          toSql(is_.currency) ?? 'IQD', 
-          toSql(is_.description), 
-          toSql(is_.createdAt) ?? new Date().toISOString(), 
-          toSql(is_.synced_at)
-        ]
-      );
-    }
-  });
-
-  await runSection('exchange_rates', async () => {
-    const exchange_rates = (data.exchange_rates as any[]) || [];
-    for (const er of exchange_rates) {
-      await database.runAsync(
-        'INSERT OR REPLACE INTO exchange_rates (id, fromCurrency, toCurrency, rate, updatedAt) VALUES (?, ?, ?, ?, ?)',
-        [
-          toSql(er.id), 
-          toSql(er.baseCurrency ?? er.fromCurrency) ?? 'USD', 
-          toSql(er.targetCurrency ?? er.toCurrency) ?? 'IQD', 
-          toSql(er.rate) || 0, 
-          toSql(er.updatedAt) ?? new Date().toISOString()
-        ]
-      );
-    }
-  });
-
-  await runSection('notifications', async () => {
-    const notifications = (data.notifications as any[]) || [];
-    for (const n of notifications) {
-      await database.runAsync(
-        'INSERT OR REPLACE INTO notifications (id, title, body, data, date, read, type, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [
-          toSql(n.id), 
-          toSql(n.title) ?? '', 
-          toSql(n.body) ?? '', 
-          typeof n.data === 'string' ? n.data : JSON.stringify(n.data || {}), 
-          toSql(n.date) || Date.now(), 
-          toSql(n.read), 
-          toSql(n.type) ?? 'default', 
-          toSql(n.synced_at)
-        ]
-      );
-    }
-  });
-
-  await runSection('savings', async () => {
-    const savings = (data.savings as any[]) || [];
-    for (const s of savings) {
-      await database.runAsync(
-        'INSERT OR REPLACE INTO savings (id, title, targetAmount, base_target_amount, currentAmount, base_current_amount, currency, description, icon, color, createdAt, updatedAt, synced_at, enc_blob) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [
-          toSql(s.id), 
-          toSql(s.title) ?? 'حصالة', 
-          toSql(s.targetAmount) || 0, 
-          (toSql(s.base_target_amount) ?? toSql(s.targetAmount)) || 0,
-          toSql(s.currentAmount) || 0, 
-          (toSql(s.base_current_amount) ?? toSql(s.currentAmount)) || 0,
-          toSql(s.currency) ?? 'IQD', 
-          toSql(s.description), 
-          toSql(s.icon) ?? 'wallet', 
-          toSql(s.color) ?? '#10B981', 
-          toSql(s.createdAt) ?? new Date().toISOString(), 
-          toSql(s.updatedAt) ?? new Date().toISOString(), 
-          toSql(s.synced_at),
-          toSql(s.enc_blob)
-        ]
-      );
-    }
-  });
-
-  await runSection('savings_transactions', async () => {
-    const savings_transactions = (data.savings_transactions as any[]) || [];
-    for (const st of savings_transactions) {
-      await database.runAsync(
-        'INSERT OR REPLACE INTO savings_transactions (id, savingsId, amount, type, date, description, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [
-          toSql(st.id), 
-          toSql(st.savingsId) || 0, 
-          toSql(st.amount) || 0, 
-          toSql(st.type) ?? 'deposit', 
-          toSql(st.date) ?? new Date().toISOString().slice(0, 10), 
-          toSql(st.description), 
-          toSql(st.createdAt) ?? new Date().toISOString(), 
-          toSql(st.synced_at)
-        ]
-      );
-    }
-  });
+    await database.execAsync('COMMIT;');
+    // Re-enable foreign keys after total success
+    await database.execAsync('PRAGMA foreign_keys = ON;');
+    console.log('[Database] FULL DATA IMPORT SUCCESSFUL');
+  } catch (err) {
+    console.log('[Database] FULL DATA IMPORT FAILED - Rolling back', err);
+    await database.execAsync('ROLLBACK;');
+    await database.execAsync('PRAGMA foreign_keys = ON;');
+    throw err;
+  }
 };
 
 
@@ -4344,10 +4681,10 @@ export const getSavings = async (): Promise<import('../types').Savings[]> => {
 export const addSavings = async (savings: Omit<import('../types').Savings, 'id' | 'currentAmount' | 'createdAt' | 'updatedAt'>): Promise<number> => {
   const database = getDb();
   const now = new Date().toISOString();
-  
+
   let baseTarget = savings.base_target_amount !== undefined ? savings.base_target_amount : savings.targetAmount || 0;
   if (isNaN(baseTarget)) baseTarget = savings.targetAmount || 0;
-  
+
   let baseCurrent = savings.base_current_amount !== undefined ? savings.base_current_amount : 0;
   if (isNaN(baseCurrent)) baseCurrent = 0;
 
@@ -4389,6 +4726,7 @@ export const updateSavings = async (id: number, savings: Partial<import('../type
     fields.push('updatedAt = ?');
     vals.push(now);
   }
+  fields.push('synced_at = NULL');
 
   vals.push(id);
   await database.runAsync(
@@ -4425,7 +4763,7 @@ export const addSavingsTransaction = async (transaction: Omit<import('../types')
     // Update currentAmount in savings table
     const amountDelta = transaction.type === 'deposit' ? transaction.amount : -transaction.amount;
     await database.runAsync(
-      'UPDATE savings SET currentAmount = currentAmount + ?, updatedAt = ? WHERE id = ?',
+      'UPDATE savings SET currentAmount = currentAmount + ?, updatedAt = ?, synced_at = NULL WHERE id = ?',
       [amountDelta, now, transaction.savingsId]
     );
 
@@ -4456,7 +4794,7 @@ export const transferBetweenSavings = async (
       [fromId, amount, 'withdrawal', date, description || 'تحويل إلى حصالة أخرى', now]
     );
     await database.runAsync(
-      'UPDATE savings SET currentAmount = currentAmount - ?, updatedAt = ? WHERE id = ?',
+      'UPDATE savings SET currentAmount = currentAmount - ?, updatedAt = ?, synced_at = NULL WHERE id = ?',
       [amount, now, fromId]
     );
 
@@ -4466,7 +4804,7 @@ export const transferBetweenSavings = async (
       [toId, amount, 'deposit', date, description || 'تحويل من حصالة أخرى', now]
     );
     await database.runAsync(
-      'UPDATE savings SET currentAmount = currentAmount + ?, updatedAt = ? WHERE id = ?',
+      'UPDATE savings SET currentAmount = currentAmount + ?, updatedAt = ?, synced_at = NULL WHERE id = ?',
       [amount, now, toId]
     );
 
@@ -4498,28 +4836,28 @@ export const getSavingsTransactions = async (savingsId: number): Promise<import(
  */
 export const recalculateAllBaseAmounts = async (targetCurrency: string, convertFn: (amount: number, from: string, to: string) => Promise<number>) => {
   const database = getDb();
-  
+
 
   try {
     // 1. Expenses
     const expenses = await database.getAllAsync<any>('SELECT id, amount, currency FROM expenses');
     for (const item of expenses) {
       const baseAmount = await convertFn(item.amount, item.currency || 'IQD', targetCurrency);
-      await database.runAsync('UPDATE expenses SET base_amount = ? WHERE id = ?', [baseAmount, item.id]);
+      await database.runAsync('UPDATE expenses SET base_amount = ?, synced_at = NULL WHERE id = ?', [baseAmount, item.id]);
     }
 
     // 2. Income
     const income = await database.getAllAsync<any>('SELECT id, amount, currency FROM income');
     for (const item of income) {
       const baseAmount = await convertFn(item.amount, item.currency || 'IQD', targetCurrency);
-      await database.runAsync('UPDATE income SET base_amount = ? WHERE id = ?', [baseAmount, item.id]);
+      await database.runAsync('UPDATE income SET base_amount = ?, synced_at = NULL WHERE id = ?', [baseAmount, item.id]);
     }
 
     // 3. Budgets
     const budgets = await database.getAllAsync<any>('SELECT id, amount, currency FROM budgets');
     for (const item of budgets) {
       const baseAmount = await convertFn(item.amount, item.currency || 'IQD', targetCurrency);
-      await database.runAsync('UPDATE budgets SET base_amount = ? WHERE id = ?', [baseAmount, item.id]);
+      await database.runAsync('UPDATE budgets SET base_amount = ?, synced_at = NULL WHERE id = ?', [baseAmount, item.id]);
     }
 
     // 4. Goals
@@ -4527,7 +4865,7 @@ export const recalculateAllBaseAmounts = async (targetCurrency: string, convertF
     for (const item of goals) {
       const baseTarget = await convertFn(item.targetAmount, item.currency || 'IQD', targetCurrency);
       const baseCurrent = await convertFn(item.currentAmount, item.currency || 'IQD', targetCurrency);
-      await database.runAsync('UPDATE financial_goals SET base_target_amount = ?, base_current_amount = ? WHERE id = ?', [baseTarget, baseCurrent, item.id]);
+      await database.runAsync('UPDATE financial_goals SET base_target_amount = ?, base_current_amount = ?, synced_at = NULL WHERE id = ?', [baseTarget, baseCurrent, item.id]);
     }
 
     // 5. Debts
@@ -4535,7 +4873,7 @@ export const recalculateAllBaseAmounts = async (targetCurrency: string, convertF
     for (const item of debts) {
       const baseTotal = await convertFn(item.totalAmount, item.currency || 'IQD', targetCurrency);
       const baseRem = await convertFn(item.remainingAmount, item.currency || 'IQD', targetCurrency);
-      await database.runAsync('UPDATE debts SET base_total_amount = ?, base_remaining_amount = ? WHERE id = ?', [baseTotal, baseRem, item.id]);
+      await database.runAsync('UPDATE debts SET base_total_amount = ?, base_remaining_amount = ?, synced_at = NULL WHERE id = ?', [baseTotal, baseRem, item.id]);
     }
 
     // 6. Savings
@@ -4543,26 +4881,149 @@ export const recalculateAllBaseAmounts = async (targetCurrency: string, convertF
     for (const item of savingsItems) {
       const baseTarget = await convertFn(item.targetAmount || 0, item.currency || 'IQD', targetCurrency);
       const baseCurrent = await convertFn(item.currentAmount, item.currency || 'IQD', targetCurrency);
-      await database.runAsync('UPDATE savings SET base_target_amount = ?, base_current_amount = ? WHERE id = ?', [baseTarget, baseCurrent, item.id]);
+      await database.runAsync('UPDATE savings SET base_target_amount = ?, base_current_amount = ?, synced_at = NULL WHERE id = ?', [baseTarget, baseCurrent, item.id]);
     }
 
     // 7. Bills
     const bills = await database.getAllAsync<any>('SELECT id, amount, currency FROM bills');
     for (const item of bills) {
       const baseAmount = await convertFn(item.amount, item.currency || 'IQD', targetCurrency);
-      await database.runAsync('UPDATE bills SET base_amount = ? WHERE id = ?', [baseAmount, item.id]);
+      await database.runAsync('UPDATE bills SET base_amount = ?, synced_at = NULL WHERE id = ?', [baseAmount, item.id]);
     }
 
     // 8. Recurring Expenses
     const recurring = await database.getAllAsync<any>('SELECT id, amount, currency FROM recurring_expenses');
     for (const item of recurring) {
       const baseAmount = await convertFn(item.amount, item.currency || 'IQD', targetCurrency);
-      await database.runAsync('UPDATE recurring_expenses SET base_amount = ? WHERE id = ?', [baseAmount, item.id]);
+      await database.runAsync('UPDATE recurring_expenses SET base_amount = ?, synced_at = NULL WHERE id = ?', [baseAmount, item.id]);
     }
 
-    
+
   } catch (error) {
-    
+
     throw error;
   }
 };
+
+// Wallet Operations
+const normalizeWalletRow = (wallet: import('../types').Wallet): import('../types').Wallet => ({
+  ...wallet,
+  isDefault: Boolean(wallet.isDefault),
+});
+
+export const getWallets = async (): Promise<import('../types').Wallet[]> => {
+  const database = getDb();
+  // Calculate dynamic balance for each wallet: initial balance + sum(income) - sum(expenses)
+  const query = `
+    SELECT w.*, 
+      (w.balance + COALESCE(inc.total, 0) - COALESCE(exp.total, 0)) as balance
+    FROM wallets w
+    LEFT JOIN (SELECT walletId, SUM(amount) as total FROM income GROUP BY walletId) inc ON inc.walletId = w.id
+    LEFT JOIN (SELECT walletId, SUM(amount) as total FROM expenses GROUP BY walletId) exp ON exp.walletId = w.id
+    ORDER BY w.isDefault DESC, w.name ASC
+  `;
+  const wallets = await database.getAllAsync<import('../types').Wallet>(query);
+  return wallets.map(normalizeWalletRow);
+};
+
+export const getWalletById = async (id: number): Promise<import('../types').Wallet | null> => {
+  const database = getDb();
+  const query = `
+    SELECT w.*, 
+      (w.balance + COALESCE(inc.total, 0) - COALESCE(exp.total, 0)) as balance
+    FROM wallets w
+    LEFT JOIN (SELECT walletId, SUM(amount) as total FROM income GROUP BY walletId) inc ON inc.walletId = w.id
+    LEFT JOIN (SELECT walletId, SUM(amount) as total FROM expenses GROUP BY walletId) exp ON exp.walletId = w.id
+    WHERE w.id = ?
+  `;
+  const wallet = await database.getFirstAsync<import('../types').Wallet>(
+    query,
+    [id]
+  );
+  return wallet ? normalizeWalletRow(wallet) : null;
+};
+
+export const addWallet = async (wallet: Omit<import('../types').Wallet, 'id'>): Promise<number> => {
+  const database = getDb();
+  const now = new Date().toISOString();
+
+  // If this is the first wallet, make it default
+  const existingWallets = await getWallets();
+  const isDefault = existingWallets.length === 0 || wallet.isDefault ? 1 : 0;
+
+  if (isDefault) {
+    await database.runAsync('UPDATE wallets SET isDefault = 0, synced_at = NULL');
+  }
+
+  const result = await database.runAsync(
+    'INSERT INTO wallets (name, currency, balance, icon, color, isDefault, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [wallet.name, wallet.currency || 'IQD', wallet.balance || 0, wallet.icon || 'wallet', wallet.color || '#0B5A7A', isDefault, now, now]
+  );
+
+  return result.lastInsertRowId;
+};
+
+export const updateWallet = async (id: number, wallet: Partial<import('../types').Wallet>): Promise<void> => {
+  const database = getDb();
+  const updates: string[] = [];
+  const params: any[] = [];
+  const now = new Date().toISOString();
+
+  if (wallet.name) { updates.push('name = ?'); params.push(wallet.name); }
+  if (wallet.currency) { updates.push('currency = ?'); params.push(wallet.currency); }
+  if (wallet.balance !== undefined) { updates.push('balance = ?'); params.push(wallet.balance); }
+  if (wallet.icon) { updates.push('icon = ?'); params.push(wallet.icon); }
+  if (wallet.color) { updates.push('color = ?'); params.push(wallet.color); }
+
+  if (updates.length > 0) {
+    updates.push('updatedAt = ?');
+    params.push(now);
+    updates.push('synced_at = NULL'); // Mark as unsynced
+    params.push(id);
+    await database.runAsync(`UPDATE wallets SET ${updates.join(', ')} WHERE id = ?`, params);
+  }
+};
+
+export const setDefaultWallet = async (id: number): Promise<void> => {
+  const database = getDb();
+  await database.execAsync('BEGIN TRANSACTION;');
+  try {
+    await database.runAsync('UPDATE wallets SET isDefault = 0, synced_at = NULL');
+    await database.runAsync('UPDATE wallets SET isDefault = 1, synced_at = NULL WHERE id = ?', [id]);
+    await database.execAsync('COMMIT;');
+  } catch (error) {
+    await database.execAsync('ROLLBACK;');
+    throw error;
+  }
+};
+
+export const deleteWallet = async (id: number): Promise<void> => {
+  const database = getDb();
+  // Don't delete the last wallet
+  const wallets = await getWallets();
+  if (wallets.length <= 1) {
+    throw new Error('لا يمكن حذف المحفظة الوحيدة');
+  }
+
+  const walletToDelete = wallets.find(w => w.id === id);
+  if (walletToDelete?.isDefault) {
+    const nextWallet = wallets.find(w => w.id !== id);
+    if (nextWallet) {
+      await setDefaultWallet(nextWallet.id);
+    }
+  }
+
+  await database.runAsync('DELETE FROM wallets WHERE id = ?', [id]);
+  // Also optionally re-link expenses/income or delete them? 
+  // For safety, let's link them to the new default wallet or leave as-is (they have a walletId but it might be invalid)
+  // Re-linking to default is safer.
+  const newDefaultId = (await getWallets())[0]?.id;
+  if (newDefaultId) {
+    await database.runAsync('UPDATE expenses SET walletId = ? WHERE walletId = ?', [newDefaultId, id]);
+    await database.runAsync('UPDATE income SET walletId = ? WHERE walletId = ?', [newDefaultId, id]);
+  }
+};
+
+
+
+// in debts i want user can chose the currency of debt, and when. show debts show any debt with its currency 

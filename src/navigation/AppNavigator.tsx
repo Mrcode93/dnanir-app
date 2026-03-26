@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { NavigationContainer, useFocusEffect } from '@react-navigation/native';
+import { NavigationContainer, useFocusEffect, useNavigation } from '@react-navigation/native';
+
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator, TransitionPresets } from '@react-navigation/stack';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
@@ -51,6 +52,8 @@ import { useLocalization } from '../localization';
 import { CalendarScreen } from '../screens/CalendarScreen';
 import { SavingsScreen } from '../screens/SavingsScreen';
 import { AddSavingsScreen } from '../screens/AddSavingsScreen';
+import { WalletsScreen } from '../screens/WalletsScreen';
+import { AddWalletScreen } from '../screens/AddWalletScreen';
 
 
 
@@ -150,15 +153,17 @@ const getCommonStackOptions = (theme: AppTheme, topInset: number) => {
       elevation: 0,
       shadowOpacity: 0,
       borderBottomWidth: 0,
-      height: safeTop + 70,
+      height: safeTop + 48,
+
     },
     headerBackground: () => (
       <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
         <View style={{
           flex: 1,
           backgroundColor: '#003459',
-          borderBottomLeftRadius: 30,
-          borderBottomRightRadius: 30,
+          borderBottomLeftRadius: 24,
+          borderBottomRightRadius: 24,
+
           ...(Platform.OS === 'ios' ? {
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 4 },
@@ -172,16 +177,20 @@ const getCommonStackOptions = (theme: AppTheme, topInset: number) => {
     ),
     headerTitleStyle: {
       fontFamily: theme.typography.fontFamily,
-      fontSize: theme.typography.sizes.lg,
+      fontSize: 18,
       fontWeight: getPlatformFontWeight('700'),
       color: '#FFFFFF',
       marginBottom: 0,
     },
+
     headerTitleAlign: 'center' as const,
     headerTintColor: '#FFFFFF',
+    headerLeft: () => <HeaderLeft />,
     headerLeftContainerStyle: {
       paddingBottom: 0,
     },
+
+
     headerRightContainerStyle: {
       paddingBottom: 0,
     },
@@ -208,26 +217,37 @@ const SettingsScreenStack = () => {
         component={SettingsScreen}
         options={{
           headerTitle: t('navigation.settings'),
+          headerLeft: () => null,
         }}
       />
     </Stack.Navigator>
   );
 };
 
-const HeaderLeft = ({ navigation }: { navigation: any }) => {
+const HeaderLeft = () => {
+  const navigation = useNavigation<any>();
   const { isRTL } = useLocalization();
+
   const { theme } = useAppTheme();
   return (
     <TouchableOpacity
       onPress={() => navigation.goBack()}
       style={{
         marginLeft: 16,
-        marginRight: isRTL ? 16 : 0,
-        padding: 8,
+        width: 36,
+        height: 36,
+
+        alignItems: 'center',
+        justifyContent: 'center',
       }}
+      activeOpacity={0.7}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
     >
-      <Ionicons name="close" size={28} color="#FFFFFF" />
+      <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
     </TouchableOpacity>
+
+
+
   );
 };
 
@@ -258,7 +278,7 @@ const HeaderBackWithLabel = ({ navigation, label }: { navigation: any; label: st
       >
         {label}
       </Text>
-      <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={28} color={theme.colors.primary} />
+      <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={28} color={theme.colors.primary} />
     </TouchableOpacity>
   );
 };
@@ -268,16 +288,77 @@ const TopTab = createMaterialTopTabNavigator();
 const TransactionsTabs = () => {
   const { theme } = useAppTheme();
   const { t } = useLocalization();
+
+  const CustomTopTabBar = ({ state, descriptors, navigation }: any) => {
+    return (
+      <View style={{ 
+        flexDirection: 'row', 
+        backgroundColor: theme.colors.surface, 
+        paddingHorizontal: 16, 
+        paddingVertical: 12, 
+        gap: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.border
+      }}>
+        {state.routes.map((route: any, index: number) => {
+          const { options } = descriptors[route.key];
+          const label = options.tabBarLabel !== undefined
+            ? options.tabBarLabel
+            : options.title !== undefined
+              ? options.title
+              : route.name;
+
+          const isFocused = state.index === index;
+
+          const onPress = () => {
+            const event = navigation.emit({
+              type: 'tabPress',
+              target: route.key,
+              canPreventDefault: true,
+            });
+
+            if (!isFocused && !event.defaultPrevented) {
+              navigation.navigate({ name: route.name, merge: true });
+            }
+          };
+
+          return (
+            <TouchableOpacity
+              key={route.key}
+              accessibilityRole="button"
+              accessibilityState={isFocused ? { selected: true } : {}}
+              accessibilityLabel={options.tabBarAccessibilityLabel}
+              testID={options.tabBarTestID}
+              onPress={onPress}
+              style={{
+                flex: 1,
+                paddingVertical: 10,
+                borderRadius: 12,
+                backgroundColor: isFocused ? theme.colors.primary : theme.colors.surfaceLight,
+                alignItems: 'center',
+                justifyContent: 'center',
+                ...(isFocused ? getPlatformShadow('sm') : {})
+              }}
+            >
+              <Text style={{
+                color: isFocused ? '#FFFFFF' : theme.colors.textSecondary,
+                fontWeight: getPlatformFontWeight('700'),
+                fontFamily: theme.typography.fontFamily,
+                fontSize: 14
+              }}>
+                {label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    );
+  };
+
   return (
     <TopTab.Navigator
       initialRouteName="IncomeList"
-      screenOptions={{
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.textMuted,
-        tabBarIndicatorStyle: { backgroundColor: theme.colors.primary, height: 3 },
-        tabBarStyle: { backgroundColor: theme.colors.surface },
-        tabBarLabelStyle: { fontFamily: theme.typography.fontFamily, fontWeight: getPlatformFontWeight('700'), fontSize: 14 },
-      }}
+      tabBar={(props) => <CustomTopTabBar {...props} />}
     >
       <TopTab.Screen name="ExpensesList" component={ExpensesScreen} options={{ title: t('navigation.expenses') }} />
       <TopTab.Screen name="IncomeList" component={IncomeScreen} options={{ title: t('navigation.income') }} />
@@ -298,6 +379,26 @@ const TransactionsStack = () => {
           headerShown: true,
           headerTitle: t('navigation.financialTransactions'),
           ...getCommonStackOptions(theme, top),
+          headerLeft: () => null,
+          headerRight: () => {
+            const { isRTL } = useLocalization();
+            return (
+              <TouchableOpacity
+                onPress={() => {
+                  const state = navigation.getState();
+                  const currentTab = state.routes[state.index].state?.routes?.[state.routes[state.index].state?.index ?? 0]?.name || 'IncomeList';
+                  navigation.navigate('ManageCategories', { type: currentTab.includes('Income') ? 'income' : 'expense' });
+                }}
+                style={{
+                  marginRight: isRTL ? 0 : 16,
+                  marginLeft: isRTL ? 16 : 0,
+                  padding: 8,
+                }}
+              >
+                <Ionicons name="albums-outline" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            )
+          }
         })}
       />
     </Stack.Navigator>
@@ -318,6 +419,7 @@ const InsightsStack = () => {
         component={InsightsScreen}
         options={({ navigation }) => ({
           headerTitle: t('navigation.financialAnalysis'),
+          headerLeft: () => null,
           headerRight: () => (
             <TouchableOpacity
               onPress={async () => {
@@ -376,8 +478,8 @@ const DebtsStack = () => {
         component={DebtsScreen}
         options={({ navigation }) => ({
           headerShown: true,
-          headerLeft: () => <HeaderLeft navigation={navigation} />,
           headerTitle: () => (
+
             <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
             
               <Text style={{
@@ -392,14 +494,17 @@ const DebtsStack = () => {
           ),
           headerTitleStyle: {
             fontFamily: theme.typography.fontFamily,
-            fontSize: theme.typography.sizes.lg,
+            fontSize: 18,
             fontWeight: getPlatformFontWeight('700'),
           },
+
           headerStyle: {
             backgroundColor: '#003459',
             borderBottomWidth: 0,
-            height: top + 70,
+            height: top + 48,
+
           },
+
           headerTintColor: '#FFFFFF',
           headerBackTitleVisible: false,
           headerBackTitle: '',
@@ -427,8 +532,8 @@ const DebtsStack = () => {
         component={DebtDetailsScreen}
         options={({ navigation }) => ({
           headerShown: true,
-          headerLeft: () => <HeaderLeft navigation={navigation} />,
           headerTitle: () => (
+
             <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
               <Ionicons name="document" size={24} color="#FFFFFF" />
               <Text style={{
@@ -443,14 +548,17 @@ const DebtsStack = () => {
           ),
           headerTitleStyle: {
             fontFamily: theme.typography.fontFamily,
-            fontSize: theme.typography.sizes.lg,
+            fontSize: 18,
             fontWeight: getPlatformFontWeight('700'),
           },
+
           headerStyle: {
             backgroundColor: '#003459',
             borderBottomWidth: 0,
-            height: top + 70,
+            height: top + 48,
+
           },
+
           headerTintColor: '#FFFFFF',
           headerBackTitleVisible: false,
           headerBackTitle: '',
@@ -461,8 +569,8 @@ const DebtsStack = () => {
         component={DebtorDetailsScreen}
         options={({ navigation }) => ({
           headerShown: true,
-          headerLeft: () => <HeaderLeft navigation={navigation} />,
           headerTitle: () => (
+
             <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
               <Ionicons name="person" size={24} color="#FFFFFF" />
               <Text style={{
@@ -478,8 +586,10 @@ const DebtsStack = () => {
           headerStyle: {
             backgroundColor: '#003459',
             borderBottomWidth: 0,
-            height: top + 70,
+            height: top + 48,
+
           },
+
           headerTintColor: '#FFFFFF',
           headerBackTitleVisible: false,
         })}
@@ -499,8 +609,8 @@ const BillsStack = () => {
         component={BillsScreen}
         options={({ navigation }) => ({
           headerShown: true,
-          headerLeft: () => <HeaderLeft navigation={navigation} />,
           headerTitle: () => (
+
             <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
              
               <Text style={{
@@ -515,14 +625,17 @@ const BillsStack = () => {
           ),
           headerTitleStyle: {
             fontFamily: theme.typography.fontFamily,
-            fontSize: theme.typography.sizes.lg,
+            fontSize: 18,
             fontWeight: getPlatformFontWeight('700'),
           },
+
           headerStyle: {
             backgroundColor: '#003459',
             borderBottomWidth: 0,
-            height: top + 70,
+            height: top + 48,
+
           },
+
           headerTintColor: '#FFFFFF',
           headerBackTitleVisible: false,
           headerBackTitle: '',
@@ -550,7 +663,6 @@ const BillsStack = () => {
         component={BillDetailsScreen}
         options={({ navigation, route }: any) => ({
           headerShown: true,
-          headerLeft: () => <HeaderLeft navigation={navigation} />,
           headerTitle: t('navigation.billDetails'),
           headerRight: () => (
             <TouchableOpacity
@@ -845,9 +957,9 @@ export const AppNavigator = () => {
           options={({ navigation }) => ({
             headerTitle: t('navigation.advancedReports'),
             headerShown: true,
-            headerLeft: () => <HeaderLeft navigation={navigation} />,
             ...getCommonStackOptions(theme, top),
           })}
+
         />
         <Stack.Screen
           name="Profile"
@@ -855,9 +967,9 @@ export const AppNavigator = () => {
           options={({ navigation }) => ({
             headerTitle: t('navigation.profile'),
             headerShown: true,
-            headerLeft: () => <HeaderLeft navigation={navigation} />,
             ...getCommonStackOptions(theme, top),
           })}
+
         />
 
         {/* Moved screens to root to hide tab bar */}
@@ -866,8 +978,8 @@ export const AppNavigator = () => {
           component={GoalsScreen}
           options={({ navigation }) => ({
             headerShown: true,
-            headerLeft: () => <HeaderLeft navigation={navigation} />,
             headerTitle: t('navigation.goals'),
+
             headerRight: () => (
               <TouchableOpacity
                 onPress={() => navigation.navigate('AddGoal')}
@@ -889,8 +1001,8 @@ export const AppNavigator = () => {
           component={SavingsScreen}
           options={({ navigation }) => ({
             headerShown: true,
-            headerLeft: () => <HeaderLeft navigation={navigation} />,
             headerTitle: t('navigation.savings'),
+
             headerRight: () => (
               <TouchableOpacity
                 onPress={() => navigation.navigate('AddSavings')}
@@ -926,6 +1038,15 @@ export const AppNavigator = () => {
           }}
         />
         <Stack.Screen
+          name="AddWallet"
+          component={AddWalletScreen}
+          options={{
+            headerShown: false,
+            presentation: 'modal',
+            ...TransitionPresets.ModalSlideFromBottomIOS,
+          }}
+        />
+        <Stack.Screen
           name="AddDebt"
           component={AddDebtScreen}
           options={{
@@ -949,18 +1070,18 @@ export const AppNavigator = () => {
           component={GoalPlanScreen}
           options={({ navigation }) => ({
             headerShown: true,
-            headerLeft: () => <HeaderLeft navigation={navigation} />,
             headerTitle: t('navigation.goalPlan'),
             ...getCommonStackOptions(theme, top),
           })}
+
         />
         <Stack.Screen
           name="Budget"
           component={BudgetScreen}
           options={({ navigation }) => ({
             headerShown: true,
-            headerLeft: () => <HeaderLeft navigation={navigation} />,
             headerTitle: t('navigation.budget'),
+
             headerRight: () => (
               <TouchableOpacity
                 onPress={() => navigation.navigate('AddBudget')}
@@ -992,8 +1113,47 @@ export const AppNavigator = () => {
           component={CurrencyConverterScreen}
           options={({ navigation }) => ({
             headerShown: true,
-            headerLeft: () => <HeaderLeft navigation={navigation} />,
             headerTitle: t('navigation.currencyConverter'),
+            ...getCommonStackOptions(theme, top),
+          })}
+
+        />
+        <Stack.Screen
+          name="Wallets"
+          component={WalletsScreen}
+          options={({ navigation }) => ({
+            headerShown: true,
+            headerTitle: () => (
+
+              <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="wallet-outline" size={24} color="#FFFFFF" />
+                <Text style={{
+                  fontFamily: theme.typography.fontFamily,
+                  fontSize: theme.typography.sizes.lg,
+                  fontWeight: getPlatformFontWeight('700'),
+                  color: '#FFFFFF',
+                }}>
+                  {t('navigation.wallets')}
+                </Text>
+              </View>
+            ),
+            headerRight: () => (
+              <TouchableOpacity
+                onPress={() => {
+                  navigation.navigate('AddWallet');
+                }}
+                style={{
+                  marginRight: isRTL ? 0 : 16,
+                  marginLeft: isRTL ? 16 : 0,
+                  padding: 8,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minHeight: 44,
+                }}
+              >
+                <Ionicons name="add-circle" size={28} color="#FFFFFF" />
+              </TouchableOpacity>
+            ),
             ...getCommonStackOptions(theme, top),
           })}
         />
@@ -1009,10 +1169,10 @@ export const AppNavigator = () => {
           component={AchievementsScreen}
           options={({ navigation }) => ({
             headerShown: true,
-            headerLeft: () => <HeaderLeft navigation={navigation} />,
             headerTitle: t('navigation.achievements'),
             ...getCommonStackOptions(theme, top),
           })}
+
         />
         <Stack.Screen
           name="Bills"
@@ -1026,8 +1186,8 @@ export const AppNavigator = () => {
           component={ChallengesScreen}
           options={({ navigation }) => ({
             headerShown: true,
-            headerLeft: () => <HeaderLeft navigation={navigation} />,
             headerTitle: t('navigation.challenges'),
+
             headerRight: () => (
               <TouchableOpacity
                 onPress={() => navigation.navigate('Challenges', { action: 'add' })}
@@ -1048,20 +1208,20 @@ export const AppNavigator = () => {
           component={NotificationsScreen}
           options={({ navigation }) => ({
             headerShown: true,
-            headerLeft: () => <HeaderLeft navigation={navigation} />,
             headerTitle: t('navigation.notifications'),
             ...getCommonStackOptions(theme, top),
           })}
+
         />
         <Stack.Screen
           name="AISmartInsights"
           component={AISmartInsightsScreen}
           options={({ navigation }) => ({
             headerShown: true,
-            headerLeft: () => <HeaderLeft navigation={navigation} />,
             headerTitle: t('navigation.aiInsights'),
             ...getCommonStackOptions(theme, top),
           })}
+
         />
 
         <Stack.Screen
@@ -1070,7 +1230,7 @@ export const AppNavigator = () => {
           options={({ navigation }) => ({
             headerShown: true,
             headerTitle: t('navigation.calendar'),
-            headerLeft: () => <HeaderLeft navigation={navigation} />,
+
             headerRight: () => (
               <TouchableOpacity
                 onPress={() => navigation.setParams({ action: 'today' })}

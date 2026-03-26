@@ -168,7 +168,7 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
   const saveFooter = <AppButton label={loading ? tl("جاري الحفظ...") : bill ? tl("تحديث الفاتورة") : tl("حفظ الفاتورة")} onPress={handleSave} variant="primary" size="lg" loading={loading} disabled={loading} rightIcon="checkmark-circle" style={{
     backgroundColor: categoryInfo.color
   }} />;
-  return <ScreenContainer scrollable edges={['top']} scrollPadBottom={32} style={{
+  return <ScreenContainer scrollable edges={[]} scrollPadBottom={32} style={{
     backgroundColor: theme.colors.background
   }}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />

@@ -18,6 +18,7 @@ import { getSmartIncomeShortcuts } from '../services/smartShortcutsService';
 import { resolveIoniconName, toOutlineIoniconName } from '../utils/icon-utils';
 import { ScreenContainer, AppHeader, AppButton, AppBottomSheet } from '../design-system';
 import { tl, useLocalization } from "../localization";
+import { useWallets } from '../context/WalletContext';
 interface AddIncomeScreenProps {
   navigation: any;
   route: any;
@@ -62,6 +63,8 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
   const [date, setDate] = useState(new Date());
   const [description, setDescription] = useState('');
   const [currency, setCurrency] = useState<string>(currencyCode);
+  const { wallets, selectedWallet } = useWallets();
+  const [walletId, setWalletId] = useState<number | undefined>(undefined);
 
   // UI State
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -117,11 +120,13 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
           // fallback
           setIncomeSource(income.source);
         }
+        setWalletId(income.walletId);
         isInitialized.current = true;
       }
     } else {
       if (!isInitialized.current) {
         resetForm(route?.params?.initialDate ? new Date(route.params.initialDate) : undefined);
+        setWalletId(selectedWallet?.id || wallets.find(w => w.isDefault)?.id || wallets[0]?.id);
         loadShortcuts();
         isInitialized.current = true;
         // Small delay for focus on Android is often more stable
@@ -175,7 +180,8 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
         date: formatDateLocal(date),
         description: description.trim(),
         currency: currency,
-        category: incomeSource
+        category: incomeSource,
+        walletId: walletId
       };
       if (income) {
         await updateIncome(income.id, data);
@@ -226,7 +232,7 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
   const saveFooter = <AppButton label={income ? tl("تحديث الدخل") : tl("حفظ الدخل")} onPress={handleSave} variant="primary" size="lg" loading={loading} disabled={loading} style={{
     backgroundColor: currentSourceInfo.color || theme.colors.success
   }} />;
-  return <ScreenContainer scrollable edges={['top']} scrollPadBottom={24}>
+  return <ScreenContainer scrollable edges={[]} scrollPadBottom={24}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       {/* Header */}
@@ -327,6 +333,40 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
           })}
           </Text>
         </TouchableOpacity>
+
+        <View style={styles.divider} />
+
+        {/* Wallet Selection */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>{tl("المحفظة")}</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, flexDirection: isRTL ? 'row-reverse' : 'row' }}>
+            {wallets.map(w => {
+              const isSelected = walletId === w.id;
+              return (
+                <TouchableOpacity
+                  key={w.id}
+                  style={[
+                    styles.walletChip,
+                    isSelected && { borderColor: w.color || theme.colors.primary, backgroundColor: (w.color || theme.colors.primary) + '15' }
+                  ]}
+                  onPress={() => setWalletId(w.id)}
+                >
+                  <Ionicons 
+                    name={(w.icon as any) || 'wallet'} 
+                    size={16} 
+                    color={isSelected ? (w.color || theme.colors.primary) : theme.colors.textSecondary} 
+                  />
+                  <Text style={[
+                    styles.walletChipText,
+                    isSelected && { color: w.color || theme.colors.primary, fontWeight: 'bold' }
+                  ]}>
+                    {w.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
 
         <View style={styles.divider} />
 
@@ -592,5 +632,20 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontSize: theme.typography.sizes.md,
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily
+  },
+  walletChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    backgroundColor: 'rgba(150, 150, 150, 0.05)',
+    gap: 6,
+  },
+  walletChipText: {
+    fontSize: 14,
+    color: '#666',
   }
 });

@@ -20,6 +20,7 @@ import { ConfirmAlert } from './ConfirmAlert';
 import { resolveIoniconName } from '../utils/icon-utils';
 import { alertService } from '../services/alertService';
 import { AppBottomSheet, AppButton } from '../design-system';
+import { useWallets } from '../context/WalletContext';
 
 interface TransactionDetailsModalProps {
     visible: boolean;
@@ -44,6 +45,7 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
     const styles = useThemedStyles(createStyles);
     const { formatCurrency, currencyCode } = useCurrency();
     const { isPrivacyEnabled } = usePrivacy();
+    const { wallets } = useWallets();
     const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
@@ -155,6 +157,8 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
             return { icon: 'trending-up', colors: ['#10B981', '#059669'], label: source };
         }
     };
+
+    const wallet = wallets.find(w => w.id === (item as any).walletId);
 
     const categoryInfo = getCategoryInfo();
     const categoryIcon = resolveIoniconName(categoryInfo.icon, 'ellipse');
@@ -327,6 +331,19 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
                                         {currencyInfo?.name || itemCurrency}
                                     </Text>
                                 </View>
+
+                                {/* Wallet */}
+                                {wallet && (
+                                    <View style={styles.detailCard}>
+                                        <View style={[styles.detailIconBg, { backgroundColor: (wallet.color || theme.colors.primary) + '15' }]}>
+                                            <Ionicons name={(wallet.icon as any) || 'wallet'} size={20} color={wallet.color || theme.colors.primary} />
+                                        </View>
+                                        <Text style={styles.detailLabel}>المحفظة</Text>
+                                        <Text style={styles.detailValue} numberOfLines={1}>
+                                            {wallet.name}
+                                        </Text>
+                                    </View>
+                                )}
                             </View>
 
                             {/* Description */}

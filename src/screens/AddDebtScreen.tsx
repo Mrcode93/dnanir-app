@@ -212,7 +212,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
   const saveFooter = <AppButton label={loading ? tl("جاري الحفظ...") : editingDebt ? tl("تحديث البيانات") : tl("حفظ الالتزام")} onPress={handleSave} variant="primary" size="lg" loading={loading} disabled={loading} rightIcon="checkmark-circle" style={{
     backgroundColor: typeData[type].colors[0]
   }} />;
-  return <ScreenContainer scrollable edges={['top']} scrollPadBottom={32} style={{
+  return <ScreenContainer scrollable edges={[]} scrollPadBottom={32} style={{
     backgroundColor: theme.colors.background
   }}>
             <StatusBar barStyle="dark-content" />

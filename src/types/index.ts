@@ -9,6 +9,7 @@ export interface Expense {
   currency?: string;
   base_amount?: number; // Normalized amount in base currency (IQD)
   receipt_image_path?: string; // Path to stored receipt image
+  walletId?: number;
 }
 
 export interface Income {
@@ -20,6 +21,7 @@ export interface Income {
   currency?: string;
   base_amount?: number; // Normalized amount in base currency (IQD)
   category?: IncomeSource;
+  walletId?: number;
 }
 
 export type ExpenseCategory =
@@ -509,4 +511,18 @@ export interface SavingsTransaction {
   date: string;
   description?: string;
   createdAt: string;
+}
+
+// Wallets
+export interface Wallet {
+  id: number;
+  name: string;
+  currency?: string;
+  balance: number;
+  icon?: string;
+  color?: string;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt?: string;
+  synced_at?: number;
 }

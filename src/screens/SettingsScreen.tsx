@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
 import { useAppTheme } from '../utils/theme-context';
-import { getUserSettings, getAppSettings, upsertAppSettings, getNotificationSettings, upsertNotificationSettings, upsertUserSettings, recalculateAllBaseAmounts } from '../database/database';
+import { getUserSettings, getAppSettings, upsertAppSettings, getNotificationSettings, upsertNotificationSettings, upsertUserSettings, recalculateAllBaseAmounts, importFullData } from '../database/database';
 import { initializeNotifications, requestPermissions, scheduleDailyReminder, sendExpenseReminder, cancelNotification, rescheduleAllNotifications, sendTestNotification, verifyScheduledNotifications } from '../services/notificationService';
 import { generateMonthlyReport, generateFullReport, sharePDF } from '../services/pdfService';
 import { AuthSettingsModal } from '../components/AuthSettingsModal';
@@ -24,6 +24,7 @@ import { createLocalBackup, restoreFromLastLocalBackup, pickBackupFileAndRestore
 import { referralService, ReferralInfo } from '../services/referralService';
 import { authenticateWithDevice } from '../services/authService';
 import { deleteAllData } from '../database/database';
+import { useWallets } from '../context/WalletContext';
 import { CONTACT_INFO, APP_LINKS, SHARE_APP_MESSAGE } from '../constants/contactConstants';
 import { CurrencyPickerModal } from '../components/CurrencyPickerModal';
 import { convertArabicToEnglish } from '../utils/numbers';
@@ -50,6 +51,7 @@ export const SettingsScreen = ({
     t,
     isRTL
   } = useLocalization();
+  const { refreshWallets, setSelectedWallet } = useWallets();
   const styles = useMemo(() => createStyles(theme, isRTL), [theme, isRTL]);
   const [userName, setUserName] = useState<string>('');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -65,7 +67,6 @@ export const SettingsScreen = ({
   const [selectedCurrency, setSelectedCurrency] = useState<string>('IQD');
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<AppLanguage>('ar');
-  const [showLanguagePicker, setShowLanguagePicker] = useState(false);
   const [showAuthSettings, setShowAuthSettings] = useState(false);
   const [showExchangeRateModal, setShowExchangeRateModal] = useState(false);
   const [usdToIqdRate, setUsdToIqdRate] = useState<string>('1315');
@@ -90,32 +91,19 @@ export const SettingsScreen = ({
   const [backupLoading, setBackupLoading] = useState(false);
   const [restoreServerLoading, setRestoreServerLoading] = useState(false);
   const [showRestoreServerConfirm, setShowRestoreServerConfirm] = useState(false);
+  const [showRestoreOldConfirm, setShowRestoreOldConfirm] = useState(false);
+  const [showRestoreLocalOldConfirm, setShowRestoreLocalOldConfirm] = useState(false);
+  const [pickedBackupData, setPickedBackupData] = useState<any>(null);
   const [referralInfo, setReferralInfo] = useState<ReferralInfo | null>(null);
   const [loadingReferral, setLoadingReferral] = useState(false);
+  const [showDeleteChoiceModal, setShowDeleteChoiceModal] = useState(false);
   const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+  const [deleteMode, setDeleteMode] = useState<'local' | 'both'>('local');
   const [deletingAll, setDeletingAll] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportMode, setExportMode] = useState<'monthly' | 'all'>('monthly');
   const [exportMonth, setExportMonth] = useState(new Date().getMonth());
   const [exportYear, setExportYear] = useState(new Date().getFullYear());
-  const [languageOptionPositions, setLanguageOptionPositions] = useState<{
-    arX: number | null;
-    enX: number | null;
-  }>({
-    arX: null,
-    enX: null,
-  });
-  const [languageOptionMetrics, setLanguageOptionMetrics] = useState<{
-    arLabelX: number | null;
-    arIconX: number | null;
-    enLabelX: number | null;
-    enIconX: number | null;
-  }>({
-    arLabelX: null,
-    arIconX: null,
-    enLabelX: null,
-    enIconX: null,
-  });
   const settingsDebugKey = `${language}-${selectedLanguage}-${isRTL ? 'rtl' : 'ltr'}`;
   const getDefaultAppSettings = () => ({
     notificationsEnabled: true,
@@ -143,46 +131,6 @@ export const SettingsScreen = ({
     if (isAuthenticated) refreshUnsyncedStatus();
   }, [isAuthenticated]);
 
-  useEffect(() => {
-    if (!__DEV__) {
-      return;
-    }
-
-    console.log('[RTL Debug][Settings]', {
-      language,
-      selectedLanguage,
-      isRTL,
-      globalRTL,
-      currentLanguage: getCurrentLanguage(),
-      i18nManagerIsRTL: I18nManager.isRTL,
-      settingsDebugKey,
-      languageOptionPositions,
-      languageOptionMetrics,
-    });
-  }, [language, selectedLanguage, isRTL, settingsDebugKey, languageOptionMetrics, languageOptionPositions]);
-
-  const handleLanguageOptionLayout = useCallback((key: 'arX' | 'enX') => (event: LayoutChangeEvent) => {
-    const nextX = Math.round(event.nativeEvent.layout.x);
-    setLanguageOptionPositions(prev => (
-      prev[key] === nextX
-        ? prev
-        : {
-          ...prev,
-          [key]: nextX,
-        }
-    ));
-  }, []);
-  const handleLanguageMetricLayout = useCallback((key: 'arLabelX' | 'arIconX' | 'enLabelX' | 'enIconX') => (event: LayoutChangeEvent) => {
-    const nextX = Math.round(event.nativeEvent.layout.x);
-    setLanguageOptionMetrics(prev => (
-      prev[key] === nextX
-        ? prev
-        : {
-          ...prev,
-          [key]: nextX,
-        }
-    ));
-  }, []);
   const refreshUnsyncedStatus = async () => {
     const v = await hasUnsyncedData();
     setHasUnsynced(v);
@@ -724,25 +672,6 @@ export const SettingsScreen = ({
       }
     }
   };
-  const handleLanguageChange = async (nextLanguage: AppLanguage) => {
-    try {
-      const appSettings = await getAppSettings();
-      const settingsToSave = appSettings || getDefaultAppSettings();
-      await upsertAppSettings({
-        ...settingsToSave,
-        language: nextLanguage,
-        themeMode: settingsToSave.themeMode
-      });
-      setSelectedLanguage(nextLanguage);
-      setShowLanguagePicker(false);
-      setLanguage(nextLanguage);
-      alertService.toastSuccess(translateText('settings.languageChanged', {
-        language: getLanguageDisplayName(nextLanguage, nextLanguage)
-      }, nextLanguage));
-    } catch (error) {
-      alertService.error(t('common.error'), t('settings.languageChangeFailed'));
-    }
-  };
   const handleExportPDF = async () => {
     try {
       setExportingPDF(true);
@@ -844,7 +773,7 @@ export const SettingsScreen = ({
       });
     } catch (error) {}
   };
-  const handleDeleteAllData = async () => {
+  const handleDeleteAllData = async (mode: 'local' | 'both') => {
     try {
       const authenticated = await authenticateWithDevice(tl("يرجى التحقق من الهوية لحذف جميع البيانات"));
       if (authenticated) {
@@ -853,15 +782,21 @@ export const SettingsScreen = ({
         // 1. Delete local data
         await deleteAllData();
 
-        // 2. Delete server data if logged in
-        try {
-          await deleteSyncDataFromServer();
-        } catch (serverError) {
-
-          // We don't block local success because local data is already gone
+        // 2. Delete server data only if user chose 'both'
+        if (mode === 'both') {
+          try {
+            await deleteSyncDataFromServer();
+          } catch (serverError) {
+            // We don't block local success because local data is already gone
+          }
         }
         setDeletingAll(false);
-        alertService.toastSuccess(tl("تم حذف جميع بيانات التطبيق بنجاح (محلياً ومن السيرفر)"));
+        const successMsg = mode === 'both'
+          ? tl("تم حذف جميع بيانات التطبيق بنجاح (محلياً ومن السيرفر)")
+          : tl("تم حذف جميع البيانات المحلية بنجاح");
+        alertService.toastSuccess(successMsg);
+        setSelectedWallet(null);
+        await refreshWallets();
         await loadSettings();
       }
     } catch (error) {
@@ -1060,6 +995,21 @@ export const SettingsScreen = ({
               </View>
             </View>
 
+            <TouchableOpacity 
+              style={[styles.premiumRow, { marginTop: 16 }]} 
+              onPress={() => navigation.navigate('Wallets')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.premiumIconBox, { backgroundColor: '#10B98115' }]}>
+                <Ionicons name="wallet-outline" size={22} color="#10B981" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.premiumItemTitle}>{tl("إدارة المحافظ")}</Text>
+                <Text style={styles.premiumItemSubtitle}>{tl("إضافة وتعديل المحافظ والتحكم في أرصدتها")}</Text>
+              </View>
+              <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={18} color={theme.colors.textMuted} />
+            </TouchableOpacity>
+
           </View>
         </View>
 
@@ -1107,7 +1057,12 @@ export const SettingsScreen = ({
             setBackupLoading(false);
             if (result.success) {
               alertService.toastSuccess(tl("تم استعادة النسخة الاحتياطية من الملف."));
+              setSelectedWallet(null);
+              await refreshWallets();
               loadSettings();
+            } else if (result.code === 'BACKUP_OLDER') {
+              setPickedBackupData(result.data);
+              setShowRestoreLocalOldConfirm(true);
             } else if (result.error !== 'لم يتم اختيار ملف') {
               alertService.error(tl("خطأ"), result.error);
             }
@@ -1128,6 +1083,27 @@ export const SettingsScreen = ({
                 {!backupLoading && <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={20} color="#FFFFFF" />}
               </View>
             </TouchableOpacity>
+
+            {showRestoreLocalOldConfirm && <ConfirmAlert visible={showRestoreLocalOldConfirm} title={tl("تحذير: نسخة قديمة")} message={tl("هذا الملف يحتوي على نسخة احتياطية أقدم من البيانات الحالية على جهازك. هل تريد المتابعة واستبدال بياناتك الجديدة بالقديمة؟")} confirmText={tl("استعادة على أي حال")} cancelText={tl("إلغاء")} onConfirm={async () => {
+            setShowRestoreLocalOldConfirm(false);
+            if (!pickedBackupData) return;
+            setBackupLoading(true);
+            try {
+              await importFullData(pickedBackupData, true); // force = true
+              alertService.toastSuccess(tl("تم استعادة البيانات بنجاح."));
+              setSelectedWallet(null);
+              await refreshWallets();
+              loadSettings();
+            } catch (err: any) {
+              alertService.error(tl("فشل الاستعادة"), err.message || tl("حدث خطأ ما"));
+            } finally {
+              setBackupLoading(false);
+              setPickedBackupData(null);
+            }
+          }} onCancel={() => {
+            setShowRestoreLocalOldConfirm(false);
+            setPickedBackupData(null);
+          }} />}
 
             {isAuthenticated && <TouchableOpacity onPress={() => setShowRestoreServerConfirm(true)} style={[styles.actionItem, {
             backgroundColor: '#F59E0B',
@@ -1154,11 +1130,37 @@ export const SettingsScreen = ({
             setRestoreServerLoading(false);
             if (result.success) {
               alertService.toastSuccess(tl("تم استعادة البيانات من السيرفر."));
+              setSelectedWallet(null);
+              await refreshWallets();
               loadSettings();
+            } else if (result.code === 'BACKUP_OLDER') {
+              setPickedBackupData(result.serverData);
+              setShowRestoreOldConfirm(true);
             } else {
               alertService.error(tl("فشل الاستعادة"), result.error);
             }
           }} onCancel={() => setShowRestoreServerConfirm(false)} />}
+
+            {showRestoreOldConfirm && <ConfirmAlert visible={showRestoreOldConfirm} title={tl("تحذير: نسخة قديمة")} message={tl("النسخة الاحتياطية الموجودة على السيرفر أقدم من البيانات الحالية على جهازك. هل تريد المتابعة واستبدال بياناتك الجديدة بالقديمة؟")} confirmText={tl("استعادة على أي حال")} cancelText={tl("إلغاء")} onConfirm={async () => {
+            setShowRestoreOldConfirm(false);
+            if (!pickedBackupData) return;
+            setRestoreServerLoading(true);
+            try {
+              await importFullData(pickedBackupData, true); // force = true
+              alertService.toastSuccess(tl("تم استعادة البيانات بنجاح."));
+              setSelectedWallet(null);
+              await refreshWallets();
+              loadSettings();
+            } catch (err: any) {
+              alertService.error(tl("فشل الاستعادة"), err.message || tl("حدث خطأ ما"));
+            } finally {
+              setRestoreServerLoading(false);
+              setPickedBackupData(null);
+            }
+          }} onCancel={() => {
+            setShowRestoreOldConfirm(false);
+            setPickedBackupData(null);
+          }} />}
           </View>
         </View>
 
@@ -1191,69 +1193,6 @@ export const SettingsScreen = ({
                 <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={20} color="#FFFFFF" />
               </LinearGradient>
             </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => setShowLanguagePicker(!showLanguagePicker)} style={styles.currencyItem} activeOpacity={0.7}>
-              <LinearGradient colors={['#3B82F6', '#2563EB']} style={styles.currencyItemGradient} start={{
-              x: 0,
-              y: 0
-            }} end={{
-              x: 1,
-              y: 0
-            }}>
-                <View style={styles.currencyItemLeft}>
-                  <View style={styles.currencyIconContainer}>
-                    <Ionicons name="language" size={24} color="#FFFFFF" />
-                  </View>
-                  <View style={styles.currencyItemInfo}>
-                    <Text style={styles.currencyItemTitleWhite}>{t('settings.appLanguage')}</Text>
-                    <Text style={styles.currencyItemDescriptionWhite}>
-                      {getLanguageDisplayName(selectedLanguage, language)}
-                    </Text>
-                  </View>
-                </View>
-                <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={20} color="#FFFFFF" />
-              </LinearGradient>
-            </TouchableOpacity>
-
-            {showLanguagePicker && <View style={styles.currencyPicker}>
-                <TouchableOpacity style={[styles.currencyOption, styles.languageOptionRtl, selectedLanguage === 'ar' && styles.currencyOptionSelected]} onLayout={handleLanguageOptionLayout('arX')} onPress={() => handleLanguageChange('ar')}>
-                  <View style={styles.languageOptionLabelWrapRtl} onLayout={handleLanguageMetricLayout('arLabelX')}>
-                    <Text style={[styles.currencyOptionText, styles.languageOptionTextRtl, selectedLanguage === 'ar' && styles.currencyOptionTextSelected]}>
-                      {getLanguageNativeName('ar')}
-                    </Text>
-                  </View>
-                  <View style={styles.languageOptionIconSlot} onLayout={handleLanguageMetricLayout('arIconX')}>
-                    {selectedLanguage === 'ar' && <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />}
-                  </View>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.currencyOption, styles.languageOptionLtr, selectedLanguage === 'en' && styles.currencyOptionSelected]} onLayout={handleLanguageOptionLayout('enX')} onPress={() => handleLanguageChange('en')}>
-                  <View style={styles.languageOptionLabelWrapLtr} onLayout={handleLanguageMetricLayout('enLabelX')}>
-                    <Text style={[styles.currencyOptionText, styles.languageOptionTextLtr, selectedLanguage === 'en' && styles.currencyOptionTextSelected]}>
-                      {getLanguageNativeName('en')}
-                    </Text>
-                  </View>
-                  <View style={styles.languageOptionIconSlot} onLayout={handleLanguageMetricLayout('enIconX')}>
-                    {selectedLanguage === 'en' && <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />}
-                  </View>
-                </TouchableOpacity>
-              </View>}
-
-            {__DEV__ && <View style={styles.debugCard}>
-                <Text style={styles.debugTitle}>RTL Debug</Text>
-                <Text style={styles.debugText}>context language: {language}</Text>
-                <Text style={styles.debugText}>selectedLanguage: {selectedLanguage}</Text>
-                <Text style={styles.debugText}>context isRTL: {String(isRTL)}</Text>
-                <Text style={styles.debugText}>global isRTL: {String(globalRTL)}</Text>
-                <Text style={styles.debugText}>currentLanguage(): {getCurrentLanguage()}</Text>
-                <Text style={styles.debugText}>I18nManager.isRTL: {String(I18nManager.isRTL)}</Text>
-                <Text style={styles.debugText}>settings key: {settingsDebugKey}</Text>
-                <Text style={styles.debugText}>Arabic option x: {languageOptionPositions.arX ?? 'n/a'}</Text>
-                <Text style={styles.debugText}>English option x: {languageOptionPositions.enX ?? 'n/a'}</Text>
-                <Text style={styles.debugText}>Arabic label/icon x: {languageOptionMetrics.arLabelX ?? 'n/a'} / {languageOptionMetrics.arIconX ?? 'n/a'}</Text>
-                <Text style={styles.debugText}>English label/icon x: {languageOptionMetrics.enLabelX ?? 'n/a'} / {languageOptionMetrics.enIconX ?? 'n/a'}</Text>
-                <Text style={styles.debugText}>Arabic row dir: row-reverse</Text>
-                <Text style={styles.debugText}>English row dir: row</Text>
-              </View>}
 
             {selectedCurrency !== 'USD' && <TouchableOpacity onPress={() => setShowExchangeRateModal(true)} style={styles.exchangeRateItem} activeOpacity={0.7}>
                 <LinearGradient colors={['#F59E0B', '#D97706']} style={styles.exchangeRateItemGradient} start={{
@@ -1356,16 +1295,12 @@ export const SettingsScreen = ({
             height: 12
           }} />
 
-            <TouchableOpacity onPress={() => setShowDeleteAllConfirm(true)} style={[styles.actionItem, {
-            backgroundColor: theme.colors.error + '10',
-            borderColor: theme.colors.error + '30',
-            borderWidth: 1,
-            borderRadius: 12,
-            marginHorizontal: 0
-          }]} activeOpacity={0.7} disabled={deletingAll}>
-              <View style={[styles.actionItemGradient, {
-              paddingVertical: 12
-            }]}>
+                <TouchableOpacity onPress={() => setShowDeleteChoiceModal(true)} style={[styles.actionItem, {
+                borderBottomWidth: 0,
+                paddingBottom: 4,
+                marginTop: 6
+              }]} activeOpacity={0.7}>
+              <View style={styles.actionItemGradient}>
                 <View style={styles.actionItemLeft}>
                   <View style={[styles.actionIconContainer, {
                   backgroundColor: theme.colors.error + '20',
@@ -1389,10 +1324,66 @@ export const SettingsScreen = ({
               </View>
             </TouchableOpacity>
 
-            {showDeleteAllConfirm && <ConfirmAlert visible={showDeleteAllConfirm} title={tl("حذف جميع البيانات؟")} message={tl("سيتم حذف كافة المصاريف والأهداف والديون بشكل نهائي. هل أنت متأكد من رغبتك في المتابعة؟")} confirmText={tl("حذف الكل")} cancelText={tl("إلغاء")} onConfirm={() => {
+            {showDeleteAllConfirm && <ConfirmAlert visible={showDeleteAllConfirm} title={deleteMode === 'both' ? tl("حذف من الجهاز والسيرفر؟") : tl("حذف من الجهاز فقط؟")} message={deleteMode === 'both' ? tl("سيتم حذف كافة البيانات نهائياً من الجهاز والسيرفر. هل أنت متأكد؟") : tl("سيتم حذف كافة البيانات من الجهاز فقط. ستبقى النسخة الاحتياطية على السيرفر.")} confirmText={tl("حذف")} cancelText={tl("إلغاء")} onConfirm={() => {
             setShowDeleteAllConfirm(false);
-            handleDeleteAllData();
+            handleDeleteAllData(deleteMode);
           }} onCancel={() => setShowDeleteAllConfirm(false)} />}
+
+            {/* Delete choice modal: local only or local + cloud */}
+            {showDeleteChoiceModal && (
+              <Modal transparent animationType="fade" visible={showDeleteChoiceModal} onRequestClose={() => setShowDeleteChoiceModal(false)}>
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }}>
+                  <View style={{ backgroundColor: theme.colors.surfaceCard, borderRadius: 20, paddingVertical: 24, paddingHorizontal: 20, width: '100%', maxWidth: 340 }}>
+                    <Text style={{ fontFamily: 'DINNext-Medium', fontSize: 18, color: theme.colors.error, textAlign: 'center', marginBottom: 8 }}>{tl("حذف جميع البيانات")}</Text>
+                    <Text style={{ fontFamily: 'DINNext-Regular', fontSize: 14, color: theme.colors.textSecondary, textAlign: 'center', marginBottom: 20, lineHeight: 22 }}>{tl("اختر نوع الحذف:")}</Text>
+
+                    <TouchableOpacity
+                      onPress={() => {
+                        setShowDeleteChoiceModal(false);
+                        setDeleteMode('local');
+                        setShowDeleteAllConfirm(true);
+                      }}
+                      activeOpacity={0.8}
+                      style={{ backgroundColor: theme.colors.warning + '15', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 16, marginBottom: 10, borderWidth: 1, borderColor: theme.colors.warning + '30' }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <View style={{ backgroundColor: theme.colors.warning + '25', width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginEnd: 12 }}>
+                          <Ionicons name="phone-portrait-outline" size={20} color={theme.colors.warning} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontFamily: 'DINNext-Medium', fontSize: 15, color: theme.colors.textPrimary }}>{tl("حذف من الجهاز فقط")}</Text>
+                          <Text style={{ fontFamily: 'DINNext-Regular', fontSize: 12, color: theme.colors.textSecondary, marginTop: 2 }}>{tl("ستبقى النسخة على السيرفر")}</Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => {
+                        setShowDeleteChoiceModal(false);
+                        setDeleteMode('both');
+                        setShowDeleteAllConfirm(true);
+                      }}
+                      activeOpacity={0.8}
+                      style={{ backgroundColor: theme.colors.error + '15', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 16, marginBottom: 16, borderWidth: 1, borderColor: theme.colors.error + '30' }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <View style={{ backgroundColor: theme.colors.error + '25', width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginEnd: 12 }}>
+                          <Ionicons name="cloud-offline-outline" size={20} color={theme.colors.error} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontFamily: 'DINNext-Medium', fontSize: 15, color: theme.colors.textPrimary }}>{tl("حذف من الجهاز والسيرفر")}</Text>
+                          <Text style={{ fontFamily: 'DINNext-Regular', fontSize: 12, color: theme.colors.textSecondary, marginTop: 2 }}>{tl("سيتم حذف جميع البيانات نهائياً")}</Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity onPress={() => setShowDeleteChoiceModal(false)} activeOpacity={0.8} style={{ paddingVertical: 12, alignItems: 'center' }}>
+                      <Text style={{ fontFamily: 'DINNext-Medium', fontSize: 15, color: theme.colors.textMuted }}>{tl("إلغاء")}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </Modal>
+            )}
           </View>
         </View>
 

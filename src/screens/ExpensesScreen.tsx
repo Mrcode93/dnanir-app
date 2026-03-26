@@ -19,6 +19,8 @@ import { getMonthRange, formatDateLocal } from '../utils/date';
 import { SmartAddModal } from '../components/SmartAddModal';
 import { usePrivacy } from '../context/PrivacyContext';
 import { TransactionDetailsModal } from '../components/TransactionDetailsModal';
+import { useWallets } from '../context/WalletContext';
+import { WalletSelector } from '../components/WalletSelector';
 import { tl, useLocalization } from "../localization";
 const ITEMS_PER_PAGE = 10;
 export const ExpensesScreen = ({
@@ -36,6 +38,7 @@ export const ExpensesScreen = ({
   const {
     isPrivacyEnabled
   } = usePrivacy();
+  const { selectedWallet } = useWallets();
   // Data State
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [totalAmount, setTotalAmount] = useState(0);
@@ -110,11 +113,16 @@ export const ExpensesScreen = ({
       };
 
       // Fetch Data
-      const [newExpenses, total, count] = await Promise.all([getExpensesPaginated({
-        ...filterOptions,
-        limit: ITEMS_PER_PAGE,
-        offset: currentOffset
-      }), reset ? getExpensesTotalAmount(filterOptions) : Promise.resolve(null), reset ? getExpensesCount(filterOptions) : Promise.resolve(null)]);
+      const [newExpenses, total, count] = await Promise.all([
+        getExpensesPaginated({
+          ...filterOptions,
+          limit: ITEMS_PER_PAGE,
+          offset: currentOffset,
+          walletId: selectedWallet?.id
+        }), 
+        reset ? getExpensesTotalAmount({ ...filterOptions, walletId: selectedWallet?.id }) : Promise.resolve(null), 
+        reset ? getExpensesCount({ ...filterOptions, walletId: selectedWallet?.id }) : Promise.resolve(null)
+      ]);
       if (reset) {
         if (total !== null) setTotalAmount(total);
         if (count !== null) setTotalCount(count);
@@ -128,7 +136,7 @@ export const ExpensesScreen = ({
 
       // Load available months only on initial load
       if (reset && filterType === 'month') {
-        const months = await getAvailableExpenseMonths();
+        const months = await getAvailableExpenseMonths(selectedWallet?.id);
         setAvailableMonths(months);
       }
     } catch (error) {
@@ -138,12 +146,12 @@ export const ExpensesScreen = ({
       setRefreshing(false);
       setLoadingMore(false);
     }
-  }, [selectedMonth, selectedCategory, offset, filterType, selectedDate]);
+  }, [selectedMonth, selectedCategory, offset, filterType, selectedDate, selectedWallet?.id]);
 
   // Initial Load & Filter Changes
   useEffect(() => {
     fetchExpenses(true);
-  }, [selectedMonth, selectedCategory, filterType, selectedDate]);
+  }, [selectedMonth, selectedCategory, filterType, selectedDate, selectedWallet?.id]);
   const loadCustomCategories = useCallback(async () => {
     try {
       const categories = await getCustomCategories('expense');
@@ -276,26 +284,16 @@ export const ExpensesScreen = ({
                     <Text style={[styles.toggleText, filterType === 'day' && styles.toggleTextActive]}>{tl("يومي")}</Text>
                   </TouchableOpacity>
                 </View>
-
+                
                 {filterType === 'month' ? <View style={styles.monthFilterWrapper}>
                     <MonthFilter selectedMonth={selectedMonth} onMonthChange={(year, month) => setSelectedMonth({
               year,
               month
             })} showAllOption={true} availableMonths={availableMonths} />
                   </View> : <TouchableOpacity style={styles.daySelector} onPress={() => setShowDatePicker(true)}>
-                    <Ionicons name="calendar-outline" size={20} color={theme.colors.primary} />
+                    <Ionicons name="calendar-outline" size={18} color={theme.colors.primary} />
                     <Text style={styles.daySelectorText}>{formatDateLocal(selectedDate)}</Text>
                   </TouchableOpacity>}
-
-                <TouchableOpacity style={{
-            padding: 8,
-            marginRight: isRTL ? 0 : 8,
-            marginLeft: isRTL ? 8 : 0
-          }} onPress={() => navigation.navigate('ManageCategories', {
-            type: 'expense'
-          })}>
-                  <Ionicons name="albums-outline" size={24} color={theme.colors.textSecondary} />
-                </TouchableOpacity>
               </View>
 
               {showDatePicker && <CustomDatePicker value={selectedDate} onChange={(event, date) => {
@@ -411,9 +409,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   header: {
     backgroundColor: theme.colors.surface,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 0,
-    paddingBottom: 20,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
     ...getPlatformShadow('xs'),
@@ -450,8 +448,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
-    gap: 12
+    marginBottom: 12,
+    gap: 8
   },
   filterTypeToggle: {
     flexDirection: isRTL ? 'row-reverse' : 'row',

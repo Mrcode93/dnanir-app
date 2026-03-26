@@ -6,11 +6,12 @@ export interface AiInsightRecord {
   analysisType: string;
   month: number;
   year: number;
-  createdAt: number;
+  created_at: number;
+  walletId: number | null;
 }
 
-/** AI Smart Insights: get last cached response for current month, or null if none. */
-export const getAiInsightsCache = async (): Promise<{
+/** AI Smart Insights: get last cached response for current month and wallet, or null if none. */
+export const getAiInsightsCache = async (walletId?: number): Promise<{
   data: Record<string, unknown>;
   analysisType: string;
   createdAt: number;
@@ -20,10 +21,20 @@ export const getAiInsightsCache = async (): Promise<{
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
   
-  const row = await database.getFirstAsync<{ data: string; analysis_type: string; created_at: number }>(
-    'SELECT data, analysis_type, created_at FROM ai_insights_cache WHERE month = ? AND year = ? ORDER BY created_at DESC LIMIT 1',
-    [currentMonth, currentYear]
-  );
+  let query = 'SELECT data, analysis_type, created_at FROM ai_insights_cache WHERE month = ? AND year = ?';
+  const params: any[] = [currentMonth, currentYear];
+
+  if (walletId) {
+    query += ' AND walletId = ?';
+    params.push(walletId);
+  } else {
+    query += ' AND walletId IS NULL';
+  }
+
+  query += ' ORDER BY created_at DESC LIMIT 1';
+
+  const row = await database.getFirstAsync<{ data: string; analysis_type: string; created_at: number }>(query, params);
+  
   if (!row?.data) return null;
   try {
     const data = JSON.parse(row.data) as Record<string, unknown>;
@@ -38,11 +49,19 @@ export const getAiInsightsCache = async (): Promise<{
 };
 
 /** AI Smart Insights: get all cached insights (for history) */
-export const getAllAiInsightsCache = async (): Promise<AiInsightRecord[]> => {
+export const getAllAiInsightsCache = async (walletId?: number): Promise<AiInsightRecord[]> => {
   const database = getDb();
-  const rows = await database.getAllAsync<{ id: number; data: string; analysis_type: string; month: number; year: number; created_at: number }>(
-    'SELECT id, data, analysis_type, month, year, created_at FROM ai_insights_cache ORDER BY year DESC, month DESC, created_at DESC'
-  );
+  let query = 'SELECT id, data, analysis_type, month, year, created_at, walletId FROM ai_insights_cache';
+  const params: any[] = [];
+
+  if (walletId) {
+    query += ' WHERE walletId = ?';
+    params.push(walletId);
+  }
+
+  query += ' ORDER BY year DESC, month DESC, created_at DESC';
+
+  const rows = await database.getAllAsync<any>(query, params);
   
   return rows.map(row => {
     try {
@@ -52,7 +71,8 @@ export const getAllAiInsightsCache = async (): Promise<AiInsightRecord[]> => {
         analysisType: row.analysis_type || 'full',
         month: row.month,
         year: row.year,
-        createdAt: row.created_at,
+        created_at: row.created_at,
+        walletId: row.walletId
       };
     } catch {
       return null;
@@ -60,32 +80,11 @@ export const getAllAiInsightsCache = async (): Promise<AiInsightRecord[]> => {
   }).filter((item): item is AiInsightRecord => item !== null);
 };
 
-/** AI Smart Insights: get cached insights for a specific month/year */
-export const getAiInsightsCacheByMonth = async (year: number, month: number): Promise<AiInsightRecord | null> => {
-  const database = getDb();
-  const row = await database.getFirstAsync<{ id: number; data: string; analysis_type: string; created_at: number }>(
-    'SELECT id, data, analysis_type, created_at FROM ai_insights_cache WHERE year = ? AND month = ? ORDER BY created_at DESC LIMIT 1',
-    [year, month]
-  );
-  if (!row?.data) return null;
-  try {
-    return {
-      id: row.id,
-      data: JSON.parse(row.data) as Record<string, unknown>,
-      analysisType: row.analysis_type || 'full',
-      month,
-      year,
-      createdAt: row.created_at,
-    };
-  } catch {
-    return null;
-  }
-};
-
 /** AI Smart Insights: save response to local cache (saves history, doesn't overwrite). */
 export const saveAiInsightsCache = async (
   data: Record<string, unknown>,
-  analysisType: string = 'full'
+  analysisType: string = 'full',
+  walletId?: number
 ): Promise<void> => {
   const database = getDb();
   const json = JSON.stringify(data);
@@ -95,8 +94,8 @@ export const saveAiInsightsCache = async (
   const year = now.getFullYear();
   
   await database.runAsync(
-    'INSERT INTO ai_insights_cache (data, analysis_type, month, year, created_at) VALUES (?, ?, ?, ?, ?)',
-    [json, analysisType, month, year, createdAt]
+    'INSERT INTO ai_insights_cache (data, analysis_type, month, year, created_at, walletId) VALUES (?, ?, ?, ?, ?, ?)',
+    [json, analysisType, month, year, createdAt, walletId || null]
   );
 };
 

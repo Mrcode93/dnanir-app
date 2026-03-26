@@ -18,6 +18,7 @@ import { formatDateLocal } from '../utils/date';
 import { generateMonthlyReport, sharePDF, generateAdvancedPDFReport, generateFullReport } from '../services/pdfService';
 import { generateAdvancedReport } from '../services/advancedReportsService';
 import { alertService } from '../services/alertService';
+import { useWallets } from '../context/WalletContext';
 import { tl, useLocalization } from "../localization";
 const {
   width
@@ -61,6 +62,7 @@ export const InsightsScreen = ({
   const {
     formatCurrency
   } = useCurrency();
+  const { selectedWallet } = useWallets();
   const [summary, setSummary] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [monthlyData, setMonthlyData] = useState<any>(null);
@@ -168,7 +170,12 @@ export const InsightsScreen = ({
   const loadData = async () => {
     try {
       // Parallelize non-dependent requests
-      const [months, customCats, prediction, trend] = await Promise.all([getAvailableMonths(), getCustomCategories('expense'), predictNextMonthExpenses(3), getMonthlyTrendData(6)]);
+      const [months, customCats, prediction, trend] = await Promise.all([
+        getAvailableMonths(), 
+        getCustomCategories('expense'), 
+        predictNextMonthExpenses(3, selectedWallet?.id), 
+        getMonthlyTrendData(6, selectedWallet?.id)
+      ]);
       setAvailableMonths(months);
       setCustomCategories(customCats);
       setPredictionData(prediction);
@@ -177,9 +184,9 @@ export const InsightsScreen = ({
       // Dependent month data
       let monthData;
       if (selectedMonth && (selectedMonth.year !== 0 || selectedMonth.month !== 0)) {
-        monthData = await getMonthData(selectedMonth.year, selectedMonth.month);
+        monthData = await getMonthData(selectedMonth.year, selectedMonth.month, selectedWallet?.id);
       } else {
-        monthData = await getCurrentMonthData();
+        monthData = await getCurrentMonthData(selectedWallet?.id);
       }
       setMonthlyData(monthData);
 
@@ -220,7 +227,7 @@ export const InsightsScreen = ({
       setSummary(financialSummary);
       setInsights(generateFinancialInsights(financialSummary));
       if (showComparison) {
-        const comparison = await comparePeriods(selectedPeriod1, selectedPeriod2);
+        const comparison = await comparePeriods(selectedPeriod1, selectedPeriod2, selectedWallet?.id);
         setComparisonData(comparison);
       }
     } catch (error) {}
@@ -230,7 +237,7 @@ export const InsightsScreen = ({
       loadData();
     });
     return () => task.cancel();
-  }, [selectedMonth, showComparison]));
+  }, [loadData, selectedWallet?.id, selectedMonth, showComparison]));
   const onRefresh = async () => {
     setRefreshing(true);
     await loadData();

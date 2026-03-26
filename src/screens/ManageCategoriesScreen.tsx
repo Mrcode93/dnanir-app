@@ -1,22 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
 import { useAppTheme, useThemedStyles } from '../utils/theme-context';
-import { getCustomCategories, deleteCustomCategory, addCustomCategory, updateCustomCategory, CustomCategory } from '../database/database';
+import { getCustomCategories, deleteCustomCategory, CustomCategory } from '../database/database';
 import { INCOME_SOURCES, EXPENSE_CATEGORIES } from '../types';
 import { alertService } from '../services/alertService';
 import { ScreenContainer, AppHeader, AppButton } from '../design-system';
 import { tl, useLocalization } from "../localization";
+import { isRTL } from '../utils/rtl';
+
 interface ManageCategoriesScreenProps {
   navigation: any;
   route: any;
 }
+
 export const ManageCategoriesScreen: React.FC<ManageCategoriesScreenProps> = ({
   navigation,
   route
 }) => {
-  const { isRTL } = useLocalization();
+  useLocalization();
   const {
     theme
   } = useAppTheme();
@@ -24,6 +27,7 @@ export const ManageCategoriesScreen: React.FC<ManageCategoriesScreenProps> = ({
   const type = route?.params?.type || 'expense';
   const [categories, setCategories] = useState<CustomCategory[]>([]);
   const [loading, setLoading] = useState(false);
+
   const loadCategories = async () => {
     try {
       setLoading(true);
@@ -35,6 +39,7 @@ export const ManageCategoriesScreen: React.FC<ManageCategoriesScreenProps> = ({
       setLoading(false);
     }
   };
+
   useEffect(() => {
     loadCategories();
     const unsubscribe = navigation.addListener('focus', () => {
@@ -42,12 +47,14 @@ export const ManageCategoriesScreen: React.FC<ManageCategoriesScreenProps> = ({
     });
     return unsubscribe;
   }, [navigation, type]);
+
   const handleEdit = (category: CustomCategory) => {
     navigation.navigate('AddCategory', {
       category,
       type
     });
   };
+
   const handleDelete = async (categoryId: number, categoryName: string) => {
     alertService.confirm(tl("حذف الفئة"), tl("هل تريد حذف \"{{}}\"؟", [categoryName]), async () => {
       try {
@@ -59,14 +66,17 @@ export const ManageCategoriesScreen: React.FC<ManageCategoriesScreenProps> = ({
       }
     });
   };
+
   const handleAdd = () => {
     navigation.navigate('AddCategory', {
       type
     });
   };
+
   const handleClose = () => {
     navigation.goBack();
   };
+
   const isDefaultCategory = (categoryName: string) => {
     if (type === 'income') {
       return Object.values(INCOME_SOURCES).includes(categoryName);
@@ -74,21 +84,39 @@ export const ManageCategoriesScreen: React.FC<ManageCategoriesScreenProps> = ({
       return Object.values(EXPENSE_CATEGORIES).includes(categoryName);
     }
   };
-  const addFooter = <AppButton label={type === 'income' ? tl("إضافة مصدر جديد") : tl("إضافة فئة جديدة")} onPress={handleAdd} variant="success" size="lg" leftIcon="add-circle" />;
-  return <ScreenContainer scrollable footer={addFooter} edges={['top']} style={{
-    backgroundColor: theme.colors.surfaceCard,
-    direction: isRTL ? 'rtl' : 'ltr',
-    writingDirection: isRTL ? 'rtl' : 'ltr'
-  } as any}>
-      {/* Header */}
-      <AppHeader title={type === 'income' ? tl("إدارة مصادر الدخل") : tl("إدارة فئات المصاريف")} backIcon="close" onBack={handleClose} />
 
-      {/* Content */}
+  const addFooter = (
+    <AppButton 
+      label={type === 'income' ? tl("إضافة مصدر جديد") : tl("إضافة فئة جديدة")} 
+      onPress={handleAdd} 
+      variant="success" 
+      size="lg" 
+      leftIcon="add-circle" 
+    />
+  );
+
+  return (
+    <ScreenContainer 
+      scrollable 
+      footer={addFooter} 
+      edges={['left', 'right']} 
+      style={{
+        backgroundColor: theme.colors.surfaceCard,
+      }}
+    >
+      <AppHeader 
+        title={type === 'income' ? tl("إدارة مصادر الدخل") : tl("إدارة فئات المصاريف")} 
+        backIcon="close" 
+        onBack={handleClose} 
+      />
+
       <View style={styles.categoriesSection}>
         <Text style={styles.sectionTitle}>
           {type === 'income' ? tl("جميع المصادر") : tl("جميع الفئات")}
         </Text>
-        {categories.length === 0 ? <View style={styles.emptyContainer}>
+        
+        {loading ? null : categories.length === 0 ? (
+          <View style={styles.emptyContainer}>
             <Ionicons name="folder-outline" size={64} color={theme.colors.textMuted} />
             <Text style={styles.emptyText}>
               {type === 'income' ? tl("لا توجد مصادر") : tl("لا توجد فئات")}
@@ -96,13 +124,16 @@ export const ManageCategoriesScreen: React.FC<ManageCategoriesScreenProps> = ({
             <Text style={styles.emptySubtext}>
               {type === 'income' ? tl("أضف مصادر دخل جديدة لتسهيل تصنيف دخلك") : tl("أضف فئات جديدة لتسهيل تصنيف مصاريفك")}
             </Text>
-          </View> : categories.map(category => {
-        const isDefault = isDefaultCategory(category.name);
-        return <View key={category.id} style={styles.categoryItem}>
+          </View>
+        ) : (
+          categories.map(category => {
+            const isDefault = isDefaultCategory(category.name);
+            return (
+              <View key={category.id} style={styles.categoryItem}>
                 <View style={styles.categoryItemLeft}>
                   <View style={[styles.categoryIconContainer, {
-              backgroundColor: category.color + '20'
-            }]}>
+                    backgroundColor: category.color + '20'
+                  }]}>
                     <Ionicons name={category.icon as any} size={24} color={category.color} />
                   </View>
                   <View style={styles.categoryInfo}>
@@ -116,17 +147,24 @@ export const ManageCategoriesScreen: React.FC<ManageCategoriesScreenProps> = ({
                   <TouchableOpacity onPress={() => handleEdit(category)} style={styles.editButton}>
                     <Ionicons name="create-outline" size={20} color={theme.colors.primary} />
                   </TouchableOpacity>
-                  {!isDefault && <TouchableOpacity onPress={() => handleDelete(category.id, category.name)} style={styles.deleteButton}>
+                  {!isDefault && (
+                    <TouchableOpacity onPress={() => handleDelete(category.id, category.name)} style={styles.deleteButton}>
                       <Ionicons name="trash-outline" size={20} color={theme.colors.error} />
-                    </TouchableOpacity>}
+                    </TouchableOpacity>
+                  )}
                 </View>
-              </View>;
-      })}
+              </View>
+            );
+          })
+        )}
       </View>
-    </ScreenContainer>;
+    </ScreenContainer>
+  );
 };
+
 const createStyles = (theme: AppTheme) => StyleSheet.create({
   categoriesSection: {
+    paddingHorizontal: theme.spacing.md,
     marginBottom: theme.spacing.lg
   },
   sectionTitle: {
@@ -136,7 +174,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.md,
     paddingHorizontal: theme.spacing.xs,
-    textAlign: 'right'
+    textAlign: isRTL ? 'right' : 'left'
   },
   emptyContainer: {
     alignItems: 'center',
@@ -159,25 +197,26 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     textAlign: 'center'
   },
   categoryItem: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: theme.colors.surfaceLight,
     borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.sm,
+    padding: theme.spacing.md,
     marginBottom: theme.spacing.sm,
     borderWidth: 1,
-    borderColor: theme.colors.border
+    borderColor: theme.colors.border,
+    ...getPlatformShadow('xs')
   },
   categoryItemLeft: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
     gap: theme.spacing.md
   },
   categoryIconContainer: {
-    width: 48,
-    height: 48,
+    width: 52,
+    height: 52,
     borderRadius: theme.borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center'
@@ -190,32 +229,32 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    marginBottom: theme.spacing.xs,
-    textAlign: 'right'
+    marginBottom: 4,
+    textAlign: isRTL ? 'right' : 'left'
   },
   categoryType: {
     fontSize: theme.typography.sizes.xs,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'right'
+    textAlign: isRTL ? 'right' : 'left'
   },
   categoryActions: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     gap: theme.spacing.sm
   },
   editButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: theme.borderRadius.md,
     backgroundColor: theme.colors.backgroundSecondary,
     alignItems: 'center',
     justifyContent: 'center'
   },
   deleteButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: theme.borderRadius.md,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: 'rgba(239, 68, 68, 0.14)',
     alignItems: 'center',
     justifyContent: 'center'
   }

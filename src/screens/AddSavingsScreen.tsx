@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Keyboard, TextInput, FlatList, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Keyboard, FlatList, StatusBar } from 'react-native';
+import { TextInput } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { addSavings, updateSavings } from '../database/database';
@@ -71,7 +72,7 @@ export const AddSavingsScreen = ({
   const saveFooter = <AppButton label={editingSavings ? tl("تحديث الحصالة") : tl("إنشاء الحصالة")} onPress={handleSave} variant="primary" size="lg" loading={loading} disabled={loading || !title} rightIcon="checkmark-circle" style={{
     backgroundColor: color
   }} />;
-  return <ScreenContainer scrollable edges={['top']} scrollPadBottom={32}>
+  return <ScreenContainer scrollable edges={[]} scrollPadBottom={32}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       {/* Header */}

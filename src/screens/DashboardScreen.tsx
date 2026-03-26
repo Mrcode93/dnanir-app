@@ -27,7 +27,9 @@ import { TouchableOpacity } from 'react-native';
 import { isRTL } from '../utils/rtl';
 import { useCurrency } from '../hooks/useCurrency';
 import { convertCurrency, formatCurrencyAmount } from '../services/currencyService';
+import { WalletSelector } from '../components/WalletSelector';
 import { usePrivacy } from '../context/PrivacyContext';
+import { useWallets } from '../context/WalletContext';
 import { SmartAddModal } from '../components/SmartAddModal';
 import { CircularProgress } from '../components/CircularProgress';
 import { ManageShortcutsModal } from '../components/ManageShortcutsModal';
@@ -63,6 +65,11 @@ const DashboardScreenComponent = ({
     isPrivacyEnabled,
     togglePrivacy
   } = usePrivacy();
+  const {
+    wallets,
+    selectedWallet,
+    setSelectedWallet
+  } = useWallets();
 
   // Format full date consistently
   const formatFullDate = useCallback((date: Date) => {
@@ -224,7 +231,7 @@ const DashboardScreenComponent = ({
     const targetMonth = selectedBalanceMonth?.month || new Date().getMonth() + 1;
     const isAllTime = selectedBalanceMonth?.year === 0 && selectedBalanceMonth?.month === 0;
     if (!isAllTime) {
-      const monthData = await getMonthData(targetYear, targetMonth);
+      const monthData = await getMonthData(targetYear, targetMonth, selectedWallet?.id);
       setDashboardData(prev => ({
         ...prev,
         currentMonthData: {
@@ -239,7 +246,7 @@ const DashboardScreenComponent = ({
     const {
       getFinancialStatsAggregated
     } = await import('../database/database');
-    const stats = await getFinancialStatsAggregated(undefined, undefined);
+    const stats = await getFinancialStatsAggregated(undefined, undefined, selectedWallet?.id);
     const allTimeData = {
       totalIncome: stats?.totalIncome || 0,
       totalExpenses: stats?.totalExpenses || 0,
@@ -250,7 +257,7 @@ const DashboardScreenComponent = ({
       currentMonthData: allTimeData,
       filteredBalance: allTimeData.balance
     }));
-  }, [selectedBalanceMonth]);
+  }, [selectedBalanceMonth, selectedWallet?.id]);
   const loadEssentialData = useCallback(async () => {
     try {
       const today = formatDateLocal(new Date());
@@ -259,7 +266,12 @@ const DashboardScreenComponent = ({
       } = await import('../database/database');
 
       // Run ALL essential queries in parallel
-      const [financialSummary, months, todayStats, recent] = await Promise.all([calculateFinancialSummary(), getAvailableMonths(), getFinancialStatsAggregated(today, today), getRecentTransactions(5)]);
+      const [financialSummary, months, todayStats, recent] = await Promise.all([
+        calculateFinancialSummary(selectedWallet?.id), 
+        getAvailableMonths(selectedWallet?.id), 
+        getFinancialStatsAggregated(today, today, selectedWallet?.id), 
+        getRecentTransactions(5, selectedWallet?.id)
+      ]);
       setDashboardData(prev => ({
         ...prev,
         summary: financialSummary,
@@ -275,7 +287,7 @@ const DashboardScreenComponent = ({
       // Month data can load slightly after
       await loadMonthData();
     } catch (error) {}
-  }, [loadMonthData]);
+  }, [loadMonthData, selectedWallet?.id]);
   const loadSecondaryData = useCallback(async () => {
     try {
       const now = Date.now();
@@ -483,8 +495,9 @@ const DashboardScreenComponent = ({
       {/* Modern Pro Header - Sticky outside ScrollView */}
       <View style={styles.headerContainer}>
         <View style={[styles.headerRoundedBackground, {
-        paddingTop: insets.top + 10
+        paddingTop: insets.top + 4
       }]}>
+
           <View style={styles.headerContent}>
             {/* Title / Greeting */}
             <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
@@ -539,7 +552,6 @@ const DashboardScreenComponent = ({
             marginTop: 12
           }]} />
             </LinearGradient>}
-
         </View>
 
         <View style={styles.sectionDivider} />
@@ -1183,11 +1195,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   headerRoundedBackground: {
     backgroundColor: '#003459',
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    paddingBottom: Platform.OS === 'ios' ? theme.spacing.sm : theme.spacing.xs,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+
+    paddingBottom: 6,
     ...getPlatformShadow('xl')
   },
+
   headerContent: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
@@ -1197,7 +1211,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   headerTitle: {
     flex: 1,
     maxWidth: '55%',
-    fontSize: theme.typography.sizes.xl,
+    fontSize: 18,
+
     fontWeight: getPlatformFontWeight('400'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
@@ -1210,10 +1225,11 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     gap: theme.spacing.sm
   },
   headerButton: {
-    padding: theme.spacing.sm,
-    borderRadius: theme.borderRadius.md,
+    padding: 6,
+    borderRadius: 10,
     backgroundColor: 'rgba(255, 255, 255, 0.15)'
   },
+
   heroSection: {
     marginTop: theme.spacing.sm,
     marginBottom: theme.spacing.lg

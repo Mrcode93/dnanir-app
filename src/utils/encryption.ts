@@ -376,11 +376,13 @@ export async function decryptFromStorage<T = unknown>(raw: unknown): Promise<T> 
   if (!isEncryptedEnvelope(raw)) return raw as T;
 
   const dek = _sessionDEK;
-  if (!dek) throw new Error('مفتاح التشفير غير متاح. يرجى تسجيل الدخول مجدداً.');
+  if (!dek) {
+    throw new Error('مفتاح التشفير غير متاح. يرجى تسجيل الدخول مجدداً.');
+  }
 
   try {
-    return JSON.parse(fromBytes(gcmDecrypt(fromBase64(raw.payload), dek))) as T;
-  } catch {
+    return JSON.parse(fromBytes(gcmDecrypt(fromBase64((raw as EncryptedEnvelope).payload), dek))) as T;
+  } catch (err) {
     throw new Error('فشل فك التشفير — البيانات تالفة أو المفتاح غير مطابق.');
   }
 }

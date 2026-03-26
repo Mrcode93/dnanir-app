@@ -6,7 +6,10 @@ import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThe
 import { isRTL } from '../utils/rtl';
 import { useCurrency } from '../hooks/useCurrency';
 import { usePrivacy } from '../context/PrivacyContext';
+import { useWallets } from '../context/WalletContext';
 import { MonthFilter } from './MonthFilter';
+import { useNavigation } from '@react-navigation/native';
+import { WalletListModal } from './WalletListModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -33,6 +36,9 @@ const BalanceCardComponent: React.FC<BalanceCardProps> = ({
   const styles = useThemedStyles(createStyles);
   const { formatCurrency, currencyCode } = useCurrency();
   const { isPrivacyEnabled } = usePrivacy();
+  const { selectedWallet } = useWallets();
+  const navigation = useNavigation<any>();
+  const [showWalletModal, setShowWalletModal] = React.useState(false);
   const isPositive = balance >= 0;
 
   const formattedBalance = formatCurrency(balance);
@@ -50,7 +56,7 @@ const BalanceCardComponent: React.FC<BalanceCardProps> = ({
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#2563EB', '#3B82F6', '#60A5FA']}
+        colors={selectedWallet?.color ? [selectedWallet.color, selectedWallet.color + 'DD', selectedWallet.color + 'AA'] : ['#0B5A7A', '#13678A', '#2E8BC0']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.card}
@@ -61,12 +67,17 @@ const BalanceCardComponent: React.FC<BalanceCardProps> = ({
 
         {/* Top Section: Brand and Filter */}
         <View style={styles.topSection}>
-          <View style={styles.brandBadge}>
+          <TouchableOpacity 
+            style={styles.brandBadge}
+            onPress={() => setShowWalletModal(true)}
+            activeOpacity={0.7}
+          >
             <View style={styles.brandIconContainer}>
-              <Ionicons name="wallet" size={14} color="#FFF" />
+              <Ionicons name={(selectedWallet?.icon as any) || "apps"} size={14} color="#FFF" />
             </View>
-            <Text style={styles.brandText}>دنانير</Text>
-          </View>
+            <Text style={styles.brandText}>{selectedWallet?.name || "الكل"}</Text>
+            <Ionicons name="chevron-down" size={12} color="rgba(255, 255, 255, 0.7)" style={{ marginLeft: 4 }} />
+          </TouchableOpacity>
 
           <View style={styles.topRight}>
             {isPositive && (
@@ -142,6 +153,12 @@ const BalanceCardComponent: React.FC<BalanceCardProps> = ({
           )}
         </View>
       </LinearGradient>
+      
+      <WalletListModal 
+        visible={showWalletModal} 
+        onClose={() => setShowWalletModal(false)}
+        onManageWallets={() => navigation.navigate('Wallets')}
+      />
     </View>
   );
 };

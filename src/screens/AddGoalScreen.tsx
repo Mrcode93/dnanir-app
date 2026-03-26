@@ -175,7 +175,7 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
   const saveFooter = <AppButton label={loading ? tl("جاري الحفظ...") : editingGoal ? tl("تحديث الهدف") : tl("حفظ الهدف")} onPress={handleSave} variant="primary" size="lg" loading={loading} disabled={!title || !targetAmount || loading} leftIcon="checkmark-circle" style={{
     backgroundColor: categoryColors[category][0]
   }} />;
-  return <ScreenContainer scrollable edges={['top', 'bottom']} scrollPadBottom={32} style={{
+  return <ScreenContainer scrollable edges={['bottom', 'left', 'right']} scrollPadBottom={32} style={{
     backgroundColor: theme.colors.surfaceCard
   }}>
       {/* Header */}

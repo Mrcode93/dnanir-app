@@ -46,6 +46,7 @@ export const ar = {
     notifications: 'الإشعارات',
     aiInsights: 'التحليلات الذكية',
     calendar: 'التقويم المالي',
+    wallets: 'المحافظ',
   },
   auth: {
     login: 'تسجيل الدخول',

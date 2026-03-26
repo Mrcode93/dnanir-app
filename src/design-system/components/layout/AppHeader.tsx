@@ -10,10 +10,12 @@
  */
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ViewStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+
 import { useAppTheme } from '../../../utils/theme-context';
 import { getPlatformFontWeight } from '../../../utils/theme-constants';
-import { FONT_SIZE, RADIUS, SPACING } from '../../tokens';
+import { RADIUS, SPACING } from '../../tokens';
 import { useLocalization } from '../../../localization';
 
 interface AppHeaderProps {
@@ -35,15 +37,27 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   style,
 }) => {
   const { theme } = useAppTheme();
-  const { isRTL } = useLocalization();
+  const insets = useSafeAreaInsets();
+  const safeTop = insets.top;
+
+  const displayIcon = backIcon === 'close' ? 'chevron-back' : backIcon;
 
   return (
     <View
       style={[
         styles.row,
         {
-          flexDirection: isRTL ? 'row-reverse' : 'row',
-          borderBottomColor: theme.colors.border,
+          backgroundColor: '#003459',
+          borderBottomLeftRadius: 24,
+          borderBottomRightRadius: 24,
+          elevation: 5,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.15,
+          shadowRadius: 4,
+          paddingTop: safeTop + 8,
+          paddingBottom: 12,
+
         },
         style,
       ]}
@@ -51,19 +65,20 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       {/* Leading button */}
       <TouchableOpacity
         onPress={onBack}
-        style={[styles.btn, { backgroundColor: theme.colors.surface }]}
+        style={styles.btn}
         activeOpacity={0.7}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <Ionicons name={backIcon} size={22} color={theme.colors.textPrimary} />
+        <Ionicons name={displayIcon} size={26} color="#FFFFFF" />
       </TouchableOpacity>
+
 
       {/* Title */}
       <Text
         style={[
           styles.title,
           {
-            color: theme.colors.textPrimary,
+            color: '#FFFFFF',
             fontFamily: theme.typography.fontFamily,
           },
         ]}
@@ -84,19 +99,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 4,
+    borderBottomWidth: 0,
   },
   btn: {
-    width: 40,
-    height: 40,
-    borderRadius: RADIUS.lg,
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
   title: {
     flex: 1,
-    fontSize: FONT_SIZE.lg,
+    fontSize: 17,
     fontWeight: getPlatformFontWeight('700'),
     textAlign: 'center',
     marginHorizontal: SPACING.sm,

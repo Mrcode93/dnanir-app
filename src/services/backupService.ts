@@ -66,26 +66,26 @@ export async function createLocalBackup(): Promise<LocalBackupResult> {
 
 export type RestoreFromLocalResult =
   | { success: true }
-  | { success: false; error: string };
+  | { success: false; error: string; code?: 'BACKUP_OLDER'; data?: any };
 
 /**
  * Restore from the last backup file.
  * Checks: today's backup → stable "latest" backup → scans for most recent dated backup.
  */
-export async function restoreFromLastLocalBackup(): Promise<RestoreFromLocalResult> {
+export async function restoreFromLastLocalBackup(force: boolean = false): Promise<RestoreFromLocalResult> {
   try {
     // 1. Try today's backup first
     const todayPath = getBackupPath();
     const todayExists = await FileSystem.getInfoAsync(todayPath);
     if (todayExists.exists) {
-      return await restoreFromFileUri(todayPath);
+      return await restoreFromFileUri(todayPath, force);
     }
 
     // 2. Try the stable "latest" copy
     const latestPath = getLatestBackupPath();
     const latestExists = await FileSystem.getInfoAsync(latestPath);
     if (latestExists.exists) {
-      return await restoreFromFileUri(latestPath);
+      return await restoreFromFileUri(latestPath, force);
     }
 
     // 3. Scan for any dnanir-backup-*.json files and pick the most recent
@@ -98,7 +98,7 @@ export async function restoreFromLastLocalBackup(): Promise<RestoreFromLocalResu
 
     if (backupFiles.length > 0) {
       const mostRecent = `${dir}${backupFiles[0]}`;
-      return await restoreFromFileUri(mostRecent);
+      return await restoreFromFileUri(mostRecent, force);
     }
 
     return { success: false, error: 'لا توجد نسخة احتياطية محلية. أنشئ نسخة أولاً من الإعدادات.' };
@@ -110,7 +110,7 @@ export async function restoreFromLastLocalBackup(): Promise<RestoreFromLocalResu
 /**
  * Restore from a backup file at the given URI (e.g. from document picker or shared path).
  */
-export async function restoreFromFileUri(uri: string): Promise<RestoreFromLocalResult> {
+export async function restoreFromFileUri(uri: string, force: boolean = false): Promise<RestoreFromLocalResult> {
   try {
     const content = await FileSystem.readAsStringAsync(uri, {
       encoding: FileSystem.EncodingType.UTF8,
@@ -124,9 +124,16 @@ export async function restoreFromFileUri(uri: string): Promise<RestoreFromLocalR
     if (!('version' in data || 'expenses' in data)) {
       return { success: false, error: 'ملف غير صالح. اختر ملف نسخة احتياطية من دنانير.' };
     }
-    await importFullData(data);
+    await importFullData(data, force);
     return { success: true };
   } catch (err: any) {
+    if (err.message === 'BACKUP_OLDER_THAN_CURRENT') {
+      // Re-read or use the already parsed data to return it
+      const content = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.UTF8 });
+      const parsed = JSON.parse(content);
+      const data = await decryptFromStorage<Record<string, unknown>>(parsed);
+      return { success: false, error: 'النسخة الاحتياطية أقدم من البيانات الحالية على جهازك', code: 'BACKUP_OLDER', data };
+    }
     return { success: false, error: err?.message || 'فشل في استعادة النسخة الاحتياطية' };
   }
 }
@@ -135,7 +142,7 @@ export async function restoreFromFileUri(uri: string): Promise<RestoreFromLocalR
  * Open system document picker to choose a backup file, then restore from it.
  * Uses copyToCacheDirectory so FileSystem can read the file.
  */
-export async function pickBackupFileAndRestore(): Promise<RestoreFromLocalResult> {
+export async function pickBackupFileAndRestore(force: boolean = false): Promise<RestoreFromLocalResult> {
   try {
     const result = await DocumentPicker.getDocumentAsync({
       type: ['application/json', 'public.json', '*/*'],
@@ -146,7 +153,7 @@ export async function pickBackupFileAndRestore(): Promise<RestoreFromLocalResult
       return { success: false, error: 'لم يتم اختيار ملف' };
     }
     const uri = result.assets[0].uri;
-    return await restoreFromFileUri(uri);
+    return await restoreFromFileUri(uri, force);
   } catch (err: any) {
     return { success: false, error: err?.message || 'فشل في فتح الملف أو استعادته' };
   }

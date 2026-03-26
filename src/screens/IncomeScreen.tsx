@@ -19,6 +19,8 @@ import { getMonthRange, formatDateLocal } from '../utils/date';
 import { SmartAddModal } from '../components/SmartAddModal';
 import { usePrivacy } from '../context/PrivacyContext';
 import { TransactionDetailsModal } from '../components/TransactionDetailsModal';
+import { useWallets } from '../context/WalletContext';
+import { WalletSelector } from '../components/WalletSelector';
 import { tl, useLocalization } from "../localization";
 const ITEMS_PER_PAGE = 10;
 export const IncomeScreen = ({
@@ -36,6 +38,7 @@ export const IncomeScreen = ({
   const {
     isPrivacyEnabled
   } = usePrivacy();
+  const { selectedWallet } = useWallets();
   // Data State
   const [income, setIncome] = useState<Income[]>([]);
   const [totalAmount, setTotalAmount] = useState(0);
@@ -108,11 +111,16 @@ export const IncomeScreen = ({
         endDate: endDateStr,
         category: selectedCategory === 'all' ? undefined : selectedCategory
       };
-      const [newIncome, total, count] = await Promise.all([getIncomePaginated({
-        ...filterOptions,
-        limit: ITEMS_PER_PAGE,
-        offset: currentOffset
-      }), reset ? getIncomeTotalAmount(filterOptions) : Promise.resolve(null), reset ? getIncomeCount(filterOptions) : Promise.resolve(null)]);
+      const [newIncome, total, count] = await Promise.all([
+        getIncomePaginated({
+          ...filterOptions,
+          limit: ITEMS_PER_PAGE,
+          offset: currentOffset,
+          walletId: selectedWallet?.id
+        }), 
+        reset ? getIncomeTotalAmount({ ...filterOptions, walletId: selectedWallet?.id }) : Promise.resolve(null), 
+        reset ? getIncomeCount({ ...filterOptions, walletId: selectedWallet?.id }) : Promise.resolve(null)
+      ]);
       if (reset) {
         if (total !== null) setTotalAmount(total);
         if (count !== null) setTotalCount(count);
@@ -124,7 +132,7 @@ export const IncomeScreen = ({
       }
       setHasMore(newIncome.length >= ITEMS_PER_PAGE);
       if (reset && filterType === 'month') {
-        const months = await getAvailableIncomeMonths();
+        const months = await getAvailableIncomeMonths(selectedWallet?.id);
         setAvailableMonths(months);
       }
     } catch (error) {
@@ -134,10 +142,10 @@ export const IncomeScreen = ({
       setRefreshing(false);
       setLoadingMore(false);
     }
-  }, [selectedMonth, selectedCategory, offset, filterType, selectedDate]);
+  }, [selectedMonth, selectedCategory, offset, filterType, selectedDate, selectedWallet?.id]);
   useEffect(() => {
     fetchIncome(true);
-  }, [selectedMonth, selectedCategory, filterType, selectedDate]);
+  }, [selectedMonth, selectedCategory, filterType, selectedDate, selectedWallet?.id]);
   const loadCustomCategories = useCallback(async () => {
     try {
       const categories = await getCustomCategories('income');
@@ -277,19 +285,9 @@ export const IncomeScreen = ({
               month
             })} showAllOption={true} availableMonths={availableMonths} />
                   </View> : <TouchableOpacity style={styles.daySelector} onPress={() => setShowDatePicker(true)}>
-                    <Ionicons name="calendar-outline" size={20} color={theme.colors.primary} />
+                    <Ionicons name="calendar-outline" size={18} color={theme.colors.primary} />
                     <Text style={styles.daySelectorText}>{formatDateLocal(selectedDate)}</Text>
                   </TouchableOpacity>}
-
-                <TouchableOpacity style={{
-            padding: 8,
-            marginRight: isRTL ? 0 : 8,
-            marginLeft: isRTL ? 8 : 0
-          }} onPress={() => navigation.navigate('ManageCategories', {
-            type: 'income'
-          })}>
-                  <Ionicons name="albums-outline" size={24} color={theme.colors.textSecondary} />
-                </TouchableOpacity>
               </View>
 
               {showDatePicker && <CustomDatePicker value={selectedDate} onChange={(event, date) => {
@@ -406,9 +404,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   header: {
     backgroundColor: theme.colors.surface,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 0,
-    paddingBottom: 20,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
     ...getPlatformShadow('xs'),
@@ -445,8 +443,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
-    gap: 12
+    marginBottom: 12,
+    gap: 8
   },
   filterTypeToggle: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
