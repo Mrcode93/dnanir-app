@@ -755,7 +755,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     maxHeight: 200,
   },
   currencyOption: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: theme.spacing.sm,

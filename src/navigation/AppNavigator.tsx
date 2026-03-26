@@ -48,7 +48,7 @@ import { syncNewToServer } from '../services/syncService';
 import { alertService } from '../services/alertService';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { SmartAddActionScreen } from '../screens/SmartAddActionScreen';
-import { useLocalization } from '../localization';
+import { useLocalization, tl } from '../localization';
 
 import { CalendarScreen } from '../screens/CalendarScreen';
 import { SavingsScreen } from '../screens/SavingsScreen';
@@ -711,8 +711,8 @@ const MainTabs = () => {
   const { theme } = useAppTheme();
   const { t, isRTL } = useLocalization();
   const insets = useSafeAreaInsets();
-  const tabBottomPadding = Platform.OS === 'android' 
-    ? (insets.bottom > 0 ? insets.bottom + 8 : 16) 
+  const tabBottomPadding = Platform.OS === 'android'
+    ? (insets.bottom > 0 ? insets.bottom + 8 : 48)
     : Math.max(insets.bottom, 12);
   const tabBaseHeight = 56; // Compact tab bar height
 
@@ -738,7 +738,7 @@ const MainTabs = () => {
             shadowOffset: { width: 0, height: -4 },
             shadowOpacity: 0.1,
             shadowRadius: 12,
-            flexDirection: isRTL ? 'row' : 'row-reverse',
+            flexDirection: isRTL ? 'row-reverse' : 'row',
           },
           tabBarLabelStyle: {
             fontFamily: theme.typography.fontFamily,
@@ -1149,7 +1149,18 @@ export const AppNavigator = () => {
             ),
             headerRight: () => (
               <TouchableOpacity
-                onPress={() => {
+                onPress={async () => {
+                  const user = await authStorage.getUser<{ isPro?: boolean }>();
+                  const isPro = !!user?.isPro;
+                  if (!isPro) {
+                    alertService.show({
+                      title: tl("اشتراك مميز"),
+                      message: tl("إضافة محافظ جديدة متاحة للمشتركين المميزين فقط. قم بترقية حسابك للاستفادة من هذه الميزة."),
+                      type: 'warning',
+                      confirmText: tl("حسناً"),
+                    });
+                    return;
+                  }
                   navigation.navigate('AddWallet');
                 }}
                 style={{

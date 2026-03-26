@@ -939,218 +939,139 @@ export const ProfileScreen = ({
 
             {/* Account Section - Removed for now */}
 
-            {/* 2. حسابي والأمان */}
-            <View style={styles.sectionCard}>
-              <View style={styles.sectionContent}>
-                <View style={styles.sectionHeader}>
-                  <Ionicons name="person-circle-outline" size={22} color={theme.colors.primary} />
-                  <Text style={styles.sectionTitle}>{tl("حسابي والأمان")}</Text>
-                </View>
-
-                {/* Temporarily disabled Security Settings 
-                 <TouchableOpacity
-                  onPress={() => setShowAuthSettings(true)}
-                  style={styles.premiumRow}
-                  activeOpacity={0.7}
-                 >
-                  <View style={[styles.premiumIconBox, { backgroundColor: '#8B5CF620' }]}>
-                    <Ionicons name="lock-closed" size={22} color="#8B5CF6" />
+            {/* Account & Settings Sections */}
+            
+            {/* Group 1: Account / Sync */}
+            <View style={styles.settingsGroup}>
+              {!isAuthenticated ? (
+                <TouchableOpacity onPress={() => authModalService.show({ onSuccess: (user: any) => checkAuthStatus(user) })} style={styles.settingsRow} activeOpacity={0.7}>
+                  <View style={[styles.premiumIconBox, { backgroundColor: '#3B82F615' }]}>
+                    <Ionicons name="person-add" size={22} color="#3B82F6" />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.premiumItemTitle}>الأمان والقفل</Text>
-                    <Text style={styles.premiumItemSubtitle}>كلمة مرور، Face ID، أو البصمة</Text>
+                    <Text style={styles.premiumItemTitle}>{tl("إنشاء حساب / دخول")}</Text>
+                    <Text style={styles.premiumItemSubtitle}>{tl("لحفظ بياناتك وموعد ميزانيتك")}</Text>
                   </View>
-                  <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={18} color={theme.colors.textSecondary} />
-                 </TouchableOpacity>
-                 */}
 
-                {!isAuthenticated && <TouchableOpacity onPress={() => authModalService.show({
-              onSuccess: (user: any) => checkAuthStatus(user)
-            })} style={styles.premiumRow} activeOpacity={0.7}>
-                    <View style={[styles.premiumIconBox, {
-                backgroundColor: '#3B82F620'
-              }]}>
-                      <Ionicons name="person-add" size={22} color="#3B82F6" />
-                    </View>
-                    <View style={{
-                flex: 1
-              }}>
-                      <Text style={styles.premiumItemTitle}>{tl("إنشاء حساب / دخول")}</Text>
-                      <Text style={styles.premiumItemSubtitle}>{tl("لحفظ بياناتك وموعد ميزانيتك")}</Text>
-                    </View>
-                    <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={18} color={theme.colors.textSecondary} />
-                  </TouchableOpacity>}
-
-                {isAuthenticated && <TouchableOpacity onPress={handleLogout} style={[styles.premiumRow, {
-              backgroundColor: '#EF444405',
-              borderColor: '#EF444420'
-            }]} activeOpacity={0.7}>
-                    <View style={[styles.premiumIconBox, {
-                backgroundColor: '#EF444420'
-              }]}>
-                      <Ionicons name="log-out" size={22} color="#EF4444" />
-                    </View>
-                    <View style={{
-                flex: 1
-              }}>
-                      <Text style={[styles.premiumItemTitle, {
-                  color: '#EF4444'
-                }]}>{tl("تسجيل الخروج")}</Text>
-                      <Text style={styles.premiumItemSubtitle}>{tl("الخروج من الحساب الحالي")}</Text>
-                    </View>
-                    <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={18} color="#EF4444" />
-                  </TouchableOpacity>}
-                {isAuthenticated && <View style={styles.premiumRow}>
-                    <View style={[styles.premiumIconBox, {
-                backgroundColor: theme.colors.primary + '15'
-              }]}>
+                </TouchableOpacity>
+              ) : (
+                <>
+                  <View style={[styles.settingsRow, styles.settingsRowBorder]}>
+                    <View style={[styles.premiumIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
                       <Ionicons name="sync" size={22} color={theme.colors.primary} />
                     </View>
-                    <View style={{
-                flex: 1
-              }}>
+                    <View style={{ flex: 1 }}>
                       <Text style={styles.premiumItemTitle}>{tl("مزامنة تلقائية")}</Text>
-                      <Text style={styles.premiumItemSubtitle}>{tl("مزامنة البيانات تلقائياً عند فتح التطبيق (مميز)")}</Text>
+                      <Text style={styles.premiumItemSubtitle}>{tl("مزامنة البيانات تلقائياً (مميز)")}</Text>
                     </View>
-                    <Switch value={autoSyncEnabled} onValueChange={handleAutoSyncToggle} trackColor={{
-                false: '#767577',
-                true: theme.colors.primary
-              }} thumbColor={autoSyncEnabled ? '#FFFFFF' : '#f4f3f4'} />
-                  </View>}
-                {isAuthenticated && <TouchableOpacity onPress={async () => {
-              if (syncing) return;
-              const user = await authStorage.getUser<{
-                isPro?: boolean;
-                is_pro?: boolean;
-              }>();
-              const isPro = user?.isPro === true || (user as any)?.is_pro === true;
-              if (!isPro) {
-                alertService.show({
-                  title: tl("اشتراك مميز"),
-                  message: tl("مزامنة البيانات متاحة للمشتركين المميزين فقط."),
-                  type: 'warning',
-                  confirmText: tl("حسناً")
-                });
-                return;
-              }
-              setSyncing(true);
-              const result = await syncNewToServer();
-              setSyncing(false);
-              if (result.success) {
-                alertService.toastSuccess(result.count > 0 ? tl("تمت إضافة {{}} عنصر جديد", [result.count]) : tl("لا توجد بيانات جديدة"));
-              } else {
-                alertService.error(tl("فشل المزامنة"), result.error);
-              }
-            }} style={[styles.premiumRow, {
-              backgroundColor: theme.colors.primary + '05',
-              borderColor: theme.colors.primary + '20'
-            }]} activeOpacity={0.7} disabled={syncing}>
-                    <View style={[styles.premiumIconBox, {
-                backgroundColor: theme.colors.primary + '20'
-              }]}>
+                    <Switch value={autoSyncEnabled} onValueChange={handleAutoSyncToggle} trackColor={{ false: '#767577', true: theme.colors.primary }} thumbColor={autoSyncEnabled ? '#FFFFFF' : '#f4f3f4'} />
+                  </View>
+                  
+                  <TouchableOpacity onPress={async () => {
+                    if (syncing) return;
+                    const user = await authStorage.getUser<{ isPro?: boolean; is_pro?: boolean; }>();
+                    const isPro = user?.isPro === true || (user as any)?.is_pro === true;
+                    if (!isPro) {
+                      alertService.show({ title: tl("اشتراك مميز"), message: tl("مزامنة البيانات متاحة للمشتركين المميزين فقط."), type: 'warning', confirmText: tl("حسناً") });
+                      return;
+                    }
+                    setSyncing(true);
+                    const result = await syncNewToServer();
+                    setSyncing(false);
+                    if (result.success) {
+                      alertService.toastSuccess(result.count > 0 ? tl("تمت إضافة {{}} عنصر جديد", [result.count]) : tl("لا توجد بيانات جديدة"));
+                    } else {
+                      alertService.error(tl("فشل المزامنة"), result.error);
+                    }
+                  }} style={styles.settingsRow} activeOpacity={0.7} disabled={syncing}>
+                    <View style={[styles.premiumIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
                       {syncing ? <ActivityIndicator size="small" color={theme.colors.primary} /> : <Ionicons name="cloud-upload" size={22} color={theme.colors.primary} />}
                     </View>
-                    <View style={{
-                flex: 1
-              }}>
-                      <Text style={styles.premiumItemTitle}>
-                        {syncing ? tl("جاري المزامنة...") : tl("مزامنة البيانات")}
-                      </Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.premiumItemTitle}>{syncing ? tl("جاري المزامنة...") : tl("مزامنة البيانات")}</Text>
                       <Text style={styles.premiumItemSubtitle}>{tl("إضافة البيانات الجديدة للسيرفر (مميز)")}</Text>
                     </View>
-                    {!syncing && <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={18} color={theme.colors.textSecondary} />}
-                  </TouchableOpacity>}
-              </View>
+
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
 
-            {/* Promo Code Section */}
-            {isAuthenticated && <View style={styles.sectionCard}>
-                <View style={styles.sectionContent}>
-                  <View style={styles.sectionHeader}>
-                    <Ionicons name="ticket-outline" size={22} color="#D4AF37" />
-                    <Text style={styles.sectionTitle}>{tl("كود الخصم (Promo Code)")}</Text>
+            {/* Group 2: Perks (Promo / Referral) */}
+            {isAuthenticated && (
+              <View style={styles.settingsGroup}>
+                <TouchableOpacity onPress={() => setShowPromoModal(true)} style={[styles.settingsRow, styles.settingsRowBorder]} activeOpacity={0.7}>
+                  <View style={[styles.premiumIconBox, { backgroundColor: '#D4AF3715' }]}>
+                    <Ionicons name="ticket" size={22} color="#D4AF37" />
                   </View>
-                  <TouchableOpacity onPress={() => setShowPromoModal(true)} style={styles.promoCodeButton} activeOpacity={0.8}>
-                    <LinearGradient colors={[theme.colors.warning || '#D4AF37', theme.colors.warning ? theme.colors.warning + 'B3' : '#B8860B']} style={styles.promoCodeButtonGradient} start={{
-                x: 0,
-                y: 0
-              }} end={{
-                x: 1,
-                y: 0
-              }}>
-                      <Ionicons name="ticket" size={22} color={theme.colors.textInverse || '#FFFFFF'} />
-                      <Text style={styles.promoCodeButtonText}>{tl("استخدام كود برومو (Promo Code)")}</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </View>
-              </View>}
-
-            {/* Referral Program Section */}
-            {isAuthenticated && <View style={styles.sectionCard}>
-                <View style={styles.sectionContent}>
-                  <View style={styles.sectionHeader}>
-                    <Ionicons name="gift-outline" size={22} color="#F59E0B" />
-                    <Text style={styles.sectionTitle}>{tl("برنامج الإحالة")}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.premiumItemTitle}>{tl("كود الخصم (Promo Code)")}</Text>
                   </View>
 
-                  <View style={styles.referralCard}>
-                    <View style={styles.referralHero}>
-                      <View style={[styles.referralIconBox, {
-                  backgroundColor: theme.colors.warning + '15'
-                }]}>
-                        <Ionicons name="gift" size={32} color={theme.colors.warning || '#F59E0B'} />
-                      </View>
-                      <View style={styles.referralTextContent}>
-                        <Text style={[styles.referralTitleText, {
-                    color: theme.colors.textPrimary
-                  }]}>{tl("ادعُ أصدقاءك واكسب \"برو\"")}</Text>
-                        <Text style={[styles.referralSubtitleText, {
-                    color: theme.colors.textSecondary
-                  }]}>{tl("كل صديق يستخدم الكود المخصص لك، ستحصل أنت وهو على 7 أيام اشتراك برو مجاناً!")}</Text>
-                      </View>
+                </TouchableOpacity>
+
+                <View style={[styles.settingsRow, { flexDirection: 'column', alignItems: 'stretch' }]}>
+                  <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', marginBottom: 16 }}>
+                    <View style={[styles.premiumIconBox, { backgroundColor: '#F59E0B15' }]}>
+                      <Ionicons name="gift" size={22} color="#F59E0B" />
                     </View>
-
-                    {loadingReferral ? <ActivityIndicator color={theme.colors.primary} style={{
-                marginVertical: 20
-              }} /> : referralInfo ? <View style={[styles.referralCodeBox, {
-                backgroundColor: theme.colors.surfaceLight,
-                borderColor: theme.colors.border
-              }]}>
-                        <View style={styles.codeContainer}>
-                          <Text style={[styles.codeLabel, {
-                    color: theme.colors.textSecondary
-                  }]}>{tl("الكود المخصص لك:")}</Text>
-                          <View style={styles.codeRow}>
-                            <Text style={[styles.codeValue, {
-                      color: theme.colors.primary
-                    }]}>{referralInfo.referralCode}</Text>
-                            <TouchableOpacity onPress={async () => {
-                      await Clipboard.setStringAsync(referralInfo.referralCode);
-                      alertService.toastSuccess(tl("تم نسخ الكود"));
-                    }} style={styles.copyButton}>
-                              <Ionicons name="copy-outline" size={20} color={theme.colors.primary} />
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-
-                        <View style={styles.referralStatBox}>
-                          <Text style={styles.referralStatLabel}>{tl("عدد الإحالات الناجحة:")}</Text>
-                          <Text style={styles.referralStatValue}>{referralInfo.referralCount || 0}</Text>
-                        </View>
-
-                        <TouchableOpacity onPress={handleShareReferral} style={styles.shareCodeButton} activeOpacity={0.8}>
-                          <Ionicons name="share-social-outline" size={20} color="#FFFFFF" />
-                          <Text style={styles.shareCodeButtonText}>{tl("مشاركة الكود مع الأصدقاء")}</Text>
-                        </TouchableOpacity>
-
-                        {!userData?.referredBy && <TouchableOpacity onPress={() => setShowReferralModal(true)} style={styles.referralEntryButton} activeOpacity={0.8}>
-                            <Ionicons name="gift-outline" size={20} color={theme.colors.primary} />
-                            <Text style={styles.referralEntryButtonText}>{tl("هل لديك كود إحالة؟ أدخله هنا")}</Text>
-                          </TouchableOpacity>}
-                      </View> : <Text style={styles.referralErrorText}>{tl("فشل تحميل بيانات الإحالة. يرجى سحب الصفحة للتحديث.")}</Text>}
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.premiumItemTitle}>{tl("برنامج الإحالة")}</Text>
+                      <Text style={styles.premiumItemSubtitle}>{tl("ادعُ أصدقاءك واكسب \"برو\"")}</Text>
+                    </View>
                   </View>
+
+                  {loadingReferral ? (
+                    <ActivityIndicator color={theme.colors.primary} style={{ marginVertical: 20 }} />
+                  ) : referralInfo ? (
+                    <View style={[styles.referralCodeBox, { backgroundColor: theme.colors.surfaceLight, borderColor: theme.colors.border }]}>
+                      <View style={styles.codeContainer}>
+                        <Text style={[styles.codeLabel, { color: theme.colors.textSecondary }]}>{tl("الكود المخصص لك:")}</Text>
+                        <View style={styles.codeRow}>
+                          <Text style={[styles.codeValue, { color: theme.colors.primary }]}>{referralInfo.referralCode}</Text>
+                          <TouchableOpacity onPress={async () => {
+                            await Clipboard.setStringAsync(referralInfo.referralCode);
+                            alertService.toastSuccess(tl("تم نسخ الكود"));
+                          }} style={styles.copyButton}>
+                            <Ionicons name="copy-outline" size={20} color={theme.colors.primary} />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                      <View style={styles.referralStatBox}>
+                        <Text style={styles.referralStatLabel}>{tl("عدد الإحالات الناجحة:")}</Text>
+                        <Text style={styles.referralStatValue}>{referralInfo.referralCount || 0}</Text>
+                      </View>
+                      <TouchableOpacity onPress={handleShareReferral} style={styles.shareCodeButton} activeOpacity={0.8}>
+                        <Ionicons name="share-social-outline" size={20} color="#FFFFFF" />
+                        <Text style={styles.shareCodeButtonText}>{tl("مشاركة الكود مع الأصدقاء")}</Text>
+                      </TouchableOpacity>
+                      {!userData?.referredBy && (
+                        <TouchableOpacity onPress={() => setShowReferralModal(true)} style={styles.referralEntryButton} activeOpacity={0.8}>
+                          <Ionicons name="gift-outline" size={20} color={theme.colors.primary} />
+                          <Text style={styles.referralEntryButtonText}>{tl("هل لديك كود إحالة؟ أدخله هنا")}</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ) : (
+                    <Text style={styles.referralErrorText}>{tl("فشل تحميل بيانات الإحالة. يرجى سحب الصفحة للتحديث.")}</Text>
+                  )}
                 </View>
-              </View>}
+              </View>
+            )}
+
+            {/* Group 3: Logout */}
+            {isAuthenticated && (
+              <View style={[styles.settingsGroup, { marginBottom: 40 }]}>
+                <TouchableOpacity onPress={handleLogout} style={styles.settingsRow} activeOpacity={0.7}>
+                  <View style={[styles.premiumIconBox, { backgroundColor: '#EF444415' }]}>
+                    <Ionicons name="log-out" size={22} color="#EF4444" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.premiumItemTitle, { color: '#EF4444' }]}>{tl("تسجيل الخروج")}</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            )}
           </>}
 
       </ScrollView>
@@ -1285,7 +1206,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     ...getPlatformShadow('sm')
   },
   skeletonProfileHeader: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     gap: 12
   },
@@ -1331,7 +1252,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: 2
   },
   skeletonRow: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     gap: 12,
     paddingVertical: 8
@@ -1346,27 +1267,24 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     flex: 1,
     gap: 8
   },
-  sectionCard: {
+  settingsGroup: {
     marginBottom: theme.spacing.lg,
     backgroundColor: theme.colors.surfaceCard,
     borderRadius: 24,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: theme.colors.border + '30',
-    ...getPlatformShadow('md')
+    ...getPlatformShadow('sm')
   },
-  sectionHeader: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+  settingsRow: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: theme.spacing.sm,
-    paddingBottom: theme.spacing.sm,
+    padding: theme.spacing.md,
+    backgroundColor: 'transparent'
+  },
+  settingsRowBorder: {
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border + '20'
-  },
-  sectionContent: {
-    padding: Platform.OS === 'android' ? 12 : theme.spacing.lg,
-    direction: isRTL ? 'rtl' : 'ltr'
   },
   profileCard: {
     borderRadius: 24,
@@ -1392,7 +1310,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     })
   },
   proCrownBanner: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(212, 175, 55, 0.25)',
     paddingHorizontal: 8,
@@ -1463,7 +1381,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: isRTL ? 'flex-start' : 'flex-end'
   },
   userNameRow: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: 6
@@ -1514,7 +1432,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: 'rgba(212, 175, 55, 0.35)'
   },
   proExpiryBadge: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(212, 175, 55, 0.15)',
     alignSelf: isRTL ? 'flex-start' : 'flex-end',
@@ -1579,7 +1497,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily
   },
   statsRow: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     marginTop: 28,
     paddingTop: 24,
     borderTopWidth: 1,
@@ -1611,7 +1529,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     textShadowRadius: 2
   },
   copyIdButton: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
@@ -1634,7 +1552,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)'
   },
   proFeaturesRow: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     flexWrap: 'wrap',
     justifyContent: 'flex-start',
     gap: 6,
@@ -1704,17 +1622,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     textAlign: 'left'
   },
   // Premium Custom Action Items (no full color, cleaner look)
-  premiumRow: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 18,
-    marginBottom: 10,
-    backgroundColor: theme.colors.surfaceLight,
-    borderWidth: 1,
-    borderColor: theme.colors.border + '15'
-  },
+
   premiumIconBox: {
     width: 44,
     height: 44,
@@ -1758,7 +1666,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderColor: theme.colors.border + '20'
   },
   modalHeader: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 24,
@@ -1802,7 +1710,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderColor: theme.colors.border + '40'
   },
   modalActions: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     padding: 24,
     gap: 12,
     borderTopWidth: 1,
@@ -1855,7 +1763,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderColor: theme.colors.border + '15'
   },
   accountInfoLeft: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     gap: theme.spacing.md
   },
@@ -1888,7 +1796,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     ...getPlatformShadow('md')
   },
   loginButtonGradient: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
     padding: theme.spacing.md,
@@ -1974,7 +1882,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     textAlign: 'left'
   },
   timePickerButton: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: theme.colors.surfaceLight,
@@ -1999,7 +1907,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     ...getPlatformShadow('sm')
   },
   testNotificationButtonGradient: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: theme.spacing.md,
@@ -2019,7 +1927,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     ...getPlatformShadow('md')
   },
   exportButtonGradient: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
@@ -2100,7 +2008,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderColor: theme.colors.border + '20'
   },
   currencyOption: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
@@ -2129,14 +2037,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     ...getPlatformShadow('sm')
   },
   authItemGradient: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: theme.spacing.md,
     direction: isRTL ? 'rtl' : 'ltr'
   },
   authItemLeft: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     flex: 1,
     gap: theme.spacing.md
@@ -2191,13 +2099,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     ...getPlatformShadow('sm')
   },
   exchangeRateItemGradient: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16
   },
   exchangeRateItemLeft: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     flex: 1,
     gap: 16
@@ -2236,13 +2144,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.2)'
   },
   contactItemGradient: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20
   },
   contactItemLeft: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     flex: 1,
     gap: 16
@@ -2588,7 +2496,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     ...getPlatformShadow('sm')
   },
   referralHero: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     gap: 16,
     marginBottom: 20
@@ -2658,7 +2566,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'center'
   },
   referralStatBox: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
@@ -2679,7 +2587,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily
   },
   shareCodeButton: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     height: 52,
     backgroundColor: theme.colors.primary,
     borderRadius: 14,
@@ -2703,7 +2611,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   promoCodeButtonGradient: {
     flex: 1,
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
@@ -2717,7 +2625,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   referralEntryButton: {
     marginTop: 12,
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     height: 52,
     backgroundColor: theme.colors.surfaceLight,
     borderRadius: 14,

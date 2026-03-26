@@ -480,7 +480,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   shortcutsContent: {
     paddingHorizontal: 0,
     gap: 12,
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'center'
   },
   addShortcutMini: {

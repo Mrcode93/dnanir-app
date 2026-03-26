@@ -429,7 +429,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     maxHeight: 350
   },
   pickerItem: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: theme.spacing.sm,

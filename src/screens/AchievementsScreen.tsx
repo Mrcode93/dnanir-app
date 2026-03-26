@@ -420,7 +420,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: theme.borderRadius.round,
     overflow: 'hidden',
     marginBottom: theme.spacing.xs,
-    flexDirection: isRTL ? 'row' : 'row-reverse'
+    flexDirection: isRTL ? 'row-reverse' : 'row'
   },
   progressFill: {
     height: '100%',

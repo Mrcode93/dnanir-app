@@ -372,7 +372,7 @@ export const AddBillScreen: React.FC<AddBillScreenProps> = ({
 };
 const createStyles = (theme: AppTheme) => StyleSheet.create({
   amountSection: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 20,

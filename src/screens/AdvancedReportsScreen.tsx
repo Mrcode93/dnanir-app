@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, Text, TouchableOpacity, Alert, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Searchbar, Button } from 'react-native-paper';
@@ -40,19 +40,17 @@ export const AdvancedReportsScreen = ({
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [customCategories, setCustomCategories] = useState<any[]>([]);
   const [customSources, setCustomSources] = useState<any[]>([]);
-  useEffect(() => {
-    loadCustomCategories();
-    generateReport();
-  }, []);
-  const loadCustomCategories = async () => {
+  // Skip the first run of the categories/sources → filter sync effect (both start empty so no change needed)
+  const isMountedRef = React.useRef(false);
+  const loadCustomCategories = useCallback(async () => {
     try {
       const expenseCategories = await getCustomCategories('expense');
       const incomeSources = await getCustomCategories('income');
       setCustomCategories(expenseCategories);
       setCustomSources(incomeSources);
     } catch (error) {}
-  };
-  const generateReport = async () => {
+  }, []);
+  const generateReport = useCallback(async () => {
     setLoading(true);
     try {
       const data = await generateAdvancedReport(filter);
@@ -62,7 +60,11 @@ export const AdvancedReportsScreen = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [filter]);
+  // Load custom categories once on mount; generateReport is triggered by the [filter] effect below
+  useEffect(() => {
+    loadCustomCategories();
+  }, [loadCustomCategories]);
   const handleExportCSV = async () => {
     try {
       const csv = await exportReportToCSV(filter);
@@ -104,18 +106,24 @@ export const AdvancedReportsScreen = ({
       setSelectedSources([...selectedSources, source]);
     }
   };
+  // Sync selected categories/sources into filter (skip initial mount — both start empty, no change needed)
   useEffect(() => {
-    setFilter({
-      ...filter,
+    if (!isMountedRef.current) {
+      isMountedRef.current = true;
+      return;
+    }
+    setFilter(prev => ({
+      ...prev,
       categories: selectedCategories.length > 0 ? selectedCategories : undefined,
       incomeSources: selectedSources.length > 0 ? selectedSources : undefined
-    });
+    }));
   }, [selectedCategories, selectedSources]);
+  // Re-generate report whenever filter changes (also covers initial load)
   useEffect(() => {
     generateReport();
-  }, [filter]);
-  const allCategories = customCategories.map(c => c.name);
-  const allSources = customSources.map(s => s.name);
+  }, [generateReport]);
+  const allCategories = React.useMemo(() => customCategories.map(c => c.name), [customCategories]);
+  const allSources = React.useMemo(() => customSources.map(s => s.name), [customSources]);
   return <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Filters */}

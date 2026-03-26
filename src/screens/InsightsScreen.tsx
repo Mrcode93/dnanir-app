@@ -167,13 +167,13 @@ export const InsightsScreen = ({
       alertService.error(tl("خطأ"), tl("تعذر مشاركة الملخص حالياً"));
     }
   };
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       // Parallelize non-dependent requests
       const [months, customCats, prediction, trend] = await Promise.all([
-        getAvailableMonths(), 
-        getCustomCategories('expense'), 
-        predictNextMonthExpenses(3, selectedWallet?.id), 
+        getAvailableMonths(),
+        getCustomCategories('expense'),
+        predictNextMonthExpenses(3, selectedWallet?.id),
         getMonthlyTrendData(6, selectedWallet?.id)
       ]);
       setAvailableMonths(months);
@@ -231,44 +231,40 @@ export const InsightsScreen = ({
         setComparisonData(comparison);
       }
     } catch (error) {}
-  };
+  }, [selectedWallet?.id, selectedMonth, showComparison, selectedPeriod1, selectedPeriod2]);
   useFocusEffect(useCallback(() => {
     const task = InteractionManager.runAfterInteractions(() => {
       loadData();
     });
     return () => task.cancel();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedWallet?.id, selectedMonth, showComparison]));
+  }, [loadData]));
   const onRefresh = async () => {
     setRefreshing(true);
     await loadData();
     setRefreshing(false);
   };
-  const calculateHealthScore = () => {
+  const healthScore = useMemo(() => {
     if (!summary) return 0;
     if (summary.totalIncome === 0) return 0;
     const expenseRatio = summary.totalExpenses / summary.totalIncome;
     const balanceRatio = summary.balance / summary.totalIncome;
     let score = 100;
-    // Basic scoring logic
     if (expenseRatio > 0.9) score -= 40;else if (expenseRatio > 0.8) score -= 30;else if (expenseRatio > 0.7) score -= 20;else if (expenseRatio > 0.6) score -= 10;else if (expenseRatio <= 0.5) score += 5;
     if (balanceRatio > 0.3) score += 20;else if (balanceRatio > 0.2) score += 15;else if (balanceRatio > 0.1) score += 10;else if (balanceRatio > 0) score += 5;
     if (summary.balance < 0) score -= 30;
     return Math.max(0, Math.min(100, Math.round(score)));
-  };
-  const getHealthColor = (score: number) => {
-    if (score >= 80) return ['#10B981', '#059669']; // Emerald
-    if (score >= 60) return ['#F59E0B', '#D97706']; // Amber
-    return ['#EF4444', '#DC2626']; // Red
-  };
+  }, [summary]);
+  const healthColors = useMemo(() => {
+    if (healthScore >= 80) return ['#10B981', '#059669'];
+    if (healthScore >= 60) return ['#F59E0B', '#D97706'];
+    return ['#EF4444', '#DC2626'];
+  }, [healthScore]);
   const getHealthLabel = (score: number) => {
     if (score >= 80) return tl("ممتاز");
     if (score >= 60) return tl("جيد");
     if (score >= 40) return tl("متوسط");
     return tl("يحتاج تحسين");
   };
-  const healthScore = calculateHealthScore();
-  const healthColors = getHealthColor(healthScore);
 
   // --- Charts Data Helpers ---
   const getExpenseTrendData = useCallback(() => {

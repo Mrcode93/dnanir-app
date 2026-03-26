@@ -229,7 +229,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
 
             {/* Amount Section - Premium Style */}
             <View style={styles.amountSection}>
-                <TouchableOpacity onPress={() => setShowCurrencyPicker(true)} style={{ flexDirection: isRTL ? 'row' : 'row-reverse', alignItems: 'center' }}>
+                <TouchableOpacity onPress={() => setShowCurrencyPicker(true)} style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center' }}>
                     <Text style={styles.currencySymbol}>{currency}</Text>
                     <Ionicons name="chevron-down" size={16} color={theme.colors.textSecondary} />
                 </TouchableOpacity>
@@ -476,7 +476,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
 };
 const createStyles = (theme: AppTheme) => StyleSheet.create({
   amountSection: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 20,

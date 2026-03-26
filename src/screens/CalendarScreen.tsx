@@ -257,7 +257,7 @@ export const CalendarScreen = ({
 };
 const createStyles = (theme: AppTheme) => StyleSheet.create({
   topHeader: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,

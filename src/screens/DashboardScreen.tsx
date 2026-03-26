@@ -1678,7 +1678,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   goalsCarousel: {
     gap: theme.spacing.md,
     paddingRight: theme.spacing.lg,
-    flexDirection: isRTL ? 'row' : 'row-reverse'
+    flexDirection: isRTL ? 'row-reverse' : 'row'
   },
   goalCard: {
     width: width * 0.75,
@@ -1692,7 +1692,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     ...getPlatformShadow('md')
   },
   goalCardHeader: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     marginBottom: theme.spacing.md,
     gap: theme.spacing.sm
@@ -2093,7 +2093,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     width: '100%',
     direction: isRTL ? 'rtl' : 'ltr',
     textAlign: 'right',
-    flexDirection: isRTL ? 'row' : 'row-reverse'
+    flexDirection: isRTL ? 'row-reverse' : 'row'
   },
   achievementProgressFill: {
     height: '100%',

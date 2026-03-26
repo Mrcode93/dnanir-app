@@ -503,7 +503,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     direction: isRTL ? 'rtl' : 'ltr'
   },
   headerTitleRow: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: theme.spacing.md
@@ -732,7 +732,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     maxHeight: '70%'
   },
   filterMenuHeader: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: theme.spacing.lg,
@@ -763,13 +763,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     ...getPlatformShadow('md')
   },
   filterMenuItemGradient: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     padding: theme.spacing.md,
     gap: theme.spacing.sm
   },
   filterMenuItemDefault: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     padding: theme.spacing.md,
     backgroundColor: theme.colors.surfaceLight,

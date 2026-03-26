@@ -22,6 +22,9 @@ import { initDatabase } from './src/database/database';
 import { lightTheme, darkTheme } from './src/utils/theme-constants';
 import { ThemeProvider, ThemeMode } from './src/utils/theme-context';
 import { initializeNotifications, runSmartFinancialAlerts } from './src/services/notificationService';
+// Must be imported at module level so TaskManager.defineTask() runs before any component mounts
+import './src/tasks/backgroundNotificationTask';
+import { registerBackgroundNotificationTask } from './src/tasks/backgroundNotificationTask';
 import { isAuthenticationEnabled } from './src/services/authService';
 import { authEventService } from './src/services/authEventService';
 import { syncNewToServer } from './src/services/syncService';
@@ -199,7 +202,6 @@ export default function App() {
     
     // Set navigation bar on Android
     if (Platform.OS === 'android') {
-      NavigationBar.setPositionAsync('absolute');
       NavigationBar.setBackgroundColorAsync('#00000000'); // Transparent
       NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark');
       NavigationBar.setBehaviorAsync('inset-touch');
@@ -334,6 +336,7 @@ export default function App() {
           if (!cancelled) {
             lastNotificationRefreshRef.current = Date.now();
           }
+          await registerBackgroundNotificationTask();
         } catch (e) {
           // console.warn('Notifications init skipped:', e);
         }

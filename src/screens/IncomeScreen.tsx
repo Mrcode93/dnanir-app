@@ -418,7 +418,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     zIndex: 11
   },
   screenHeader: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
@@ -496,7 +496,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     direction: isRTL ? 'rtl' : 'ltr'
   },
   categoriesContent: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     gap: 8,
     paddingHorizontal: 4
   },
@@ -689,7 +689,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     ...getPlatformShadow('xl')
   },
   pickerHeader: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border

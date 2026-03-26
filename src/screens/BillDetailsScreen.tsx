@@ -265,7 +265,7 @@ export const BillDetailsScreen = ({
           </TouchableOpacity>
 
           <View style={{
-          flexDirection: isRTL ? 'row' : 'row-reverse',
+          flexDirection: isRTL ? 'row-reverse' : 'row',
           gap: 12
         }}>
             <TouchableOpacity onPress={handleEdit} activeOpacity={0.8} style={[styles.actionButton, styles.actionButtonSecondary, {

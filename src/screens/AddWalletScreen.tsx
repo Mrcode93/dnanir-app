@@ -8,6 +8,7 @@ import { useWallets } from '../context/WalletContext';
 import { Wallet } from '../types';
 import { isRTL } from '../utils/rtl';
 import { type AppTheme, getPlatformFontWeight, getPlatformShadow } from '../utils/theme-constants';
+import { authStorage } from '../services/authStorage';
 import { tl, useLocalization } from "../localization";
 
 const WALLET_ICONS = ['wallet', 'card', 'cash', 'briefcase', 'gift', 'cart', 'home', 'car'];
@@ -34,6 +35,27 @@ export const AddWalletScreen = ({ navigation, route }: any) => {
       setSelectedColor(editingWallet.color || WALLET_COLORS[0]);
     }
   }, [editingWallet]);
+
+  // Pro gate — adding wallets is restricted to Pro subscribers
+  useEffect(() => {
+    if (editingWallet) return; // Editing an existing wallet is allowed for all
+    let cancelled = false;
+    authStorage.getUser<{ isPro?: boolean }>().then(user => {
+      if (cancelled) return;
+      const isPro = !!user?.isPro;
+      if (!isPro) {
+        alertService.show({
+          title: tl("اشتراك مميز"),
+          message: tl("إضافة محافظ جديدة متاحة للمشتركين المميزين فقط. قم بترقية حسابك للاستفادة من هذه الميزة."),
+          type: 'warning',
+          confirmText: tl("حسناً"),
+          onConfirm: () => navigation.goBack(),
+        });
+        navigation.goBack();
+      }
+    });
+    return () => { cancelled = true; };
+  }, [editingWallet, navigation]);
 
   const handleSave = async () => {
     if (!name.trim()) {

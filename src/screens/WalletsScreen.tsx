@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { alertService } from '../services/alertService';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import { Wallet } from '../types';
 import { isRTL } from '../utils/rtl';
 import { useCurrency } from '../hooks/useCurrency';
 import { getPlatformShadow, getPlatformFontWeight, type AppTheme } from '../utils/theme-constants';
+import { authStorage } from '../services/authStorage';
 import { tl, useLocalization } from "../localization";
 
 export const WalletsScreen = ({ navigation }: any) => {
@@ -18,6 +19,26 @@ export const WalletsScreen = ({ navigation }: any) => {
   const styles = useThemedStyles(createStyles);
   const { wallets, deleteWallet, setDefaultWallet } = useWallets();
   const { formatCurrency } = useCurrency();
+
+  // Pro gate — wallets feature is restricted to Pro subscribers
+  useEffect(() => {
+    let cancelled = false;
+    authStorage.getUser<{ isPro?: boolean }>().then(user => {
+      if (cancelled) return;
+      const isPro = !!user?.isPro;
+      if (!isPro) {
+        alertService.show({
+          title: tl("اشتراك مميز"),
+          message: tl("إدارة المحافظ متاحة للمشتركين المميزين فقط. قم بترقية حسابك للاستفادة من هذه الميزة."),
+          type: 'warning',
+          confirmText: tl("حسناً"),
+          onConfirm: () => navigation.goBack(),
+        });
+        navigation.goBack();
+      }
+    });
+    return () => { cancelled = true; };
+  }, [navigation]);
 
   const handleEditWallet = (wallet: Wallet) => {
     navigation.navigate('AddWallet', { wallet });

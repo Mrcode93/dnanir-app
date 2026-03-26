@@ -479,7 +479,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     gap: 16
   },
   addModalOption: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     padding: 16,
     backgroundColor: theme.colors.surface,
