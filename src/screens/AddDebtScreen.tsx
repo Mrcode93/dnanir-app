@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Switch, Keyboard, Dimensions, StatusBar, ScrollView, Platform } from 'react-native';
 import { TextInput, IconButton, Surface } from 'react-native-paper';
 import { CustomDatePicker } from '../components/CustomDatePicker';
+import { CurrencyPickerModal } from '../components/CurrencyPickerModal';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
@@ -34,7 +35,8 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
   } = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const {
-    formatCurrency
+    formatCurrency,
+    currencyCode
   } = useCurrency();
   const editingDebt = route?.params?.debt as Debt | undefined;
   const [debtors, setDebtors] = useState<Debtor[]>([]);
@@ -55,6 +57,9 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
   const [installmentFrequency, setInstallmentFrequency] = useState<'weekly' | 'monthly'>('monthly');
   const [remainingAmount, setRemainingAmount] = useState('');
   const [currentBalance, setCurrentBalance] = useState(0);
+  const [currency, setCurrency] = useState<string>(currencyCode);
+  const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
+
   useEffect(() => {
     loadBalance();
     loadDebtors();
@@ -69,6 +74,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
       setHasDueDate(!!editingDebt.dueDate);
       setRemainingAmount(formatNumberWithCommas(editingDebt.remainingAmount));
       setDescription(editingDebt.description || '');
+      setCurrency(editingDebt.currency || currencyCode);
       getDebtInstallments(editingDebt.id).then(insts => {
         setHasInstallments(insts.length > 0);
         if (insts.length > 0) {
@@ -104,6 +110,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
     setNumberOfInstallments('1');
     setInstallmentFrequency('monthly');
     setRemainingAmount('');
+    setCurrency(currencyCode);
   };
   const handleClose = useCallback(() => {
     Keyboard.dismiss();
@@ -147,7 +154,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
         description: description.trim(),
         type: type,
         direction,
-        currency: 'IQD',
+        currency: currency,
         isPaid: finalRemainingAmount <= 0
       };
       if (editingDebt) {
@@ -178,7 +185,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
           const numInst = parseInt(numberOfInstallments);
           installments = generateInstallments(amount, numInst, startDate, installmentFrequency);
         }
-        await createDebt(debtorName.trim(), amount, startDate.toISOString().split('T')[0], type, hasDueDate && dueDate ? dueDate.toISOString().split('T')[0] : undefined, description.trim(), 'IQD', installments, direction, debtorId || undefined);
+        await createDebt(debtorName.trim(), amount, startDate.toISOString().split('T')[0], type, hasDueDate && dueDate ? dueDate.toISOString().split('T')[0] : undefined, description.trim(), currency, installments, direction, debtorId || undefined);
       }
       handleClose();
       alertService.toastSuccess(editingDebt ? tl("تم تحديث الدين بنجاح") : tl("تم إضافة الدين بنجاح"));
@@ -222,7 +229,10 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
 
             {/* Amount Section - Premium Style */}
             <View style={styles.amountSection}>
-                <Text style={styles.currencySymbol}>{tl("د.ع")}</Text>
+                <TouchableOpacity onPress={() => setShowCurrencyPicker(true)} style={{ flexDirection: isRTL ? 'row' : 'row-reverse', alignItems: 'center' }}>
+                    <Text style={styles.currencySymbol}>{currency}</Text>
+                    <Ionicons name="chevron-down" size={16} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
                 <TextInput value={totalAmount} onChangeText={v => {
         const cleaned = convertArabicToEnglish(v);
         setTotalAmount(formatNumberWithCommas(cleaned));
@@ -456,6 +466,12 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
       if (d) setDueDate(d);
       if (Platform.OS === 'android') setShowDueDatePicker(false);
     }} onClose={() => setShowDueDatePicker(false)} />}
+
+            {/* Currency Picker */}
+            <CurrencyPickerModal visible={showCurrencyPicker} selectedCurrency={currency} onSelect={code => {
+              setCurrency(code);
+              setShowCurrencyPicker(false);
+            }} onClose={() => setShowCurrencyPicker(false)} />
         </ScreenContainer>;
 };
 const createStyles = (theme: AppTheme) => StyleSheet.create({

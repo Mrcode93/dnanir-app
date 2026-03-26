@@ -20,24 +20,28 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [selectedWallet, setSelectedWalletState] = useState<Wallet | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   const refreshWallets = useCallback(async () => {
     try {
       const dbWallets = await getWallets();
       setWallets(dbWallets);
-      
-      // If no wallet is selected, select the default one or the first one
-      if (!selectedWallet && dbWallets.length > 0) {
-        const defaultWallet = dbWallets.find(w => w.isDefault) || dbWallets[0];
-        setSelectedWalletState(defaultWallet);
+
+      if (!hasInitialized) {
+        // First load only: auto-select the default wallet
+        if (dbWallets.length > 0) {
+          const defaultWallet = dbWallets.find(w => w.isDefault) || dbWallets[0];
+          setSelectedWalletState(defaultWallet);
+        }
+        setHasInitialized(true);
       } else if (selectedWallet) {
         // Update the selected wallet data if it still exists
         const updatedSelected = dbWallets.find(w => w.id === selectedWallet.id);
         if (updatedSelected) {
           setSelectedWalletState(updatedSelected);
-        } else if (dbWallets.length > 0) {
-          const defaultWallet = dbWallets.find(w => w.isDefault) || dbWallets[0];
-          setSelectedWalletState(defaultWallet);
+        } else {
+          // Selected wallet was deleted, reset to all wallets
+          setSelectedWalletState(null);
         }
       }
     } catch (error) {

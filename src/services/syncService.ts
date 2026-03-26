@@ -396,7 +396,14 @@ export async function getFullFromServer(force: boolean = false): Promise<Restore
       // The backup can be nested: { success: true, data: { data: "AES...", ... } }
       // Or plain: { achievements: [], ... }
       let rawData = serverBody.data || serverBody;
-      
+
+      // Handle legacy double-nested format: { data: encryptedBlob, wrapped_dek }
+      // Old server code stored the entire request body, not just the encrypted blob.
+      // Detect and unwrap: if rawData is not an encrypted envelope but rawData.data is, use rawData.data
+      if (!isEncryptedEnvelope(rawData) && rawData && typeof rawData === 'object' && isEncryptedEnvelope((rawData as any).data)) {
+        rawData = (rawData as any).data;
+      }
+
       // If rawData is already a proper backup object (has tables), we use it directly
       // Otherwise if it's an encrypted envelope (string or object with 'cipher'), we decrypt it
       if (isEncryptedEnvelope(rawData)) {

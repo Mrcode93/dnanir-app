@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Keyboard, TextInput, Switch } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Keyboard, TextInput, Switch, ScrollView } from 'react-native';
 import { CustomDatePicker } from '../components/CustomDatePicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -179,7 +179,7 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
     backgroundColor: theme.colors.surfaceCard
   }}>
       {/* Header */}
-      <AppHeader title={editingGoal ? tl("تعديل الهدف") : tl("إضافة هدف جديد")} onBack={handleClose} backIcon={isRTL ? 'chevron-forward' : 'chevron-back'} action={<View style={[styles.headerIcon, {
+      <AppHeader title={editingGoal ? tl("تعديل الهدف") : tl("إضافة هدف جديد")} onBack={handleClose} backIcon={isRTL ? 'chevron-back' : 'chevron-forward'} action={<View style={[styles.headerIcon, {
       backgroundColor: categoryColors[category][0] + '20'
     }]}>
             <Ionicons name={categoryIcons[category] as any} size={24} color={categoryColors[category][0]} />
@@ -240,13 +240,43 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
       {/* Category Selection */}
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>{tl("نوع الهدف")}</Text>
-        <View style={styles.categoriesGrid}>
-          {categories.map(([catKey, catInfo]) => {
-          const isSelected = category === catKey;
-          return <AppButton key={catKey} label={tl(catInfo.label)} onPress={() => setCategory(catKey)} variant={isSelected ? 'primary' : 'secondary'} leftIcon={isSelected ? categoryIcons[catKey] as any : `${categoryIcons[catKey]}-outline` as any} style={[styles.categoryCard, isSelected && {
-            backgroundColor: categoryColors[catKey][0]
-          }]} labelStyle={[styles.categoryCardLabel, isSelected && styles.categoryCardLabelActive]} />;
-        })}
+        <View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoriesRow}
+            style={[styles.categoriesScrollView, isRTL && { transform: [{ scaleX: -1 }] }]}
+          >
+            {categories.map(([catKey, catInfo]) => {
+              const isSelected = category === catKey;
+              return (
+                <TouchableOpacity
+                  key={catKey}
+                  onPress={() => setCategory(catKey)}
+                  activeOpacity={0.7}
+                  style={[
+                    styles.categoryCard,
+                    isSelected && { backgroundColor: categoryColors[catKey][0] },
+                    isRTL && { transform: [{ scaleX: -1 }] }
+                  ]}
+                >
+                  <Ionicons
+                    name={(isSelected ? categoryIcons[catKey] : `${categoryIcons[catKey]}-outline`) as any}
+                    size={20}
+                    color={isSelected ? '#FFFFFF' : categoryColors[catKey][0]}
+                  />
+                  <Text
+                    style={[
+                      styles.categoryCardLabel,
+                      isSelected && styles.categoryCardLabelActive
+                    ]}
+                  >
+                    {tl(catInfo.label)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
         </View>
       </View>
 
@@ -510,6 +540,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: 10,
+    paddingHorizontal: 16,
     textAlign: isRTL ? 'right' : 'left'
   },
   categoriesGrid: {
@@ -517,10 +548,26 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     flexWrap: 'wrap',
     gap: 10
   },
+  categoriesScrollView: {
+    // No horizontal margin/padding on the ScrollView itself to allow it to clip correctly
+    marginBottom: 8,
+  },
+  categoriesRow: {
+    paddingHorizontal: 16,
+    flexDirection: 'row', // ScaleX handles order
+    gap: 12,
+    paddingVertical: 4,
+  },
   categoryCard: {
-    width: '23%',
+    width: 90,
+    height: 75, // Slightly larger for better touch area with padding
     borderRadius: 14,
-    overflow: 'hidden',
+    backgroundColor: theme.colors.surfaceLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     ...getPlatformShadow('sm')
   },
   categoryCardGradient: {

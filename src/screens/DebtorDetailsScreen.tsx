@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { getDebts, getDebtInstallments, Debt, DebtInstallment, DebtorSummary, getDebtor, updateDebtor, deleteDebtor } from '../database/database';
 import { useCurrency } from '../hooks/useCurrency';
+import { formatCurrencyAmount } from '../services/currencyService';
 import { DebtItem } from '../components/DebtItem';
 import { payDebt } from '../services/debtService';
 import { isRTL } from '../utils/rtl';
@@ -23,9 +24,6 @@ export const DebtorDetailsScreen = ({
     theme
   } = useAppTheme();
   const styles = useThemedStyles(createStyles);
-  const {
-    formatCurrency
-  } = useCurrency();
   const [debtor, setDebtor] = useState<DebtorSummary>(route.params?.debtor);
   const [personDebts, setPersonDebts] = useState<Debt[]>([]);
   const [installmentsMap, setInstallmentsMap] = useState<Record<number, DebtInstallment[]>>({});
@@ -137,21 +135,28 @@ export const DebtorDetailsScreen = ({
       alertService.error(tl("خطأ"), tl("فشل في تسجيل التسديد"));
     }
   };
-  const totals = useMemo(() => {
-    let toMe = 0;
-    let byMe = 0;
+  const totalsByCurrency = useMemo(() => {
+    const groups: Record<string, { toMe: number; byMe: number; net: number }> = {};
     personDebts.forEach(d => {
       if (d.isPaid) return;
-      if (d.direction === 'owed_to_me') toMe += d.remainingAmount;else byMe += d.remainingAmount;
+      const cur = d.currency || 'IQD';
+      if (!groups[cur]) {
+        groups[cur] = { toMe: 0, byMe: 0, net: 0 };
+      }
+      if (d.direction === 'owed_to_me') groups[cur].toMe += d.remainingAmount;
+      else groups[cur].byMe += d.remainingAmount;
     });
-    return {
-      toMe,
-      byMe,
-      net: toMe - byMe
-    };
+    
+    Object.keys(groups).forEach(cur => {
+      groups[cur].net = groups[cur].toMe - groups[cur].byMe;
+    });
+    
+    return groups;
   }, [personDebts]);
   const renderHeader = () => {
-    const isNetPositive = totals.net >= 0;
+    const currencies = Object.keys(totalsByCurrency);
+    // Determine overall background color by checking if any currency has a positive net (owed to me)
+    const isNetPositive = currencies.length > 0 ? currencies.some(cur => totalsByCurrency[cur].net >= 0) : true;
     const colors = isNetPositive ? theme.gradients.success : theme.gradients.info;
     return <View style={styles.headerCardContainer}>
         <LinearGradient colors={colors as any} style={styles.summaryCard} start={{
@@ -176,22 +181,49 @@ export const DebtorDetailsScreen = ({
           <View style={styles.amountContent}>
             <Text style={styles.amountLabelPrimary}>{tl("صافي الرصيد المتبقي لـ:")}</Text>
             <Text style={styles.debtorNameText}>{debtor.name}</Text>
-            <Text style={styles.totalAmountText}>
-              {totals.net > 0 ? '+' : totals.net < 0 ? '-' : ''}{formatCurrency(Math.abs(totals.net))}
-            </Text>
+            <View style={{ gap: 8, alignItems: 'center' }}>
+              {currencies.length > 0 ? (
+                 currencies.map(cur => {
+                   const { net } = totalsByCurrency[cur];
+                   return (
+                     <Text key={cur} style={styles.totalAmountText}>
+                       {net > 0 ? '+' : net < 0 ? '-' : ''}{formatCurrencyAmount(Math.abs(net), cur)}
+                     </Text>
+                   );
+                 })
+              ) : (
+                <Text style={styles.totalAmountText}>{formatCurrencyAmount(0, 'IQD')}</Text>
+              )}
+            </View>
             {debtor.phone && <Text style={styles.debtorPhoneText}>{debtor.phone}</Text>}
           </View>
 
-          <View style={styles.summaryFooter}>
-            <View style={styles.footerStat}>
-              <Text style={styles.footerStatLabel}>{tl("يستحق لك (لي)")}</Text>
-              <Text style={styles.footerStatValue}>{formatCurrency(totals.toMe)}</Text>
-            </View>
-            <View style={styles.footerDivider} />
-            <View style={styles.footerStat}>
-              <Text style={styles.footerStatLabel}>{tl("يستحق عليك (لي)")}</Text>
-              <Text style={styles.footerStatValue}>{formatCurrency(totals.byMe)}</Text>
-            </View>
+          <View style={{ gap: 16 }}>
+            {currencies.length > 0 ? currencies.map(cur => (
+              <View key={cur} style={styles.summaryFooter}>
+                <View style={styles.footerStat}>
+                  <Text style={styles.footerStatLabel}>{tl("يستحق لك (لي)")}</Text>
+                  <Text style={styles.footerStatValue}>{formatCurrencyAmount(totalsByCurrency[cur].toMe, cur)}</Text>
+                </View>
+                <View style={styles.footerDivider} />
+                <View style={styles.footerStat}>
+                  <Text style={styles.footerStatLabel}>{tl("يستحق عليك (لي)")}</Text>
+                  <Text style={styles.footerStatValue}>{formatCurrencyAmount(totalsByCurrency[cur].byMe, cur)}</Text>
+                </View>
+              </View>
+            )) : (
+              <View style={styles.summaryFooter}>
+                <View style={styles.footerStat}>
+                  <Text style={styles.footerStatLabel}>{tl("يستحق لك (لي)")}</Text>
+                  <Text style={styles.footerStatValue}>{formatCurrencyAmount(0, 'IQD')}</Text>
+                </View>
+                <View style={styles.footerDivider} />
+                <View style={styles.footerStat}>
+                  <Text style={styles.footerStatLabel}>{tl("يستحق عليك (لي)")}</Text>
+                  <Text style={styles.footerStatValue}>{formatCurrencyAmount(0, 'IQD')}</Text>
+                </View>
+              </View>
+            )}
           </View>
         </LinearGradient>
       </View>;
@@ -202,7 +234,7 @@ export const DebtorDetailsScreen = ({
     estimatedItemSize={120} ListHeaderComponent={renderHeader()} contentContainerStyle={styles.listContent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />} renderItem={({
       item
     }) => <View style={styles.itemWrapper}>
-            <DebtItem item={item as Debt} onPress={() => handleDebtPress(item)} onEdit={() => handleEditDebt(item)} onDelete={() => {/* handle delete if needed */}} onPay={() => handlePayDebt(item)} formatCurrency={formatCurrency} unpaidInstallmentsCount={(installmentsMap[item.id] || []).filter(i => !i.isPaid).length} totalInstallmentsCount={(installmentsMap[item.id] || []).length} />
+            <DebtItem item={item as Debt} onPress={() => handleDebtPress(item)} onEdit={() => handleEditDebt(item)} onDelete={() => {/* handle delete if needed */}} onPay={() => handlePayDebt(item)} formatCurrency={(amt) => formatCurrencyAmount(amt, item.currency || 'IQD')} unpaidInstallmentsCount={(installmentsMap[item.id] || []).filter(i => !i.isPaid).length} totalInstallmentsCount={(installmentsMap[item.id] || []).length} />
           </View>} ListEmptyComponent={<View style={styles.emptyContainer}>
             <Ionicons name="document-text-outline" size={48} color={theme.colors.textMuted} />
             <Text style={styles.emptyText}>{tl("لا توجد عمليات لهذا الشخص")}</Text>

@@ -47,7 +47,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       style={[
         styles.row,
         {
-          backgroundColor: '#003459',
+          backgroundColor: '#001D3D',
           borderBottomLeftRadius: 24,
           borderBottomRightRadius: 24,
           elevation: 5,

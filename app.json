@@ -97,7 +97,7 @@
       "predictiveBackGestureEnabled": false,
       "locale": "ar",
       "package": "com.mrcodeiq.dinar",
-      "windowSoftInputMode": "adjustResize",
+      "windowSoftInputMode": "adjustPan",
       "googleServicesFile": "./google-services.json",
       "versionCode": 23,
       "fonts": [

@@ -207,7 +207,7 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
             <AppBottomSheet
                 visible={visible}
                 onClose={onClose}
-                maxHeight="90%"
+                height="85%"
             >
                 {isConfirmingDelete ? (
                     <View style={styles.confirmContainer}>
@@ -493,7 +493,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
 
     // Details
     detailsScroll: {
-        maxHeight: 300,
+        flex: 1,
     },
     detailsScrollContent: {
         paddingHorizontal: 16,

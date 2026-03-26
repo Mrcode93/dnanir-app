@@ -13,6 +13,7 @@ import { payDebt, payInstallment } from '../services/debtService';
 import { isRTL } from '../utils/rtl';
 import { alertService } from '../services/alertService';
 import { PayDebtModal } from '../components/PayDebtModal';
+import { formatCurrencyAmount } from '../services/currencyService';
 import { tl, useLocalization } from "../localization";
 export const DebtsScreen = ({
   navigation,
@@ -170,7 +171,7 @@ export const DebtsScreen = ({
       await payDebt(debtToPay.id, amount);
       await loadDebts();
       const isOwedToMe = debtToPay.direction === 'owed_to_me';
-      const message = isOwedToMe ? amount === debtToPay.remainingAmount ? tl("تم تسجيل التسديد بالكامل وتمت إضافته لرصيدك") : tl("تم تسجيل تسديد {{}} وتمت إضافته لرصيدك", [formatCurrency(amount)]) : amount === debtToPay.remainingAmount ? tl("تم دفع الدين بالكامل بنجاح") : tl("تم دفع {{}} بنجاح", [formatCurrency(amount)]);
+      const message = isOwedToMe ? amount === debtToPay.remainingAmount ? tl("تم تسجيل التسديد بالكامل وتمت إضافته لرصيدك") : tl("تم تسجيل تسديد {{}} وتمت إضافته لرصيدك", [formatCurrencyAmount(amount, debtToPay.currency || 'IQD')]) : amount === debtToPay.remainingAmount ? tl("تم دفع الدين بالكامل بنجاح") : tl("تم دفع {{}} بنجاح", [formatCurrencyAmount(amount, debtToPay.currency || 'IQD')]);
       alertService.toastSuccess(message);
       setShowPayModal(false);
       setDebtToPay(null);
@@ -262,8 +263,6 @@ export const DebtsScreen = ({
   }: {
     item: DebtorSummary;
   }) => {
-    const primaryColor = item.netBalance >= 0 ? theme.colors.success : theme.colors.error;
-    const absNet = Math.abs(item.netBalance);
     return <TouchableOpacity style={styles.debtorCard} onPress={() => navigation.navigate('DebtorDetails', {
       debtor: item
     })}>
@@ -273,17 +272,23 @@ export const DebtsScreen = ({
         <View style={styles.debtorInfo}>
           <Text style={styles.debtorName}>{item.name}</Text>
           <Text style={styles.debtorSummary}>
-            {item.totalDebts}{tl("عمليات •")}{formatCurrency(item.totalOwedToMe)}{tl("لي •")}{formatCurrency(item.totalOwedByMe)}{tl("علي")}</Text>
+            {item.totalDebts} {tl("عمليات")}
+          </Text>
         </View>
         <View style={styles.debtorBalance}>
-          <Text style={[styles.balanceValue, {
-          color: primaryColor
-        }]}>
-            {item.netBalance > 0 ? '+' : item.netBalance < 0 ? '-' : ''}{formatCurrency(absNet)}
-          </Text>
-          <Text style={styles.balanceLabel}>
-            {item.netBalance > 0 ? tl("صافي - لي") : item.netBalance < 0 ? tl("صافي - علي") : tl("رصيد صفر")}
-          </Text>
+          {item.balances && item.balances.length > 0 ? item.balances.map(b => (
+            <View key={b.currency} style={{ alignItems: isRTL ? 'flex-start' : 'flex-end', marginBottom: 2 }}>
+              <Text style={[styles.balanceValue, { color: b.netBalance >= 0 ? theme.colors.success : theme.colors.error }]}>
+                {b.netBalance > 0 ? '+' : b.netBalance < 0 ? '-' : ''}{formatCurrencyAmount(Math.abs(b.netBalance), b.currency)}
+              </Text>
+            </View>
+          )) : (
+            <View style={{ alignItems: isRTL ? 'flex-start' : 'flex-end' }}>
+              <Text style={[styles.balanceValue, { color: theme.colors.success }]}>
+                {formatCurrencyAmount(0, 'IQD')}
+              </Text>
+            </View>
+          )}
         </View>
       </TouchableOpacity>;
   }, [theme, styles, formatCurrency, navigation]);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Text, TextInput, TouchableOpacity, ScrollView, Platform } from 'react-native';
+import { View, StyleSheet, Text, TextInput, TouchableOpacity, ScrollView, Platform, FlatList } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
@@ -134,27 +134,40 @@ export const AddCategoryScreen: React.FC<AddCategoryScreenProps> = ({
 
         <View style={styles.section}>
           <Text style={styles.label}>{tl("اختر الأيقونة")}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.iconScroll} contentContainerStyle={styles.iconContainer}>
-            {AVAILABLE_ICONS.map(icon => (
+          <FlatList 
+            data={AVAILABLE_ICONS}
+            horizontal 
+            inverted={isRTL}
+            showsHorizontalScrollIndicator={false} 
+            style={styles.iconScroll} 
+            contentContainerStyle={styles.iconContainer}
+            keyExtractor={icon => icon}
+            renderItem={({ item: icon }) => (
               <TouchableOpacity 
-                key={icon} 
                 onPress={() => setSelectedIcon(icon)} 
                 style={[styles.iconButton, selectedIcon === icon && { borderColor: selectedColor[0], backgroundColor: selectedColor[0] + '15' }]} 
                 activeOpacity={0.7}
               >
                 <Ionicons name={icon as any} size={24} color={selectedIcon === icon ? selectedColor[0] : theme.colors.textSecondary} />
               </TouchableOpacity>
-            ))}
-          </ScrollView>
+            )}
+          />
         </View>
 
         <View style={styles.section}>
           <Text style={styles.label}>{tl("اختر اللون")}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.colorScroll} contentContainerStyle={styles.colorContainer}>
-            {COLOR_PRESETS.map((color, index) => {
+          <FlatList 
+            data={COLOR_PRESETS}
+            horizontal 
+            inverted={isRTL}
+            showsHorizontalScrollIndicator={false} 
+            style={styles.colorScroll} 
+            contentContainerStyle={styles.colorContainer}
+            keyExtractor={color => color[0]}
+            renderItem={({ item: color, index }) => {
               const isSelected = selectedColor[0] === color[0];
               return (
-                <TouchableOpacity key={index} onPress={() => setSelectedColor(color)} style={styles.colorButton} activeOpacity={0.7}>
+                <TouchableOpacity onPress={() => setSelectedColor(color)} style={styles.colorButton} activeOpacity={0.7}>
                   <LinearGradient 
                     colors={color as any} 
                     style={[styles.colorGradient, isSelected && { borderWidth: 3, borderColor: theme.colors.textPrimary }]} 
@@ -165,8 +178,8 @@ export const AddCategoryScreen: React.FC<AddCategoryScreenProps> = ({
                   </LinearGradient>
                 </TouchableOpacity>
               );
-            })}
-          </ScrollView>
+            }}
+          />
         </View>
 
         <View style={{ marginTop: 32, marginBottom: 20 }}>

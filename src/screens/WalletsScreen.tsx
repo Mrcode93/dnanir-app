@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { alertService } from '../services/alertService';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ScreenContainer } from '../design-system';
@@ -23,24 +24,21 @@ export const WalletsScreen = ({ navigation }: any) => {
   };
 
   const handleDelete = (id: number) => {
-    Alert.alert(
-      tl("حذف المحفظة"),
-      tl("هل أنت متأكد من حذف هذه المحفظة؟ سيتم نقل جميع العمليات المرتبطة بها إلى المحفظة الرئيسية."),
-      [
-        { text: tl("إلغاء"), style: 'cancel' },
-        { 
-          text: tl("حذف"), 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteWallet(id);
-            } catch (error: any) {
-              Alert.alert(tl("خطأ"), error.message);
-            }
-          }
+    alertService.show({
+      title: tl("حذف المحفظة"),
+      message: tl("هل أنت متأكد من حذف هذه المحفظة؟ سيتم نقل جميع العمليات المرتبطة بها إلى المحفظة الرئيسية."),
+      showCancel: true,
+      confirmText: tl("حذف"),
+      cancelText: tl("إلغاء"),
+      onConfirm: async () => {
+        try {
+          await deleteWallet(id);
+          alertService.toastSuccess(tl("تم حذف المحفظة بنجاح"));
+        } catch (error: any) {
+          alertService.error(tl("خطأ"), error.message);
         }
-      ]
-    );
+      }
+    });
   };
 
   const renderWalletItem = ({ item }: { item: Wallet }) => {
@@ -76,7 +74,14 @@ export const WalletsScreen = ({ navigation }: any) => {
             {isDefault ? null : (
               <TouchableOpacity
                 style={styles.actionButton}
-                onPress={() => setDefaultWallet(item.id)}
+                onPress={async () => {
+                  try {
+                    await setDefaultWallet(item.id);
+                    alertService.toastSuccess(tl("تم تعيين المحفظة كافتراضية"));
+                  } catch (e: any) {
+                    alertService.error(tl("خطأ"), e.message);
+                  }
+                }}
               >
                 <Ionicons name="star" size={18} color="#FFF" />
               </TouchableOpacity>
@@ -103,6 +108,21 @@ export const WalletsScreen = ({ navigation }: any) => {
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        ListHeaderComponent={wallets.length > 1 ? (
+          <TouchableOpacity
+            style={styles.transferHeaderButton}
+            onPress={() => navigation.navigate('TransferAmount')}
+          >
+            <View style={styles.transferIconContainer}>
+              <Ionicons name="swap-horizontal" size={24} color={theme.colors.primary} />
+            </View>
+            <View style={styles.transferTextContainer}>
+              <Text style={styles.transferButtonTitle}>{tl("تحويل بين المحافظ")}</Text>
+              <Text style={styles.transferButtonSubtitle}>{tl("نقل الأموال من محفظة إلى أخرى")}</Text>
+            </View>
+            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={theme.colors.textMuted} />
+          </TouchableOpacity>
+        ) : null}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="wallet-outline" size={80} color={theme.colors.textSecondary + '40'} />
@@ -204,5 +224,40 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontSize: 16,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
+  },
+  transferHeaderButton: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surface,
+    padding: 16,
+    borderRadius: 20,
+    marginBottom: 24,
+    ...getPlatformShadow('sm'),
+  },
+  transferIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: theme.colors.primary + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  transferTextContainer: {
+    flex: 1,
+    marginHorizontal: 16,
+  },
+  transferButtonTitle: {
+    fontSize: 16,
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'right' : 'left',
+  },
+  transferButtonSubtitle: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+    marginTop: 2,
+    textAlign: isRTL ? 'right' : 'left',
   },
 });

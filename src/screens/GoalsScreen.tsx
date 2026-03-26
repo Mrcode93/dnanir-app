@@ -211,12 +211,12 @@ export const GoalsScreen = ({
         {/* Summary Card */}
         {activeGoals.length > 0 && <LinearGradient colors={theme.gradients.primary as any} style={styles.summaryCard}>
             <View style={styles.summaryHeader}>
-              <Ionicons name="trophy-outline" size={32} color="#FFFFFF" />
               <View style={styles.summaryText}>
                 <Text style={styles.summaryTitle}>{tl("الأهداف النشطة")}</Text>
                 <Text style={styles.summarySubtitle}>
                   {activeGoals.length}{tl("هدف")}</Text>
               </View>
+              <Ionicons name="trophy-outline" size={32} color="#FFFFFF" />
             </View>
 
             <View style={styles.progressContainer}>
@@ -232,23 +232,6 @@ export const GoalsScreen = ({
 
             <View style={styles.summaryAmounts}>
               <View style={styles.summaryAmount}>
-                <Text style={styles.summaryAmountLabel}>{tl("المحقق")}</Text>
-                <View>
-                  <Text style={styles.summaryAmountValue}>
-                    {formatCurrency(totalCurrent)}
-                  </Text>
-                  {hasMultipleCurrencies && Object.keys(currencyBreakdown).length > 0 && <View style={styles.currencyBreakdown}>
-                      {Object.entries(currencyBreakdown).map(([curr, amounts]) => {
-                  const currencyData = CURRENCIES.find(c => c.code === curr);
-                  if (!currencyData || amounts.current === 0) return null;
-                  return <Text key={curr} style={styles.currencyBreakdownText}>
-                            {isPrivacyEnabled ? '****' : formatCurrencyAmount(amounts.current, curr)}
-                          </Text>;
-                })}
-                    </View>}
-                </View>
-              </View>
-              <View style={styles.summaryAmount}>
                 <Text style={styles.summaryAmountLabel}>{tl("المستهدف")}</Text>
                 <View>
                   <Text style={styles.summaryAmountValue}>
@@ -260,6 +243,23 @@ export const GoalsScreen = ({
                   if (!currencyData || amounts.target === 0) return null;
                   return <Text key={curr} style={styles.currencyBreakdownText}>
                             {isPrivacyEnabled ? '****' : formatCurrencyAmount(amounts.target, curr)}
+                          </Text>;
+                })}
+                    </View>}
+                </View>
+              </View>
+              <View style={styles.summaryAmount}>
+                <Text style={styles.summaryAmountLabel}>{tl("المحقق")}</Text>
+                <View>
+                  <Text style={styles.summaryAmountValue}>
+                    {formatCurrency(totalCurrent)}
+                  </Text>
+                  {hasMultipleCurrencies && Object.keys(currencyBreakdown).length > 0 && <View style={styles.currencyBreakdown}>
+                      {Object.entries(currencyBreakdown).map(([curr, amounts]) => {
+                  const currencyData = CURRENCIES.find(c => c.code === curr);
+                  if (!currencyData || amounts.current === 0) return null;
+                  return <Text key={curr} style={styles.currencyBreakdownText}>
+                            {isPrivacyEnabled ? '****' : formatCurrencyAmount(amounts.current, curr)}
                           </Text>;
                 })}
                     </View>}
@@ -337,9 +337,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   summaryText: {
     flex: 1,
     ...(isRTL ? {
-      marginRight: theme.spacing.md
-    } : {
       marginLeft: theme.spacing.md
+    } : {
+      marginRight: theme.spacing.md
     })
   },
   summaryTitle: {
@@ -348,14 +348,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: '#FFFFFF',
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
+    textAlign: isRTL ? 'left' : 'right',
     writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   summarySubtitle: {
     fontSize: theme.typography.sizes.sm,
     color: 'rgba(255, 255, 255, 0.8)',
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
+    textAlign: isRTL ? 'left' : 'right',
     writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   progressContainer: {
@@ -367,7 +367,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
     borderRadius: theme.borderRadius.round,
     overflow: 'hidden',
-    marginBottom: theme.spacing.sm
+    marginBottom: theme.spacing.sm,
+    flexDirection: isRTL ? 'row-reverse' : 'row'
   },
   progressFill: {
     height: '100%',
@@ -378,7 +379,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontSize: theme.typography.sizes.sm,
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'left',
+    textAlign: isRTL ? 'right' : 'left',
     writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   summaryAmounts: {
@@ -386,7 +387,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     justifyContent: 'space-between'
   },
   summaryAmount: {
-    alignItems: 'flex-end'
+    alignItems: isRTL ? 'flex-start' : 'flex-end'
   },
   summaryAmountLabel: {
     fontSize: theme.typography.sizes.xs,

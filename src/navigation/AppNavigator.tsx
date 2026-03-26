@@ -38,6 +38,7 @@ import { AddBudgetScreen } from '../screens/AddBudgetScreen';
 import { AddGoalScreen } from '../screens/AddGoalScreen';
 import { GoalPlanScreen } from '../screens/GoalPlanScreen';
 import { authModalService } from '../services/authModalService';
+import { TransferAmountScreen } from '../screens/TransferAmountScreen';
 import { AddDebtScreen } from '../screens/AddDebtScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { usePrivacy } from '../context/PrivacyContext';
@@ -160,7 +161,7 @@ const getCommonStackOptions = (theme: AppTheme, topInset: number) => {
       <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
         <View style={{
           flex: 1,
-          backgroundColor: '#003459',
+          backgroundColor: '#001D3D',
           borderBottomLeftRadius: 24,
           borderBottomRightRadius: 24,
 
@@ -499,7 +500,7 @@ const DebtsStack = () => {
           },
 
           headerStyle: {
-            backgroundColor: '#003459',
+            backgroundColor: '#001D3D',
             borderBottomWidth: 0,
             height: top + 48,
 
@@ -553,7 +554,7 @@ const DebtsStack = () => {
           },
 
           headerStyle: {
-            backgroundColor: '#003459',
+            backgroundColor: '#001D3D',
             borderBottomWidth: 0,
             height: top + 48,
 
@@ -584,7 +585,7 @@ const DebtsStack = () => {
             </View>
           ),
           headerStyle: {
-            backgroundColor: '#003459',
+            backgroundColor: '#001D3D',
             borderBottomWidth: 0,
             height: top + 48,
 
@@ -710,9 +711,10 @@ const MainTabs = () => {
   const { theme } = useAppTheme();
   const { t, isRTL } = useLocalization();
   const insets = useSafeAreaInsets();
-  const minBottomInset = 10;
-  const tabBottomPadding = Math.max(insets.bottom, minBottomInset);
-  const tabBaseHeight = 68;
+  const tabBottomPadding = Platform.OS === 'android' 
+    ? (insets.bottom > 0 ? insets.bottom + 8 : 16) 
+    : Math.max(insets.bottom, 12);
+  const tabBaseHeight = 56; // Compact tab bar height
 
   return (
     <>
@@ -918,6 +920,14 @@ export const AppNavigator = () => {
         <Stack.Screen
           name="AddIncome"
           component={AddIncomeScreen}
+          options={{
+            headerShown: false,
+            ...TransitionPresets.ModalSlideFromBottomIOS,
+          }}
+        />
+        <Stack.Screen
+          name="TransferAmount"
+          component={TransferAmountScreen}
           options={{
             headerShown: false,
             ...TransitionPresets.ModalSlideFromBottomIOS,

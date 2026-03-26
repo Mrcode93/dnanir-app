@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
+import { alertService } from '../services/alertService';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenContainer, AppHeader, AppButton, AppInput } from '../design-system';
 import { useAppTheme, useThemedStyles } from '../utils/theme-context';
@@ -36,7 +37,7 @@ export const AddWalletScreen = ({ navigation, route }: any) => {
 
   const handleSave = async () => {
     if (!name.trim()) {
-      Alert.alert(tl("خطأ"), tl("يرجى إدخال اسم المحفظة"));
+      alertService.warning(tl("تنبيه"), tl("يرجى إدخال اسم المحفظة"));
       return;
     }
 
@@ -53,14 +54,14 @@ export const AddWalletScreen = ({ navigation, route }: any) => {
     try {
       if (editingWallet) {
         await updateWallet(editingWallet.id, walletData);
-        Alert.alert(tl("نجاح"), tl("تم تحديث المحفظة بنجاح"));
+        alertService.toastSuccess(tl("تم تحديث المحفظة بنجاح"));
       } else {
         await addWallet(walletData);
-        Alert.alert(tl("نجاح"), tl("تم إضافة المحفظة بنجاح"));
+        alertService.toastSuccess(tl("تم إضافة المحفظة بنجاح"));
       }
       navigation.goBack();
     } catch (error: any) {
-      Alert.alert(tl("خطأ"), error.message);
+      alertService.error(tl("خطأ"), error.message);
     } finally {
       setLoading(false);
     }
@@ -72,7 +73,7 @@ export const AddWalletScreen = ({ navigation, route }: any) => {
   };
 
   return (
-    <ScreenContainer scrollable={false} style={styles.container}>
+    <ScreenContainer scrollable={false} edges={[]} style={styles.container}>
       <AppHeader 
         title={editingWallet ? tl("تعديل المحفظة") : tl("إضافة محفظة جديدة")} 
         onBack={handleBack}

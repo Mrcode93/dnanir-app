@@ -59,7 +59,7 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({
     >
       <KeyboardAvoidingView
         style={styles.kav}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         {scrollable ? (
           <ScrollView

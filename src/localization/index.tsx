@@ -21,8 +21,8 @@ const literalResources = {
 
 const languageDisplayNames = {
   ar: {
-    ar: 'العربية (العراق)',
-    native: 'العربية (العراق)',
+    ar: 'العربية',
+    native: 'العربية',
   },
 } as const;
 

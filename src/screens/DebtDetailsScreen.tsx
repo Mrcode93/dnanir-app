@@ -7,6 +7,7 @@ import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThe
 import { AppButton, ScreenContainer, AppHeader } from '../design-system';
 import { getDebt, getDebtInstallments, deleteDebt, getDebtPayments, Debt, DebtInstallment, DebtPayment } from '../database/database';
 import { useCurrency } from '../hooks/useCurrency';
+import { formatCurrencyAmount } from '../services/currencyService';
 import { DEBT_TYPES } from '../types';
 import { payDebt, payInstallment } from '../services/debtService';
 import { isRTL } from '../utils/rtl';
@@ -83,7 +84,7 @@ export const DebtDetailsScreen = ({
       await payDebt(debt.id, amount);
       await loadDebtData();
       const isOwedToMe = debt.direction === 'owed_to_me';
-      const message = isOwedToMe ? amount === debt.remainingAmount ? tl("تم تسجيل التسديد بالكامل وتمت إضافته لرصيدك") : tl("تم تسجيل تسديد {{}} وتمت إضافته لرصيدك", [formatCurrency(amount)]) : amount === debt.remainingAmount ? tl("تم دفع الدين بالكامل بنجاح") : tl("تم دفع {{}} بنجاح", [formatCurrency(amount)]);
+      const message = isOwedToMe ? amount === debt.remainingAmount ? tl("تم تسجيل التسديد بالكامل وتمت إضافته لرصيدك") : tl("تم تسجيل تسديد {{}} وتمت إضافته لرصيدك", [formatCurrencyAmount(amount, debt.currency || 'IQD')]) : amount === debt.remainingAmount ? tl("تم دفع الدين بالكامل بنجاح") : tl("تم دفع {{}} بنجاح", [formatCurrencyAmount(amount, debt.currency || 'IQD')]);
       alertService.toastSuccess(message);
       setShowPayModal(false);
     } catch (error) {
@@ -201,13 +202,13 @@ export const DebtDetailsScreen = ({
               {debt.direction === 'owed_to_me' ? tl("مبلغ يستحق لك من:") : tl("مبلغ تستحق دفعه لـ:")}
             </Text>
             <Text style={styles.debtorNameText}>{debt.debtorName}</Text>
-            <Text style={styles.totalAmountText}>{formatCurrency(debt.totalAmount)}</Text>
+            <Text style={styles.totalAmountText}>{formatCurrencyAmount(debt.totalAmount, debt.currency || 'IQD')}</Text>
           </View>
 
           <View style={styles.summaryFooter}>
             <View style={styles.footerStat}>
               <Text style={styles.footerStatLabel}>{tl("المتبقي")}</Text>
-              <Text style={styles.footerStatValue}>{formatCurrency(debt.remainingAmount)}</Text>
+              <Text style={styles.footerStatValue}>{formatCurrencyAmount(debt.remainingAmount, debt.currency || 'IQD')}</Text>
             </View>
             <View style={styles.footerDivider} />
             <View style={styles.footerStat}>
@@ -232,7 +233,7 @@ export const DebtDetailsScreen = ({
           }]} />
             </View>
             <View style={styles.progressLegend}>
-              <Text style={styles.legendText}>{tl("تم دفع:")}{formatCurrency(debt.totalAmount - debt.remainingAmount)}</Text>
+              <Text style={styles.legendText}>{tl("تم دفع:")}{formatCurrencyAmount(debt.totalAmount - debt.remainingAmount, debt.currency || 'IQD')}</Text>
             </View>
           </View>}
 
@@ -308,7 +309,7 @@ export const DebtDetailsScreen = ({
                 }]}>{inst.installmentNumber}</Text>
                     </View>
                     <View>
-                      <Text style={styles.instAmount}>{formatCurrency(inst.amount)}</Text>
+                      <Text style={styles.instAmount}>{formatCurrencyAmount(inst.amount, debt.currency || 'IQD')}</Text>
                       <Text style={[styles.instDate, isOverdue && {
                   color: theme.colors.error
                 }]}>
@@ -335,7 +336,7 @@ export const DebtDetailsScreen = ({
                     <Ionicons name="checkmark" size={12} color={theme.colors.success} />
                   </View>
                   <View>
-                    <Text style={styles.instAmount}>{formatCurrency(inst.amount)}</Text>
+                    <Text style={styles.instAmount}>{formatCurrencyAmount(inst.amount, debt.currency || 'IQD')}</Text>
                     <Text style={styles.instDate}>{formatDate(inst.dueDate)}{tl("(مدفوع)")}</Text>
                   </View>
                 </View>
@@ -351,7 +352,7 @@ export const DebtDetailsScreen = ({
                 </View>
                 <View style={styles.historyContent}>
                   <View style={styles.historyTop}>
-                    <Text style={styles.historyAmount}>{formatCurrency(p.amount)}</Text>
+                    <Text style={styles.historyAmount}>{formatCurrencyAmount(p.amount, debt.currency || 'IQD')}</Text>
                     <Text style={styles.historyDate}>{formatDate(p.paymentDate)}</Text>
                   </View>
                   <Text style={styles.historyNote}>{p.description || tl("تسديد جزء من الدين")}</Text>

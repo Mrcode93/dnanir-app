@@ -237,7 +237,8 @@ export const InsightsScreen = ({
       loadData();
     });
     return () => task.cancel();
-  }, [loadData, selectedWallet?.id, selectedMonth, showComparison]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedWallet?.id, selectedMonth, showComparison]));
   const onRefresh = async () => {
     setRefreshing(true);
     await loadData();
@@ -597,50 +598,55 @@ export const InsightsScreen = ({
         </View>
 
         {/* 4. Comparison Activity Chart */}
-        {monthlyTrend && monthlyTrend.length > 0 && <View style={styles.chartCardPremium}>
-            <View style={styles.chartHeaderAction}>
-              <Text style={styles.chartTitlePremium}>{tl("مقارنة النشاط")}</Text>
-              <View style={styles.chartLegendRow}>
-                <View style={[styles.chartLegendDot, {
-              backgroundColor: theme.colors.success
-            }]} />
-                <Text style={styles.chartLegendText}>{tl("الدخل")}</Text>
-                <View style={[styles.chartLegendDot, {
-              backgroundColor: theme.colors.error,
-              marginLeft: 12
-            }]} />
-                <Text style={styles.chartLegendText}>{tl("المصاريف")}</Text>
+        {monthlyTrend && monthlyTrend.length > 0 && (() => {
+          const displayTrend = isRTL ? [...monthlyTrend].reverse() : monthlyTrend;
+          return (
+            <View style={styles.chartCardPremium}>
+              <View style={styles.chartHeaderAction}>
+                <Text style={styles.chartTitlePremium}>{tl("مقارنة النشاط")}</Text>
+                <View style={styles.chartLegendRow}>
+                  <View style={[styles.chartLegendDot, {
+                    backgroundColor: theme.colors.success
+                  }]} />
+                  <Text style={styles.chartLegendText}>{tl("الدخل")}</Text>
+                  <View style={[styles.chartLegendDot, {
+                    backgroundColor: theme.colors.error,
+                    marginLeft: 12
+                  }]} />
+                  <Text style={styles.chartLegendText}>{tl("المصاريف")}</Text>
+                </View>
               </View>
+              <LineChart data={{
+                labels: displayTrend.map(t => t.month),
+                datasets: [{
+                  data: displayTrend.map(t => t.totalIncome),
+                  color: (opacity = 1) => `rgba(16, 185, 129, ${opacity})`,
+                  strokeWidth: 3
+                }, {
+                  data: displayTrend.map(t => t.totalExpenses),
+                  color: (opacity = 1) => `rgba(239, 68, 68, ${opacity})`,
+                  strokeWidth: 3
+                }]
+              }} width={width - 64} // 32 for screen + 32 for card padding
+              height={220} chartConfig={{
+                ...chartConfig,
+                backgroundGradientFrom: theme.colors.surfaceCard,
+                backgroundGradientTo: theme.colors.surfaceCard,
+                decimalPlaces: 0,
+                color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                labelColor: (opacity = 1) => theme.colors.textSecondary,
+                style: {
+                  borderRadius: 16
+                },
+                propsForDots: {
+                  r: "5",
+                  strokeWidth: "2",
+                  stroke: theme.colors.surfaceCard
+                }
+              }} bezier={displayTrend.length >= 3} fromZero style={styles.chartStylePremium} />
             </View>
-            <LineChart data={{
-          labels: monthlyTrend.map(t => t.month),
-          datasets: [{
-            data: monthlyTrend.map(t => t.totalIncome),
-            color: (opacity = 1) => `rgba(16, 185, 129, ${opacity})`,
-            strokeWidth: 3
-          }, {
-            data: monthlyTrend.map(t => t.totalExpenses),
-            color: (opacity = 1) => `rgba(239, 68, 68, ${opacity})`,
-            strokeWidth: 3
-          }]
-        }} width={width - 64} // 32 for screen + 32 for card padding
-        height={220} chartConfig={{
-          ...chartConfig,
-          backgroundGradientFrom: theme.colors.surfaceCard,
-          backgroundGradientTo: theme.colors.surfaceCard,
-          decimalPlaces: 0,
-          color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-          labelColor: (opacity = 1) => theme.colors.textSecondary,
-          style: {
-            borderRadius: 16
-          },
-          propsForDots: {
-            r: "5",
-            strokeWidth: "2",
-            stroke: theme.colors.surfaceCard
-          }
-        }} bezier={monthlyTrend.length >= 3} fromZero style={styles.chartStylePremium} />
-          </View>}
+          );
+        })()}
 
         {/* 5. Prediction Card */}
         {predictionData && <View style={styles.chartCard}>
@@ -1134,7 +1140,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     height: 6,
     backgroundColor: theme.colors.surfaceLight,
     borderRadius: 3,
-    overflow: 'hidden'
+    overflow: 'hidden',
+    alignItems: isRTL ? 'flex-end' : 'flex-start'
   },
   progressBarFill: {
     height: '100%',

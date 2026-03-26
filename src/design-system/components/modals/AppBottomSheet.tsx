@@ -32,6 +32,10 @@ interface AppBottomSheetProps {
   maxHeight?: `${number}%`;
   /** Set false to disable keyboard-avoidance (e.g. no inputs inside). Default: true */
   avoidKeyboard?: boolean;
+  /** Min height */
+  minHeight?: `${number}%` | number;
+  /** Fixed height */
+  height?: `${number}%` | number;
   /** Extra bottom padding (added on top of safe-area inset). Default: 8 */
   bottomPad?: number;
 }
@@ -42,6 +46,8 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
   title,
   children,
   maxHeight = '92%',
+  minHeight,
+  height,
   avoidKeyboard = true,
   bottomPad = 8,
 }) => {
@@ -71,6 +77,8 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
           backgroundColor: theme.colors.surfaceCard,
           paddingBottom: pb,
           maxHeight,
+          minHeight,
+          height,
           ...getPlatformShadow('xl', theme),
         },
       ]}

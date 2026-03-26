@@ -7,6 +7,7 @@ import { Debt, DEBT_TYPES } from '../types';
 import { isRTL } from '../utils/rtl';
 import { ConfirmAlert } from './ConfirmAlert';
 import { useCurrency } from '../hooks/useCurrency';
+import { formatCurrencyAmount } from '../services/currencyService';
 
 interface DebtItemProps {
   item: Debt;
@@ -50,6 +51,7 @@ const DebtItemComponent: React.FC<DebtItemProps> = ({
   };
 
   const icon = typeIcons[item.type];
+  const itemCurrency = item.currency || 'IQD';
   const isOwedToMe = item.direction === 'owed_to_me';
   const colors = item.isPaid ? ['#10B981', '#059669'] : (isOwedToMe ? ['#10B981', '#059669'] : typeColors[item.type]);
   const title = isOwedToMe ? `مدين لي: ${item.debtorName}` : `مدين لـ: ${item.debtorName}`;
@@ -214,11 +216,11 @@ const DebtItemComponent: React.FC<DebtItemProps> = ({
                         end={{ x: 1, y: 0 }}
                       >
                         <Text style={styles.amount}>
-                          {formatCurrency(item.totalAmount)}
+                          {formatCurrencyAmount(item.totalAmount, itemCurrency)}
                         </Text>
                         {!item.isPaid && item.remainingAmount < item.totalAmount && (
                           <Text style={styles.remainingAmount}>
-                            متبقي: {formatCurrency(item.remainingAmount)}
+                            متبقي: {formatCurrencyAmount(item.remainingAmount, itemCurrency)}
                           </Text>
                         )}
                       </LinearGradient>

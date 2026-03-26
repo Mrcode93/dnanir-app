@@ -34,6 +34,7 @@ import { WalletProvider } from './src/context/WalletContext';
 import { initializeWidgetData } from './src/services/widgetDataService';
 import { restoreEncryptionKeyFromStorage, resetLockout } from './src/utils/encryption';
 import { syncNativeRTLDirection } from './src/utils/rtl';
+import * as NavigationBar from 'expo-navigation-bar';
 import {
   LocalizationProvider,
   type AppLanguage,
@@ -195,11 +196,19 @@ export default function App() {
     };
 
     applyDirection();
+    
+    // Set navigation bar on Android
+    if (Platform.OS === 'android') {
+      NavigationBar.setPositionAsync('absolute');
+      NavigationBar.setBackgroundColorAsync('#00000000'); // Transparent
+      NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark');
+      NavigationBar.setBehaviorAsync('inset-touch');
+    }
 
     return () => {
       cancelled = true;
     };
-  }, [hasHydratedAppSettings]);
+  }, [hasHydratedAppSettings, isDark]);
 
   useEffect(() => {
     let cancelled = false;

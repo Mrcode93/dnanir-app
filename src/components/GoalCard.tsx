@@ -170,28 +170,23 @@ const GoalCardComponent: React.FC<GoalCardProps> = ({
         style={styles.card}
       >
         <View style={styles.header}>
-          <LinearGradient
-            colors={['rgba(255, 255, 255, 0.3)', 'rgba(255, 255, 255, 0.15)']}
-            style={styles.iconContainer}
-          >
-            <Ionicons name={categoryInfo.icon as any} size={24} color="#FFFFFF" />
-          </LinearGradient>
+          <View style={styles.headerRight}>
+            {isCompleted && <View style={styles.completedBadge}>
+                <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
+              </View>}
+            <View style={styles.menuButton}>
+              <Ionicons name="ellipsis-vertical" size={20} color="#FFFFFF" />
+            </View>
+          </View>
           <View style={styles.titleContainer}>
             <Text style={styles.title} numberOfLines={1}>
               {goal.title}
             </Text>
             <Text style={styles.category}>{categoryInfo.label}</Text>
           </View>
-          <View style={styles.headerRight}>
-            {isCompleted && (
-              <View style={styles.completedBadge}>
-                <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
-              </View>
-            )}
-            <View style={styles.menuButton}>
-              <Ionicons name="ellipsis-vertical" size={20} color="#FFFFFF" />
-            </View>
-          </View>
+          <LinearGradient colors={['rgba(255, 255, 255, 0.3)', 'rgba(255, 255, 255, 0.15)']} style={styles.iconContainer}>
+            <Ionicons name={categoryInfo.icon as any} size={24} color="#FFFFFF" />
+          </LinearGradient>
         </View>
 
         <View style={styles.progressContainer}>
@@ -215,29 +210,25 @@ const GoalCardComponent: React.FC<GoalCardProps> = ({
 
         <View style={styles.amountContainer}>
           <View style={styles.amountRow}>
-            <Text style={styles.amountLabel}>المحقق</Text>
-            <View>
-              <Text style={styles.amountValue}>
-                {isPrivacyEnabled ? '****' : formatCurrencyAmount(goal.currentAmount, goalCurrency)}
-              </Text>
-              {convertedCurrentAmount !== null && goalCurrency !== currencyCode && (
-                <Text style={styles.convertedAmount}>
-                  ≈ {formatCurrency(convertedCurrentAmount)}
-                </Text>
-              )}
-            </View>
-          </View>
-          <View style={styles.amountRow}>
             <Text style={styles.amountLabel}>المستهدف</Text>
             <View>
               <Text style={styles.amountValue}>
                 {isPrivacyEnabled ? '****' : formatCurrencyAmount(goal.targetAmount, goalCurrency)}
               </Text>
-              {convertedTargetAmount !== null && goalCurrency !== currencyCode && (
-                <Text style={styles.convertedAmount}>
+              {convertedTargetAmount !== null && goalCurrency !== currencyCode && <Text style={styles.convertedAmount}>
                   ≈ {formatCurrency(convertedTargetAmount)}
-                </Text>
-              )}
+                </Text>}
+            </View>
+          </View>
+          <View style={styles.amountRow}>
+            <Text style={styles.amountLabel}>المحقق</Text>
+            <View>
+              <Text style={styles.amountValue}>
+                {isPrivacyEnabled ? '****' : formatCurrencyAmount(goal.currentAmount, goalCurrency)}
+              </Text>
+              {convertedCurrentAmount !== null && goalCurrency !== currencyCode && <Text style={styles.convertedAmount}>
+                  ≈ {formatCurrency(convertedCurrentAmount)}
+                </Text>}
             </View>
           </View>
         </View>
@@ -312,7 +303,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    ...(isRTL ? { marginLeft: theme.spacing.md } : { marginRight: theme.spacing.md }),
+    ...(isRTL ? { marginRight: theme.spacing.md } : { marginLeft: theme.spacing.md }), // Swapped margin for reversed layout
     ...getPlatformShadow('sm'),
   },
   titleContainer: {
@@ -324,14 +315,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: '#FFFFFF',
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
+    textAlign: isRTL ? 'left' : 'right', // Swapped alignment
     writingDirection: isRTL ? 'rtl' : 'ltr',
   },
   category: {
     fontSize: theme.typography.sizes.sm,
     color: 'rgba(255, 255, 255, 0.8)',
     fontFamily: theme.typography.fontFamily,
-    textAlign: 'right',
+    textAlign: isRTL ? 'left' : 'right', // Swapped alignment
     writingDirection: isRTL ? 'rtl' : 'ltr',
   },
   headerRight: {
@@ -357,6 +348,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: theme.borderRadius.round,
     overflow: 'hidden',
     marginBottom: theme.spacing.xs,
+    flexDirection: isRTL ? 'row-reverse' : 'row', // Fix fill direction
     ...getPlatformShadow('sm'),
   },
   progressFill: {

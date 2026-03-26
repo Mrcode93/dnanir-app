@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Keyboard, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Keyboard, TextInput, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
@@ -156,13 +156,13 @@ export const AddBudgetScreen: React.FC<AddBudgetScreenProps> = ({
     if (customCat?.icon) return customCat.icon;
     return CATEGORY_ICONS[category] || 'wallet';
   };
-  const allCategories = customCategories.map(c => c.name);
+  const allCategories = [...Object.keys(EXPENSE_CATEGORIES), ...customCategories.map(c => c.name)];
   const saveFooter = <AppButton label={loading ? tl("جاري الحفظ...") : editingBudget ? tl("تحديث الميزانية") : tl("حفظ الميزانية")} onPress={handleSave} variant="primary" size="lg" loading={loading} disabled={!amount || !selectedCategory || loading} leftIcon="checkmark-circle" />;
   return <ScreenContainer scrollable edges={['bottom', 'left', 'right']} scrollPadBottom={32} style={{
     backgroundColor: theme.colors.surfaceCard
   }}>
       {/* Header */}
-      <AppHeader title={editingBudget ? tl("تعديل الميزانية") : tl("إضافة ميزانية جديدة")} onBack={handleClose} backIcon={isRTL ? 'chevron-forward' : 'chevron-back'} />
+      <AppHeader title={editingBudget ? tl("تعديل الميزانية") : tl("إضافة ميزانية جديدة")} onBack={handleClose} backIcon={isRTL ? 'chevron-back' : 'chevron-forward'} />
 
       {/* Amount Card */}
       <View style={styles.amountCard}>
@@ -193,22 +193,69 @@ export const AddBudgetScreen: React.FC<AddBudgetScreenProps> = ({
         </View>
 
         {/* Currency Selection */}
-        <AppButton label={getCurrencyDisplayName(currency)} onPress={() => setShowCurrencyPicker(true)} variant="secondary" leftIcon="cash-outline" rightIcon="chevron-down" style={styles.currencySelector} labelStyle={styles.currencySelectorText} />
+        <View style={styles.currencySection}>
+          <View style={styles.currencyHeader}>
+            <Ionicons name="cash-outline" size={18} color={theme.colors.primary} />
+            <Text style={styles.currencyLabelSmall}>{tl("العملة")}</Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => setShowCurrencyPicker(true)}
+            activeOpacity={0.7}
+            style={styles.currencySelector}
+          >
+            <View style={styles.currencySelectorContent}>
+              <Text style={styles.currencySelectorText}>
+                {getCurrencyDisplayName(currency)}
+              </Text>
+              <Ionicons name="chevron-down" size={20} color={theme.colors.textSecondary} />
+            </View>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Category Selection */}
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>{tl("اختر الفئة")}</Text>
-        <View style={styles.categoriesGrid}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoriesRow}
+          style={[styles.categoriesScrollView, isRTL && { transform: [{ scaleX: -1 }] }]}
+        >
           {allCategories.map(category => {
-          const isSelected = selectedCategory === category;
-          const customCat = customCategories.find(c => c.name === category);
-          const categoryColor = customCat?.color || theme.colors.primary;
-          return <AppButton key={category} label={tl(getCategoryName(category))} onPress={() => setSelectedCategory(category)} variant={isSelected ? 'primary' : 'secondary'} leftIcon={isSelected ? getCategoryIcon(category) as any : `${getCategoryIcon(category)}-outline` as any} style={[styles.categoryCard, isSelected && {
-            backgroundColor: categoryColor
-          }]} labelStyle={[styles.categoryCardLabel, isSelected && styles.categoryCardLabelActive]} />;
-        })}
-        </View>
+            const isSelected = selectedCategory === category;
+            const customCat = customCategories.find(c => c.name === category);
+            const categoryColor = customCat?.color || theme.colors.primary;
+            return (
+              <TouchableOpacity
+                key={category}
+                onPress={() => setSelectedCategory(category)}
+                activeOpacity={0.7}
+                style={[
+                  styles.categoryCard,
+                  isSelected && { backgroundColor: categoryColor },
+                  isRTL && { transform: [{ scaleX: -1 }] }
+                ]}
+              >
+                <View style={[styles.categoryIconContainer, isSelected && { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
+                  <Ionicons
+                    name={(isSelected ? getCategoryIcon(category) : `${getCategoryIcon(category)}-outline`) as any}
+                    size={20}
+                    color={isSelected ? '#FFFFFF' : categoryColor}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.categoryCardLabel,
+                    isSelected && styles.categoryCardLabelActive
+                  ]}
+                >
+                  {tl(getCategoryName(category))}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
       {/* Save Button */}
       <View style={{
@@ -285,19 +332,41 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: theme.spacing.md,
     fontStyle: 'italic'
   },
-  currencySelector: {
+  currencySection: {
+    marginTop: theme.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    paddingTop: theme.spacing.md,
+  },
+  currencyHeader: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing.sm,
-    padding: theme.spacing.md,
+    gap: 8,
+    marginBottom: 8,
+  },
+  currencyLabelSmall: {
+    fontSize: theme.typography.sizes.sm,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+    fontWeight: getPlatformFontWeight('600'),
+  },
+  currencySelector: {
     backgroundColor: theme.colors.surfaceLight,
-    borderRadius: 12
+    borderRadius: 12,
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  currencySelectorContent: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   currencySelectorText: {
     fontSize: theme.typography.sizes.md,
     color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily
+    fontFamily: theme.typography.fontFamily,
+    fontWeight: getPlatformFontWeight('700'),
   },
   currencyDropdown: {
     marginTop: theme.spacing.md,
@@ -343,35 +412,41 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md, // Add padding to align with label
     textAlign: isRTL ? 'right' : 'left'
   },
-  categoriesGrid: {
+  categoriesScrollView: {
+    marginBottom: theme.spacing.sm,
+  },
+  categoriesRow: {
+    paddingHorizontal: theme.spacing.md,
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: theme.spacing.sm
+    gap: 8,
+    paddingVertical: 4,
   },
   categoryCard: {
-    width: '31%',
+    width: 100, // Slightly larger
+    height: 90, // Slightly larger
     borderRadius: 16,
-    overflow: 'hidden',
-    ...getPlatformShadow('sm')
-  },
-  categoryCardGradient: {
-    padding: theme.spacing.md,
-    alignItems: 'center',
-    minHeight: 100,
-    justifyContent: 'center'
-  },
-  categoryIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+    backgroundColor: theme.colors.surfaceLight,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: theme.spacing.sm
+    padding: 8,
+    ...getPlatformShadow('sm')
+  },
+  categoryIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: theme.colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4
   },
   categoryCardLabel: {
-    fontSize: theme.typography.sizes.sm,
+    fontSize: 12, // More compact
     fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,

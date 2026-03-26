@@ -11,7 +11,8 @@ import { useAppTheme } from '../utils/theme-context';
 import { getUserSettings, getAppSettings, upsertAppSettings, getNotificationSettings, upsertNotificationSettings, upsertUserSettings, recalculateAllBaseAmounts, importFullData } from '../database/database';
 import { initializeNotifications, requestPermissions, scheduleDailyReminder, sendExpenseReminder, cancelNotification, rescheduleAllNotifications, sendTestNotification, verifyScheduledNotifications } from '../services/notificationService';
 import { generateMonthlyReport, generateFullReport, sharePDF } from '../services/pdfService';
-import { AuthSettingsModal } from '../components/AuthSettingsModal';
+
+import { authModalService } from '../services/authModalService';
 import { ConfirmAlert } from '../components/ConfirmAlert';
 import { CURRENCIES, Currency } from '../types';
 import { alertService } from '../services/alertService';
@@ -583,47 +584,47 @@ export const SettingsScreen = ({
       setTempAmPm(amPm);
     };
     return <View style={styles.customTimePickerContainer}>
-        <View style={styles.timePickerWheel}>
-          <View style={styles.timePickerSelectionIndicator} />
-          <ScrollView ref={hourRef} style={styles.timePickerScroll} contentContainerStyle={styles.timePickerScrollContent} showsVerticalScrollIndicator={false} snapToInterval={itemHeight} decelerationRate="fast" onMomentumScrollEnd={handleHourScroll} onScrollEndDrag={handleHourScroll}>
-            {hours.map(hour => <View key={hour} style={[styles.timePickerItem, {
+      <View style={styles.timePickerWheel}>
+        <View style={styles.timePickerSelectionIndicator} />
+        <ScrollView ref={hourRef} style={styles.timePickerScroll} contentContainerStyle={styles.timePickerScrollContent} showsVerticalScrollIndicator={false} snapToInterval={itemHeight} decelerationRate="fast" onMomentumScrollEnd={handleHourScroll} onScrollEndDrag={handleHourScroll}>
+          {hours.map(hour => <View key={hour} style={[styles.timePickerItem, {
             height: itemHeight
           }]}>
-                <Text style={[styles.timePickerItemText, tempHour === hour && styles.timePickerItemTextSelected]}>
-                  {hour.toString().padStart(2, '0')}
-                </Text>
-              </View>)}
-          </ScrollView>
-        </View>
+            <Text style={[styles.timePickerItemText, tempHour === hour && styles.timePickerItemTextSelected]}>
+              {hour.toString().padStart(2, '0')}
+            </Text>
+          </View>)}
+        </ScrollView>
+      </View>
 
-        <Text style={styles.timePickerSeparator}>:</Text>
+      <Text style={styles.timePickerSeparator}>:</Text>
 
-        <View style={styles.timePickerWheel}>
-          <View style={styles.timePickerSelectionIndicator} />
-          <ScrollView ref={minuteRef} style={styles.timePickerScroll} contentContainerStyle={styles.timePickerScrollContent} showsVerticalScrollIndicator={false} snapToInterval={itemHeight} decelerationRate="fast" onMomentumScrollEnd={handleMinuteScroll} onScrollEndDrag={handleMinuteScroll}>
-            {minutes.map(minute => <View key={minute} style={[styles.timePickerItem, {
+      <View style={styles.timePickerWheel}>
+        <View style={styles.timePickerSelectionIndicator} />
+        <ScrollView ref={minuteRef} style={styles.timePickerScroll} contentContainerStyle={styles.timePickerScrollContent} showsVerticalScrollIndicator={false} snapToInterval={itemHeight} decelerationRate="fast" onMomentumScrollEnd={handleMinuteScroll} onScrollEndDrag={handleMinuteScroll}>
+          {minutes.map(minute => <View key={minute} style={[styles.timePickerItem, {
             height: itemHeight
           }]}>
-                <Text style={[styles.timePickerItemText, tempMinute === minute && styles.timePickerItemTextSelected]}>
-                  {minute.toString().padStart(2, '0')}
-                </Text>
-              </View>)}
-          </ScrollView>
-        </View>
+            <Text style={[styles.timePickerItemText, tempMinute === minute && styles.timePickerItemTextSelected]}>
+              {minute.toString().padStart(2, '0')}
+            </Text>
+          </View>)}
+        </ScrollView>
+      </View>
 
-        <View style={styles.timePickerWheel}>
-          <View style={styles.timePickerSelectionIndicator} />
-          <ScrollView ref={amPmRef} style={styles.timePickerScroll} contentContainerStyle={styles.timePickerScrollContent} showsVerticalScrollIndicator={false} snapToInterval={itemHeight} decelerationRate="fast" onMomentumScrollEnd={handleAmPmScroll} onScrollEndDrag={handleAmPmScroll}>
-            {amPmOptions.map(amPm => <View key={amPm} style={[styles.timePickerItem, {
+      <View style={styles.timePickerWheel}>
+        <View style={styles.timePickerSelectionIndicator} />
+        <ScrollView ref={amPmRef} style={styles.timePickerScroll} contentContainerStyle={styles.timePickerScrollContent} showsVerticalScrollIndicator={false} snapToInterval={itemHeight} decelerationRate="fast" onMomentumScrollEnd={handleAmPmScroll} onScrollEndDrag={handleAmPmScroll}>
+          {amPmOptions.map(amPm => <View key={amPm} style={[styles.timePickerItem, {
             height: itemHeight
           }]}>
-                <Text style={[styles.timePickerItemText, tempAmPm === amPm && styles.timePickerItemTextSelected]}>
-                  {amPm === 'am' ? tl("ص") : tl("م")}
-                </Text>
-              </View>)}
-          </ScrollView>
-        </View>
-      </View>;
+            <Text style={[styles.timePickerItemText, tempAmPm === amPm && styles.timePickerItemTextSelected]}>
+              {amPm === 'am' ? tl("ص") : tl("م")}
+            </Text>
+          </View>)}
+        </ScrollView>
+      </View>
+    </View>;
   };
   const formatTime = (date: Date): string => {
     const hour24 = date.getHours();
@@ -760,7 +761,7 @@ export const SettingsScreen = ({
       if (result.success && result.data) {
         setReferralInfo(result.data);
       }
-    } catch (err) {} finally {
+    } catch (err) { } finally {
       setLoadingReferral(false);
     }
   };
@@ -771,7 +772,7 @@ export const SettingsScreen = ({
       await Share.share({
         message
       });
-    } catch (error) {}
+    } catch (error) { }
   };
   const handleDeleteAllData = async (mode: 'local' | 'both') => {
     try {
@@ -820,676 +821,413 @@ export const SettingsScreen = ({
       }
     }
   };
-  return <ScreenContainer key={`settings-${language}-${isRTL ? 'rtl' : 'ltr'}`} scrollable={false} edges={['left', 'right']} style={{
-      writingDirection: isRTL ? 'rtl' : 'ltr'
-    } as any}>
-      <ScrollView key={`settings-scroll-${language}-${isRTL ? 'rtl' : 'ltr'}`} style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-        {/* Profile Navigation Block (NEW) */}
-        <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={[styles.sectionCard, {
-        marginTop: 16
-      }]} activeOpacity={0.7}>
-          <View style={[styles.sectionContent, {
-          flexDirection: isRTL ? 'row' : 'row-reverse',
-          alignItems: 'center'
-        }]}>
-            <View style={[styles.avatarContainer, {
-            width: 50,
-            height: 50,
-            borderRadius: 25,
-            backgroundColor: isDark ? theme.colors.surfaceLight : theme.colors.primary + '15',
-            justifyContent: 'center',
-            alignItems: 'center',
-            elevation: 0 // Disable elevation on Android for transparent circle
-          }]}>
-              <Ionicons name="person" size={24} color={theme.colors.primary} />
-            </View>
-            <View style={{
-            flex: 1,
-            marginHorizontal: 16
-          }}>
-              <Text style={styles.profileTitle}>{tl("الحساب والملف الشخصي")}</Text>
-              <Text style={styles.profileSubtitle}>{tl("إدارة الحساب، المزامنة، والإحالة")}</Text>
-            </View>
-            <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={24} color={theme.colors.textMuted} />
-          </View>
-        </TouchableOpacity>
+  const handleLanguageChange = async (lang: AppLanguage) => {
+    if (lang === selectedLanguage) return;
+    setSelectedLanguage(lang);
+    setLanguage(lang);
+    try {
+      const appSettings = await getAppSettings();
+      const settingsToSave = appSettings || getDefaultAppSettings();
+      await upsertAppSettings({ ...settingsToSave, language: lang });
+    } catch (e) { }
+  };
 
-        {/* 1. الإعدادات العامة */}
+  return (
+    <ScreenContainer
+      key={`settings-${language}-${isRTL ? 'rtl' : 'ltr'}`}
+      scrollable={false}
+      edges={['left', 'right']}
+      style={{ writingDirection: isRTL ? 'rtl' : 'ltr' } as any}
+    >
+      <ScrollView
+        key={`settings-scroll-${language}-${isRTL ? 'rtl' : 'ltr'}`}
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Section: Account */}
+        <Text style={styles.sectionLabel}>{tl("الحساب")}</Text>
+        <View style={styles.sectionCard}>
+          <TouchableOpacity onPress={() => navigation.navigate('Profile')} activeOpacity={0.7}>
+            <View style={[styles.sectionContent, { flexDirection: 'row', alignItems: 'center', paddingVertical: 20 }]}>
+              <View style={[styles.avatarContainer, { width: 56, height: 56, borderRadius: 28, backgroundColor: theme.colors.primary + '10', borderWidth: 0, alignItems: 'center', justifyContent: 'center' }]}>
+                <Ionicons name="person" size={28} color={theme.colors.primary} />
+              </View>
+              <View style={{ flex: 1, marginHorizontal: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={[styles.profileTitle, { fontSize: 18, marginBottom: 0, textAlign: 'left' }]}>
+                    {isAuthenticated ? (userName || tl("مستخدم دنانير")) : tl("مستخدم دنانير")}
+                  </Text>
+                  {isAuthenticated && (
+                    <View style={{ backgroundColor: '#D4AF3720', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '700', color: '#B8860B', fontFamily: theme.typography.fontFamily }}>{tl("PRO")}</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={[styles.profileSubtitle, { marginTop: 2, textAlign: 'left' }]}>
+                  {isAuthenticated ? (userPhone || tl("سجل الدخول لمزامنة بياناتك")) : tl("سجل الدخول لمزامنة بياناتك")}
+                </Text>
+              </View>
+              <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={theme.colors.textMuted} />
+            </View>
+          </TouchableOpacity>
+
+          {isAuthenticated ? (
+            <>
+              <View style={styles.compactRowDivider} />
+              <TouchableOpacity
+                style={[styles.compactRow, { paddingVertical: 14, paddingHorizontal: 20 }]}
+                onPress={async () => {
+                  await authApiService.logout();
+                  loadSettings();
+                  alertService.toastSuccess(tl("تم تسجيل الخروج بنجاح"));
+                }}
+              >
+                <View style={[styles.compactIconContainer, { backgroundColor: theme.colors.error + '10' }]}>
+                  <Ionicons name="log-out" size={18} color={theme.colors.error} />
+                </View>
+                <View style={styles.compactRowContent}>
+                  <Text style={[styles.compactRowText, { color: theme.colors.error }]}>{tl("تسجيل الخروج")}</Text>
+                </View>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <View style={styles.compactRowDivider} />
+              <TouchableOpacity
+                style={[styles.compactRow, { paddingVertical: 14, paddingHorizontal: 20 }]}
+                onPress={() => authModalService.show()}
+              >
+                <View style={[styles.compactIconContainer, { backgroundColor: theme.colors.primary + '10' }]}>
+                  <Ionicons name="log-in" size={18} color={theme.colors.primary} />
+                </View>
+                <View style={styles.compactRowContent}>
+                  <Text style={[styles.compactRowText, { color: theme.colors.primary }]}>{tl("تسجيل الدخول / إنشاء حساب")}</Text>
+                </View>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+
+        {/* Section: General Settings */}
+        <Text style={styles.sectionLabel}>{tl("الإعدادات العامة")}</Text>
         <View style={styles.sectionCard}>
           <View style={styles.sectionContent}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="settings-outline" size={22} color={theme.colors.primary} />
-              <Text style={styles.sectionTitle}>{tl("الإعدادات العامة")}</Text>
-            </View>
-
-            <View style={styles.premiumRow}>
-              <View style={[styles.premiumIconBox, {
-              backgroundColor: theme.colors.primary + '15'
-            }]}>
-                <Ionicons name="notifications" size={22} color={theme.colors.primary} />
+            {/* Notifications Toggle */}
+            <View style={styles.compactRow}>
+              <View style={styles.compactIconContainer}>
+                <Ionicons name="notifications" size={20} color={theme.colors.primary} />
               </View>
-              <View style={{
-              flex: 1
-            }}>
-                <Text style={styles.premiumItemTitle}>{tl("الإشعارات")}</Text>
-                <Text style={styles.premiumItemSubtitle}>{tl("تلقي تنبيهات حول المصاريف والأهداف")}</Text>
-              </View>
-              <Switch value={notificationsEnabled} onValueChange={handleNotificationsToggle} trackColor={{
-              false: '#767577',
-              true: theme.colors.primary
-            }} thumbColor={notificationsEnabled ? '#FFFFFF' : '#f4f3f4'} />
-            </View>
-
-            <View style={{
-            marginTop: 16
-          }}>
-            <View style={{
-              flexDirection: isRTL ? 'row' : 'row-reverse',
-              alignItems: 'center',
-              marginBottom: 12
-            }}>
-                <View style={[styles.premiumIconBox, {
-                backgroundColor: '#8B5CF615',
-                width: 36,
-                height: 36,
-                borderRadius: 10
-              }]}>
-                  <Ionicons name="color-palette" size={18} color="#8B5CF6" />
-                </View>
-                <View style={{
-                flex: 1
-              }}>
-                  <Text style={[styles.premiumItemTitle, {
-                  fontSize: 15
-                }]}>{tl("المظهر (Theme)")}</Text>
-                </View>
-              </View>
-
-              <View style={styles.themeOptionsContainer}>
-                <TouchableOpacity style={[styles.themeOption, themeMode === 'light' && styles.themeOptionActive]} onPress={async () => {
-                setThemeMode('light');
-                try {
-                  const appSettings = await getAppSettings();
-                  const settingsToSave = appSettings || {
-                    notificationsEnabled: true,
-                    darkModeEnabled: false,
-                    themeMode: 'light',
-                    autoBackupEnabled: false,
-                    autoSyncEnabled: false,
-                    currency: 'دينار عراقي',
-                    language: 'ar'
-                  };
-                  await upsertAppSettings({
-                    ...settingsToSave,
-                    themeMode: 'light',
-                    darkModeEnabled: false
-                  });
-                  // Sync to widget
-                  const {
-                    saveWidgetData
-                  } = await import('../services/widgetDataService');
-                  await saveWidgetData();
-                } catch (e) {}
-              }}>
-                  <Ionicons name="sunny" size={20} color={themeMode === 'light' ? theme.colors.primary : theme.colors.textSecondary} />
-                  <Text style={[styles.themeOptionText, themeMode === 'light' && styles.themeOptionTextActive]}>{tl("فاتح")}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={[styles.themeOption, themeMode === 'dark' && styles.themeOptionActive]} onPress={async () => {
-                setThemeMode('dark');
-                try {
-                  const appSettings = await getAppSettings();
-                  const settingsToSave = appSettings || {
-                    notificationsEnabled: true,
-                    darkModeEnabled: true,
-                    themeMode: 'dark',
-                    autoBackupEnabled: false,
-                    autoSyncEnabled: false,
-                    currency: 'دينار عراقي',
-                    language: 'ar'
-                  };
-                  await upsertAppSettings({
-                    ...settingsToSave,
-                    themeMode: 'dark',
-                    darkModeEnabled: true
-                  });
-                  // Sync to widget
-                  const {
-                    saveWidgetData
-                  } = await import('../services/widgetDataService');
-                  await saveWidgetData();
-                } catch (e) {}
-              }}>
-                  <Ionicons name="moon" size={20} color={themeMode === 'dark' ? theme.colors.primary : theme.colors.textSecondary} />
-                  <Text style={[styles.themeOptionText, themeMode === 'dark' && styles.themeOptionTextActive]}>{tl("داكن")}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={[styles.themeOption, themeMode === 'system' && styles.themeOptionActive]} onPress={async () => {
-                setThemeMode('system');
-                try {
-                  const appSettings = await getAppSettings();
-                  const settingsToSave = appSettings || {
-                    notificationsEnabled: true,
-                    darkModeEnabled: false,
-                    themeMode: 'system',
-                    autoBackupEnabled: false,
-                    autoSyncEnabled: false,
-                    currency: 'دينار عراقي',
-                    language: 'ar'
-                  };
-                  await upsertAppSettings({
-                    ...settingsToSave,
-                    themeMode: 'system'
-                  });
-                  // Sync to widget
-                  const {
-                    saveWidgetData
-                  } = await import('../services/widgetDataService');
-                  await saveWidgetData();
-                } catch (e) {}
-              }}>
-                  <Ionicons name="phone-portrait" size={20} color={themeMode === 'system' ? theme.colors.primary : theme.colors.textSecondary} />
-                  <Text style={[styles.themeOptionText, themeMode === 'system' && styles.themeOptionTextActive]}>{tl("النظام")}</Text>
-                </TouchableOpacity>
+              <View style={styles.compactRowContent}>
+                <Text style={styles.compactRowText}>{tl("التنبيهات")}</Text>
+                <Switch
+                  value={notificationsEnabled}
+                  onValueChange={handleNotificationsToggle}
+                  trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+                  thumbColor={notificationsEnabled ? '#FFFFFF' : '#f4f3f4'}
+                />
               </View>
             </View>
 
-            <TouchableOpacity 
-              style={[styles.premiumRow, { marginTop: 16 }]} 
-              onPress={() => navigation.navigate('Wallets')}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.premiumIconBox, { backgroundColor: '#10B98115' }]}>
-                <Ionicons name="wallet-outline" size={22} color="#10B981" />
+            {notificationsEnabled && (
+              <>
+                <View style={styles.compactRowDivider} />
+                <TouchableOpacity style={styles.compactRow} onPress={handleOpenDailyTimePicker}>
+                  <View style={[styles.compactIconContainer, { backgroundColor: theme.colors.primary + '05' }]}>
+                    <Ionicons name="alarm" size={18} color={theme.colors.primary} />
+                  </View>
+                  <View style={styles.compactRowContent}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.compactRowText}>{tl("تذكير يومي")}</Text>
+                      <Text style={styles.compactRowValue}>{formatTime(dailyReminderTime)}</Text>
+                    </View>
+                    <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={theme.colors.textMuted} />
+                  </View>
+                </TouchableOpacity>
+              </>
+            )}
+
+            <View style={styles.compactRowDivider} />
+
+            {/* Theme Selector */}
+            <View style={[styles.compactRow, { alignItems: 'flex-start', paddingVertical: 14 }]}>
+              <View style={styles.compactIconContainer}>
+                <Ionicons name="color-palette" size={20} color={theme.colors.primary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.premiumItemTitle}>{tl("إدارة المحافظ")}</Text>
-                <Text style={styles.premiumItemSubtitle}>{tl("إضافة وتعديل المحافظ والتحكم في أرصدتها")}</Text>
-              </View>
-              <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={18} color={theme.colors.textMuted} />
-            </TouchableOpacity>
-
-          </View>
-        </View>
-
-
-        {/* 3. النسخ الاحتياطي والاستعادة */}
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionContent}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="cloud-upload-outline" size={22} color={theme.colors.primary} />
-              <Text style={styles.sectionTitle}>{tl("النسخ الاحتياطي والاستعادة")}</Text>
-            </View>
-            <TouchableOpacity onPress={async () => {
-            if (backupLoading) return;
-            setBackupLoading(true);
-            const result = await createLocalBackup();
-            setBackupLoading(false);
-            if (result.success) {
-              alertService.toastSuccess(tl("تم إنشاء النسخة الاحتياطية بنجاح. يمكنك حفظ الملف في التخزين أو مشاركته."));
-            } else {
-              alertService.error(tl("خطأ"), result.error);
-            }
-          }} style={[styles.actionItem, {
-            backgroundColor: '#0EA5E9',
-            overflow: 'hidden'
-          }]} activeOpacity={0.7} disabled={backupLoading}>
-              <View style={styles.actionItemGradient}>
-                <View style={styles.actionItemLeft}>
-                  <View style={styles.actionIconContainer}>
-                    {backupLoading ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Ionicons name="save" size={24} color="#FFFFFF" />}
-                  </View>
-                  <View style={styles.actionItemInfo}>
-                    <Text style={styles.actionItemTitleWhite}>{tl("نسخ احتياطي داخلي")}</Text>
-                    <Text style={styles.actionItemDescriptionWhite}>{tl("حفظ كل بياناتك في ملف واحفظه على جهازك")}</Text>
-                  </View>
-                </View>
-                {!backupLoading && <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={20} color="#FFFFFF" />}
-              </View>
-            </TouchableOpacity>
-
-
-            <TouchableOpacity onPress={async () => {
-            if (backupLoading) return;
-            setBackupLoading(true);
-            const result = await pickBackupFileAndRestore();
-            setBackupLoading(false);
-            if (result.success) {
-              alertService.toastSuccess(tl("تم استعادة النسخة الاحتياطية من الملف."));
-              setSelectedWallet(null);
-              await refreshWallets();
-              loadSettings();
-            } else if (result.code === 'BACKUP_OLDER') {
-              setPickedBackupData(result.data);
-              setShowRestoreLocalOldConfirm(true);
-            } else if (result.error !== 'لم يتم اختيار ملف') {
-              alertService.error(tl("خطأ"), result.error);
-            }
-          }} style={[styles.actionItem, {
-            backgroundColor: '#6366F1',
-            overflow: 'hidden'
-          }]} activeOpacity={0.7} disabled={backupLoading}>
-              <View style={styles.actionItemGradient}>
-                <View style={styles.actionItemLeft}>
-                  <View style={styles.actionIconContainer}>
-                    {backupLoading ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Ionicons name="folder-open" size={24} color="#FFFFFF" />}
-                  </View>
-                  <View style={styles.actionItemInfo}>
-                    <Text style={styles.actionItemTitleWhite}>{tl("استعادة من ملف")}</Text>
-                    <Text style={styles.actionItemDescriptionWhite}>{tl("اختر ملف نسخة احتياطية من جهازك (ملف أو iCloud)")}</Text>
-                  </View>
-                </View>
-                {!backupLoading && <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={20} color="#FFFFFF" />}
-              </View>
-            </TouchableOpacity>
-
-            {showRestoreLocalOldConfirm && <ConfirmAlert visible={showRestoreLocalOldConfirm} title={tl("تحذير: نسخة قديمة")} message={tl("هذا الملف يحتوي على نسخة احتياطية أقدم من البيانات الحالية على جهازك. هل تريد المتابعة واستبدال بياناتك الجديدة بالقديمة؟")} confirmText={tl("استعادة على أي حال")} cancelText={tl("إلغاء")} onConfirm={async () => {
-            setShowRestoreLocalOldConfirm(false);
-            if (!pickedBackupData) return;
-            setBackupLoading(true);
-            try {
-              await importFullData(pickedBackupData, true); // force = true
-              alertService.toastSuccess(tl("تم استعادة البيانات بنجاح."));
-              setSelectedWallet(null);
-              await refreshWallets();
-              loadSettings();
-            } catch (err: any) {
-              alertService.error(tl("فشل الاستعادة"), err.message || tl("حدث خطأ ما"));
-            } finally {
-              setBackupLoading(false);
-              setPickedBackupData(null);
-            }
-          }} onCancel={() => {
-            setShowRestoreLocalOldConfirm(false);
-            setPickedBackupData(null);
-          }} />}
-
-            {isAuthenticated && <TouchableOpacity onPress={() => setShowRestoreServerConfirm(true)} style={[styles.actionItem, {
-            backgroundColor: '#F59E0B',
-            overflow: 'hidden'
-          }]} activeOpacity={0.7} disabled={restoreServerLoading}>
-                <View style={styles.actionItemGradient}>
-                  <View style={styles.actionItemLeft}>
-                    <View style={styles.actionIconContainer}>
-                      {restoreServerLoading ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Ionicons name="cloud-download" size={24} color="#FFFFFF" />}
-                    </View>
-                    <View style={styles.actionItemInfo}>
-                      <Text style={styles.actionItemTitleWhite}>{tl("استعادة من السيرفر")}</Text>
-                      <Text style={styles.actionItemDescriptionWhite}>{tl("جلب آخر نسخة من السيرفر واستبدال البيانات المحلية (مميز)")}</Text>
-                    </View>
-                  </View>
-                  {!restoreServerLoading && <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={20} color="#FFFFFF" />}
-                </View>
-              </TouchableOpacity>}
-
-            {showRestoreServerConfirm && <ConfirmAlert visible={showRestoreServerConfirm} title={tl("استعادة من السيرفر")} message={tl("سيتم استبدال كل بياناتك المحلية بآخر نسخة من السيرفر. هل أنت متأكد؟")} confirmText={tl("استعادة")} cancelText={tl("إلغاء")} onConfirm={async () => {
-            setShowRestoreServerConfirm(false);
-            setRestoreServerLoading(true);
-            const result = await getFullFromServer();
-            setRestoreServerLoading(false);
-            if (result.success) {
-              alertService.toastSuccess(tl("تم استعادة البيانات من السيرفر."));
-              setSelectedWallet(null);
-              await refreshWallets();
-              loadSettings();
-            } else if (result.code === 'BACKUP_OLDER') {
-              setPickedBackupData(result.serverData);
-              setShowRestoreOldConfirm(true);
-            } else {
-              alertService.error(tl("فشل الاستعادة"), result.error);
-            }
-          }} onCancel={() => setShowRestoreServerConfirm(false)} />}
-
-            {showRestoreOldConfirm && <ConfirmAlert visible={showRestoreOldConfirm} title={tl("تحذير: نسخة قديمة")} message={tl("النسخة الاحتياطية الموجودة على السيرفر أقدم من البيانات الحالية على جهازك. هل تريد المتابعة واستبدال بياناتك الجديدة بالقديمة؟")} confirmText={tl("استعادة على أي حال")} cancelText={tl("إلغاء")} onConfirm={async () => {
-            setShowRestoreOldConfirm(false);
-            if (!pickedBackupData) return;
-            setRestoreServerLoading(true);
-            try {
-              await importFullData(pickedBackupData, true); // force = true
-              alertService.toastSuccess(tl("تم استعادة البيانات بنجاح."));
-              setSelectedWallet(null);
-              await refreshWallets();
-              loadSettings();
-            } catch (err: any) {
-              alertService.error(tl("فشل الاستعادة"), err.message || tl("حدث خطأ ما"));
-            } finally {
-              setRestoreServerLoading(false);
-              setPickedBackupData(null);
-            }
-          }} onCancel={() => {
-            setShowRestoreOldConfirm(false);
-            setPickedBackupData(null);
-          }} />}
-          </View>
-        </View>
-
-        {/* 4. اللغة والعملة */}
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionContent}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="globe-outline" size={22} color={theme.colors.primary} />
-              <Text style={styles.sectionTitle}>{t('settings.languageAndCurrency')}</Text>
-            </View>
-            <TouchableOpacity onPress={() => setShowCurrencyPicker(true)} style={styles.currencyItem} activeOpacity={0.7}>
-              <LinearGradient colors={['#10B981', '#059669']} style={styles.currencyItemGradient} start={{
-              x: 0,
-              y: 0
-            }} end={{
-              x: 1,
-              y: 0
-            }}>
-                <View style={styles.currencyItemLeft}>
-                  <View style={styles.currencyIconContainer}>
-                    <Ionicons name="cash" size={24} color="#FFFFFF" />
-                  </View>
-                  <View style={styles.currencyItemInfo}>
-                    <Text style={styles.currencyItemTitleWhite}>{t('settings.baseCurrency')}</Text>
-                    <Text style={styles.currencyItemDescriptionWhite}>
-                      {getCurrencyDisplayName(selectedCurrency, language)}
-                    </Text>
-                  </View>
-                </View>
-                <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={20} color="#FFFFFF" />
-              </LinearGradient>
-            </TouchableOpacity>
-
-            {selectedCurrency !== 'USD' && <TouchableOpacity onPress={() => setShowExchangeRateModal(true)} style={styles.exchangeRateItem} activeOpacity={0.7}>
-                <LinearGradient colors={['#F59E0B', '#D97706']} style={styles.exchangeRateItemGradient} start={{
-              x: 0,
-              y: 0
-            }} end={{
-              x: 1,
-              y: 0
-            }}>
-                  <View style={styles.exchangeRateItemLeft}>
-                    <View style={styles.exchangeRateIconContainer}>
-                      <Ionicons name="swap-horizontal" size={24} color="#FFFFFF" />
-                    </View>
-                    <View style={styles.exchangeRateItemInfo}>
-                      <Text style={styles.exchangeRateItemTitleWhite}>{tl("سعر الصرف")}</Text>
-                      <Text style={styles.exchangeRateItemDescriptionWhite}>
-                        1 USD = {usdToIqdRate} {selectedCurrency}
-                      </Text>
-                    </View>
-                  </View>
-                  <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={20} color="#FFFFFF" />
-                </LinearGradient>
-              </TouchableOpacity>}
-          </View>
-        </View>
-
-        {/* 5. إعدادات الإشعارات */}
-        {notificationsEnabled && <View style={styles.sectionCard}>
-              <View style={styles.sectionContent}>
-                <View style={styles.sectionHeader}>
-                  <Ionicons name="notifications-outline" size={22} color={theme.colors.primary} />
-                  <Text style={styles.sectionTitle}>{tl("إعدادات الإشعارات")}</Text>
-                </View>
-
-                {/* Daily Reminder */}
-                <View style={styles.notificationItem}>
-                  <View style={styles.notificationItemHeader}>
-                    <View style={styles.notificationItemLeft}>
-                      <View style={styles.notificationIconContainer}>
-                        <Ionicons name="calendar" size={20} color={theme.colors.primary} />
-                      </View>
-                      <View style={styles.notificationItemInfo}>
-                        <Text style={styles.notificationItemTitle}>{tl("تذكير يومي")}</Text>
-                        <Text style={styles.notificationItemDescription}>{tl("تذكير يومي لتسجيل المصاريف")}</Text>
-                      </View>
-                    </View>
-                    <Switch value={dailyReminder} onValueChange={handleDailyReminderToggle} trackColor={{
-                false: '#767577',
-                true: theme.colors.primary
-              }} thumbColor={dailyReminder ? '#FFFFFF' : '#f4f3f4'} />
-                  </View>
-                  <TouchableOpacity onPress={handleOpenDailyTimePicker} style={styles.timePickerButton} activeOpacity={0.7}>
-                    <Ionicons name="time-outline" size={18} color={theme.colors.primary} />
-                    <Text style={styles.timePickerText}>{tl("اختر الوقت:")}{formatTime(dailyReminderTime)}</Text>
-                    <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={16} color={theme.colors.textMuted} />
+                <Text style={styles.compactRowText}>{tl("المظهر")}</Text>
+                <View style={styles.segmentedControl}>
+                  <TouchableOpacity
+                    style={[styles.segmentedOption, themeMode === 'light' && styles.segmentedOptionActive]}
+                    onPress={() => setThemeMode('light')}
+                  >
+                    <Ionicons name="sunny" size={16} color={themeMode === 'light' ? theme.colors.primary : theme.colors.textSecondary} />
+                    <Text style={[styles.segmentedOptionText, themeMode === 'light' && styles.segmentedOptionTextActive]}>{tl("فاتح")}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.segmentedOption, themeMode === 'dark' && styles.segmentedOptionActive]}
+                    onPress={() => setThemeMode('dark')}
+                  >
+                    <Ionicons name="moon" size={16} color={themeMode === 'dark' ? theme.colors.primary : theme.colors.textSecondary} />
+                    <Text style={[styles.segmentedOptionText, themeMode === 'dark' && styles.segmentedOptionTextActive]}>{tl("داكن")}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.segmentedOption, themeMode === 'system' && styles.segmentedOptionActive]}
+                    onPress={() => setThemeMode('system')}
+                  >
+                    <Ionicons name="phone-portrait" size={16} color={themeMode === 'system' ? theme.colors.primary : theme.colors.textSecondary} />
+                    <Text style={[styles.segmentedOptionText, themeMode === 'system' && styles.segmentedOptionTextActive]}>{tl("تلقائي")}</Text>
                   </TouchableOpacity>
                 </View>
-
-
-
-
               </View>
-            </View>}
-        {/* Expense Reminder Time Picker */}
-        <Modal visible={showExpenseTimePicker} transparent={true} animationType="slide" onRequestClose={() => setShowExpenseTimePicker(false)}>
-          <View style={styles.timePickerModalOverlay}>
-            <View style={styles.timePickerModalContent}>
-              <View style={styles.timePickerModalHeader}>
-                <TouchableOpacity onPress={handleExpenseTimeConfirm} style={styles.timePickerConfirmButton}>
-                  <Text style={styles.timePickerConfirmText}>{tl("تأكيد")}</Text>
-                </TouchableOpacity>
-                <Text style={styles.timePickerModalTitle}>{tl("اختر الوقت")}</Text>
-                <TouchableOpacity onPress={() => setShowExpenseTimePicker(false)} style={styles.timePickerCancelButton}>
-                  <Text style={styles.timePickerCancelText}>{tl("إلغاء")}</Text>
-                </TouchableOpacity>
-              </View>
-              {renderTimePickerWheel('expense')}
             </View>
-          </View>
-        </Modal>
 
-        {/* 6. التصدير */}
+            <View style={styles.compactRowDivider} />
+
+            {/* Language Row
+            <TouchableOpacity style={styles.compactRow} onPress={() => navigation.navigate('LanguageSelector')}>
+              <View style={styles.compactIconContainer}>
+                <Ionicons name="globe" size={20} color={theme.colors.primary} />
+              </View>
+              <View style={styles.compactRowContent}>
+                <Text style={styles.compactRowText}>{tl("اللغة")}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={styles.compactRowValue}>{getLanguageNativeName(language)}</Text>
+                  <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={theme.colors.textMuted} />
+                </View>
+              </View>
+            </TouchableOpacity> */}
+          </View>
+        </View>
+
+        {/* Section: Financial Settings */}
+        <Text style={styles.sectionLabel}>{tl("الإعدادات المالية")}</Text>
         <View style={styles.sectionCard}>
           <View style={styles.sectionContent}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="document-text-outline" size={22} color={theme.colors.primary} />
-              <Text style={styles.sectionTitle}>{tl("التصدير")}</Text>
-            </View>
-
-            <TouchableOpacity onPress={() => setShowExportModal(true)} disabled={exportingPDF} style={[styles.exportButton, {
-            backgroundColor: isDark ? '#1E3A5F' : theme.colors.primary
-          }]} activeOpacity={0.8}>
-              {exportingPDF ? <ActivityIndicator color={theme.colors.textInverse} /> : <>
-                  <Ionicons name="document-text" size={20} color={'#FFFFFF'} />
-                  <Text style={styles.exportButtonText}>{tl("تصدير البيانات")}</Text>
-                </>}
-            </TouchableOpacity>
-
-            <View style={{
-            height: 12
-          }} />
-
-                <TouchableOpacity onPress={() => setShowDeleteChoiceModal(true)} style={[styles.actionItem, {
-                borderBottomWidth: 0,
-                paddingBottom: 4,
-                marginTop: 6
-              }]} activeOpacity={0.7}>
-              <View style={styles.actionItemGradient}>
-                <View style={styles.actionItemLeft}>
-                  <View style={[styles.actionIconContainer, {
-                  backgroundColor: theme.colors.error + '20',
-                  width: 40,
-                  height: 40,
-                  borderRadius: 20
-                }]}>
-                    {deletingAll ? <ActivityIndicator size="small" color={theme.colors.error} /> : <Ionicons name="trash" size={22} color={theme.colors.error} />}
-                  </View>
-                  <View style={styles.actionItemInfo}>
-                    <Text style={[styles.actionItemTitleWhite, {
-                    color: theme.colors.error,
-                    fontSize: 16
-                  }]}>{tl("حذف جميع البيانات")}</Text>
-                    <Text style={[styles.actionItemDescriptionWhite, {
-                    color: theme.colors.textSecondary,
-                    fontSize: 12
-                  }]}>{tl("سيتم مسح كافة البيانات بشكل نهائي.")}</Text>
-                  </View>
+            <TouchableOpacity style={styles.compactRow} onPress={() => setShowCurrencyPicker(true)}>
+              <View style={styles.compactIconContainer}>
+                <Ionicons name="cash" size={20} color={theme.colors.primary} />
+              </View>
+              <View style={styles.compactRowContent}>
+                <Text style={styles.compactRowText}>{tl("العملة الأساسية")}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={styles.compactRowValue}>{getCurrencyDisplayName(selectedCurrency, language)}</Text>
+                  <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={theme.colors.textMuted} />
                 </View>
               </View>
             </TouchableOpacity>
 
-            {showDeleteAllConfirm && <ConfirmAlert visible={showDeleteAllConfirm} title={deleteMode === 'both' ? tl("حذف من الجهاز والسيرفر؟") : tl("حذف من الجهاز فقط؟")} message={deleteMode === 'both' ? tl("سيتم حذف كافة البيانات نهائياً من الجهاز والسيرفر. هل أنت متأكد؟") : tl("سيتم حذف كافة البيانات من الجهاز فقط. ستبقى النسخة الاحتياطية على السيرفر.")} confirmText={tl("حذف")} cancelText={tl("إلغاء")} onConfirm={() => {
-            setShowDeleteAllConfirm(false);
-            handleDeleteAllData(deleteMode);
-          }} onCancel={() => setShowDeleteAllConfirm(false)} />}
-
-            {/* Delete choice modal: local only or local + cloud */}
-            {showDeleteChoiceModal && (
-              <Modal transparent animationType="fade" visible={showDeleteChoiceModal} onRequestClose={() => setShowDeleteChoiceModal(false)}>
-                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }}>
-                  <View style={{ backgroundColor: theme.colors.surfaceCard, borderRadius: 20, paddingVertical: 24, paddingHorizontal: 20, width: '100%', maxWidth: 340 }}>
-                    <Text style={{ fontFamily: 'DINNext-Medium', fontSize: 18, color: theme.colors.error, textAlign: 'center', marginBottom: 8 }}>{tl("حذف جميع البيانات")}</Text>
-                    <Text style={{ fontFamily: 'DINNext-Regular', fontSize: 14, color: theme.colors.textSecondary, textAlign: 'center', marginBottom: 20, lineHeight: 22 }}>{tl("اختر نوع الحذف:")}</Text>
-
-                    <TouchableOpacity
-                      onPress={() => {
-                        setShowDeleteChoiceModal(false);
-                        setDeleteMode('local');
-                        setShowDeleteAllConfirm(true);
-                      }}
-                      activeOpacity={0.8}
-                      style={{ backgroundColor: theme.colors.warning + '15', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 16, marginBottom: 10, borderWidth: 1, borderColor: theme.colors.warning + '30' }}
-                    >
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <View style={{ backgroundColor: theme.colors.warning + '25', width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginEnd: 12 }}>
-                          <Ionicons name="phone-portrait-outline" size={20} color={theme.colors.warning} />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ fontFamily: 'DINNext-Medium', fontSize: 15, color: theme.colors.textPrimary }}>{tl("حذف من الجهاز فقط")}</Text>
-                          <Text style={{ fontFamily: 'DINNext-Regular', fontSize: 12, color: theme.colors.textSecondary, marginTop: 2 }}>{tl("ستبقى النسخة على السيرفر")}</Text>
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      onPress={() => {
-                        setShowDeleteChoiceModal(false);
-                        setDeleteMode('both');
-                        setShowDeleteAllConfirm(true);
-                      }}
-                      activeOpacity={0.8}
-                      style={{ backgroundColor: theme.colors.error + '15', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 16, marginBottom: 16, borderWidth: 1, borderColor: theme.colors.error + '30' }}
-                    >
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <View style={{ backgroundColor: theme.colors.error + '25', width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginEnd: 12 }}>
-                          <Ionicons name="cloud-offline-outline" size={20} color={theme.colors.error} />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ fontFamily: 'DINNext-Medium', fontSize: 15, color: theme.colors.textPrimary }}>{tl("حذف من الجهاز والسيرفر")}</Text>
-                          <Text style={{ fontFamily: 'DINNext-Regular', fontSize: 12, color: theme.colors.textSecondary, marginTop: 2 }}>{tl("سيتم حذف جميع البيانات نهائياً")}</Text>
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity onPress={() => setShowDeleteChoiceModal(false)} activeOpacity={0.8} style={{ paddingVertical: 12, alignItems: 'center' }}>
-                      <Text style={{ fontFamily: 'DINNext-Medium', fontSize: 15, color: theme.colors.textMuted }}>{tl("إلغاء")}</Text>
-                    </TouchableOpacity>
+            {selectedCurrency !== 'USD' && (
+              <>
+                <View style={styles.compactRowDivider} />
+                <TouchableOpacity style={styles.compactRow} onPress={() => setShowExchangeRateModal(true)}>
+                  <View style={[styles.compactIconContainer, { backgroundColor: theme.colors.warning + '10' }]}>
+                    <Ionicons name="swap-horizontal" size={20} color={theme.colors.warning} />
                   </View>
-                </View>
-              </Modal>
+                  <View style={styles.compactRowContent}>
+                    <Text style={styles.compactRowText}>{tl("سعر الصرف")}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={styles.compactRowValue}>1 USD = {usdToIqdRate} {selectedCurrency}</Text>
+                      <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={theme.colors.textMuted} />
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              </>
             )}
+
+            <View style={styles.compactRowDivider} />
+
+            <TouchableOpacity style={styles.compactRow} onPress={() => setShowExportModal(true)}>
+              <View style={[styles.compactIconContainer, { backgroundColor: '#10B98110' }]}>
+                <Ionicons name="document-text" size={20} color="#10B981" />
+              </View>
+              <View style={styles.compactRowContent}>
+                <Text style={styles.compactRowText}>{tl("تصدير البيانات (PDF)")}</Text>
+                {exportingPDF ? <ActivityIndicator size="small" color="#10B981" /> : <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={theme.colors.textMuted} />}
+              </View>
+            </TouchableOpacity>
           </View>
         </View>
 
-        {/* 7. تواصل معنا */}
+        {/* Section: Backup & Security */}
+        <Text style={styles.sectionLabel}>{tl("النسخ الاحتياطي والأمان")}</Text>
         <View style={styles.sectionCard}>
           <View style={styles.sectionContent}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="chatbubbles-outline" size={22} color={theme.colors.primary} />
-              <Text style={styles.sectionTitle}>{tl("تواصل معنا")}</Text>
-            </View>
-
-            <TouchableOpacity onPress={handleContactEmail} style={styles.contactItem} activeOpacity={0.8}>
-              <LinearGradient colors={['#6366F1', '#3B82F6']} style={styles.contactItemGradient} start={{
-              x: 0,
-              y: 0
-            }} end={{
-              x: 1,
-              y: 1
-            }}>
-                <View style={styles.contactItemLeft}>
-                  <View style={styles.contactIconContainer}>
-                    <Ionicons name="mail" size={26} color="#FFFFFF" />
-                  </View>
-                  <View style={styles.contactItemInfo}>
-                    <Text style={styles.contactItemTitleWhite}>{tl("البريد الإلكتروني")}</Text>
-                    <Text style={styles.contactItemDescriptionWhite} numberOfLines={1}>
-                      {CONTACT_INFO.email}
-                    </Text>
-                  </View>
-                </View>
-                <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={22} color="#FFFFFF" />
-              </LinearGradient>
+            <TouchableOpacity
+              style={styles.compactRow}
+              disabled={backupLoading}
+              onPress={async () => {
+                if (backupLoading) return;
+                setBackupLoading(true);
+                const result = await createLocalBackup();
+                setBackupLoading(false);
+                if (result.success) alertService.toastSuccess(tl("تم إنشاء النسخة الاحتياطية بنجاح"));
+                else alertService.error(tl("خطأ"), result.error);
+              }}
+            >
+              <View style={[styles.compactIconContainer, { backgroundColor: '#0EA5E910' }]}>
+                <Ionicons name="cloud-upload" size={20} color="#0EA5E9" />
+              </View>
+              <View style={styles.compactRowContent}>
+                <Text style={styles.compactRowText}>{tl("نسخ احتياطي داخلي")}</Text>
+                {backupLoading ? <ActivityIndicator size="small" color="#0EA5E9" /> : <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={theme.colors.textMuted} />}
+              </View>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={handleContactWhatsApp} style={styles.contactItem} activeOpacity={0.8}>
-              <LinearGradient colors={['#10B981', '#059669']} style={styles.contactItemGradient} start={{
-              x: 0,
-              y: 0
-            }} end={{
-              x: 1,
-              y: 1
-            }}>
-                <View style={styles.contactItemLeft}>
-                  <View style={styles.contactIconContainer}>
-                    <Ionicons name="logo-whatsapp" size={26} color="#FFFFFF" />
-                  </View>
-                  <View style={styles.contactItemInfo}>
-                    <Text style={styles.contactItemTitleWhite}>WhatsApp</Text>
-                    <Text style={styles.contactItemDescriptionWhite}>{tl("تواصل معنا عبر WhatsApp")}</Text>
-                  </View>
-                </View>
-                <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={22} color="#FFFFFF" />
-              </LinearGradient>
+            <TouchableOpacity
+              style={styles.compactRow}
+              disabled={backupLoading}
+              onPress={async () => {
+                if (backupLoading) return;
+                setBackupLoading(true);
+                const result = await pickBackupFileAndRestore();
+                setBackupLoading(false);
+                if (result.success) {
+                  alertService.toastSuccess(tl("تم استعادة النسخة الاحتياطية بنجاح"));
+                  setSelectedWallet(null);
+                  await refreshWallets();
+                  loadSettings();
+                } else if (result.code === 'BACKUP_OLDER') {
+                  setPickedBackupData(result.data);
+                  setShowRestoreLocalOldConfirm(true);
+                }
+              }}
+            >
+              <View style={[styles.compactIconContainer, { backgroundColor: '#6366F110' }]}>
+                <Ionicons name="folder-open" size={20} color="#6366F1" />
+              </View>
+              <View style={styles.compactRowContent}>
+                <Text style={styles.compactRowText}>{tl("استعادة من ملف")}</Text>
+                <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={theme.colors.textMuted} />
+              </View>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={handleShareApp} style={styles.contactItem} activeOpacity={0.8}>
-              <LinearGradient colors={['#8B5CF6', '#7C3AED']} style={styles.contactItemGradient} start={{
-              x: 0,
-              y: 0
-            }} end={{
-              x: 1,
-              y: 1
-            }}>
-                <View style={styles.contactItemLeft}>
-                  <View style={styles.contactIconContainer}>
-                    <Ionicons name="share-social" size={26} color="#FFFFFF" />
-                  </View>
-                  <View style={styles.contactItemInfo}>
-                    <Text style={styles.contactItemTitleWhite}>{tl("مشاركة التطبيق")}</Text>
-                    <Text style={styles.contactItemDescriptionWhite}>
-                      {Platform.OS === 'ios' ? tl("شارك رابط App Store عبر واتساب أو أي تطبيق") : tl("شارك رابط تيليجرام عبر واتساب أو أي تطبيق")}
-                    </Text>
-                  </View>
-                </View>
-                <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={22} color="#FFFFFF" />
-              </LinearGradient>
+            <View style={styles.compactRowDivider} />
+            <TouchableOpacity
+              style={styles.compactRow}
+              disabled={restoreServerLoading}
+              onPress={async () => {
+                if (!isAuthenticated) {
+                  authModalService.show();
+                  return;
+                }
+                if (restoreServerLoading) return;
+                setRestoreServerLoading(true);
+                const result = await getFullFromServer();
+                setRestoreServerLoading(false);
+                if (result.success) {
+                  alertService.toastSuccess(tl("تم استعادة البيانات من السيرفر بنجاح"));
+                  setSelectedWallet(null);
+                  await refreshWallets();
+                  loadSettings();
+                } else if (result.code === 'BACKUP_OLDER') {
+                  setPickedBackupData(result.serverData);
+                  setShowRestoreOldConfirm(true);
+                } else {
+                  alertService.error(tl("خطأ"), result.error || tl("فشل الاستعادة من السيرفر"));
+                }
+              }}
+            >
+              <View style={[styles.compactIconContainer, { backgroundColor: '#10B98110' }]}>
+                <Ionicons name="cloud-download" size={20} color="#10B981" />
+              </View>
+              <View style={styles.compactRowContent}>
+                <Text style={styles.compactRowText}>{tl("استعادة من السيرفر")}</Text>
+                {restoreServerLoading ? <ActivityIndicator size="small" color="#10B981" /> : <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={theme.colors.textMuted} />}
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.compactRowDivider} />
+
+
+
+            <View style={styles.compactRowDivider} />
+
+            <TouchableOpacity onPress={() => setShowDeleteChoiceModal(true)} style={styles.compactRow}>
+              <View style={[styles.compactIconContainer, { backgroundColor: theme.colors.error + '10' }]}>
+                <Ionicons name="trash" size={20} color={theme.colors.error} />
+              </View>
+              <View style={styles.compactRowContent}>
+                <Text style={[styles.compactRowText, { color: theme.colors.error }]}>{tl("مسح جميع البيانات")}</Text>
+              </View>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* التذييل */}
-        <View style={styles.copyrightWrapper}>
-          <LinearGradient colors={theme.gradients.primary as any} style={styles.copyrightCard} start={{
-          x: 0,
-          y: 0
-        }} end={{
-          x: 1,
-          y: 1
-        }}>
-            <Image source={require('../../assets/letters-logo.png')} style={styles.copyrightLogo} resizeMode="contain" />
-            <Text style={styles.copyrightText}>{tl("© 2025 URUX. جميع الحقوق محفوظة.")}</Text>
-            <Text style={styles.versionText}>v.{Constants.expoConfig?.version ?? '1.1.5'}</Text>
-          </LinearGradient>
-        </View>
+        {/* Section: Support & About */}
+        <Text style={styles.sectionLabel}>{tl("الدعم والمعلومات")}</Text>
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionContent}>
+            <TouchableOpacity style={styles.compactRow} onPress={handleShareApp}>
+              <View style={[styles.compactIconContainer, { backgroundColor: '#8B5CF610' }]}>
+                <Ionicons name="share-social" size={20} color="#8B5CF6" />
+              </View>
+              <View style={styles.compactRowContent}>
+                <Text style={styles.compactRowText}>{tl("مشاركة التطبيق")}</Text>
+                <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={theme.colors.textMuted} />
+              </View>
+            </TouchableOpacity>
 
+            <View style={styles.compactRowDivider} />
+
+            <TouchableOpacity style={styles.compactRow} onPress={() => {
+              // Rate App logic - standard URL for App Store
+              const url = Platform.OS === 'ios' ? APP_LINKS.apple : APP_LINKS.android;
+              Linking.openURL(url);
+            }}>
+              <View style={[styles.compactIconContainer, { backgroundColor: '#FDE04710', borderRadius: 10 }]}>
+                <Ionicons name="star" size={18} color="#EAB308" />
+              </View>
+              <View style={styles.compactRowContent}>
+                <Text style={styles.compactRowText}>{tl("تقييم التطبيق")}</Text>
+                <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={theme.colors.textMuted} />
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.compactRowDivider} />
+
+            <TouchableOpacity style={styles.compactRow} onPress={handleContactEmail}>
+              <View style={[styles.compactIconContainer, { backgroundColor: theme.colors.info + '10' }]}>
+                <Ionicons name="mail" size={20} color={theme.colors.info} />
+              </View>
+              <View style={styles.compactRowContent}>
+                <Text style={styles.compactRowText}>{tl("تواصل معنا")}</Text>
+                <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={theme.colors.textMuted} />
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.compactRowDivider} />
+
+            <View style={styles.compactRow}>
+              <View style={styles.compactIconContainer}>
+                <Ionicons name="information-circle" size={20} color={theme.colors.textSecondary} />
+              </View>
+              <View style={styles.compactRowContent}>
+                <Text style={styles.compactRowText}>{tl("إصدار التطبيق")}</Text>
+                <Text style={styles.compactRowValue}>v.{Constants.expoConfig?.version ?? '1.1.5'}</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View style={{ alignItems: 'center', marginTop: 10, marginBottom: 30, backgroundColor: theme.colors.primary, borderRadius: 10, padding: 10 }}>
+          <Image source={require('../../assets/letters-logo.png')} style={{ width: 80, height: 40, marginBottom: 8 }} resizeMode="contain" />
+          <Text style={{ fontFamily: theme.typography.fontFamily, fontSize: 12, color: 'white' }}>{tl("صنع بكل حب في العراق")}</Text>
+          <Text style={{ fontFamily: theme.typography.fontFamily, fontSize: 11, color: 'white', marginTop: 4 }}>© 2026 URUX</Text>
+        </View>
       </ScrollView>
 
-      <AuthSettingsModal visible={showAuthSettings} onClose={() => setShowAuthSettings(false)} onAuthChanged={() => {
-      // Reload settings if needed
-    }} />
 
-
-      {/* Exchange Rate Modal */}
-      {showExchangeRateModal && selectedCurrency !== 'USD' && <ExchangeRateModal visible={showExchangeRateModal} rate={usdToIqdRate} selectedCurrency={selectedCurrency} onRateChange={setUsdToIqdRate} onSave={handleSaveExchangeRate} onClose={() => setShowExchangeRateModal(false)} />}
-
-      {/* Daily Reminder Time Picker */}
+      {showExchangeRateModal && selectedCurrency !== 'USD' ? (
+        <ExchangeRateModal
+          visible={showExchangeRateModal}
+          rate={usdToIqdRate}
+          selectedCurrency={selectedCurrency}
+          onRateChange={setUsdToIqdRate}
+          onSave={handleSaveExchangeRate}
+          onClose={() => setShowExchangeRateModal(false)}
+        />
+      ) : null}
       <Modal visible={showDailyTimePicker} transparent={true} animationType="slide" onRequestClose={() => setShowDailyTimePicker(false)}>
         <View style={styles.timePickerModalOverlay}>
           <View style={styles.timePickerModalContent}>
@@ -1506,12 +1244,6 @@ export const SettingsScreen = ({
           </View>
         </View>
       </Modal>
-
-
-
-
-
-      {/* Name Edit Modal */}
       <Modal visible={showNameModal} transparent={true} animationType="fade" onRequestClose={() => setShowNameModal(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
@@ -1522,47 +1254,42 @@ export const SettingsScreen = ({
                   <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
                 </TouchableOpacity>
               </View>
-
               <View style={styles.modalBody}>
                 <Text style={styles.inputLabel}>{tl("الاسم")}</Text>
-                <TextInput style={styles.nameInput} value={editingName} onChangeText={setEditingName} placeholder={tl("أدخل اسمك")} placeholderTextColor={theme.colors.textMuted} autoFocus={true} maxLength={50} />
+                <TextInput
+                  style={styles.nameInput}
+                  value={editingName}
+                  onChangeText={setEditingName}
+                  placeholder={tl("أدخل اسمك")}
+                  placeholderTextColor={theme.colors.textMuted}
+                  autoFocus={true}
+                  maxLength={50}
+                />
               </View>
-
               <View style={styles.modalActions}>
                 <TouchableOpacity onPress={() => setShowNameModal(false)} style={[styles.modalButton, styles.cancelButton]}>
                   <Text style={styles.cancelButtonText}>{tl("إلغاء")}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={async () => {
-                if (!editingName.trim()) {
-                  alertService.warning(tl("تنبيه"), tl("يرجى إدخال الاسم"));
-                  return;
-                }
-                try {
-                  // 1. Update locally
-                  const currentSettings = await getUserSettings();
-                  await upsertUserSettings({
-                    name: editingName.trim() || undefined,
-                    authMethod: currentSettings?.authMethod || 'none',
-                    passwordHash: currentSettings?.passwordHash,
-                    biometricsEnabled: currentSettings?.biometricsEnabled || false
-                  });
-                  setUserName(editingName.trim());
-
-                  // 2. Update on server if authenticated
-                  if (isAuthenticated) {
-                    const result = await authApiService.updateProfile(editingName.trim());
-                    if (result.success && result.user) {
-                      setUserData(result.user);
-                    } else if (!result.success) {
-                      // If server update fails, we still keep local for now but log it
+                <TouchableOpacity
+                  onPress={async () => {
+                    if (!editingName.trim()) return;
+                    try {
+                      const currentSettings = await getUserSettings();
+                      await upsertUserSettings({
+                        name: editingName.trim(),
+                        authMethod: currentSettings?.authMethod || 'none',
+                        biometricsEnabled: currentSettings?.biometricsEnabled || false
+                      });
+                      setUserName(editingName.trim());
+                      if (isAuthenticated) await authApiService.updateProfile(editingName.trim());
+                      setShowNameModal(false);
+                      alertService.toastSuccess(tl("تم تحديث الاسم بنجاح"));
+                    } catch (error) {
+                      alertService.error(tl("خطأ"), tl("فشل تحديث الاسم"));
                     }
-                  }
-                  setShowNameModal(false);
-                  alertService.toastSuccess(tl("تم تحديث الاسم بنجاح"));
-                } catch (error) {
-                  alertService.error(tl("خطأ"), tl("فشل تحديث الاسم"));
-                }
-              }} style={[styles.modalButton, styles.saveButton]}>
+                  }}
+                  style={[styles.modalButton, styles.saveButton]}
+                >
                   <LinearGradient colors={theme.gradients.primary as any} style={styles.saveButtonGradient}>
                     <Text style={styles.saveButtonText}>{tl("حفظ")}</Text>
                   </LinearGradient>
@@ -1572,12 +1299,137 @@ export const SettingsScreen = ({
           </View>
         </KeyboardAvoidingView>
       </Modal>
-
-      <ExportPeriodModal visible={showExportModal} exportMode={exportMode} setExportMode={setExportMode} exportMonth={exportMonth} setExportMonth={setExportMonth} exportYear={exportYear} setExportYear={setExportYear} onConfirm={handleExportPDF} onClose={() => setShowExportModal(false)} loading={exportingPDF} />
-
-      <CurrencyPickerModal visible={showCurrencyPicker} selectedCurrency={selectedCurrency} onSelect={code => handleCurrencyChange(code)} onClose={() => setShowCurrencyPicker(false)} />
-
-    </ScreenContainer>;
+      <ExportPeriodModal
+        visible={showExportModal}
+        exportMode={exportMode}
+        setExportMode={setExportMode}
+        exportMonth={exportMonth}
+        setExportMonth={setExportMonth}
+        exportYear={exportYear}
+        setExportYear={setExportYear}
+        onConfirm={handleExportPDF}
+        onClose={() => setShowExportModal(false)}
+        loading={exportingPDF}
+      />
+      <CurrencyPickerModal
+        visible={showCurrencyPicker}
+        selectedCurrency={selectedCurrency}
+        onSelect={code => handleCurrencyChange(code)}
+        onClose={() => setShowCurrencyPicker(false)}
+      />
+      {showRestoreLocalOldConfirm ? (
+        <ConfirmAlert
+          visible={showRestoreLocalOldConfirm}
+          title={tl("تحذير: نسخة قديمة")}
+          message={tl("هذا الملف يحتوي على نسخة احتياطية أقدم من البيانات الحالية. هل تريد المتابعة؟")}
+          confirmText={tl("استعادة")}
+          cancelText={tl("إلغاء")}
+          onConfirm={async () => {
+            setShowRestoreLocalOldConfirm(false);
+            if (!pickedBackupData) return;
+            try {
+              await importFullData(pickedBackupData, true);
+              alertService.toastSuccess(tl("تم استعادة البيانات بنجاح"));
+              setSelectedWallet(null);
+              await refreshWallets();
+              loadSettings();
+            } catch (err) {
+              alertService.error(tl("خطأ"), tl("فشل الاستعادة"));
+            }
+          }}
+          onCancel={() => setShowRestoreLocalOldConfirm(false)}
+        />
+      ) : null}
+      {showRestoreOldConfirm ? (
+        <ConfirmAlert
+          visible={showRestoreOldConfirm}
+          title={tl("تحذير: نسخة قديمة")}
+          message={tl("النسخة الموجودة على السيرفر أقدم من البيانات الحالية على جهازك. هل تريد استبدال بيانات الجهاز؟")}
+          confirmText={tl("استعادة")}
+          cancelText={tl("إلغاء")}
+          onConfirm={async () => {
+            setShowRestoreOldConfirm(false);
+            if (!pickedBackupData) return;
+            try {
+              await importFullData(pickedBackupData, true);
+              alertService.toastSuccess(tl("تم استعادة البيانات من السيرفر بنجاح"));
+              setSelectedWallet(null);
+              await refreshWallets();
+              loadSettings();
+            } catch (err) {
+              alertService.error(tl("خطأ"), tl("فشل الاستعادة"));
+            }
+          }}
+          onCancel={() => setShowRestoreOldConfirm(false)}
+        />
+      ) : null}
+      {showDeleteChoiceModal ? (
+        <Modal transparent animationType="fade" visible={showDeleteChoiceModal} onRequestClose={() => setShowDeleteChoiceModal(false)}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }}>
+            <View style={{ backgroundColor: theme.colors.surfaceCard, borderRadius: 20, paddingVertical: 24, paddingHorizontal: 20, width: '100%', maxWidth: 340 }}>
+              <Text style={{ fontFamily: 'DINNext-Medium', fontSize: 18, color: theme.colors.error, textAlign: 'center', marginBottom: 8 }}>{tl("حذف جميع البيانات")}</Text>
+              <Text style={{ fontFamily: 'DINNext-Regular', fontSize: 14, color: theme.colors.textSecondary, textAlign: 'center', marginBottom: 20, lineHeight: 22 }}>{tl("اختر نوع الحذف:")}</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowDeleteChoiceModal(false);
+                  setDeleteMode('local');
+                  setShowDeleteAllConfirm(true);
+                }}
+                activeOpacity={0.8}
+                style={{ backgroundColor: theme.colors.warning + '15', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 16, marginBottom: 10, borderWidth: 1, borderColor: theme.colors.warning + '30' }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ backgroundColor: theme.colors.warning + '25', width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginEnd: 12 }}>
+                    <Ionicons name="phone-portrait-outline" size={20} color={theme.colors.warning} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontFamily: 'DINNext-Medium', fontSize: 15, color: theme.colors.textPrimary, textAlign: 'left' }}>{tl("حذف من الجهاز فقط")}</Text>
+                    <Text style={{ fontFamily: 'DINNext-Regular', fontSize: 12, color: theme.colors.textSecondary, marginTop: 2, textAlign: 'left' }}>{tl("ستبقى النسخة على السيرفر")}</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowDeleteChoiceModal(false);
+                  setDeleteMode('both');
+                  setShowDeleteAllConfirm(true);
+                }}
+                activeOpacity={0.8}
+                style={{ backgroundColor: theme.colors.error + '15', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 16, marginBottom: 16, borderWidth: 1, borderColor: theme.colors.error + '30' }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ backgroundColor: theme.colors.error + '25', width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginEnd: 12 }}>
+                    <Ionicons name="cloud-offline-outline" size={20} color={theme.colors.error} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontFamily: 'DINNext-Medium', fontSize: 15, color: theme.colors.textPrimary, textAlign: 'left' }}>{tl("حذف من الجهاز والسيرفر")}</Text>
+                    <Text style={{ fontFamily: 'DINNext-Regular', fontSize: 12, color: theme.colors.textSecondary, marginTop: 2, textAlign: 'left' }}>{tl("سيتم حذف جميع البيانات نهائياً")}</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowDeleteChoiceModal(false)} activeOpacity={0.8} style={{ paddingVertical: 12, alignItems: 'center' }}>
+                <Text style={{ fontFamily: 'DINNext-Medium', fontSize: 15, color: theme.colors.textMuted }}>{tl("إلغاء")}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      ) : null}
+      {showDeleteAllConfirm ? (
+        <ConfirmAlert
+          visible={showDeleteAllConfirm}
+          title={deleteMode === 'both' ? tl("حذف من الجهاز والسيرفر؟") : tl("حذف من الجهاز فقط؟")}
+          message={deleteMode === 'both' ? tl("سيتم حذف كافة البيانات نهائياً من الجهاز والسيرفر. هل أنت متأكد؟") : tl("سيتم حذف كافة البيانات من الجهاز فقط. ستبقى النسخة الاحتياطية على السيرفر.")}
+          confirmText={tl("حذف")}
+          cancelText={tl("إلغاء")}
+          onConfirm={() => {
+            setShowDeleteAllConfirm(false);
+            handleDeleteAllData(deleteMode);
+          }}
+          onCancel={() => setShowDeleteAllConfirm(false)}
+        />
+      ) : null}
+    </ScreenContainer>
+  );
 };
 const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
   scrollView: {
@@ -1598,7 +1450,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     ...getPlatformShadow('md')
   },
   sectionHeader: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     marginBottom: theme.spacing.sm,
@@ -1609,6 +1461,88 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
   sectionContent: {
     padding: theme.spacing.lg,
     direction: isRTL ? 'rtl' : 'ltr'
+  },
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+    marginBottom: 8,
+    marginHorizontal: 4,
+    textAlign: 'left',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5
+  },
+  compactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+  },
+  compactRowDivider: {
+    height: 1,
+    backgroundColor: theme.colors.border + '15',
+    marginHorizontal: 4,
+  },
+  compactIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: theme.colors.surfaceLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginEnd: 12
+  },
+  compactRowContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  compactRowText: {
+    fontSize: 16,
+    fontWeight: getPlatformFontWeight('600'),
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
+    textAlign: 'left'
+  },
+  compactRowValue: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+    marginEnd: 8
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    backgroundColor: theme.colors.background + '80',
+    borderRadius: 12,
+    padding: 2,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: theme.colors.border + '20'
+  },
+  segmentedOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 6
+  },
+  segmentedOptionActive: {
+    backgroundColor: theme.colors.surfaceCard,
+    ...getPlatformShadow('sm')
+  },
+  segmentedOptionText: {
+    fontSize: 13,
+    fontWeight: getPlatformFontWeight('600'),
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily
+  },
+  segmentedOptionTextActive: {
+    color: theme.colors.primary,
+    fontWeight: getPlatformFontWeight('700')
   },
   profileCard: {
     borderRadius: 24,
@@ -1634,7 +1568,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     })
   },
   proCrownBanner: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(212, 175, 55, 0.25)',
     paddingHorizontal: 8,
@@ -1651,7 +1585,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily
   },
   profileHeader: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 12
   },
@@ -1713,7 +1647,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     alignItems: isRTL ? 'flex-end' : 'flex-start'
   },
   userNameRow: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: 6
@@ -1744,7 +1678,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     color: 'rgba(245, 230, 163, 0.95)'
   },
   verifiedBadge: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
     alignSelf: isRTL ? 'flex-start' : 'flex-end',
@@ -1810,7 +1744,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily
   },
   statsRow: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: 'row',
     marginTop: 28,
     paddingTop: 24,
     borderTopWidth: 1,
@@ -1842,7 +1776,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     textShadowRadius: 2
   },
   copyIdButton: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
@@ -1865,7 +1799,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)'
   },
   proFeaturesRow: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'flex-start',
     gap: 6,
@@ -1875,7 +1809,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     borderTopColor: 'rgba(245, 230, 163, 0.2)'
   },
   proFeaturePill: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(212, 175, 55, 0.2)',
     paddingHorizontal: 8,
@@ -1898,13 +1832,13 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     borderColor: theme.colors.border + '20'
   },
   actionItemGradient: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: theme.spacing.md
   },
   actionItemLeft: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
     gap: theme.spacing.md
@@ -1936,7 +1870,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
   },
   // Premium Custom Action Items (no full color, cleaner look)
   premiumRow: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 14,
     paddingHorizontal: 16,
@@ -1970,7 +1904,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     textAlign: 'left'
   },
   themeOptionsContainer: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     gap: 8
   },
   themeOption: {
@@ -2017,7 +1951,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     borderColor: theme.colors.border + '20'
   },
   modalHeader: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 24,
@@ -2047,7 +1981,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: 10,
-    textAlign: isRTL ? 'right' : 'left'
+    textAlign: 'left'
   },
   nameInput: {
     backgroundColor: theme.colors.surfaceLight,
@@ -2056,12 +1990,12 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     fontSize: 16,
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: isRTL ? 'right' : 'left',
+    textAlign: 'left',
     borderWidth: 1,
     borderColor: theme.colors.border + '40'
   },
   modalActions: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     padding: 24,
     gap: 12,
     borderTopWidth: 1,
@@ -2103,21 +2037,21 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     fontWeight: getPlatformFontWeight('800'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: isRTL ? 'left' : 'right'
+    textAlign: 'left'
   },
   profileTitle: {
     fontSize: 18,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: isRTL ? 'right' : 'left'
+    textAlign: 'left'
   },
   profileSubtitle: {
     fontSize: 13,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     marginTop: 4,
-    textAlign: isRTL ? 'right' : 'left'
+    textAlign: 'left'
   },
   accountInfo: {
     marginBottom: theme.spacing.md,
@@ -2128,7 +2062,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     borderColor: theme.colors.border + '15'
   },
   accountInfoLeft: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.md
   },
@@ -2161,7 +2095,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     ...getPlatformShadow('md')
   },
   loginButtonGradient: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     padding: theme.spacing.md,
@@ -2180,7 +2114,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     ...getPlatformShadow('sm')
   },
   logoutButtonGradient: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     padding: theme.spacing.md,
@@ -2210,13 +2144,13 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     direction: isRTL ? 'rtl' : 'ltr'
   },
   notificationItemHeader: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12
   },
   notificationItemLeft: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
     gap: 16
@@ -2247,7 +2181,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     textAlign: 'left'
   },
   timePickerButton: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: theme.colors.surfaceLight,
@@ -2263,7 +2197,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: isRTL ? 'left' : 'right'
+    textAlign: 'left'
   },
   testNotificationButton: {
     marginTop: theme.spacing.md,
@@ -2272,7 +2206,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     ...getPlatformShadow('sm')
   },
   testNotificationButtonGradient: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: theme.spacing.md,
@@ -2290,7 +2224,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     overflow: 'hidden',
     marginTop: 8,
     ...getPlatformShadow('sm'),
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
@@ -2309,13 +2243,13 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     ...getPlatformShadow('sm')
   },
   currencyItemGradient: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16
   },
   currencyItemLeft: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
     gap: 16
@@ -2337,7 +2271,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.xs,
-    textAlign: isRTL ? 'right' : 'left',
+    textAlign: 'left',
     writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   currencyItemTitleWhite: {
@@ -2352,7 +2286,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     fontSize: theme.typography.sizes.sm,
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: isRTL ? 'right' : 'left',
+    textAlign: 'left',
     writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   currencyItemDescriptionWhite: {
@@ -2393,7 +2327,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     textAlign: 'left'
   },
   currencyOption: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
@@ -2449,14 +2383,14 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     ...getPlatformShadow('sm')
   },
   authItemGradient: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: theme.spacing.md,
     direction: isRTL ? 'rtl' : 'ltr'
   },
   authItemLeft: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
     gap: theme.spacing.md
@@ -2511,13 +2445,13 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     ...getPlatformShadow('sm')
   },
   exchangeRateItemGradient: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16
   },
   exchangeRateItemLeft: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
     gap: 16
@@ -2556,13 +2490,13 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.2)'
   },
   contactItemGradient: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20
   },
   contactItemLeft: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
     gap: 16
@@ -2653,7 +2587,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     width: '100%'
   },
   exchangeRateModalHeader: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: theme.spacing.lg,
@@ -2689,7 +2623,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     padding: theme.spacing.lg
   },
   exchangeRateInfoCardContent: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: theme.spacing.md
@@ -2709,10 +2643,10 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: theme.spacing.sm,
-    textAlign: isRTL ? 'right' : 'left'
+    textAlign: 'left'
   },
   exchangeRateInputContainer: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.surfaceCard,
     borderRadius: theme.borderRadius.md,
@@ -2728,7 +2662,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: isRTL ? 'right' : 'left',
+    textAlign: 'left',
     paddingVertical: theme.spacing.xs
   },
   exchangeRateInputUnit: {
@@ -2743,11 +2677,11 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     marginTop: theme.spacing.xs,
-    textAlign: isRTL ? 'right' : 'left',
+    textAlign: 'left',
     opacity: 0.7
   },
   exchangeRateModalActions: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     gap: theme.spacing.md,
     marginTop: theme.spacing.md
   },
@@ -2904,7 +2838,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     ...getPlatformShadow('sm')
   },
   referralHero: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
     marginBottom: 20
@@ -2926,14 +2860,14 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: 4,
-    textAlign: isRTL ? 'right' : 'left'
+    textAlign: 'left'
   },
   referralSubtitleText: {
     fontSize: 13,
     color: theme.colors.textMuted,
     fontFamily: theme.typography.fontFamily,
     lineHeight: 18,
-    textAlign: isRTL ? 'right' : 'left'
+    textAlign: 'left'
   },
   referralCodeBox: {
     backgroundColor: theme.colors.surfaceLight,
@@ -2953,7 +2887,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     textAlign: 'center'
   },
   codeRow: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 12
@@ -2974,7 +2908,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     alignItems: 'center'
   },
   referralStatBox: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
@@ -2995,7 +2929,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily
   },
   shareCodeButton: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     height: 52,
     backgroundColor: theme.colors.primary,
     borderRadius: 14,
@@ -3042,7 +2976,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     paddingBottom: theme.spacing.xxl
   },
   exportModalHeader: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: theme.spacing.lg
@@ -3060,7 +2994,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     paddingBottom: 8
   },
   modeToggle: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     backgroundColor: theme.colors.surfaceLight,
     borderRadius: 16,
     padding: 4,
@@ -3097,7 +3031,7 @@ const createStyles = (theme: AppTheme, isRTL: boolean) => StyleSheet.create({
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     marginBottom: 12,
-    textAlign: isRTL ? 'right' : 'left'
+    textAlign: 'left'
   },
   selectorScroll: {
     paddingHorizontal: 4
@@ -3166,86 +3100,86 @@ const ExchangeRateModal: React.FC<ExchangeRateModalProps> = ({
   } = useLocalization();
   const styles = useMemo(() => createStyles(theme, isRTL), [theme, isRTL]);
   return <Modal visible={visible} animationType="fade" transparent={true} onRequestClose={onClose}>
-      <View style={styles.exchangeRateModalOverlay}>
-        <TouchableOpacity style={styles.exchangeRateModalBackdrop} activeOpacity={1} onPress={onClose} />
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{
+    <View style={styles.exchangeRateModalOverlay}>
+      <TouchableOpacity style={styles.exchangeRateModalBackdrop} activeOpacity={1} onPress={onClose} />
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{
         width: '100%',
         alignItems: 'center'
       }}>
-          <View style={styles.exchangeRateModalContainer}>
-            <LinearGradient colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]} style={styles.exchangeRateModalGradient} start={{
+        <View style={styles.exchangeRateModalContainer}>
+          <LinearGradient colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]} style={styles.exchangeRateModalGradient} start={{
             x: 0,
             y: 0
           }} end={{
             x: 1,
             y: 1
           }}>
-              <SafeAreaView edges={['top']} style={styles.exchangeRateModalSafeArea}>
-                {/* Header */}
-                <View style={styles.exchangeRateModalHeader}>
-                  <TouchableOpacity onPress={onClose} style={styles.exchangeRateModalCloseButton} activeOpacity={0.7}>
-                    <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
-                  </TouchableOpacity>
-                  <Text style={styles.exchangeRateModalTitle}>{tl("تعديل سعر الصرف")}</Text>
-                  <View style={styles.placeholder} />
-                </View>
+            <SafeAreaView edges={['top']} style={styles.exchangeRateModalSafeArea}>
+              {/* Header */}
+              <View style={styles.exchangeRateModalHeader}>
+                <TouchableOpacity onPress={onClose} style={styles.exchangeRateModalCloseButton} activeOpacity={0.7}>
+                  <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
+                </TouchableOpacity>
+                <Text style={styles.exchangeRateModalTitle}>{tl("تعديل سعر الصرف")}</Text>
+                <View style={styles.placeholder} />
+              </View>
 
-                {/* Content */}
-                <View style={styles.exchangeRateModalContent}>
-                  <View style={styles.exchangeRateInfoCard}>
-                    <LinearGradient colors={theme.gradients.primary as any} style={styles.exchangeRateInfoCardGradient} start={{
+              {/* Content */}
+              <View style={styles.exchangeRateModalContent}>
+                <View style={styles.exchangeRateInfoCard}>
+                  <LinearGradient colors={theme.gradients.primary as any} style={styles.exchangeRateInfoCardGradient} start={{
                     x: 0,
                     y: 0
                   }} end={{
                     x: 1,
                     y: 1
                   }}>
-                      <View style={styles.exchangeRateInfoCardContent}>
-                        <Ionicons name="cash" size={32} color="#FFFFFF" />
-                        <Text style={styles.exchangeRateInfoCardText}>
-                          1 USD = ? IQD
-                        </Text>
-                      </View>
-                    </LinearGradient>
-                  </View>
-
-                  <View style={styles.exchangeRateInputSection}>
-                    <Text style={styles.exchangeRateInputLabel}>{tl("سعر الصرف (1 دولار = ?")}{getCurrencyDisplayName(selectedCurrency, language)}
-                    </Text>
-                      <View style={styles.exchangeRateInputContainer}>
-                        <TextInput style={styles.exchangeRateInput} value={rate} onChangeText={val => onRateChange(convertArabicToEnglish(val))} placeholder="1315" placeholderTextColor={theme.colors.textSecondary} keyboardType="decimal-pad" textAlign={isRTL ? 'right' : 'left'} />
-                      <Text style={styles.exchangeRateInputUnit}>
-                        {selectedCurrency}
+                    <View style={styles.exchangeRateInfoCardContent}>
+                      <Ionicons name="cash" size={32} color="#FFFFFF" />
+                      <Text style={styles.exchangeRateInfoCardText}>
+                        1 USD = ? IQD
                       </Text>
                     </View>
-                    <Text style={styles.exchangeRateHint}>{tl("أدخل سعر الصرف الحالي للدولار مقابل")}{getCurrencyDisplayName(selectedCurrency, language)}
+                  </LinearGradient>
+                </View>
+
+                <View style={styles.exchangeRateInputSection}>
+                  <Text style={styles.exchangeRateInputLabel}>{tl("سعر الصرف (1 دولار = ?")}{getCurrencyDisplayName(selectedCurrency, language)}
+                  </Text>
+                  <View style={styles.exchangeRateInputContainer}>
+                    <TextInput style={styles.exchangeRateInput} value={rate} onChangeText={val => onRateChange(convertArabicToEnglish(val))} placeholder="1315" placeholderTextColor={theme.colors.textSecondary} keyboardType="decimal-pad" textAlign={'left'} />
+                    <Text style={styles.exchangeRateInputUnit}>
+                      {selectedCurrency}
                     </Text>
                   </View>
+                  <Text style={styles.exchangeRateHint}>{tl("أدخل سعر الصرف الحالي للدولار مقابل")}{getCurrencyDisplayName(selectedCurrency, language)}
+                  </Text>
+                </View>
 
-                  {/* Actions */}
-                  <View style={styles.exchangeRateModalActions}>
-                    <TouchableOpacity onPress={onClose} style={styles.exchangeRateCancelButton} activeOpacity={0.7}>
-                      <Text style={styles.exchangeRateCancelButtonText}>{tl("إلغاء")}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={onSave} style={styles.exchangeRateSaveButton} activeOpacity={0.7}>
-                      <LinearGradient colors={theme.gradients.primary as any} style={styles.exchangeRateSaveButtonGradient} start={{
+                {/* Actions */}
+                <View style={styles.exchangeRateModalActions}>
+                  <TouchableOpacity onPress={onClose} style={styles.exchangeRateCancelButton} activeOpacity={0.7}>
+                    <Text style={styles.exchangeRateCancelButtonText}>{tl("إلغاء")}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={onSave} style={styles.exchangeRateSaveButton} activeOpacity={0.7}>
+                    <LinearGradient colors={theme.gradients.primary as any} style={styles.exchangeRateSaveButtonGradient} start={{
                       x: 0,
                       y: 0
                     }} end={{
                       x: 1,
                       y: 0
                     }}>
-                        <Text style={styles.exchangeRateSaveButtonText}>{tl("حفظ")}</Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  </View>
+                      <Text style={styles.exchangeRateSaveButtonText}>{tl("حفظ")}</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
                 </View>
-              </SafeAreaView>
-            </LinearGradient>
-          </View>
-        </KeyboardAvoidingView>
-      </View>
-    </Modal>;
+              </View>
+            </SafeAreaView>
+          </LinearGradient>
+        </View>
+      </KeyboardAvoidingView>
+    </View>
+  </Modal>;
 };
 interface ExportPeriodModalProps {
   visible: boolean;
@@ -3283,67 +3217,67 @@ const ExportPeriodModal: React.FC<ExportPeriodModalProps> = ({
     length: 5
   }, (_, i) => new Date().getFullYear() - i);
   return <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
-      <View style={styles.exportModalOverlay}>
-        <TouchableOpacity style={styles.exportModalBackdrop} activeOpacity={1} onPress={onClose} />
-        <View style={styles.exportModalContainer}>
-          <LinearGradient colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]} style={styles.exportModalGradient} start={{
+    <View style={styles.exportModalOverlay}>
+      <TouchableOpacity style={styles.exportModalBackdrop} activeOpacity={1} onPress={onClose} />
+      <View style={styles.exportModalContainer}>
+        <LinearGradient colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]} style={styles.exportModalGradient} start={{
           x: 0,
           y: 0
         }} end={{
           x: 1,
           y: 1
         }}>
-            <View style={styles.exportModalHeader}>
-              <TouchableOpacity onPress={onClose} activeOpacity={0.7} style={styles.exportModalCloseButton}>
-                <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
+          <View style={styles.exportModalHeader}>
+            <TouchableOpacity onPress={onClose} activeOpacity={0.7} style={styles.exportModalCloseButton}>
+              <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
+            </TouchableOpacity>
+            <Text style={styles.exportModalTitle}>{tl("تصدير البيانات")}</Text>
+            <View style={styles.placeholder} />
+          </View>
+
+          <View style={styles.exportModalContent}>
+            <View style={styles.modeToggle}>
+              <TouchableOpacity onPress={() => setExportMode('monthly')} style={[styles.modeButton, exportMode === 'monthly' && styles.modeButtonActive]}>
+                <Text style={[styles.modeButtonText, exportMode === 'monthly' && styles.modeButtonTextActive]}>{tl("تقرير شهري")}</Text>
               </TouchableOpacity>
-              <Text style={styles.exportModalTitle}>{tl("تصدير البيانات")}</Text>
-              <View style={styles.placeholder} />
+              <TouchableOpacity onPress={() => setExportMode('all')} style={[styles.modeButton, exportMode === 'all' && styles.modeButtonActive]}>
+                <Text style={[styles.modeButtonText, exportMode === 'all' && styles.modeButtonTextActive]}>{tl("جميع البيانات")}</Text>
+              </TouchableOpacity>
             </View>
 
-            <View style={styles.exportModalContent}>
-              <View style={styles.modeToggle}>
-                <TouchableOpacity onPress={() => setExportMode('monthly')} style={[styles.modeButton, exportMode === 'monthly' && styles.modeButtonActive]}>
-                  <Text style={[styles.modeButtonText, exportMode === 'monthly' && styles.modeButtonTextActive]}>{tl("تقرير شهري")}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setExportMode('all')} style={[styles.modeButton, exportMode === 'all' && styles.modeButtonActive]}>
-                  <Text style={[styles.modeButtonText, exportMode === 'all' && styles.modeButtonTextActive]}>{tl("جميع البيانات")}</Text>
-                </TouchableOpacity>
+            {exportMode === 'monthly' && <View style={styles.periodSelectors}>
+              <View style={styles.selectorGroup}>
+                <Text style={styles.selectorLabel}>{tl("الشهر")}</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorScroll}>
+                  {months.map((m, i) => <TouchableOpacity key={m} onPress={() => setExportMonth(i)} style={[styles.periodOption, exportMonth === i && styles.periodOptionActive]}>
+                    <Text style={[styles.periodOptionText, exportMonth === i && styles.periodOptionTextActive]}>{m}</Text>
+                  </TouchableOpacity>)}
+                </ScrollView>
               </View>
+              <View style={styles.selectorGroup}>
+                <Text style={styles.selectorLabel}>{tl("السنة")}</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorScroll}>
+                  {years.map(y => <TouchableOpacity key={y} onPress={() => setExportYear(y)} style={[styles.periodOption, exportYear === y && styles.periodOptionActive]}>
+                    <Text style={[styles.periodOptionText, exportYear === y && styles.periodOptionTextActive]}>{y}</Text>
+                  </TouchableOpacity>)}
+                </ScrollView>
+              </View>
+            </View>}
 
-              {exportMode === 'monthly' && <View style={styles.periodSelectors}>
-                  <View style={styles.selectorGroup}>
-                    <Text style={styles.selectorLabel}>{tl("الشهر")}</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorScroll}>
-                      {months.map((m, i) => <TouchableOpacity key={m} onPress={() => setExportMonth(i)} style={[styles.periodOption, exportMonth === i && styles.periodOptionActive]}>
-                          <Text style={[styles.periodOptionText, exportMonth === i && styles.periodOptionTextActive]}>{m}</Text>
-                        </TouchableOpacity>)}
-                    </ScrollView>
-                  </View>
-                  <View style={styles.selectorGroup}>
-                    <Text style={styles.selectorLabel}>{tl("السنة")}</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorScroll}>
-                      {years.map(y => <TouchableOpacity key={y} onPress={() => setExportYear(y)} style={[styles.periodOption, exportYear === y && styles.periodOptionActive]}>
-                          <Text style={[styles.periodOptionText, exportYear === y && styles.periodOptionTextActive]}>{y}</Text>
-                        </TouchableOpacity>)}
-                    </ScrollView>
-                  </View>
-                </View>}
-
-              <TouchableOpacity onPress={onConfirm} disabled={loading} style={styles.confirmExportButton}>
-                <LinearGradient colors={theme.gradients.primary as any} style={styles.confirmExportGradient} start={{
+            <TouchableOpacity onPress={onConfirm} disabled={loading} style={styles.confirmExportButton}>
+              <LinearGradient colors={theme.gradients.primary as any} style={styles.confirmExportGradient} start={{
                 x: 0,
                 y: 0
               }} end={{
                 x: 1,
                 y: 0
               }}>
-                  {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.confirmExportText}>{tl("تصدير PDF")}</Text>}
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </LinearGradient>
-        </View>
+                {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.confirmExportText}>{tl("تصدير PDF")}</Text>}
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
       </View>
-    </Modal>;
+    </View>
+  </Modal>;
 };

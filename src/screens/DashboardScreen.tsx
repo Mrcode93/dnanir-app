@@ -641,6 +641,15 @@ const DashboardScreenComponent = ({
             </View>
             <Text style={styles.actionLabel}>{tl("التقويم")}</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity style={styles.actionItem} onPress={() => navigation.navigate('TransferAmount')}>
+            <View style={[styles.actionIconBg, {
+            backgroundColor: '#38BDF8' + '18'
+          }]}>
+              <Ionicons name="swap-horizontal" size={24} color="#38BDF8" />
+            </View>
+            <Text style={styles.actionLabel}>{tl("تحويل رصيد")}</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.sectionDivider} />
@@ -1194,7 +1203,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     zIndex: 10
   },
   headerRoundedBackground: {
-    backgroundColor: '#003459',
+    backgroundColor: '#001D3D',
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
 

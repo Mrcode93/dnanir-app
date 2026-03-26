@@ -9,11 +9,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { getPlatformFontWeight, type AppTheme } from '../utils/theme-constants';
 import { useAppTheme, useThemedStyles } from '../utils/theme-context';
-
-import { Savings, CURRENCIES } from '../types';
+import { useCurrency } from '../hooks/useCurrency';
 import { isRTL } from '../utils/rtl';
 import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
+import { convertCurrency, formatCurrencyAmount } from '../services/currencyService';
 import { AppDialog, AppButton } from '../design-system';
+import { CurrencyPickerModal } from './CurrencyPickerModal';
+import { Savings, CURRENCIES } from '../types';
 
 interface AddSavingsTransactionModalProps {
   visible: boolean;
@@ -30,29 +32,57 @@ export const AddSavingsTransactionModal: React.FC<AddSavingsTransactionModalProp
 }) => {
   const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
+  const { currencyCode } = useCurrency();
   const [amount, setAmount] = useState('');
   const [type, setType] = useState<'deposit' | 'withdrawal'>('deposit');
   const [loading, setLoading] = useState(false);
 
+  const savingsCurrency = savings?.currency || currencyCode;
+  const [selectedCurrency, setSelectedCurrency] = useState(savingsCurrency);
+  const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
+  const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
+
   useEffect(() => {
-    if (visible) {
+    if (visible && savings) {
       setAmount('');
       setType('deposit');
       setLoading(false);
+      setSelectedCurrency(savings.currency || currencyCode);
     }
-  }, [visible]);
+  }, [visible, savings, currencyCode]);
+
+  useEffect(() => {
+    const calculateConverted = async () => {
+      const cleanAmount = amount.replace(/,/g, '');
+      const numAmount = Number(cleanAmount);
+      if (numAmount > 0 && selectedCurrency !== savingsCurrency) {
+        try {
+          const converted = await convertCurrency(numAmount, selectedCurrency, savingsCurrency);
+          setConvertedAmount(converted);
+        } catch (error) {
+          setConvertedAmount(null);
+        }
+      } else {
+        setConvertedAmount(null);
+      }
+    };
+    calculateConverted();
+  }, [amount, selectedCurrency, savingsCurrency]);
 
   if (!savings) return null;
 
   const handleConfirm = async () => {
     const cleanAmount = amount.replace(/,/g, '');
-    if (!cleanAmount || isNaN(Number(cleanAmount)) || Number(cleanAmount) <= 0) {
+    const numAmount = Number(cleanAmount);
+    if (!cleanAmount || isNaN(numAmount) || numAmount <= 0) {
       return;
     }
+    
+    const finalAmount = convertedAmount !== null ? convertedAmount : numAmount;
 
     setLoading(true);
     try {
-      await onConfirm(Number(cleanAmount), type);
+      await onConfirm(finalAmount, type);
       onClose();
     } catch (error) {
 
@@ -60,6 +90,8 @@ export const AddSavingsTransactionModal: React.FC<AddSavingsTransactionModalProp
       setLoading(false);
     }
   };
+
+  const currencyInfo = CURRENCIES.find(c => c.code === selectedCurrency);
 
   return (
     <AppDialog
@@ -98,10 +130,19 @@ export const AddSavingsTransactionModal: React.FC<AddSavingsTransactionModalProp
           keyboardType="decimal-pad"
           autoFocus
         />
-        <Text style={styles.currency}>
-          {CURRENCIES.find(c => c.code === (savings.currency || 'IQD'))?.symbol}
-        </Text>
+        <TouchableOpacity onPress={() => setShowCurrencyPicker(true)} style={styles.currencyButton}>
+          <Text style={styles.currency}>
+            {currencyInfo?.symbol || selectedCurrency}
+          </Text>
+          <Ionicons name="chevron-down" size={16} color={theme.colors.success} style={{ marginLeft: 4 }} />
+        </TouchableOpacity>
       </View>
+
+      {convertedAmount !== null && selectedCurrency !== savingsCurrency && (
+        <Text style={styles.convertedText}>
+          ≈ {formatCurrencyAmount(convertedAmount, savingsCurrency)}
+        </Text>
+      )}
 
       <AppButton
         label={loading ? 'جاري الحفظ...' : 'تأكيد'}
@@ -110,7 +151,17 @@ export const AddSavingsTransactionModal: React.FC<AddSavingsTransactionModalProp
         loading={loading}
         disabled={!amount || loading}
         size="lg"
-        style={{ alignSelf: 'stretch' }}
+        style={{ alignSelf: 'stretch', marginTop: 12 }}
+      />
+      
+      <CurrencyPickerModal
+        visible={showCurrencyPicker}
+        selectedCurrency={selectedCurrency}
+        onSelect={(code) => {
+          setSelectedCurrency(code);
+          setShowCurrencyPicker(false);
+        }}
+        onClose={() => setShowCurrencyPicker(false)}
       />
     </AppDialog>
   );
@@ -160,10 +211,27 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     paddingVertical: 16,
     textAlign: 'center',
   },
+  currencyButton: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    backgroundColor: theme.colors.success + '15',
+    borderRadius: theme.borderRadius.sm,
+  },
   currency: {
     fontSize: 18,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily,
+  },
+  convertedText: {
+    fontSize: theme.typography.sizes.sm,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+    textAlign: 'center',
+    marginTop: -8,
+    marginBottom: 8,
+    fontStyle: 'italic',
   },
 });

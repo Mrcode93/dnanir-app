@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../../../utils/theme-context';
 import { getPlatformFontWeight } from '../../../utils/theme-constants';
 import { BUTTON, FONT_SIZE } from '../../tokens';
-import { useLocalization } from '../../../localization';
+
 
 export type AppButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'success';
 export type AppButtonSize = 'sm' | 'md' | 'lg';
@@ -65,7 +65,6 @@ export const AppButton: React.FC<AppButtonProps> = ({
   rightIcon,
 }) => {
   const { theme } = useAppTheme();
-  const { isRTL } = useLocalization();
 
   const bgColor: Record<AppButtonVariant, string> = {
     primary: theme.colors.primary,
@@ -91,7 +90,8 @@ export const AppButton: React.FC<AppButtonProps> = ({
   const containerStyle: ViewStyle = {
     height: h,
     borderRadius: r,
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    paddingHorizontal: size === 'sm' ? 12 : size === 'lg' ? 24 : 16,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,

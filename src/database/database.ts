@@ -248,7 +248,8 @@ export const initDatabase = async () => {
         description TEXT,
         isActive INTEGER DEFAULT 1,
         lastProcessedDate TEXT,
-        createdAt TEXT NOT NULL
+        createdAt TEXT NOT NULL,
+        walletId INTEGER
       );
     `);
     try {
@@ -260,6 +261,9 @@ export const initDatabase = async () => {
     } catch (e) { }
     try {
       await db.execAsync('ALTER TABLE recurring_expenses ADD COLUMN synced_at INTEGER;');
+    } catch (e) { }
+    try {
+      await db.execAsync('ALTER TABLE recurring_expenses ADD COLUMN walletId INTEGER;');
     } catch (e) { }
 
     await db.execAsync(`
@@ -2550,7 +2554,7 @@ export const getAllExchangeRates = async (): Promise<ExchangeRate[]> => {
   return result;
 };
 
-export const clearAllData = async (): Promise<void> => {
+export const clearAllData = async (skipPragma: boolean = false): Promise<void> => {
   const database = getDb();
 
   // Tables in order of deletion to respect foreign keys if any
@@ -2570,7 +2574,7 @@ export const clearAllData = async (): Promise<void> => {
 
   try {
     // Disable foreign keys temporarily to ignore order during mass clear
-    await database.execAsync('PRAGMA foreign_keys = OFF;');
+    if (!skipPragma) await database.execAsync('PRAGMA foreign_keys = OFF;');
 
     for (const table of tables) {
       try {
@@ -2581,7 +2585,7 @@ export const clearAllData = async (): Promise<void> => {
     }
 
     // Re-enable (will be checked on commit if in transaction)
-    await database.execAsync('PRAGMA foreign_keys = ON;');
+    if (!skipPragma) await database.execAsync('PRAGMA foreign_keys = ON;');
   } catch (err) {
     console.log('[Database] Error in clearAllData:', err);
   }
@@ -2747,6 +2751,12 @@ export interface DebtorSummary extends Debtor {
   totalOwedByMe: number;
   netBalance: number;
   totalDebts: number;
+  balances: {
+    currency: string;
+    totalOwedToMe: number;
+    totalOwedByMe: number;
+    netBalance: number;
+  }[];
 }
 
 export const getDebtorSummaries = async (): Promise<DebtorSummary[]> => {
@@ -2755,22 +2765,49 @@ export const getDebtorSummaries = async (): Promise<DebtorSummary[]> => {
 
   return debtors.map(debtor => {
     const personDebts = allDebts.filter(d => d.debtorId === debtor.id || (!d.debtorId && d.debtorName === debtor.name));
-    let toMe = 0;
-    let byMe = 0;
+    
+    // Group by currency
+    const groups: Record<string, { toMe: number; byMe: number }> = {};
+    
+    let totalToMe = 0;
+    let totalByMe = 0;
+
     personDebts.forEach(d => {
       if (d.isPaid) return;
-      if (d.direction === 'owed_to_me') toMe += d.remainingAmount;
-      else byMe += d.remainingAmount;
+      
+      const cur = d.currency || 'IQD';
+      if (!groups[cur]) groups[cur] = { toMe: 0, byMe: 0 };
+      
+      if (d.direction === 'owed_to_me') {
+        groups[cur].toMe += d.remainingAmount;
+        totalToMe += d.remainingAmount; // Legacy fallback
+      } else {
+        groups[cur].byMe += d.remainingAmount;
+        totalByMe += d.remainingAmount; // Legacy fallback
+      }
     });
+
+    const balances = Object.keys(groups).map(cur => ({
+      currency: cur,
+      totalOwedToMe: groups[cur].toMe,
+      totalOwedByMe: groups[cur].byMe,
+      netBalance: groups[cur].toMe - groups[cur].byMe
+    }));
 
     return {
       ...debtor,
-      totalOwedToMe: toMe,
-      totalOwedByMe: byMe,
-      netBalance: toMe - byMe,
-      totalDebts: personDebts.length
+      totalOwedToMe: totalToMe,
+      totalOwedByMe: totalByMe,
+      netBalance: totalToMe - totalByMe,
+      totalDebts: personDebts.length,
+      balances
     };
-  }).sort((a, b) => Math.abs(b.netBalance) - Math.abs(a.netBalance));
+  }).sort((a, b) => {
+    // Sort by largest absolute net balance across all currencies (just an approximation since currencies differ)
+    const maxA = Math.max(0, ...a.balances.map(bal => Math.abs(bal.netBalance)));
+    const maxB = Math.max(0, ...b.balances.map(bal => Math.abs(bal.netBalance)));
+    return maxB - maxA;
+  });
 };
 
 export const getDebts = async (): Promise<Debt[]> => {
@@ -3842,19 +3879,17 @@ export const exportNewDataOnly = async (): Promise<{ items: { type: string; loca
     items.push({ type: 'recurring_expense', localId: r.id, data: r as unknown as Record<string, unknown> });
   }
   for (const d of debts) {
-    const installments = await getDebtInstallments(d.id);
     items.push({
       type: 'debt',
       localId: d.id,
-      data: { ...(d as unknown as Record<string, unknown>), installments } as Record<string, unknown>,
+      data: d as unknown as Record<string, unknown>,
     });
   }
   for (const b of bills) {
-    const payments = await getBillPayments(b.id);
     items.push({
       type: 'bill',
       localId: b.id,
-      data: { ...(b as unknown as Record<string, unknown>), payments } as Record<string, unknown>,
+      data: b as unknown as Record<string, unknown>,
     });
   }
   for (const c of challenges) {
@@ -4030,7 +4065,9 @@ export const importFullData = async (data: Record<string, unknown>, force: boole
   await database.execAsync('BEGIN TRANSACTION;');
 
   try {
-    await clearAllData();
+    await clearAllData(true);
+    // Keep foreign_keys off for the entire import
+    await database.execAsync('PRAGMA foreign_keys = OFF;');
 
     const runSection = async (name: string, fn: () => Promise<void>) => {
       try {
@@ -4066,7 +4103,10 @@ export const importFullData = async (data: Record<string, unknown>, force: boole
       'ALTER TABLE expenses ADD COLUMN enc_blob TEXT',
       'ALTER TABLE expenses ADD COLUMN image_path TEXT',
       'ALTER TABLE expenses ADD COLUMN base_amount REAL',
-      'ALTER TABLE budgets ADD COLUMN synced_at INTEGER'
+      'ALTER TABLE budgets ADD COLUMN synced_at INTEGER',
+      'ALTER TABLE recurring_expenses ADD COLUMN base_amount REAL',
+      'ALTER TABLE recurring_expenses ADD COLUMN currency TEXT DEFAULT "IQD"',
+      'ALTER TABLE recurring_expenses ADD COLUMN walletId INTEGER',
     ];
     for (const sql of allMigrations) {
       try { await database.execAsync(sql + ';'); } catch (_) { /* ignore already exists */ }
@@ -4263,7 +4303,7 @@ export const importFullData = async (data: Record<string, unknown>, force: boole
         // Double check NOT NULL constraints
         const createdAtValue = toSql(b.createdAt) || toSql(b.created_at) || now;
         await database.runAsync(
-          'INSERT OR REPLACE INTO budgets (id, category, amount, month, year, createdAt, currency) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          'INSERT OR REPLACE INTO budgets (id, category, amount, month, year, createdAt, currency, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
           [
             toSql(b.id),
             toSql(b.category) ?? 'أخرى',
@@ -4271,7 +4311,8 @@ export const importFullData = async (data: Record<string, unknown>, force: boole
             toSql(b.month) ?? String(new Date().getMonth() + 1),
             toSql(b.year) || new Date().getFullYear(),
             createdAtValue,
-            toSql(b.currency) || 'IQD'
+            toSql(b.currency) || 'IQD',
+            toSql(b.synced_at)
           ]
         );
       }
@@ -4302,11 +4343,12 @@ export const importFullData = async (data: Record<string, unknown>, force: boole
       const recurring_expenses = (data.recurring_expenses as any[]) || [];
       for (const r of recurring_expenses) {
         await database.runAsync(
-          'INSERT OR REPLACE INTO recurring_expenses (id, title, amount, category, recurrenceType, recurrenceValue, startDate, endDate, description, isActive, lastProcessedDate, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          'INSERT OR REPLACE INTO recurring_expenses (id, title, amount, base_amount, category, recurrenceType, recurrenceValue, startDate, endDate, description, isActive, lastProcessedDate, createdAt, currency, walletId, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [
             toSql(r.id),
             toSql(r.title) ?? 'بدون عنوان',
             toSql(r.amount) || 0,
+            toSql(r.base_amount) ?? toSql(r.amount) ?? 0,
             toSql(r.category) ?? 'أخرى',
             toSql(r.recurrenceType ?? r.frequency) ?? 'monthly',
             toSql(r.recurrenceValue) || 1,
@@ -4316,6 +4358,8 @@ export const importFullData = async (data: Record<string, unknown>, force: boole
             toSql(r.isActive !== false),
             toSql(r.lastProcessedDate),
             toSql(r.createdAt) ?? new Date().toISOString(),
+            toSql(r.currency) ?? 'IQD',
+            toSql(r.walletId),
             toSql(r.synced_at)
           ]
         );
@@ -4605,6 +4649,7 @@ export const importFullData = async (data: Record<string, unknown>, force: boole
 
     await runSection('ai_insights_cache', async () => {
       const ai_insights_cache = (data.ai_insights_cache as any[]) || [];
+      const now = new Date();
       for (const row of ai_insights_cache) {
         await database.runAsync(
           'INSERT OR REPLACE INTO ai_insights_cache (id, data, analysis_type, month, year, created_at, walletId) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -4612,8 +4657,8 @@ export const importFullData = async (data: Record<string, unknown>, force: boole
             toSql(row.id),
             typeof row.data === 'string' ? row.data : JSON.stringify(row.data || {}),
             toSql(row.analysisType || row.analysis_type),
-            toSql(row.month),
-            toSql(row.year),
+            toSql(row.month) ?? (now.getMonth() + 1),
+            toSql(row.year) ?? now.getFullYear(),
             toSql(row.created_at) || Date.now(),
             toSql(row.walletId)
           ]
@@ -4623,6 +4668,7 @@ export const importFullData = async (data: Record<string, unknown>, force: boole
 
     await runSection('goal_plan_cache', async () => {
       const goal_plan_cache = (data.goal_plan_cache as any[]) || [];
+      const now = new Date();
       for (const row of goal_plan_cache) {
         await database.runAsync(
           'INSERT OR REPLACE INTO goal_plan_cache (id, goal_id, data, month, year, created_at) VALUES (?, ?, ?, ?, ?, ?)',
@@ -4630,8 +4676,8 @@ export const importFullData = async (data: Record<string, unknown>, force: boole
             toSql(row.id),
             toSql(row.goalId || row.goal_id),
             typeof row.data === 'string' ? row.data : JSON.stringify(row.data || {}),
-            toSql(row.month),
-            toSql(row.year),
+            toSql(row.month) ?? (now.getMonth() + 1),
+            toSql(row.year) ?? now.getFullYear(),
             toSql(row.createdAt || row.created_at) || Date.now()
           ]
         );
@@ -5027,3 +5073,45 @@ export const deleteWallet = async (id: number): Promise<void> => {
 
 
 // in debts i want user can chose the currency of debt, and when. show debts show any debt with its currency 
+export const transferBetweenWallets = async (data: {
+  fromWalletId: number;
+  toWalletId: number;
+  amount: number;
+  date: string;
+  description?: string;
+  currency: string;
+}): Promise<void> => {
+  const database = getDb();
+  const { fromWalletId, toWalletId, amount, date, description, currency } = data;
+
+  const wallets = await getWallets();
+  const fromWallet = wallets.find(w => w.id === fromWalletId);
+  const toWallet = wallets.find(w => w.id === toWalletId);
+
+  if (!fromWallet || !toWallet) {
+    throw new Error('One or both wallets not found');
+  }
+
+  // 1. Create Expense from source wallet
+  // This will trigger base_amount calculation inside addExpense
+  await addExpense({
+    title: `تحويل إلى ${toWallet.name}`,
+    amount,
+    category: 'transfer',
+    date,
+    description: description || `تحويل مالي من ${fromWallet.name} إلى ${toWallet.name}`,
+    currency,
+    walletId: fromWalletId
+  });
+
+  // 2. Create Income for destination wallet
+  await addIncome({
+    source: `تحويل من ${fromWallet.name}`,
+    amount,
+    category: 'transfer',
+    date,
+    description: description || `تحويل مالي من ${fromWallet.name} إلى ${toWallet.name}`,
+    currency,
+    walletId: toWalletId
+  });
+};

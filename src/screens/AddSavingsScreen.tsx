@@ -9,6 +9,8 @@ import { useCurrency } from '../hooks/useCurrency';
 import { isRTL } from '../utils/rtl';
 import { alertService } from '../services/alertService';
 import { ScreenContainer, AppHeader, AppButton } from '../design-system';
+import { CurrencyPickerModal } from '../components/CurrencyPickerModal';
+import { CURRENCIES } from '../types';
 import { tl, useLocalization } from "../localization";
 export const AddSavingsScreen = ({
   navigation,
@@ -29,6 +31,7 @@ export const AddSavingsScreen = ({
   const [icon, setIcon] = useState('wallet');
   const [color, setColor] = useState('#10B981');
   const [currency, setCurrency] = useState(currencyCode);
+  const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [loading, setLoading] = useState(false);
   useEffect(() => {
     if (editingSavings) {
@@ -139,7 +142,33 @@ export const AddSavingsScreen = ({
           </View>
           <TextInput placeholder={tl("ملاحظات إضافية...")} value={description} onChangeText={setDescription} style={styles.fieldInput} underlineColor="transparent" activeUnderlineColor="transparent" placeholderTextColor={theme.colors.textMuted} multiline />
         </View>
+
+        <View style={styles.divider} />
+
+        {/* Currency Selection */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>{tl("العملة")}</Text>
+          <TouchableOpacity style={styles.currencyButton} onPress={() => setShowCurrencyPicker(true)}>
+            <View style={styles.currencyButtonInner}>
+              <Ionicons name="cash-outline" size={20} color={color} />
+              <Text style={styles.currencyButtonText}>
+                {CURRENCIES.find(c => c.code === currency)?.name || currency} ({CURRENCIES.find(c => c.code === currency)?.symbol})
+              </Text>
+            </View>
+            <Ionicons name="chevron-down" size={20} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
       </View>
+
+      <CurrencyPickerModal
+        visible={showCurrencyPicker}
+        selectedCurrency={currency}
+        onSelect={(code) => {
+          setCurrency(code);
+          setShowCurrencyPicker(false);
+        }}
+        onClose={() => setShowCurrencyPicker(false)}
+      />
 
       <View style={{
       paddingHorizontal: 20,
@@ -240,5 +269,26 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     height: 44,
     borderRadius: 22,
     marginLeft: 12
+  },
+  currencyButton: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: theme.colors.surfaceLight,
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  currencyButtonInner: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  currencyButtonText: {
+    fontSize: 16,
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
+    fontWeight: getPlatformFontWeight('600'),
   }
 });

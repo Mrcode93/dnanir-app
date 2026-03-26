@@ -13,9 +13,11 @@ import { FinancialGoal, CURRENCIES } from '../types';
 import { useCurrency } from '../hooks/useCurrency';
 import { isRTL } from '../utils/rtl';
 import { alertService } from '../services/alertService';
-import { formatCurrencyAmount } from '../services/currencyService';
+import { convertCurrency, formatCurrencyAmount } from '../services/currencyService';
 import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 import { AppDialog, AppButton } from '../design-system';
+import { CurrencyPickerModal } from './CurrencyPickerModal';
+import { TouchableOpacity } from 'react-native';
 
 interface AddGoalAmountModalProps {
     visible: boolean;
@@ -35,12 +37,36 @@ export const AddGoalAmountModal: React.FC<AddGoalAmountModalProps> = ({
     const { formatCurrency, currencyCode } = useCurrency();
     const [amount, setAmount] = useState('');
     const [loading, setLoading] = useState(false);
+    
+    const goalCurrency = goal?.currency || currencyCode;
+    const [selectedCurrency, setSelectedCurrency] = useState(goalCurrency);
+    const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
+    const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
 
     useEffect(() => {
-        if (visible) {
+        if (visible && goal) {
             setAmount('');
+            setSelectedCurrency(goal.currency || currencyCode);
         }
-    }, [visible]);
+    }, [visible, goal, currencyCode]);
+
+    useEffect(() => {
+        const calculateConverted = async () => {
+            const cleanAmount = amount.replace(/,/g, '');
+            const numAmount = Number(cleanAmount);
+            if (numAmount > 0 && selectedCurrency !== goalCurrency) {
+                try {
+                    const converted = await convertCurrency(numAmount, selectedCurrency, goalCurrency);
+                    setConvertedAmount(converted);
+                } catch (error) {
+                    setConvertedAmount(null);
+                }
+            } else {
+                setConvertedAmount(null);
+            }
+        };
+        calculateConverted();
+    }, [amount, selectedCurrency, goalCurrency]);
 
     const handleAdd = async () => {
         if (!goal) return;
@@ -49,6 +75,7 @@ export const AddGoalAmountModal: React.FC<AddGoalAmountModalProps> = ({
 
         const cleanAmount = amount.replace(/,/g, '');
         const addAmount = Number(cleanAmount);
+        const finalAmount = convertedAmount !== null ? convertedAmount : addAmount;
 
         if (!cleanAmount.trim() || isNaN(addAmount) || addAmount <= 0) {
             alertService.warning('تنبيه', 'يرجى إدخال مبلغ صحيح');
@@ -56,11 +83,11 @@ export const AddGoalAmountModal: React.FC<AddGoalAmountModalProps> = ({
         }
 
         const remaining = goal.targetAmount - goal.currentAmount;
-        if (addAmount > remaining) {
+        if (finalAmount > remaining) {
             // Allow over-saving if they want, but show a confirmation
             alertService.show({
                 title: 'تنبيه',
-                message: `المبلغ المدخل (${formatCurrency(addAmount)}) أكبر من المبلغ المتبقي (${formatCurrency(remaining)}). هل تريد الاستمرار؟`,
+                message: `المبلغ المدخل (${formatCurrency((finalAmount))}) أكبر من المبلغ المتبقي (${formatCurrency(remaining)}). هل تريد الاستمرار؟`,
                 confirmText: 'استمرار',
                 cancelText: 'إلغاء',
                 showCancel: true,
@@ -71,7 +98,7 @@ export const AddGoalAmountModal: React.FC<AddGoalAmountModalProps> = ({
             return;
         }
 
-        await executeAdd(addAmount);
+        await executeAdd(finalAmount);
     };
 
     const executeAdd = async (amountNum: number) => {
@@ -94,8 +121,7 @@ export const AddGoalAmountModal: React.FC<AddGoalAmountModalProps> = ({
 
     if (!goal) return null;
 
-    const goalCurrency = goal.currency || currencyCode;
-    const currencyInfo = CURRENCIES.find(c => c.code === goalCurrency);
+    const currencyInfo = CURRENCIES.find(c => c.code === selectedCurrency);
     const remaining = goal.targetAmount - goal.currentAmount;
 
     return (
@@ -143,10 +169,19 @@ export const AddGoalAmountModal: React.FC<AddGoalAmountModalProps> = ({
                         placeholderTextColor={theme.colors.textMuted}
                         autoFocus
                     />
-                    <Text style={styles.currencySymbol}>
-                        {currencyInfo?.symbol || goalCurrency}
-                    </Text>
+                    <TouchableOpacity onPress={() => setShowCurrencyPicker(true)} style={styles.currencyButton}>
+                        <Text style={styles.currencySymbol}>
+                            {currencyInfo?.symbol || selectedCurrency}
+                        </Text>
+                        <Ionicons name="chevron-down" size={16} color={theme.colors.success} style={{marginLeft: 4}} />
+                    </TouchableOpacity>
                 </View>
+
+                {convertedAmount !== null && selectedCurrency !== goalCurrency && (
+                    <Text style={styles.convertedText}>
+                        ≈ {formatCurrencyAmount(convertedAmount, goalCurrency)}
+                    </Text>
+                )}
             </View>
 
             <View style={styles.actions}>
@@ -166,6 +201,16 @@ export const AddGoalAmountModal: React.FC<AddGoalAmountModalProps> = ({
                     style={styles.addButton}
                 />
             </View>
+
+            <CurrencyPickerModal
+                visible={showCurrencyPicker}
+                selectedCurrency={selectedCurrency}
+                onSelect={(code) => {
+                    setSelectedCurrency(code);
+                    setShowCurrencyPicker(false);
+                }}
+                onClose={() => setShowCurrencyPicker(false)}
+            />
         </AppDialog>
     );
 };
@@ -252,12 +297,27 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         fontFamily: theme.typography.fontFamily,
         textAlign: 'center',
     },
+    currencyButton: {
+        flexDirection: isRTL ? 'row-reverse' : 'row',
+        alignItems: 'center',
+        paddingHorizontal: theme.spacing.sm,
+        paddingVertical: theme.spacing.xs,
+        backgroundColor: theme.colors.success + '15',
+        borderRadius: theme.borderRadius.sm,
+    },
     currencySymbol: {
         fontSize: theme.typography.sizes.md,
         fontWeight: getPlatformFontWeight('700'),
         color: theme.colors.success,
         fontFamily: theme.typography.fontFamily,
-        opacity: 0.8,
+    },
+    convertedText: {
+        fontSize: theme.typography.sizes.sm,
+        color: theme.colors.textSecondary,
+        fontFamily: theme.typography.fontFamily,
+        textAlign: 'center',
+        marginTop: theme.spacing.xs,
+        fontStyle: 'italic',
     },
     actions: {
         width: '100%',

@@ -80,9 +80,9 @@ export const WalletListModal: React.FC<WalletListModalProps> = ({ visible, onClo
           </View>
 
           <FlatList
-            data={wallets}
+            data={[null, ...wallets] as (Wallet | null)[]}
             renderItem={renderWalletItem}
-            keyExtractor={(item) => item.id.toString()}
+            keyExtractor={(item) => item ? item.id.toString() : 'all'}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
           />

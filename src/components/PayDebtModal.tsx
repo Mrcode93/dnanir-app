@@ -15,6 +15,7 @@ import { isRTL } from '../utils/rtl';
 import { alertService } from '../services/alertService';
 import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 import { AppBottomSheet, AppButton, AppInput } from '../design-system';
+import { formatCurrencyAmount } from '../services/currencyService';
 
 interface PayDebtModalProps {
   visible: boolean;
@@ -31,7 +32,7 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
 }) => {
   const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
-  const { formatCurrency, currencyCode } = useCurrency();
+  const { currencyCode } = useCurrency();
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [paymentType, setPaymentType] = useState<'all' | 'partial'>('all');
@@ -72,7 +73,7 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
     }
 
     if (paymentAmount > debt.remainingAmount) {
-      alertService.warning('تنبيه', `المبلغ المدخل (${formatCurrency(paymentAmount)}) أكبر من المبلغ المتبقي (${formatCurrency(debt.remainingAmount)})`);
+      alertService.warning('تنبيه', `المبلغ المدخل (${formatCurrencyAmount(paymentAmount, debt.currency || 'IQD')}) أكبر من المبلغ المتبقي (${formatCurrencyAmount(debt.remainingAmount, debt.currency || 'IQD')})`);
       return;
     }
 
@@ -123,7 +124,7 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
         <View style={styles.debtInfoRow}>
           <Text style={styles.debtInfoLabel}>المبلغ المتبقي</Text>
           <Text style={[styles.debtInfoValue, styles.remainingAmount]}>
-            {formatCurrency(debt.remainingAmount)}
+            {formatCurrencyAmount(debt.remainingAmount, debt.currency || 'IQD')}
           </Text>
         </View>
       </View>
@@ -171,7 +172,7 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
               <Text style={styles.amountInfoText}>
                 المتبقي بعد الدفع:{' '}
                 <Text style={styles.amountInfoValue}>
-                  {formatCurrency(Math.max(0, debt.remainingAmount - Number(amount.replace(/,/g, ''))))}
+                  {formatCurrencyAmount(Math.max(0, debt.remainingAmount - Number(amount.replace(/,/g, ''))), debt.currency || 'IQD')}
                 </Text>
               </Text>
             </View>

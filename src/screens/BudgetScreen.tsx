@@ -158,7 +158,7 @@ export const BudgetScreen = ({
           try {
             const convertedAmount = await convertCurrency(status.budget.amount, budgetCurrency, currencyCode);
             converted[status.budget.id] = convertedAmount;
-          } catch (error) {}
+          } catch (error) { }
         }
       }
       setConvertedAmounts(converted);
@@ -285,206 +285,205 @@ export const BudgetScreen = ({
     const isExceeded = item.isExceeded;
     const isWarning = item.percentage >= 80 && !isExceeded;
     return <View style={[styles.budgetCard, isExceeded && styles.budgetCardExceeded, isWarning && styles.budgetCardWarning]}>
-        <View style={styles.budgetHeader}>
-          <View style={styles.budgetCategory}>
-            <View style={[styles.categoryIcon, {
+      <View style={styles.budgetHeader}>
+        <View style={styles.budgetCategory}>
+          <View style={[styles.categoryIcon, {
             backgroundColor: isExceeded ? theme.colors.error + '15' : isWarning ? theme.colors.warning + '15' : theme.colors.primary + '15'
           }]}>
-              <Ionicons name={getCategoryIcon(item.budget.category) as any} size={24} color={isExceeded ? theme.colors.error : isWarning ? theme.colors.warning : theme.colors.primary} />
-            </View>
-            <View style={styles.budgetInfo}>
-              <Text style={styles.budgetCategoryName}>
-                {tl(getCategoryName(item.budget.category))}
-              </Text>
-              <Text style={styles.budgetPercentage}>
-                {isPrivacyEnabled ? tl("**% مستخدم") : tl("{{}}% مستخدم", [percentage.toFixed(1)])}
-              </Text>
-            </View>
+            <Ionicons name={getCategoryIcon(item.budget.category) as any} size={24} color={isExceeded ? theme.colors.error : isWarning ? theme.colors.warning : theme.colors.primary} />
           </View>
-          <TouchableOpacity onPress={() => openMenu(item)} style={styles.menuButton} activeOpacity={0.7}>
-            <Ionicons name="ellipsis-vertical" size={20} color={theme.colors.textSecondary} />
-          </TouchableOpacity>
+          <View style={styles.budgetInfo}>
+            <Text style={styles.budgetCategoryName}>
+              {tl(getCategoryName(item.budget.category))}
+            </Text>
+            <Text style={styles.budgetPercentage}>
+              {isPrivacyEnabled ? tl("**% مستخدم") : tl("{{}}% مستخدم", [percentage.toFixed(1)])}
+            </Text>
+          </View>
         </View>
+        <TouchableOpacity onPress={() => openMenu(item)} style={styles.menuButton} activeOpacity={0.7}>
+          <Ionicons name="ellipsis-vertical" size={20} color={theme.colors.textSecondary} />
+        </TouchableOpacity>
+      </View>
 
-        <View style={styles.budgetProgress}>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, {
+      <View style={styles.budgetProgress}>
+        <View style={styles.progressBar}>
+          <View style={[styles.progressFill, {
             width: `${percentage}%`,
             backgroundColor: isExceeded ? theme.colors.error : isWarning ? theme.colors.warning : theme.colors.primary
           }]} />
+        </View>
+      </View>
+
+      <View style={styles.budgetDetails}>
+        <View style={styles.budgetDetailItem}>
+          <Text style={styles.budgetDetailLabel}>{tl("الميزانية")}</Text>
+          <View>
+            <Text style={styles.budgetDetailValue}>
+              {isPrivacyEnabled ? '****' : formatCurrencyAmount(item.budget.amount, item.budget.currency || currencyCode)}
+            </Text>
+            {convertedAmounts[item.budget.id] && item.budget.currency !== currencyCode && <Text style={styles.convertedAmountText}>
+              ≈ {formatCurrency(convertedAmounts[item.budget.id])}
+            </Text>}
           </View>
         </View>
-
-        <View style={styles.budgetDetails}>
-          <View style={styles.budgetDetailItem}>
-            <Text style={styles.budgetDetailLabel}>{tl("الميزانية")}</Text>
-            <View>
-              <Text style={styles.budgetDetailValue}>
-                {isPrivacyEnabled ? '****' : formatCurrencyAmount(item.budget.amount, item.budget.currency || currencyCode)}
-              </Text>
-              {convertedAmounts[item.budget.id] && item.budget.currency !== currencyCode && <Text style={styles.convertedAmountText}>
-                  ≈ {formatCurrency(convertedAmounts[item.budget.id])}
-                </Text>}
-            </View>
-          </View>
-          <View style={styles.budgetDetailItem}>
-            <Text style={styles.budgetDetailLabel}>{tl("المصروف")}</Text>
-            <Text style={[styles.budgetDetailValue, {
+        <View style={styles.budgetDetailItem}>
+          <Text style={styles.budgetDetailLabel}>{tl("المصروف")}</Text>
+          <Text style={[styles.budgetDetailValue, {
             color: theme.colors.error
           }]}>
-              {formatCurrency(item.spent)}
-            </Text>
-          </View>
-          <View style={styles.budgetDetailItem}>
-            <Text style={styles.budgetDetailLabel}>{tl("المتبقي")}</Text>
-            <Text style={[styles.budgetDetailValue, {
+            {formatCurrency(item.spent)}
+          </Text>
+        </View>
+        <View style={styles.budgetDetailItem}>
+          <Text style={styles.budgetDetailLabel}>{tl("المتبقي")}</Text>
+          <Text style={[styles.budgetDetailValue, {
             color: item.remaining >= 0 ? theme.colors.success : theme.colors.error
           }]}>
-              {formatCurrency(item.remaining)}
-            </Text>
-          </View>
+            {formatCurrency(item.remaining)}
+          </Text>
         </View>
-      </View>;
+      </View>
+    </View>;
   }, [theme, styles, formatCurrency, currencyCode, convertedAmounts, getCategoryIcon, getCategoryName, openMenu, isPrivacyEnabled]);
   return <View style={styles.container}>
 
-      <FlashList data={filteredBudgets}
-    // @ts-ignore
-    estimatedItemSize={180} ListHeaderComponent={<View style={styles.header}>
+    <FlashList data={filteredBudgets}
+      // @ts-ignore
+      estimatedItemSize={180} ListHeaderComponent={<View style={styles.header}>
 
-            {/* Month Filter */}
-            <View style={styles.monthFilterContainer}>
-              <MonthFilter selectedMonth={selectedMonth} onMonthChange={(year, month) => setSelectedMonth({
-          year,
-          month
-        })} showAllOption={true} availableMonths={availableMonths} />
-            </View>
+        {/* Month Filter */}
+        <View style={styles.monthFilterContainer}>
+          <MonthFilter selectedMonth={selectedMonth} onMonthChange={(year, month) => setSelectedMonth({
+            year,
+            month
+          })} showAllOption={true} availableMonths={availableMonths} />
+        </View>
 
-            {/* Filter Buttons Row */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow} contentContainerStyle={styles.filterRowContent}>
-              <TouchableOpacity onPress={() => {
-          setSelectedCategory('all');
-        }} style={styles.filterButton} activeOpacity={0.7}>
-                {selectedCategory === 'all' ? <LinearGradient colors={theme.gradients.primary as any} style={styles.filterButtonGradient} start={{
-            x: 0,
-            y: 0
-          }} end={{
-            x: 1,
-            y: 0
-          }}>
-                    <Ionicons name="apps" size={16} color="#FFFFFF" />
-                    <Text style={styles.filterButtonTextActive}>{tl("الكل")}</Text>
-                  </LinearGradient> : <View style={styles.filterButtonDefault}>
-                    <Ionicons name="apps-outline" size={16} color={theme.colors.textSecondary} />
-                    <Text style={styles.filterButtonText}>{tl("الكل")}</Text>
-                  </View>}
-              </TouchableOpacity>
-              {allCategories.map(category => {
-          const isSelected = selectedCategory === category;
-          return <TouchableOpacity key={category} onPress={() => {
-            setSelectedCategory(category);
+        {/* Filter Buttons Row */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow} contentContainerStyle={styles.filterRowContent}>
+          <TouchableOpacity onPress={() => {
+            setSelectedCategory('all');
           }} style={styles.filterButton} activeOpacity={0.7}>
-                    {isSelected ? <LinearGradient colors={theme.gradients.info as any} style={styles.filterButtonGradient} start={{
+            {selectedCategory === 'all' ? <LinearGradient colors={theme.gradients.primary as any} style={styles.filterButtonGradient} start={{
               x: 0,
               y: 0
             }} end={{
               x: 1,
               y: 0
             }}>
-                        <Ionicons name={getCategoryIcon(category) as any} size={16} color="#FFFFFF" />
-                        <Text style={styles.filterButtonTextActive} numberOfLines={1}>
-                          {tl(getCategoryName(category))}
-                        </Text>
-                      </LinearGradient> : <View style={styles.filterButtonDefault}>
-                        <Ionicons name={getCategoryIcon(category) as any} size={16} color={theme.colors.textSecondary} />
-                        <Text style={styles.filterButtonText} numberOfLines={1}>
-                          {tl(getCategoryName(category))}
-                        </Text>
-                      </View>}
-                  </TouchableOpacity>;
-        })}
-            </ScrollView>
-
-            {/* Summary Cards */}
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryCard}>
-                <Text style={styles.summaryLabel}>{tl("إجمالي الميزانية")}</Text>
-                <Text style={styles.summaryAmount}>{formatCurrency(totalBudget)}</Text>
-              </View>
-              <View style={styles.summaryCard}>
-                <Text style={styles.summaryLabel}>{tl("المصروف")}</Text>
-                <Text style={[styles.summaryAmount, {
-            color: theme.colors.error
-          }]}>
-                  {formatCurrency(totalSpent)}
+              <Ionicons name="apps" size={16} color="#FFFFFF" />
+              <Text style={styles.filterButtonTextActive}>{tl("الكل")}</Text>
+            </LinearGradient> : <View style={styles.filterButtonDefault}>
+              <Ionicons name="apps-outline" size={16} color={theme.colors.textSecondary} />
+              <Text style={styles.filterButtonText}>{tl("الكل")}</Text>
+            </View>}
+          </TouchableOpacity>
+          {allCategories.map(category => {
+            const isSelected = selectedCategory === category;
+            return <TouchableOpacity key={category} onPress={() => {
+              setSelectedCategory(category);
+            }} style={styles.filterButton} activeOpacity={0.7}>
+              {isSelected ? <LinearGradient colors={theme.gradients.info as any} style={styles.filterButtonGradient} start={{
+                x: 0,
+                y: 0
+              }} end={{
+                x: 1,
+                y: 0
+              }}>
+                <Ionicons name={getCategoryIcon(category) as any} size={16} color="#FFFFFF" />
+                <Text style={styles.filterButtonTextActive} numberOfLines={1}>
+                  {tl(getCategoryName(category))}
                 </Text>
-              </View>
-              <View style={styles.summaryCard}>
-                <Text style={styles.summaryLabel}>{tl("المتبقي")}</Text>
-                <Text style={[styles.summaryAmount, {
-            color: totalRemaining >= 0 ? theme.colors.success : theme.colors.error
-          }]}>
-                  {formatCurrency(totalRemaining)}
+              </LinearGradient> : <View style={styles.filterButtonDefault}>
+                <Ionicons name={getCategoryIcon(category) as any} size={16} color={theme.colors.textSecondary} />
+                <Text style={styles.filterButtonText} numberOfLines={1}>
+                  {tl(getCategoryName(category))}
                 </Text>
-              </View>
-            </View>
-          </View>} renderItem={renderBudget} keyExtractor={item => item.budget.id.toString()} contentContainerStyle={styles.listContent} initialNumToRender={10} maxToRenderPerBatch={8} windowSize={7} updateCellsBatchingPeriod={50} removeClippedSubviews={Platform.OS === 'android'} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />} showsVerticalScrollIndicator={false} ListEmptyComponent={<View style={styles.emptyContainer}>
-            <Ionicons name="wallet-outline" size={80} color={theme.colors.textSecondary} />
-            <Text style={styles.emptyText}>
-              {selectedCategory !== 'all' ? tl("لا توجد نتائج") : tl("لا توجد ميزانيات محددة")}
-            </Text>
-            <Text style={styles.emptySubtext}>
-              {selectedCategory !== 'all' ? tl("جرب تغيير الفلتر") : tl("أضف ميزانية جديدة لتتبع إنفاقك")}
-            </Text>
-          </View>} />
+              </View>}
+            </TouchableOpacity>;
+          })}
+        </ScrollView>
 
-      {/* Budget Options Bottom Sheet */}
-      <AppBottomSheet visible={showMenu} onClose={() => setShowMenu(false)} title={tl("خيارات الميزانية")}>
-        <View style={styles.menuOptionsList}>
-          {selectedBudget && <>
-              <TouchableOpacity style={styles.menuOption} onPress={() => handleEditBudget(selectedBudget)} activeOpacity={0.7}>
-                <View style={[styles.menuIconBox, {
+        {/* Summary Cards */}
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>{tl("إجمالي الميزانية")}</Text>
+            <Text style={styles.summaryAmount}>{formatCurrency(totalBudget)}</Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>{tl("المصروف")}</Text>
+            <Text style={[styles.summaryAmount, {
+              color: theme.colors.error
+            }]}>
+              {formatCurrency(totalSpent)}
+            </Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>{tl("المتبقي")}</Text>
+            <Text style={[styles.summaryAmount, {
+              color: totalRemaining >= 0 ? theme.colors.success : theme.colors.error
+            }]}>
+              {formatCurrency(totalRemaining)}
+            </Text>
+          </View>
+        </View>
+      </View>} renderItem={renderBudget} keyExtractor={item => item.budget.id.toString()} contentContainerStyle={styles.listContent} initialNumToRender={10} maxToRenderPerBatch={8} windowSize={7} updateCellsBatchingPeriod={50} removeClippedSubviews={Platform.OS === 'android'} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />} showsVerticalScrollIndicator={false} ListEmptyComponent={<View style={styles.emptyContainer}>
+        <Ionicons name="wallet-outline" size={80} color={theme.colors.textSecondary} />
+        <Text style={styles.emptyText}>
+          {selectedCategory !== 'all' ? tl("لا توجد نتائج") : tl("لا توجد ميزانيات محددة")}
+        </Text>
+        <Text style={styles.emptySubtext}>
+          {selectedCategory !== 'all' ? tl("جرب تغيير الفلتر") : tl("أضف ميزانية جديدة لتتبع إنفاقك")}
+        </Text>
+      </View>} />
+
+    {/* Budget Options Bottom Sheet */}
+    <AppBottomSheet visible={showMenu} onClose={() => setShowMenu(false)} title={tl("خيارات الميزانية")}>
+      <View style={styles.menuOptionsList}>
+        {selectedBudget && <>
+          <TouchableOpacity style={styles.menuOption} onPress={() => handleEditBudget(selectedBudget)} activeOpacity={0.7}>
+            <View style={[styles.menuIconBox, {
               backgroundColor: theme.colors.primary + '15'
             }]}>
-                  <Ionicons name="create-outline" size={22} color={theme.colors.primary} />
-                </View>
-                <View style={styles.menuOptionTextContainer}>
-                  <Text style={styles.menuOptionTitle}>{tl("تعديل")}</Text>
-                  <Text style={styles.menuOptionSubtitle}>{tl("تغيير تفاصيل الميزانية أو المبلغ")}</Text>
-                </View>
-                <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color={theme.colors.textMuted} />
-              </TouchableOpacity>
+              <Ionicons name="create-outline" size={22} color={theme.colors.primary} />
+            </View>
+            <View style={styles.menuOptionTextContainer}>
+              <Text style={styles.menuOptionSubtitle}>{tl("تغيير تفاصيل الميزانية أو المبلغ")}</Text>
+            </View>
+            <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color={theme.colors.textMuted} />
+          </TouchableOpacity>
 
-              <TouchableOpacity style={[styles.menuOption, {
+          <TouchableOpacity style={[styles.menuOption, {
             marginTop: 8
           }]} onPress={() => handleDeleteBudget(selectedBudget.budget.id)} activeOpacity={0.7}>
-                <View style={[styles.menuIconBox, {
+            <View style={[styles.menuIconBox, {
               backgroundColor: theme.colors.error + '15'
             }]}>
-                  <Ionicons name="trash-outline" size={22} color={theme.colors.error} />
-                </View>
-                <View style={styles.menuOptionTextContainer}>
-                  <Text style={[styles.menuOptionTitle, {
+              <Ionicons name="trash-outline" size={22} color={theme.colors.error} />
+            </View>
+            <View style={styles.menuOptionTextContainer}>
+              <Text style={[styles.menuOptionTitle, {
                 color: theme.colors.error
               }]}>{tl("حذف")}</Text>
-                  <Text style={styles.menuOptionSubtitle}>{tl("حذف هذه الميزانية نهائياً")}</Text>
-                </View>
-                <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color={theme.colors.textMuted} />
-              </TouchableOpacity>
-            </>}
-        </View>
+              <Text style={styles.menuOptionSubtitle}>{tl("حذف هذه الميزانية نهائياً")}</Text>
+            </View>
+            <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color={theme.colors.textMuted} />
+          </TouchableOpacity>
+        </>}
+      </View>
 
-        <TouchableOpacity style={styles.closeButton} onPress={() => setShowMenu(false)}>
-          <Text style={styles.closeButtonText}>{tl("إلغاء")}</Text>
-        </TouchableOpacity>
-      </AppBottomSheet>
+      <TouchableOpacity style={styles.closeButton} onPress={() => setShowMenu(false)}>
+        <Text style={styles.closeButtonText}>{tl("إلغاء")}</Text>
+      </TouchableOpacity>
+    </AppBottomSheet>
 
-      {/* Delete Confirmation */}
-      <ConfirmAlert visible={showDeleteConfirm} title={tl("تأكيد الحذف")} message={tl("هل أنت متأكد من حذف هذه الميزانية؟ لا يمكن التراجع عن هذا الإجراء.")} confirmText={tl("حذف")} cancelText={tl("إلغاء")} onConfirm={confirmDeleteBudget} onCancel={() => {
+    {/* Delete Confirmation */}
+    <ConfirmAlert visible={showDeleteConfirm} title={tl("تأكيد الحذف")} message={tl("هل أنت متأكد من حذف هذه الميزانية؟ لا يمكن التراجع عن هذا الإجراء.")} confirmText={tl("حذف")} cancelText={tl("إلغاء")} onConfirm={confirmDeleteBudget} onCancel={() => {
       setShowDeleteConfirm(false);
       setBudgetToDelete(null);
     }} type="danger" />
-    </View>;
+  </View>;
 };
 const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
@@ -493,11 +492,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     direction: isRTL ? 'rtl' : 'ltr'
   },
   header: {
-    padding: theme.spacing.md,
-    paddingBottom: theme.spacing.sm,
+    paddingTop: theme.spacing.sm,
+    paddingBottom: theme.spacing.lg,
     backgroundColor: theme.colors.surfaceCard,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    ...getPlatformShadow('md'),
+    marginBottom: theme.spacing.xl,
+    zIndex: 10,
     direction: isRTL ? 'rtl' : 'ltr'
   },
   headerTitleRow: {
@@ -523,16 +525,17 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     direction: isRTL ? 'rtl' : 'ltr'
   },
   monthFilterContainer: {
-    marginBottom: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
     alignItems: 'flex-start'
   },
   filterRow: {
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
     direction: isRTL ? 'rtl' : 'ltr'
   },
   filterRowContent: {
     gap: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.xs
+    paddingHorizontal: theme.spacing.md, // Full width padding
   },
   filterButton: {
     borderRadius: theme.borderRadius.md,
@@ -540,18 +543,18 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     ...getPlatformShadow('sm')
   },
   filterButtonGradient: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
+    paddingVertical: 6, // Reduced height
     gap: theme.spacing.xs
   },
   filterButtonDefault: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.surfaceLight,
     paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
+    paddingVertical: 6, // Reduced height
     gap: theme.spacing.xs,
     borderRadius: theme.borderRadius.md
   },
@@ -568,10 +571,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily
   },
   summaryRow: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
-    gap: theme.spacing.sm
+    flexDirection: 'row',
+    paddingHorizontal: theme.spacing.md,
+    gap: theme.spacing.sm,
+
   },
   summaryCard: {
+
     flex: 1,
     backgroundColor: theme.colors.surfaceLight,
     borderRadius: theme.borderRadius.md,
@@ -590,13 +596,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontSize: theme.typography.sizes.lg,
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily
+    fontFamily: theme.typography.fontFamily,
+    textAlign: 'center'
   },
   listContent: {
-    padding: theme.spacing.md,
-    paddingTop: 0
+    paddingBottom: 40
   },
   budgetCard: {
+    marginHorizontal: theme.spacing.md,
     padding: theme.spacing.lg,
     borderRadius: theme.borderRadius.xl,
     marginBottom: theme.spacing.md,
@@ -613,13 +620,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderColor: theme.colors.warning + '30'
   },
   budgetHeader: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: theme.spacing.md
   },
   budgetCategory: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
     gap: theme.spacing.md
@@ -665,7 +672,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 4
   },
   budgetDetails: {
-    flexDirection: isRTL ? 'row' : 'row-reverse',
+    flexDirection: 'row',
     justifyContent: 'space-around',
     paddingTop: theme.spacing.md,
     borderTopWidth: 1,
@@ -816,7 +823,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     direction: isRTL ? 'rtl' : 'ltr'
   },
   menuOption: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.surface,
     borderRadius: 16,
@@ -840,14 +847,14 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontWeight: getPlatformFontWeight('700'),
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: isRTL ? 'right' : 'left',
+    textAlign: isRTL ? 'left' : 'right',
     marginBottom: 2
   },
   menuOptionSubtitle: {
     fontSize: theme.typography.sizes.xs,
     color: theme.colors.textMuted,
     fontFamily: theme.typography.fontFamily,
-    textAlign: isRTL ? 'right' : 'left'
+    textAlign: isRTL ? 'left' : 'right'
   },
   closeButton: {
     marginTop: theme.spacing.md,
