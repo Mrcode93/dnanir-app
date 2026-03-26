@@ -233,8 +233,6 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
     backgroundColor: currentSourceInfo.color || theme.colors.success
   }} />;
   return <ScreenContainer scrollable edges={[]} scrollPadBottom={24}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-
       {/* Header */}
       <AppHeader title={income ? tl("تعديل دخل") : tl("دخل جديد")} backIcon="close" onBack={handleClose} />
 

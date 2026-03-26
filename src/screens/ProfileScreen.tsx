@@ -126,7 +126,7 @@ export const ProfileScreen = ({
     if (showLoader) setIsProfileLoading(true);
     try {
       await Promise.all([loadSettings(), checkAuthStatus(), refreshUnsyncedStatus()]);
-    } catch (error) {} finally {
+    } catch (error) { } finally {
       if (showLoader) setIsProfileLoading(false);
     }
   };
@@ -610,47 +610,47 @@ export const ProfileScreen = ({
       setTempAmPm(amPm);
     };
     return <View style={styles.customTimePickerContainer}>
-        <View style={styles.timePickerWheel}>
-          <View style={styles.timePickerSelectionIndicator} />
-          <ScrollView ref={hourRef} style={styles.timePickerScroll} contentContainerStyle={styles.timePickerScrollContent} showsVerticalScrollIndicator={false} snapToInterval={itemHeight} decelerationRate="fast" onMomentumScrollEnd={handleHourScroll} onScrollEndDrag={handleHourScroll}>
-            {hours.map(hour => <View key={hour} style={[styles.timePickerItem, {
+      <View style={styles.timePickerWheel}>
+        <View style={styles.timePickerSelectionIndicator} />
+        <ScrollView ref={hourRef} style={styles.timePickerScroll} contentContainerStyle={styles.timePickerScrollContent} showsVerticalScrollIndicator={false} snapToInterval={itemHeight} decelerationRate="fast" onMomentumScrollEnd={handleHourScroll} onScrollEndDrag={handleHourScroll}>
+          {hours.map(hour => <View key={hour} style={[styles.timePickerItem, {
             height: itemHeight
           }]}>
-                <Text style={[styles.timePickerItemText, tempHour === hour && styles.timePickerItemTextSelected]}>
-                  {hour.toString().padStart(2, '0')}
-                </Text>
-              </View>)}
-          </ScrollView>
-        </View>
+            <Text style={[styles.timePickerItemText, tempHour === hour && styles.timePickerItemTextSelected]}>
+              {hour.toString().padStart(2, '0')}
+            </Text>
+          </View>)}
+        </ScrollView>
+      </View>
 
-        <Text style={styles.timePickerSeparator}>:</Text>
+      <Text style={styles.timePickerSeparator}>:</Text>
 
-        <View style={styles.timePickerWheel}>
-          <View style={styles.timePickerSelectionIndicator} />
-          <ScrollView ref={minuteRef} style={styles.timePickerScroll} contentContainerStyle={styles.timePickerScrollContent} showsVerticalScrollIndicator={false} snapToInterval={itemHeight} decelerationRate="fast" onMomentumScrollEnd={handleMinuteScroll} onScrollEndDrag={handleMinuteScroll}>
-            {minutes.map(minute => <View key={minute} style={[styles.timePickerItem, {
+      <View style={styles.timePickerWheel}>
+        <View style={styles.timePickerSelectionIndicator} />
+        <ScrollView ref={minuteRef} style={styles.timePickerScroll} contentContainerStyle={styles.timePickerScrollContent} showsVerticalScrollIndicator={false} snapToInterval={itemHeight} decelerationRate="fast" onMomentumScrollEnd={handleMinuteScroll} onScrollEndDrag={handleMinuteScroll}>
+          {minutes.map(minute => <View key={minute} style={[styles.timePickerItem, {
             height: itemHeight
           }]}>
-                <Text style={[styles.timePickerItemText, tempMinute === minute && styles.timePickerItemTextSelected]}>
-                  {minute.toString().padStart(2, '0')}
-                </Text>
-              </View>)}
-          </ScrollView>
-        </View>
+            <Text style={[styles.timePickerItemText, tempMinute === minute && styles.timePickerItemTextSelected]}>
+              {minute.toString().padStart(2, '0')}
+            </Text>
+          </View>)}
+        </ScrollView>
+      </View>
 
-        <View style={styles.timePickerWheel}>
-          <View style={styles.timePickerSelectionIndicator} />
-          <ScrollView ref={amPmRef} style={styles.timePickerScroll} contentContainerStyle={styles.timePickerScrollContent} showsVerticalScrollIndicator={false} snapToInterval={itemHeight} decelerationRate="fast" onMomentumScrollEnd={handleAmPmScroll} onScrollEndDrag={handleAmPmScroll}>
-            {amPmOptions.map(amPm => <View key={amPm} style={[styles.timePickerItem, {
+      <View style={styles.timePickerWheel}>
+        <View style={styles.timePickerSelectionIndicator} />
+        <ScrollView ref={amPmRef} style={styles.timePickerScroll} contentContainerStyle={styles.timePickerScrollContent} showsVerticalScrollIndicator={false} snapToInterval={itemHeight} decelerationRate="fast" onMomentumScrollEnd={handleAmPmScroll} onScrollEndDrag={handleAmPmScroll}>
+          {amPmOptions.map(amPm => <View key={amPm} style={[styles.timePickerItem, {
             height: itemHeight
           }]}>
-                <Text style={[styles.timePickerItemText, tempAmPm === amPm && styles.timePickerItemTextSelected]}>
-                  {amPm === 'am' ? tl("ص") : tl("م")}
-                </Text>
-              </View>)}
-          </ScrollView>
-        </View>
-      </View>;
+            <Text style={[styles.timePickerItemText, tempAmPm === amPm && styles.timePickerItemTextSelected]}>
+              {amPm === 'am' ? tl("ص") : tl("م")}
+            </Text>
+          </View>)}
+        </ScrollView>
+      </View>
+    </View>;
   };
   const formatTime = (date: Date): string => {
     const hour24 = date.getHours();
@@ -780,7 +780,7 @@ export const ProfileScreen = ({
       if (result.success && result.data) {
         setReferralInfo(result.data);
       }
-    } catch (err) {} finally {
+    } catch (err) { } finally {
       setLoadingReferral(false);
     }
   };
@@ -791,7 +791,7 @@ export const ProfileScreen = ({
       await Share.share({
         message
       });
-    } catch (error) {}
+    } catch (error) { }
   };
   const handleShareApp = async () => {
     try {
@@ -810,284 +810,284 @@ export const ProfileScreen = ({
     }
   };
   const renderProfileSkeleton = () => <View style={styles.skeletonContainer}>
-      <View style={styles.skeletonProfileCard}>
-        <View style={styles.skeletonProfileHeader}>
-          <View style={styles.skeletonAvatar} />
-          <View style={styles.skeletonProfileInfo}>
-            <View style={[styles.skeletonLine, styles.skeletonLineLg]} />
-            <View style={[styles.skeletonLine, styles.skeletonLineMd]} />
-            <View style={[styles.skeletonLine, styles.skeletonLineSm]} />
-          </View>
+    <View style={styles.skeletonProfileCard}>
+      <View style={styles.skeletonProfileHeader}>
+        <View style={styles.skeletonAvatar} />
+        <View style={styles.skeletonProfileInfo}>
+          <View style={[styles.skeletonLine, styles.skeletonLineLg]} />
+          <View style={[styles.skeletonLine, styles.skeletonLineMd]} />
+          <View style={[styles.skeletonLine, styles.skeletonLineSm]} />
         </View>
       </View>
+    </View>
 
-      <View style={styles.skeletonSectionCard}>
-        <View style={styles.skeletonSectionHeader} />
-        <View style={styles.skeletonRow}>
-          <View style={styles.skeletonIcon} />
-          <View style={styles.skeletonTextGroup}>
-            <View style={[styles.skeletonLine, styles.skeletonLineMd]} />
-            <View style={[styles.skeletonLine, styles.skeletonLineSm]} />
-          </View>
-        </View>
-        <View style={styles.skeletonRow}>
-          <View style={styles.skeletonIcon} />
-          <View style={styles.skeletonTextGroup}>
-            <View style={[styles.skeletonLine, styles.skeletonLineMd]} />
-            <View style={[styles.skeletonLine, styles.skeletonLineSm]} />
-          </View>
+    <View style={styles.skeletonSectionCard}>
+      <View style={styles.skeletonSectionHeader} />
+      <View style={styles.skeletonRow}>
+        <View style={styles.skeletonIcon} />
+        <View style={styles.skeletonTextGroup}>
+          <View style={[styles.skeletonLine, styles.skeletonLineMd]} />
+          <View style={[styles.skeletonLine, styles.skeletonLineSm]} />
         </View>
       </View>
-    </View>;
+      <View style={styles.skeletonRow}>
+        <View style={styles.skeletonIcon} />
+        <View style={styles.skeletonTextGroup}>
+          <View style={[styles.skeletonLine, styles.skeletonLineMd]} />
+          <View style={[styles.skeletonLine, styles.skeletonLineSm]} />
+        </View>
+      </View>
+    </View>
+  </View>;
   return <ScreenContainer scrollable={false} edges={['left', 'right']}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {isProfileLoading ? renderProfileSkeleton() : <>
-            {/* Premium Profile Section */}
-            <LinearGradient colors={userData?.isPro ? ['#0f0e0a', '#2d2814', '#5c4a1a', '#8B6914'] as any : theme.gradients.primary as any} style={[styles.profileCard, userData?.isPro && styles.profileCardPro]} start={{
+    <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      {isProfileLoading ? renderProfileSkeleton() : <>
+        {/* Premium Profile Section */}
+        <LinearGradient colors={userData?.isPro ? ['#0f0e0a', '#2d2814', '#5c4a1a', '#8B6914'] as any : theme.gradients.primary as any} style={[styles.profileCard, userData?.isPro && styles.profileCardPro]} start={{
           x: 0,
           y: 0
         }} end={{
           x: 1,
           y: 1
         }}>
-              {isAuthenticated ? <>
-                  <View style={styles.profileHeader}>
-                    <View style={styles.avatarWrapper}>
-                      <View style={[styles.avatarContainer, userData?.isPro && styles.avatarContainerPro]}>
-                        <Ionicons name="person" size={28} color={userData?.isPro ? '#C9A227' : theme.colors.primary} />
-                      </View>
-                      {userData?.isPro ? <View style={styles.proCrownBadge}>
-                          <Ionicons name="diamond" size={10} color="#FFF" />
-                        </View> : <View style={styles.onlineBadge} />}
-                    </View>
-                    <View style={styles.userInfo}>
-                      <View style={styles.userNameRow}>
-                        {userData?.isPro && <View style={styles.proCrownBanner}>
-                            <Ionicons name="diamond" size={12} color="#F5E6A3" />
-                            <Text style={styles.proCrownBannerText}>{tl("عضو مميز")}</Text>
-                          </View>}
-                        <Text style={[styles.userNameText, userData?.isPro && styles.userNameTextPro]} numberOfLines={1}>
-                          {userData?.name || tl("مستخدم دنانير")}
-                        </Text>
-                      </View>
-                      <Text style={[styles.userEmail, userData?.isPro && styles.userEmailPro]} numberOfLines={1}>
-                        {userData?.email || userData?.phone || tl("لا يوجد بريد إلكتروني")}
-                      </Text>
-                      <View style={[styles.verifiedBadge, userData?.isPro && styles.verifiedBadgePro]}>
-                        <Ionicons name={userData?.isPro ? 'diamond' : 'shield-checkmark'} size={12} color="#FFFFFF" />
-                        <Text style={styles.verifiedText}>{userData?.isPro ? tl("حساب مميز") : tl("حساب موثق")}</Text>
-                      </View>
+          {isAuthenticated ? <>
+            <View style={styles.profileHeader}>
+              <View style={styles.avatarWrapper}>
+                <View style={[styles.avatarContainer, userData?.isPro && styles.avatarContainerPro]}>
+                  <Ionicons name="person" size={28} color={userData?.isPro ? '#C9A227' : theme.colors.primary} />
+                </View>
+                {userData?.isPro ? <View style={styles.proCrownBadge}>
+                  <Ionicons name="diamond" size={10} color="#FFF" />
+                </View> : <View style={styles.onlineBadge} />}
+              </View>
+              <View style={styles.userInfo}>
+                <View style={styles.userNameRow}>
+                  {userData?.isPro && <View style={styles.proCrownBanner}>
+                    <Ionicons name="diamond" size={12} color="#F5E6A3" />
+                    <Text style={styles.proCrownBannerText}>{tl("عضو مميز")}</Text>
+                  </View>}
+                  <Text style={[styles.userNameText, userData?.isPro && styles.userNameTextPro]} numberOfLines={1}>
+                    {userData?.name || tl("مستخدم دنانير")}
+                  </Text>
+                </View>
+                <Text style={[styles.userEmail, userData?.isPro && styles.userEmailPro]} numberOfLines={1}>
+                  {userData?.email || userData?.phone || tl("لا يوجد بريد إلكتروني")}
+                </Text>
+                <View style={[styles.verifiedBadge, userData?.isPro && styles.verifiedBadgePro]}>
+                  <Ionicons name={userData?.isPro ? 'diamond' : 'shield-checkmark'} size={12} color="#FFFFFF" />
+                  <Text style={styles.verifiedText}>{userData?.isPro ? tl("حساب مميز") : tl("حساب موثق")}</Text>
+                </View>
 
-                      {userData?.isPro && userData?.proExpiresAt && <View style={styles.proExpiryBadge}>
-                          <Ionicons name="time-outline" size={12} color="#F5E6A3" />
-                          <Text style={styles.proExpiryText}>{tl("متبقي")}{getDaysRemaining(userData.proExpiresAt)}{tl("يوم")}</Text>
-                        </View>}
-                    </View>
-                    <TouchableOpacity onPress={() => {
+                {userData?.isPro && userData?.proExpiresAt && <View style={styles.proExpiryBadge}>
+                  <Ionicons name="time-outline" size={12} color="#F5E6A3" />
+                  <Text style={styles.proExpiryText}>{tl("متبقي")}{getDaysRemaining(userData.proExpiresAt)}{tl("يوم")}</Text>
+                </View>}
+              </View>
+              <TouchableOpacity onPress={() => {
                 setEditingName(userName);
                 setShowNameModal(true);
               }} style={styles.editProfileBtn}>
-                      <Ionicons name="create-outline" size={16} color="#FFFFFF" />
-                    </TouchableOpacity>
-                  </View>
+                <Ionicons name="create-outline" size={16} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
 
-                  {isAuthenticated && userData?.isPro && <View style={styles.proFeaturesRow}>
-                      <View style={styles.proFeaturePill}>
-                        <Ionicons name="cloud-done" size={14} color="#F5E6A3" />
-                        <Text style={styles.proFeaturePillText}>{tl("نسخ احتياطي")}</Text>
-                      </View>
-                      <View style={styles.proFeaturePill}>
-                        <Ionicons name="sparkles" size={14} color="#F5E6A3" />
-                        <Text style={styles.proFeaturePillText}>{tl("تحليل ذكي")}</Text>
-                      </View>
-                      <View style={styles.proFeaturePill}>
-                        <Ionicons name="sync" size={14} color="#F5E6A3" />
-                        <Text style={styles.proFeaturePillText}>{tl("مزامنة")}</Text>
-                      </View>
-                      {userData?.id != null && <TouchableOpacity onPress={async () => {
+            {isAuthenticated && userData?.isPro && <View style={styles.proFeaturesRow}>
+              <View style={styles.proFeaturePill}>
+                <Ionicons name="cloud-done" size={14} color="#F5E6A3" />
+                <Text style={styles.proFeaturePillText}>{tl("نسخ احتياطي")}</Text>
+              </View>
+              <View style={styles.proFeaturePill}>
+                <Ionicons name="sparkles" size={14} color="#F5E6A3" />
+                <Text style={styles.proFeaturePillText}>{tl("تحليل ذكي")}</Text>
+              </View>
+              <View style={styles.proFeaturePill}>
+                <Ionicons name="sync" size={14} color="#F5E6A3" />
+                <Text style={styles.proFeaturePillText}>{tl("مزامنة")}</Text>
+              </View>
+              {userData?.id != null && <TouchableOpacity onPress={async () => {
                 const id = String(userData.id);
                 await Clipboard.setStringAsync(id);
                 alertService.toastSuccess(tl("تم نسخ معرف المستخدم"));
               }} style={styles.proFeaturePill} activeOpacity={0.7}>
-                          <Ionicons name="copy-outline" size={14} color="#F5E6A3" />
-                          <Text style={styles.proFeaturePillText}>{tl("نسخ المعرف")}</Text>
-                        </TouchableOpacity>}
-                    </View>}
+                <Ionicons name="copy-outline" size={14} color="#F5E6A3" />
+                <Text style={styles.proFeaturePillText}>{tl("نسخ المعرف")}</Text>
+              </TouchableOpacity>}
+            </View>}
 
-                  {isAuthenticated && !userData?.isPro && userData?.id != null && <TouchableOpacity onPress={async () => {
+            {isAuthenticated && !userData?.isPro && userData?.id != null && <TouchableOpacity onPress={async () => {
               const id = String(userData.id);
               await Clipboard.setStringAsync(id);
               alertService.toastSuccess(tl("تم نسخ معرف المستخدم"));
             }} style={styles.copyIdButton} activeOpacity={0.7}>
-                      <Ionicons name="copy-outline" size={14} color="rgba(255, 255, 255, 0.8)" />
-                      <Text style={styles.copyIdLabel}>{tl("نسخ معرف المستخدم")}</Text>
-                    </TouchableOpacity>}
-                </> : <View style={styles.unauthProfileHeader}>
-                  <View style={styles.unauthTextContainer}>
-                    <Text style={styles.unauthTitle}>{tl("أهلاً بك في دنانير")}</Text>
-                    <Text style={styles.unauthSubtitle}>{tl("سجل دخولك لمزامنة بياناتك والحصول على ميزات إضافية")}</Text>
-                  </View>
-                  <TouchableOpacity style={styles.loginBtnHeader} onPress={() => {
+              <Ionicons name="copy-outline" size={14} color="rgba(255, 255, 255, 0.8)" />
+              <Text style={styles.copyIdLabel}>{tl("نسخ معرف المستخدم")}</Text>
+            </TouchableOpacity>}
+          </> : <View style={styles.unauthProfileHeader}>
+            <View style={styles.unauthTextContainer}>
+              <Text style={styles.unauthTitle}>{tl("أهلاً بك في دنانير")}</Text>
+              <Text style={styles.unauthSubtitle}>{tl("سجل دخولك لمزامنة بياناتك والحصول على ميزات إضافية")}</Text>
+            </View>
+            <TouchableOpacity style={styles.loginBtnHeader} onPress={() => {
               authModalService.show({
                 onSuccess: (user: any) => checkAuthStatus(user)
               });
             }}>
-                    <Text style={styles.loginBtnHeaderText}>{tl("دخول / تسجيل")}</Text>
-                  </TouchableOpacity>
-                </View>}
-            </LinearGradient>
+              <Text style={styles.loginBtnHeaderText}>{tl("دخول / تسجيل")}</Text>
+            </TouchableOpacity>
+          </View>}
+        </LinearGradient>
 
-            {/* Account Section - Removed for now */}
+        {/* Account Section - Removed for now */}
 
-            {/* Account & Settings Sections */}
-            
-            {/* Group 1: Account / Sync */}
-            <View style={styles.settingsGroup}>
-              {!isAuthenticated ? (
-                <TouchableOpacity onPress={() => authModalService.show({ onSuccess: (user: any) => checkAuthStatus(user) })} style={styles.settingsRow} activeOpacity={0.7}>
-                  <View style={[styles.premiumIconBox, { backgroundColor: '#3B82F615' }]}>
-                    <Ionicons name="person-add" size={22} color="#3B82F6" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.premiumItemTitle}>{tl("إنشاء حساب / دخول")}</Text>
-                    <Text style={styles.premiumItemSubtitle}>{tl("لحفظ بياناتك وموعد ميزانيتك")}</Text>
-                  </View>
+        {/* Account & Settings Sections */}
 
-                </TouchableOpacity>
-              ) : (
-                <>
-                  <View style={[styles.settingsRow, styles.settingsRowBorder]}>
-                    <View style={[styles.premiumIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
-                      <Ionicons name="sync" size={22} color={theme.colors.primary} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.premiumItemTitle}>{tl("مزامنة تلقائية")}</Text>
-                      <Text style={styles.premiumItemSubtitle}>{tl("مزامنة البيانات تلقائياً (مميز)")}</Text>
-                    </View>
-                    <Switch value={autoSyncEnabled} onValueChange={handleAutoSyncToggle} trackColor={{ false: '#767577', true: theme.colors.primary }} thumbColor={autoSyncEnabled ? '#FFFFFF' : '#f4f3f4'} />
-                  </View>
-                  
-                  <TouchableOpacity onPress={async () => {
-                    if (syncing) return;
-                    const user = await authStorage.getUser<{ isPro?: boolean; is_pro?: boolean; }>();
-                    const isPro = user?.isPro === true || (user as any)?.is_pro === true;
-                    if (!isPro) {
-                      alertService.show({ title: tl("اشتراك مميز"), message: tl("مزامنة البيانات متاحة للمشتركين المميزين فقط."), type: 'warning', confirmText: tl("حسناً") });
-                      return;
-                    }
-                    setSyncing(true);
-                    const result = await syncNewToServer();
-                    setSyncing(false);
-                    if (result.success) {
-                      alertService.toastSuccess(result.count > 0 ? tl("تمت إضافة {{}} عنصر جديد", [result.count]) : tl("لا توجد بيانات جديدة"));
-                    } else {
-                      alertService.error(tl("فشل المزامنة"), result.error);
-                    }
-                  }} style={styles.settingsRow} activeOpacity={0.7} disabled={syncing}>
-                    <View style={[styles.premiumIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
-                      {syncing ? <ActivityIndicator size="small" color={theme.colors.primary} /> : <Ionicons name="cloud-upload" size={22} color={theme.colors.primary} />}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.premiumItemTitle}>{syncing ? tl("جاري المزامنة...") : tl("مزامنة البيانات")}</Text>
-                      <Text style={styles.premiumItemSubtitle}>{tl("إضافة البيانات الجديدة للسيرفر (مميز)")}</Text>
-                    </View>
+        {/* Group 1: Account / Sync */}
+        <View style={styles.settingsGroup}>
+          {!isAuthenticated ? (
+            <TouchableOpacity onPress={() => authModalService.show({ onSuccess: (user: any) => checkAuthStatus(user) })} style={styles.settingsRow} activeOpacity={0.7}>
+              <View style={[styles.premiumIconBox, { backgroundColor: '#3B82F615' }]}>
+                <Ionicons name="person-add" size={22} color="#3B82F6" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.premiumItemTitle}>{tl("إنشاء حساب / دخول")}</Text>
+                <Text style={styles.premiumItemSubtitle}>{tl("لحفظ بياناتك وموعد ميزانيتك")}</Text>
+              </View>
 
-                  </TouchableOpacity>
-                </>
-              )}
-            </View>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <View style={[styles.settingsRow, styles.settingsRowBorder]}>
+                <View style={[styles.premiumIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                  <Ionicons name="sync" size={22} color={theme.colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.premiumItemTitle}>{tl("مزامنة تلقائية")}</Text>
+                  <Text style={styles.premiumItemSubtitle}>{tl("مزامنة البيانات تلقائياً (مميز)")}</Text>
+                </View>
+                <Switch value={autoSyncEnabled} onValueChange={handleAutoSyncToggle} trackColor={{ false: '#767577', true: theme.colors.primary }} thumbColor={autoSyncEnabled ? '#FFFFFF' : '#f4f3f4'} />
+              </View>
 
-            {/* Group 2: Perks (Promo / Referral) */}
-            {isAuthenticated && (
-              <View style={styles.settingsGroup}>
-                <TouchableOpacity onPress={() => setShowPromoModal(true)} style={[styles.settingsRow, styles.settingsRowBorder]} activeOpacity={0.7}>
-                  <View style={[styles.premiumIconBox, { backgroundColor: '#D4AF3715' }]}>
-                    <Ionicons name="ticket" size={22} color="#D4AF37" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.premiumItemTitle}>{tl("كود الخصم (Promo Code)")}</Text>
-                  </View>
+              <TouchableOpacity onPress={async () => {
+                if (syncing) return;
+                const user = await authStorage.getUser<{ isPro?: boolean; is_pro?: boolean; }>();
+                const isPro = user?.isPro === true || (user as any)?.is_pro === true;
+                if (!isPro) {
+                  alertService.show({ title: tl("اشتراك مميز"), message: tl("مزامنة البيانات متاحة للمشتركين المميزين فقط."), type: 'warning', confirmText: tl("حسناً") });
+                  return;
+                }
+                setSyncing(true);
+                const result = await syncNewToServer();
+                setSyncing(false);
+                if (result.success) {
+                  alertService.toastSuccess(result.count > 0 ? tl("تمت إضافة {{}} عنصر جديد", [result.count]) : tl("لا توجد بيانات جديدة"));
+                } else {
+                  alertService.error(tl("فشل المزامنة"), result.error);
+                }
+              }} style={styles.settingsRow} activeOpacity={0.7} disabled={syncing}>
+                <View style={[styles.premiumIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                  {syncing ? <ActivityIndicator size="small" color={theme.colors.primary} /> : <Ionicons name="cloud-upload" size={22} color={theme.colors.primary} />}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.premiumItemTitle}>{syncing ? tl("جاري المزامنة...") : tl("مزامنة البيانات")}</Text>
+                  <Text style={styles.premiumItemSubtitle}>{tl("إضافة البيانات الجديدة للسيرفر (مميز)")}</Text>
+                </View>
 
-                </TouchableOpacity>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
 
-                <View style={[styles.settingsRow, { flexDirection: 'column', alignItems: 'stretch' }]}>
-                  <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', marginBottom: 16 }}>
-                    <View style={[styles.premiumIconBox, { backgroundColor: '#F59E0B15' }]}>
-                      <Ionicons name="gift" size={22} color="#F59E0B" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.premiumItemTitle}>{tl("برنامج الإحالة")}</Text>
-                      <Text style={styles.premiumItemSubtitle}>{tl("ادعُ أصدقاءك واكسب \"برو\"")}</Text>
-                    </View>
-                  </View>
+        {/* Group 2: Perks (Promo / Referral) */}
+        {isAuthenticated && (
+          <View style={styles.settingsGroup}>
+            <TouchableOpacity onPress={() => setShowPromoModal(true)} style={[styles.settingsRow, styles.settingsRowBorder]} activeOpacity={0.7}>
+              <View style={[styles.premiumIconBox, { backgroundColor: '#D4AF3715' }]}>
+                <Ionicons name="ticket" size={22} color="#D4AF37" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.premiumItemTitle}>{tl("كود الخصم (Promo Code)")}</Text>
+              </View>
 
-                  {loadingReferral ? (
-                    <ActivityIndicator color={theme.colors.primary} style={{ marginVertical: 20 }} />
-                  ) : referralInfo ? (
-                    <View style={[styles.referralCodeBox, { backgroundColor: theme.colors.surfaceLight, borderColor: theme.colors.border }]}>
-                      <View style={styles.codeContainer}>
-                        <Text style={[styles.codeLabel, { color: theme.colors.textSecondary }]}>{tl("الكود المخصص لك:")}</Text>
-                        <View style={styles.codeRow}>
-                          <Text style={[styles.codeValue, { color: theme.colors.primary }]}>{referralInfo.referralCode}</Text>
-                          <TouchableOpacity onPress={async () => {
-                            await Clipboard.setStringAsync(referralInfo.referralCode);
-                            alertService.toastSuccess(tl("تم نسخ الكود"));
-                          }} style={styles.copyButton}>
-                            <Ionicons name="copy-outline" size={20} color={theme.colors.primary} />
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                      <View style={styles.referralStatBox}>
-                        <Text style={styles.referralStatLabel}>{tl("عدد الإحالات الناجحة:")}</Text>
-                        <Text style={styles.referralStatValue}>{referralInfo.referralCount || 0}</Text>
-                      </View>
-                      <TouchableOpacity onPress={handleShareReferral} style={styles.shareCodeButton} activeOpacity={0.8}>
-                        <Ionicons name="share-social-outline" size={20} color="#FFFFFF" />
-                        <Text style={styles.shareCodeButtonText}>{tl("مشاركة الكود مع الأصدقاء")}</Text>
-                      </TouchableOpacity>
-                      {!userData?.referredBy && (
-                        <TouchableOpacity onPress={() => setShowReferralModal(true)} style={styles.referralEntryButton} activeOpacity={0.8}>
-                          <Ionicons name="gift-outline" size={20} color={theme.colors.primary} />
-                          <Text style={styles.referralEntryButtonText}>{tl("هل لديك كود إحالة؟ أدخله هنا")}</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  ) : (
-                    <Text style={styles.referralErrorText}>{tl("فشل تحميل بيانات الإحالة. يرجى سحب الصفحة للتحديث.")}</Text>
-                  )}
+            </TouchableOpacity>
+
+            <View style={[styles.settingsRow, { flexDirection: 'column', alignItems: 'stretch' }]}>
+              <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', marginBottom: 16 }}>
+                <View style={[styles.premiumIconBox, { backgroundColor: '#F59E0B15' }]}>
+                  <Ionicons name="gift" size={22} color="#F59E0B" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.premiumItemTitle}>{tl("برنامج الإحالة")}</Text>
+                  <Text style={styles.premiumItemSubtitle}>{tl("ادعُ أصدقاءك واكسب \"برو\"")}</Text>
                 </View>
               </View>
-            )}
 
-            {/* Group 3: Logout */}
-            {isAuthenticated && (
-              <View style={[styles.settingsGroup, { marginBottom: 40 }]}>
-                <TouchableOpacity onPress={handleLogout} style={styles.settingsRow} activeOpacity={0.7}>
-                  <View style={[styles.premiumIconBox, { backgroundColor: '#EF444415' }]}>
-                    <Ionicons name="log-out" size={22} color="#EF4444" />
+              {loadingReferral ? (
+                <ActivityIndicator color={theme.colors.primary} style={{ marginVertical: 20 }} />
+              ) : referralInfo ? (
+                <View style={[styles.referralCodeBox, { backgroundColor: theme.colors.surfaceLight, borderColor: theme.colors.border }]}>
+                  <View style={styles.codeContainer}>
+                    <Text style={[styles.codeLabel, { color: theme.colors.textSecondary }]}>{tl("الكود المخصص لك:")}</Text>
+                    <View style={styles.codeRow}>
+                      <Text style={[styles.codeValue, { color: theme.colors.primary }]}>{referralInfo.referralCode}</Text>
+                      <TouchableOpacity onPress={async () => {
+                        await Clipboard.setStringAsync(referralInfo.referralCode);
+                        alertService.toastSuccess(tl("تم نسخ الكود"));
+                      }} style={styles.copyButton}>
+                        <Ionicons name="copy-outline" size={20} color={theme.colors.primary} />
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.premiumItemTitle, { color: '#EF4444' }]}>{tl("تسجيل الخروج")}</Text>
+                  <View style={styles.referralStatBox}>
+                    <Text style={styles.referralStatLabel}>{tl("عدد الإحالات الناجحة:")}</Text>
+                    <Text style={styles.referralStatValue}>{referralInfo.referralCount || 0}</Text>
                   </View>
-                </TouchableOpacity>
+                  <TouchableOpacity onPress={handleShareReferral} style={styles.shareCodeButton} activeOpacity={0.8}>
+                    <Ionicons name="share-social-outline" size={20} color="#FFFFFF" />
+                    <Text style={styles.shareCodeButtonText}>{tl("مشاركة الكود مع الأصدقاء")}</Text>
+                  </TouchableOpacity>
+                  {!userData?.referredBy && (
+                    <TouchableOpacity onPress={() => setShowReferralModal(true)} style={styles.referralEntryButton} activeOpacity={0.8}>
+                      <Ionicons name="gift-outline" size={20} color={theme.colors.primary} />
+                      <Text style={styles.referralEntryButtonText}>{tl("هل لديك كود إحالة؟ أدخله هنا")}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ) : (
+                <Text style={styles.referralErrorText}>{tl("فشل تحميل بيانات الإحالة. يرجى سحب الصفحة للتحديث.")}</Text>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Group 3: Logout */}
+        {isAuthenticated && (
+          <View style={[styles.settingsGroup, { marginBottom: 40 }]}>
+            <TouchableOpacity onPress={handleLogout} style={styles.settingsRow} activeOpacity={0.7}>
+              <View style={[styles.premiumIconBox, { backgroundColor: '#EF444415' }]}>
+                <Ionicons name="log-out" size={22} color="#EF4444" />
               </View>
-            )}
-          </>}
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.premiumItemTitle, { color: '#EF4444' }]}>{tl("تسجيل الخروج")}</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
+      </>}
 
-      </ScrollView>
+    </ScrollView>
 
-      <AuthSettingsModal visible={showAuthSettings} onClose={() => setShowAuthSettings(false)} onAuthChanged={() => {
+    <AuthSettingsModal visible={showAuthSettings} onClose={() => setShowAuthSettings(false)} onAuthChanged={() => {
       // Reload settings if needed
     }} />
 
-      <ReferralModal visible={showReferralModal} onClose={() => setShowReferralModal(false)} onSuccess={async rewardDays => {
+    <ReferralModal visible={showReferralModal} onClose={() => setShowReferralModal(false)} onSuccess={async rewardDays => {
       alertService.toastSuccess(tl("مبروك! حصلت على {{}} أيام إضافية في اشتراك برو.", [rewardDays]));
       // Refresh user data to hide the apply button
       await checkAuthStatus(null, true);
       loadReferralInfo();
     }} />
 
-      <PromoCodeModal visible={showPromoModal} onClose={() => setShowPromoModal(false)} onSuccess={async () => {
+    <PromoCodeModal visible={showPromoModal} onClose={() => setShowPromoModal(false)} onSuccess={async () => {
       // Success alert is handled inside the modal
       await checkAuthStatus(null, true);
       loadReferralInfo();
@@ -1095,53 +1095,53 @@ export const ProfileScreen = ({
 
 
 
-      {/* Exchange Rate Modal */}
-      {showExchangeRateModal && selectedCurrency !== 'USD' && <ExchangeRateModal visible={showExchangeRateModal} rate={usdToIqdRate} selectedCurrency={selectedCurrency} onRateChange={setUsdToIqdRate} onSave={handleSaveExchangeRate} onClose={() => setShowExchangeRateModal(false)} />}
+    {/* Exchange Rate Modal */}
+    {showExchangeRateModal && selectedCurrency !== 'USD' && <ExchangeRateModal visible={showExchangeRateModal} rate={usdToIqdRate} selectedCurrency={selectedCurrency} onRateChange={setUsdToIqdRate} onSave={handleSaveExchangeRate} onClose={() => setShowExchangeRateModal(false)} />}
 
-      {/* Daily Reminder Time Picker */}
-      <Modal visible={showDailyTimePicker} transparent={true} animationType="slide" onRequestClose={() => setShowDailyTimePicker(false)}>
-        <View style={styles.timePickerModalOverlay}>
-          <View style={styles.timePickerModalContent}>
-            <View style={styles.timePickerModalHeader}>
-              <TouchableOpacity onPress={handleDailyTimeConfirm} style={styles.timePickerConfirmButton}>
-                <Text style={styles.timePickerConfirmText}>{tl("تأكيد")}</Text>
-              </TouchableOpacity>
-              <Text style={styles.timePickerModalTitle}>{tl("اختر الوقت")}</Text>
-              <TouchableOpacity onPress={() => setShowDailyTimePicker(false)} style={styles.timePickerCancelButton}>
-                <Text style={styles.timePickerCancelText}>{tl("إلغاء")}</Text>
+    {/* Daily Reminder Time Picker */}
+    <Modal visible={showDailyTimePicker} transparent={true} animationType="slide" onRequestClose={() => setShowDailyTimePicker(false)}>
+      <View style={styles.timePickerModalOverlay}>
+        <View style={styles.timePickerModalContent}>
+          <View style={styles.timePickerModalHeader}>
+            <TouchableOpacity onPress={handleDailyTimeConfirm} style={styles.timePickerConfirmButton}>
+              <Text style={styles.timePickerConfirmText}>{tl("تأكيد")}</Text>
+            </TouchableOpacity>
+            <Text style={styles.timePickerModalTitle}>{tl("اختر الوقت")}</Text>
+            <TouchableOpacity onPress={() => setShowDailyTimePicker(false)} style={styles.timePickerCancelButton}>
+              <Text style={styles.timePickerCancelText}>{tl("إلغاء")}</Text>
+            </TouchableOpacity>
+          </View>
+          {renderTimePickerWheel('daily')}
+        </View>
+      </View>
+    </Modal>
+
+
+
+
+
+    {/* Name Edit Modal */}
+    <Modal visible={showNameModal} transparent={true} animationType="fade" onRequestClose={() => setShowNameModal(false)}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
+        <View style={styles.modalContainer}>
+          <LinearGradient colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]} style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{tl("تعديل الاسم")}</Text>
+              <TouchableOpacity onPress={() => setShowNameModal(false)} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
               </TouchableOpacity>
             </View>
-            {renderTimePickerWheel('daily')}
-          </View>
-        </View>
-      </Modal>
 
+            <View style={styles.modalBody}>
+              <Text style={styles.inputLabel}>{tl("الاسم")}</Text>
+              <TextInput style={styles.nameInput} value={editingName} onChangeText={setEditingName} placeholder={tl("أدخل اسمك")} placeholderTextColor={theme.colors.textMuted} autoFocus={true} maxLength={50} />
+            </View>
 
-
-
-
-      {/* Name Edit Modal */}
-      <Modal visible={showNameModal} transparent={true} animationType="fade" onRequestClose={() => setShowNameModal(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <LinearGradient colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]} style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>{tl("تعديل الاسم")}</Text>
-                <TouchableOpacity onPress={() => setShowNameModal(false)} style={styles.closeButton}>
-                  <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.modalBody}>
-                <Text style={styles.inputLabel}>{tl("الاسم")}</Text>
-                <TextInput style={styles.nameInput} value={editingName} onChangeText={setEditingName} placeholder={tl("أدخل اسمك")} placeholderTextColor={theme.colors.textMuted} autoFocus={true} maxLength={50} />
-              </View>
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity onPress={() => setShowNameModal(false)} style={[styles.modalButton, styles.cancelButton]}>
-                  <Text style={styles.cancelButtonText}>{tl("إلغاء")}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={async () => {
+            <View style={styles.modalActions}>
+              <TouchableOpacity onPress={() => setShowNameModal(false)} style={[styles.modalButton, styles.cancelButton]}>
+                <Text style={styles.cancelButtonText}>{tl("إلغاء")}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={async () => {
                 if (!editingName.trim()) {
                   alertService.warning(tl("تنبيه"), tl("يرجى إدخال الاسم"));
                   return;
@@ -1172,18 +1172,18 @@ export const ProfileScreen = ({
                   alertService.error(tl("خطأ"), tl("فشل تحديث الاسم"));
                 }
               }} style={[styles.modalButton, styles.saveButton]}>
-                  <LinearGradient colors={theme.gradients.primary as any} style={styles.saveButtonGradient}>
-                    <Text style={styles.saveButtonText}>{tl("حفظ")}</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-            </LinearGradient>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+                <LinearGradient colors={theme.gradients.primary as any} style={styles.saveButtonGradient}>
+                  <Text style={styles.saveButtonText}>{tl("حفظ")}</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
 
 
-    </ScreenContainer>;
+  </ScreenContainer>;
 };
 const createStyles = (theme: AppTheme) => StyleSheet.create({
   scrollView: {
@@ -1277,7 +1277,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     ...getPlatformShadow('sm')
   },
   settingsRow: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     alignItems: 'center',
     padding: theme.spacing.md,
     backgroundColor: 'transparent'
@@ -2675,84 +2675,84 @@ const ExchangeRateModal: React.FC<ExchangeRateModalProps> = ({
   } = useLocalization();
   const styles = useThemedStyles(createStyles);
   return <Modal visible={visible} animationType="fade" transparent={true} onRequestClose={onClose}>
-      <View style={styles.exchangeRateModalOverlay}>
-        <TouchableOpacity style={styles.exchangeRateModalBackdrop} activeOpacity={1} onPress={onClose} />
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{
+    <View style={styles.exchangeRateModalOverlay}>
+      <TouchableOpacity style={styles.exchangeRateModalBackdrop} activeOpacity={1} onPress={onClose} />
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{
         width: '100%',
         alignItems: 'center'
       }}>
-          <View style={styles.exchangeRateModalContainer}>
-            <LinearGradient colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]} style={styles.exchangeRateModalGradient} start={{
+        <View style={styles.exchangeRateModalContainer}>
+          <LinearGradient colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]} style={styles.exchangeRateModalGradient} start={{
             x: 0,
             y: 0
           }} end={{
             x: 1,
             y: 1
           }}>
-              <SafeAreaView edges={['top']} style={styles.exchangeRateModalSafeArea}>
-                {/* Header */}
-                <View style={styles.exchangeRateModalHeader}>
-                  <TouchableOpacity onPress={onClose} style={styles.exchangeRateModalCloseButton} activeOpacity={0.7}>
-                    <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
-                  </TouchableOpacity>
-                  <Text style={styles.exchangeRateModalTitle}>{tl("تعديل سعر الصرف")}</Text>
-                  <View style={styles.placeholder} />
-                </View>
+            <SafeAreaView edges={['top']} style={styles.exchangeRateModalSafeArea}>
+              {/* Header */}
+              <View style={styles.exchangeRateModalHeader}>
+                <TouchableOpacity onPress={onClose} style={styles.exchangeRateModalCloseButton} activeOpacity={0.7}>
+                  <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
+                </TouchableOpacity>
+                <Text style={styles.exchangeRateModalTitle}>{tl("تعديل سعر الصرف")}</Text>
+                <View style={styles.placeholder} />
+              </View>
 
-                {/* Content */}
-                <View style={styles.exchangeRateModalContent}>
-                  <View style={styles.exchangeRateInfoCard}>
-                    <LinearGradient colors={theme.gradients.primary as any} style={styles.exchangeRateInfoCardGradient} start={{
+              {/* Content */}
+              <View style={styles.exchangeRateModalContent}>
+                <View style={styles.exchangeRateInfoCard}>
+                  <LinearGradient colors={theme.gradients.primary as any} style={styles.exchangeRateInfoCardGradient} start={{
                     x: 0,
                     y: 0
                   }} end={{
                     x: 1,
                     y: 1
                   }}>
-                      <View style={styles.exchangeRateInfoCardContent}>
-                        <Ionicons name="cash" size={32} color="#FFFFFF" />
-                        <Text style={styles.exchangeRateInfoCardText}>
-                          1 USD = ? IQD
-                        </Text>
-                      </View>
-                    </LinearGradient>
-                  </View>
-
-                  <View style={styles.exchangeRateInputSection}>
-                    <Text style={styles.exchangeRateInputLabel}>{tl("سعر الصرف (1 دولار = ?")}{getCurrencyDisplayName(selectedCurrency, language)}
-                    </Text>
-                    <View style={styles.exchangeRateInputContainer}>
-                      <TextInput style={styles.exchangeRateInput} value={rate} onChangeText={val => onRateChange(convertArabicToEnglish(val))} placeholder="1315" placeholderTextColor={theme.colors.textSecondary} keyboardType="decimal-pad" textAlign={isRTL ? 'right' : 'left'} />
-                      <Text style={styles.exchangeRateInputUnit}>
-                        {selectedCurrency}
+                    <View style={styles.exchangeRateInfoCardContent}>
+                      <Ionicons name="cash" size={32} color="#FFFFFF" />
+                      <Text style={styles.exchangeRateInfoCardText}>
+                        1 USD = ? IQD
                       </Text>
                     </View>
-                    <Text style={styles.exchangeRateHint}>{tl("أدخل سعر الصرف الحالي للدولار مقابل")}{getCurrencyDisplayName(selectedCurrency, language)}
+                  </LinearGradient>
+                </View>
+
+                <View style={styles.exchangeRateInputSection}>
+                  <Text style={styles.exchangeRateInputLabel}>{tl("سعر الصرف (1 دولار = ?")}{getCurrencyDisplayName(selectedCurrency, language)}
+                  </Text>
+                  <View style={styles.exchangeRateInputContainer}>
+                    <TextInput style={styles.exchangeRateInput} value={rate} onChangeText={val => onRateChange(convertArabicToEnglish(val))} placeholder="1315" placeholderTextColor={theme.colors.textSecondary} keyboardType="decimal-pad" textAlign={isRTL ? 'right' : 'left'} />
+                    <Text style={styles.exchangeRateInputUnit}>
+                      {selectedCurrency}
                     </Text>
                   </View>
+                  <Text style={styles.exchangeRateHint}>{tl("أدخل سعر الصرف الحالي للدولار مقابل")}{getCurrencyDisplayName(selectedCurrency, language)}
+                  </Text>
+                </View>
 
-                  {/* Actions */}
-                  <View style={styles.exchangeRateModalActions}>
-                    <TouchableOpacity onPress={onClose} style={styles.exchangeRateCancelButton} activeOpacity={0.7}>
-                      <Text style={styles.exchangeRateCancelButtonText}>{tl("إلغاء")}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={onSave} style={styles.exchangeRateSaveButton} activeOpacity={0.7}>
-                      <LinearGradient colors={theme.gradients.primary as any} style={styles.exchangeRateSaveButtonGradient} start={{
+                {/* Actions */}
+                <View style={styles.exchangeRateModalActions}>
+                  <TouchableOpacity onPress={onClose} style={styles.exchangeRateCancelButton} activeOpacity={0.7}>
+                    <Text style={styles.exchangeRateCancelButtonText}>{tl("إلغاء")}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={onSave} style={styles.exchangeRateSaveButton} activeOpacity={0.7}>
+                    <LinearGradient colors={theme.gradients.primary as any} style={styles.exchangeRateSaveButtonGradient} start={{
                       x: 0,
                       y: 0
                     }} end={{
                       x: 1,
                       y: 0
                     }}>
-                        <Text style={styles.exchangeRateSaveButtonText}>{tl("حفظ")}</Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  </View>
+                      <Text style={styles.exchangeRateSaveButtonText}>{tl("حفظ")}</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
                 </View>
-              </SafeAreaView>
-            </LinearGradient>
-          </View>
-        </KeyboardAvoidingView>
-      </View>
-    </Modal>;
+              </View>
+            </SafeAreaView>
+          </LinearGradient>
+        </View>
+      </KeyboardAvoidingView>
+    </View>
+  </Modal>;
 };

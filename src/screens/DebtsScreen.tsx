@@ -4,7 +4,7 @@ import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
-import { getDebts, deleteDebt, getDebtInstallments, Debt, DebtInstallment, getDebtorSummaries, DebtorSummary } from '../database/database';
+import { getDebts, deleteDebt, getDebtInstallments, Debt, DebtInstallment, getDebtorSummaries, DebtorSummary, addDebtor } from '../database/database';
 import { useCurrency } from '../hooks/useCurrency';
 import { ConfirmAlert } from '../components/ConfirmAlert';
 import { DebtItem } from '../components/DebtItem';
@@ -15,6 +15,8 @@ import { alertService } from '../services/alertService';
 import { PayDebtModal } from '../components/PayDebtModal';
 import { formatCurrencyAmount } from '../services/currencyService';
 import { tl, useLocalization } from "../localization";
+import { AppBottomSheet, AppButton } from '../design-system';
+import { TextInput } from 'react-native-paper';
 export const DebtsScreen = ({
   navigation,
   route
@@ -42,6 +44,9 @@ export const DebtsScreen = ({
   const [debtToPay, setDebtToPay] = useState<Debt | null>(null);
   const [viewMode, setViewMode] = useState<'debts' | 'debtors'>('debtors');
   const [debtorSummaries, setDebtorSummaries] = useState<DebtorSummary[]>([]);
+  const [showAddDebtorModal, setShowAddDebtorModal] = useState(false);
+  const [newDebtorName, setNewDebtorName] = useState('');
+  const [newDebtorPhone, setNewDebtorPhone] = useState('');
   const filterMenuAnim = useRef(new Animated.Value(0)).current;
   const loadDebts = useCallback(async () => {
     try {
@@ -89,6 +94,11 @@ export const DebtsScreen = ({
         gap: 4,
         paddingHorizontal: 16
       }}>
+          {viewMode === 'debtors' && (
+            <TouchableOpacity style={{ padding: 8 }} onPress={() => setShowAddDebtorModal(true)}>
+              <Ionicons name="person-add" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity style={{
           padding: 8
         }} onPress={() => navigation.navigate('AddDebt')}>
@@ -187,6 +197,25 @@ export const DebtsScreen = ({
       alertService.toastSuccess(tl("تم دفع القسط بنجاح"));
     } catch (error) {
       alertService.error(tl("خطأ"), tl("حدث خطأ أثناء دفع القسط"));
+    }
+  };
+  const handleAddNewDebtor = async () => {
+    if (!newDebtorName.trim()) {
+      alertService.warning(tl("تنبيه"), tl("يرجى إدخال اسم الشخص"));
+      return;
+    }
+    try {
+      await addDebtor({
+        name: newDebtorName.trim(),
+        phone: newDebtorPhone.trim() || undefined
+      });
+      await loadDebts();
+      setShowAddDebtorModal(false);
+      setNewDebtorName('');
+      setNewDebtorPhone('');
+      alertService.toastSuccess(tl("تم إضافة الشخص بنجاح"));
+    } catch (e) {
+      alertService.error(tl("خطأ"), tl("حدث خطأ أثناء إضافة الشخص"));
     }
   };
   const getDebtTypeName = (type: string) => {
@@ -359,6 +388,22 @@ export const DebtsScreen = ({
       setShowPayModal(false);
       setDebtToPay(null);
     }} onPay={handlePayDebtConfirm} />
+
+      <AppBottomSheet visible={showAddDebtorModal} onClose={() => setShowAddDebtorModal(false)} title={tl("إضافة شخص جديد")}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalField}>
+            <Text style={styles.modalLabel}>{tl("الاسم")}</Text>
+            <TextInput value={newDebtorName} onChangeText={setNewDebtorName} placeholder={tl("أدخل الاسم")} style={styles.modalInput} underlineColor="transparent" activeUnderlineColor="transparent" placeholderTextColor={theme.colors.textMuted} />
+          </View>
+          <View style={styles.modalField}>
+            <Text style={styles.modalLabel}>{tl("رقم الهاتف (اختياري)")}</Text>
+            <TextInput value={newDebtorPhone} onChangeText={setNewDebtorPhone} placeholder="07xxxxxxxx" keyboardType="phone-pad" style={styles.modalInput} underlineColor="transparent" activeUnderlineColor="transparent" placeholderTextColor={theme.colors.textMuted} />
+          </View>
+          <AppButton label={tl("حفظ الشخص")} onPress={handleAddNewDebtor} variant="primary" style={{
+            marginTop: 10
+          }} />
+        </View>
+      </AppBottomSheet>
     </View>;
 };
 const createStyles = (theme: AppTheme) => StyleSheet.create({
@@ -566,5 +611,28 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textSecondary,
     fontFamily: theme.typography.fontFamily,
     marginTop: 2
+  },
+  modalContent: {
+    paddingBottom: 20
+  },
+  modalField: {
+    marginBottom: 16
+  },
+  modalLabel: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+    marginBottom: 8,
+    textAlign: isRTL ? 'right' : 'left'
+  },
+  modalInput: {
+    backgroundColor: theme.colors.surfaceLight,
+    borderRadius: 12,
+    height: 50,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: theme.colors.textPrimary,
+    textAlign: isRTL ? 'right' : 'left',
+    fontFamily: theme.typography.fontFamily
   }
 });

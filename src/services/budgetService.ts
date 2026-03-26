@@ -8,6 +8,8 @@ export interface BudgetStatus {
   remaining: number;
   percentage: number;
   isExceeded: boolean;
+  spentInGlobal?: number;
+  remainingInGlobal?: number;
 }
 
 export const getCurrentMonthBudgets = async (): Promise<Budget[]> => {

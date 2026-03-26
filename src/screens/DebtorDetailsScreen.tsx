@@ -15,6 +15,7 @@ import { PayDebtModal } from '../components/PayDebtModal';
 import { ConfirmAlert } from '../components/ConfirmAlert';
 import { ScreenContainer, AppInput, AppButton } from '../design-system';
 import { tl, useLocalization } from "../localization";
+import { generateDebtorReport, sharePDF } from '../services/pdfService';
 export const DebtorDetailsScreen = ({
   navigation,
   route
@@ -109,6 +110,14 @@ export const DebtorDetailsScreen = ({
       alertService.error(tl("خطأ"), tl("فشل حذف الحساب"));
     }
   };
+  const handleExportPDF = async () => {
+    try {
+      const uri = await generateDebtorReport(debtor, personDebts, installmentsMap);
+      await sharePDF(uri);
+    } catch (error) {
+      alertService.error(tl("خطأ"), tl("فشل تصدير التقرير"));
+    }
+  };
   const handleDebtPress = (debt: Debt) => {
     navigation.navigate('DebtDetails', {
       debtId: debt.id
@@ -173,9 +182,14 @@ export const DebtorDetailsScreen = ({
               </View>
               <Text style={styles.typeBadgeText}>{tl("كشف حساب")}</Text>
             </View>
-            <TouchableOpacity onPress={() => setShowDeleteAlert(true)} style={styles.deleteIconBtn}>
-              <Ionicons name="trash-outline" size={20} color="rgba(255,255,255,0.8)" />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <TouchableOpacity onPress={handleExportPDF} style={styles.iconBtn}>
+                <Ionicons name="share-outline" size={22} color="#FFFFFF" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowDeleteAlert(true)} style={styles.iconBtn}>
+                <Ionicons name="trash-outline" size={22} color="rgba(255,255,255,0.8)" />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.amountContent}>
@@ -328,8 +342,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontWeight: getPlatformFontWeight('700'),
     fontFamily: theme.typography.fontFamily
   },
-  deleteIconBtn: {
-    padding: 4
+  iconBtn: {
+    padding: 6
   },
   amountContent: {
     alignItems: 'center',

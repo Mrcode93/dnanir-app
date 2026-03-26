@@ -197,10 +197,10 @@ export const getCurrentMonthData = async (walletId?: number) => {
 export const calculateAverageMonthlySavings = async (months: number = 6, walletId?: number): Promise<number> => {
   try {
     const now = new Date();
+    const { getFinancialStatsAggregated } = await import('../database/database');
 
-    // Calculate savings for each of the last N months
-    const monthlySavings: number[] = [];
-
+    // Create ranges for each of the last N months
+    const ranges = [];
     for (let i = 0; i < months; i++) {
       const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const year = monthDate.getFullYear();
@@ -209,12 +209,15 @@ export const calculateAverageMonthlySavings = async (months: number = 6, walletI
       const firstDay = `${year}-${(month + 1).toString().padStart(2, '0')}-01`;
       const lastDayObj = new Date(year, month + 1, 0);
       const lastDay = `${year}-${(month + 1).toString().padStart(2, '0')}-${lastDayObj.getDate().toString().padStart(2, '0')}`;
-
-      const { getFinancialStatsAggregated } = await import('../database/database');
-      const stats = await getFinancialStatsAggregated(firstDay, lastDay, walletId);
-
-      monthlySavings.push(stats.balance);
+      ranges.push({ firstDay, lastDay });
     }
+
+    // Fetch all stats in parallel
+    const allStats = await Promise.all(
+      ranges.map(range => getFinancialStatsAggregated(range.firstDay, range.lastDay, walletId))
+    );
+
+    const monthlySavings = allStats.map(stats => stats.balance);
 
     // Calculate average (only from months with positive savings)
     const positiveSavings = monthlySavings.filter(s => s > 0);
@@ -226,7 +229,6 @@ export const calculateAverageMonthlySavings = async (months: number = 6, walletI
 
     return positiveSavings.reduce((sum, s) => sum + s, 0) / positiveSavings.length;
   } catch (error) {
-    
     return 0;
   }
 };

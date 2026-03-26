@@ -875,22 +875,7 @@ export const SettingsScreen = ({
 
           {isAuthenticated ? (
             <>
-              <View style={styles.compactRowDivider} />
-              <TouchableOpacity
-                style={[styles.compactRow, { paddingVertical: 14, paddingHorizontal: 20 }]}
-                onPress={async () => {
-                  await authApiService.logout();
-                  loadSettings();
-                  alertService.toastSuccess(tl("تم تسجيل الخروج بنجاح"));
-                }}
-              >
-                <View style={[styles.compactIconContainer, { backgroundColor: theme.colors.error + '10' }]}>
-                  <Ionicons name="log-out" size={18} color={theme.colors.error} />
-                </View>
-                <View style={styles.compactRowContent}>
-                  <Text style={[styles.compactRowText, { color: theme.colors.error }]}>{tl("تسجيل الخروج")}</Text>
-                </View>
-              </TouchableOpacity>
+
             </>
           ) : (
             <>
@@ -1193,6 +1178,18 @@ export const SettingsScreen = ({
               </View>
               <View style={styles.compactRowContent}>
                 <Text style={styles.compactRowText}>{tl("تواصل معنا")}</Text>
+                <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={theme.colors.textMuted} />
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.compactRowDivider} />
+
+            <TouchableOpacity style={styles.compactRow} onPress={() => navigation.navigate('Terms')}>
+              <View style={[styles.compactIconContainer, { backgroundColor: '#10B98110' }]}>
+                <Ionicons name="document-lock" size={20} color="#10B981" />
+              </View>
+              <View style={styles.compactRowContent}>
+                <Text style={styles.compactRowText}>{tl("الأحكام والشروط")}</Text>
                 <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={theme.colors.textMuted} />
               </View>
             </TouchableOpacity>

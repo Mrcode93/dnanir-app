@@ -15,6 +15,7 @@ import { useAppTheme, useThemedStyles } from '../utils/theme-context';
 
 import { Savings } from '../types';
 import { useCurrency } from '../hooks/useCurrency';
+import { formatCurrencyAmount } from '../services/currencyService';
 import { isRTL } from '../utils/rtl';
 import { usePrivacy } from '../context/PrivacyContext';
 import { ConfirmAlert } from './ConfirmAlert';
@@ -84,7 +85,7 @@ export const SavingsCard: React.FC<SavingsCardProps> = ({
           <View style={styles.amountInfo}>
             <Text style={styles.amountLabel}>المبلغ الحالي</Text>
             <Text style={styles.amountValue}>
-              {isPrivacyEnabled ? '****' : formatCurrency(savings.currentAmount)}
+              {isPrivacyEnabled ? '****' : formatCurrencyAmount(savings.currentAmount, savings.currency || 'IQD')}
             </Text>
           </View>
         </View>

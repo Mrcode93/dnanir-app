@@ -121,7 +121,7 @@ export const GoalDetailsModal: React.FC<GoalDetailsModalProps> = ({
                         </View>
                         <Text style={styles.confirmTitle}>تأكيد الحذف</Text>
                         <Text style={styles.confirmText}>هل أنت متأكد من حذف هذا الهدف؟ لا يمكن التراجع عن هذا الإجراء.</Text>
-                        
+
                         <View style={styles.confirmActionsRow}>
                             <AppButton
                                 label="إلغاء"
@@ -367,6 +367,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         backgroundColor: theme.colors.border + '50',
         borderRadius: 6,
         overflow: 'hidden',
+        flexDirection: 'row',
     },
     progressFill: {
         height: '100%',

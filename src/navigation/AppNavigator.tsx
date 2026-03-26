@@ -55,6 +55,7 @@ import { SavingsScreen } from '../screens/SavingsScreen';
 import { AddSavingsScreen } from '../screens/AddSavingsScreen';
 import { WalletsScreen } from '../screens/WalletsScreen';
 import { AddWalletScreen } from '../screens/AddWalletScreen';
+import { TermsScreen } from '../screens/TermsScreen';
 
 
 
@@ -1243,6 +1244,16 @@ export const AppNavigator = () => {
             ...getCommonStackOptions(theme, top),
           })}
 
+        />
+
+        <Stack.Screen
+          name="Terms"
+          component={TermsScreen}
+          options={({ navigation }) => ({
+            headerShown: true,
+            headerTitle: tl("الأحكام والشروط"),
+            ...getCommonStackOptions(theme, top),
+          })}
         />
 
         <Stack.Screen

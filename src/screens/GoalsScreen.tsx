@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, I18nManager } from 'react-native';
 import { ScreenContainer } from '../design-system';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -51,61 +51,80 @@ export const GoalsScreen = ({
   const [showDetails, setShowDetails] = useState(false);
   const [showAddAmount, setShowAddAmount] = useState(false);
   const [deletingGoalId, setDeletingGoalId] = useState<number | null>(null);
+  const [isLoadingData, setIsLoadingData] = useState(false);
+  const isOperationRunning = useRef(false);
   const loadGoals = useCallback(async () => {
-    try {
-      const allGoals = await getFinancialGoals();
-      setGoals(allGoals);
-      setAverageMonthlySavings(allGoals.length > 0 ? await calculateAverageMonthlySavings(6) : null);
+     if (isOperationRunning.current) return;
+     isOperationRunning.current = true;
+     setIsLoadingData(true);
 
-      // Calculate converted totals and currency breakdown
-      const active = allGoals.filter(g => !g.completed);
-      if (active.length > 0) {
-        const breakdown: Record<string, {
-          current: number;
-          target: number;
-        }> = {};
-        const convertedGoals = await Promise.all(active.map(async goal => {
-          const goalCurrency = goal.currency || currencyCode;
-          if (!breakdown[goalCurrency]) {
-            breakdown[goalCurrency] = {
-              current: 0,
-              target: 0
-            };
-          }
-          breakdown[goalCurrency].current += goal.currentAmount;
-          breakdown[goalCurrency].target += goal.targetAmount;
-          if (goalCurrency === currencyCode) {
-            return {
-              current: goal.currentAmount,
-              target: goal.targetAmount
-            };
-          }
-          try {
-            const [convertedCurrent, convertedTarget] = await Promise.all([convertCurrency(goal.currentAmount, goalCurrency, currencyCode), convertCurrency(goal.targetAmount, goalCurrency, currencyCode)]);
-            return {
-              current: convertedCurrent,
-              target: convertedTarget
-            };
-          } catch (error) {
-            return {
-              current: goal.currentAmount,
-              target: goal.targetAmount
-            };
-          }
-        }));
-        const totalCurrentConverted = convertedGoals.reduce((sum, item) => sum + item.current, 0);
-        const totalTargetConverted = convertedGoals.reduce((sum, item) => sum + item.target, 0);
-        setConvertedTotals({
-          current: totalCurrentConverted,
-          target: totalTargetConverted
-        });
-        setCurrencyBreakdown(breakdown);
-      } else {
-        setConvertedTotals(null);
-        setCurrencyBreakdown({});
-      }
-    } catch (error) {}
-  }, [currencyCode]);
+     try {
+       const allGoals = await getFinancialGoals();
+       setGoals(allGoals);
+       
+       // Calculate converted totals and currency breakdown
+       const active = allGoals.filter(g => !g.completed);
+       if (active.length > 0) {
+         const breakdown: Record<string, { current: number; target: number }> = {};
+         
+         const convertedResults = await Promise.all(active.map(async goal => {
+           const goalCurrency = goal.currency || currencyCode;
+           
+           if (goalCurrency === currencyCode) {
+             return { id: goal.id, current: goal.currentAmount, target: goal.targetAmount, currency: goalCurrency };
+           }
+           
+           try {
+             // Use Promise.all for individual goal conversions for efficiency
+             const [convertedCurrent, convertedTarget] = await Promise.all([
+               convertCurrency(goal.currentAmount, goalCurrency, currencyCode),
+               convertCurrency(goal.targetAmount, goalCurrency, currencyCode)
+             ]);
+             return { id: goal.id, current: convertedCurrent, target: convertedTarget, currency: goalCurrency };
+           } catch (error) {
+             return { id: goal.id, current: goal.currentAmount, target: goal.targetAmount, currency: goalCurrency };
+           }
+         }));
+
+         let totalCurrentConverted = 0;
+         let totalTargetConverted = 0;
+         
+         convertedResults.forEach(res => {
+           totalCurrentConverted += res.current;
+           totalTargetConverted += res.target;
+           
+           if (!breakdown[res.currency]) {
+             breakdown[res.currency] = { current: 0, target: 0 };
+           }
+           // We need to find the ORIGINAL amounts for breakdown
+           const g = active.find(item => item.id === res.id);
+           if (g) {
+             breakdown[res.currency].current += g.currentAmount;
+             breakdown[res.currency].target += g.targetAmount;
+           }
+         });
+
+         setConvertedTotals({
+           current: totalCurrentConverted,
+           target: totalTargetConverted
+         });
+         setCurrencyBreakdown(breakdown);
+       } else {
+         setConvertedTotals(null);
+         setCurrencyBreakdown({});
+       }
+
+       // Move heavy statistical calculation to the end
+       const savings = allGoals.length > 0 ? await calculateAverageMonthlySavings(6) : null;
+       setAverageMonthlySavings(savings);
+
+     } catch (error) {
+       console.error('[GoalsScreen] Load Error:', error);
+     } finally {
+       setIsLoadingData(false);
+       isOperationRunning.current = false;
+     }
+   }, [currencyCode]);
   useEffect(() => {
     loadGoals();
     const unsubscribe = navigation.addListener('focus', loadGoals);
@@ -151,15 +170,38 @@ export const GoalsScreen = ({
     }
   };
   const handleAddAmount = async (amount: number) => {
-    if (!selectedGoal) return;
+    if (!selectedGoal || isOperationRunning.current) return;
+    
     try {
+      const goalCurrency = selectedGoal.currency || currencyCode;
+      
+      // Calculate how much to add to base amount
+      let baseAmountToAdd = amount;
+      if (goalCurrency !== currencyCode) {
+        try {
+          baseAmountToAdd = await convertCurrency(amount, goalCurrency, currencyCode);
+        } catch (e) {
+          baseAmountToAdd = amount;
+        }
+      }
+
       const updatedGoal = {
         ...selectedGoal,
         currentAmount: selectedGoal.currentAmount + amount,
+        base_current_amount: (selectedGoal.base_current_amount || selectedGoal.currentAmount) + baseAmountToAdd,
         completed: selectedGoal.currentAmount + amount >= selectedGoal.targetAmount
       };
+      
       await updateFinancialGoal(selectedGoal.id, updatedGoal);
       await loadGoals();
+      
+      // Update the locally selected goal with new data if it's still being viewed
+      if (selectedGoal) {
+        const latestGoals = await getFinancialGoals();
+        const latest = latestGoals.find(g => g.id === selectedGoal.id);
+        if (latest) setSelectedGoal(latest);
+      }
+      
       alertService.toastSuccess(tl("تمت إضافة المبلغ بنجاح"));
     } catch (error) {
       alertService.toastError(tl("حدث خطأ أثناء إضافة المبلغ"));
@@ -200,14 +242,15 @@ export const GoalsScreen = ({
   const completedGoals = useMemo(() => goals.filter(g => g.completed), [goals]);
 
   // Use converted totals if available, otherwise calculate from active goals
-  const totalTarget = useMemo(() => convertedTotals?.target ?? activeGoals.reduce((sum, g) => sum + g.targetAmount, 0), [convertedTotals, activeGoals]);
-  const totalCurrent = useMemo(() => convertedTotals?.current ?? activeGoals.reduce((sum, g) => sum + g.currentAmount, 0), [convertedTotals, activeGoals]);
+  // Use base_amount columns to ensure correct sum across different currencies
+  const totalTarget = useMemo(() => convertedTotals?.target ?? activeGoals.reduce((sum, g) => sum + (g.base_target_amount || g.targetAmount), 0), [convertedTotals, activeGoals]);
+  const totalCurrent = useMemo(() => convertedTotals?.current ?? activeGoals.reduce((sum, g) => sum + (g.base_current_amount || g.currentAmount), 0), [convertedTotals, activeGoals]);
   const overallProgress = totalTarget > 0 ? totalCurrent / totalTarget * 100 : 0;
 
   // Check if all goals use the same currency
   const hasMultipleCurrencies = useMemo(() => new Set(activeGoals.map(g => g.currency || currencyCode)).size > 1, [activeGoals, currencyCode]);
   return <ScreenContainer scrollable={false} edges={['bottom', 'left', 'right']}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} refreshControl={<RefreshControl refreshing={refreshing || isLoadingData} onRefresh={onRefresh} tintColor={theme.colors.primary} />} showsVerticalScrollIndicator={false}>
         {/* Summary Card */}
         {activeGoals.length > 0 && <LinearGradient colors={theme.gradients.primary as any} style={styles.summaryCard}>
             <View style={styles.summaryHeader}>
@@ -368,7 +411,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: theme.borderRadius.round,
     overflow: 'hidden',
     marginBottom: theme.spacing.sm,
-    flexDirection: isRTL ? 'row-reverse' : 'row'
+    flexDirection: 'row'
   },
   progressFill: {
     height: '100%',

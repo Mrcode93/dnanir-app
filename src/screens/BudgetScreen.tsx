@@ -48,6 +48,8 @@ export const BudgetScreen = ({
   const [showMenu, setShowMenu] = useState(false);
   const [selectedBudget, setSelectedBudget] = useState<BudgetStatus | null>(null);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [totalBudgetInGlobal, setTotalBudgetInGlobal] = useState(0);
+  const [totalSpentInGlobal, setTotalSpentInGlobal] = useState(0);
   const filterMenuAnim = useRef(new Animated.Value(0)).current;
   // Month filter state - default to current month
   const [selectedMonth, setSelectedMonth] = useState<{
@@ -120,8 +122,12 @@ export const BudgetScreen = ({
       const customCats = await getCustomCategories('expense');
       setCustomCategories(customCats);
 
-      // Calculate budget status for selected period
-      const statuses = monthBudgets.map(budget => {
+      // Calculate budget status for selected period with async currency support
+      const statuses: BudgetStatus[] = [];
+      let totalBudgetGlobal = 0;
+      let totalSpentGlobal = 0;
+
+      for (const budget of monthBudgets) {
         const periodExpenses = monthData.expenses.filter(expense => {
           const expenseCat = expense.category;
           const budgetCat = budget.category;
@@ -136,19 +142,66 @@ export const BudgetScreen = ({
           if (EXPENSE_CATEGORIES[expenseCat as keyof typeof EXPENSE_CATEGORIES] === budgetCat) return true;
           return false;
         });
-        const spent = periodExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+
+        // Calculate total spent in Budget's currency
+        let totalSpentInBudgetCurrency = 0;
+        let totalSpentInGlobalCurrency = 0;
+        const budgetCurrency = budget.currency || currencyCode;
+
+        for (const expense of periodExpenses) {
+          const expenseCurrency = expense.currency || currencyCode;
+          
+          // Contribution to budget status (in budget currency)
+          if (expenseCurrency === budgetCurrency) {
+            totalSpentInBudgetCurrency += expense.amount;
+          } else {
+            const amountToConvert = expense.base_amount && expenseCurrency !== 'IQD' ? expense.base_amount : expense.amount;
+            const fromCurr = expense.base_amount && expenseCurrency !== 'IQD' ? 'IQD' : expenseCurrency;
+            const converted = await convertCurrency(amountToConvert, fromCurr, budgetCurrency);
+            totalSpentInBudgetCurrency += converted;
+          }
+
+          // Contribution to global totals (in global currencyCode)
+          if (expenseCurrency === currencyCode) {
+            totalSpentInGlobalCurrency += expense.amount;
+          } else {
+            const amountToConvert = expense.base_amount && expenseCurrency !== 'IQD' ? expense.base_amount : expense.amount;
+            const fromCurr = expense.base_amount && expenseCurrency !== 'IQD' ? 'IQD' : expenseCurrency;
+            const converted = await convertCurrency(amountToConvert, fromCurr, currencyCode);
+            totalSpentInGlobalCurrency += converted;
+          }
+        }
+
+        const spent = totalSpentInBudgetCurrency;
         const remaining = budget.amount - spent;
         const percentage = budget.amount > 0 ? spent / budget.amount * 100 : 0;
         const isExceeded = spent > budget.amount;
-        return {
+
+        // Convert budget amount to global for summary card
+        const budgetAmountInGlobal = budgetCurrency === currencyCode 
+          ? budget.amount 
+          : await convertCurrency(budget.amount, budgetCurrency, currencyCode);
+
+        // We already have totalSpentInGlobalCurrency for this budget
+        const spentInGlobal = totalSpentInGlobalCurrency;
+        const remainingInGlobal = budgetAmountInGlobal - spentInGlobal;
+
+        totalBudgetGlobal += budgetAmountInGlobal;
+        totalSpentGlobal += spentInGlobal;
+
+        statuses.push({
           budget,
           spent,
           remaining,
           percentage,
-          isExceeded
-        };
-      });
+          isExceeded,
+          spentInGlobal,
+          remainingInGlobal
+        });
+      }
       setBudgets(statuses);
+      setTotalBudgetInGlobal(totalBudgetGlobal);
+      setTotalSpentInGlobal(totalSpentGlobal);
 
       // Convert amounts for each budget
       const converted: Record<number, number> = {};
@@ -263,19 +316,7 @@ export const BudgetScreen = ({
     if (selectedCategory === 'all') return tl("الكل");
     return tl(getCategoryName(selectedCategory));
   };
-  const {
-    totalBudget,
-    totalSpent,
-    totalRemaining
-  } = useMemo(() => {
-    const budget = budgets.reduce((sum, b) => sum + b.budget.amount, 0);
-    const spent = budgets.reduce((sum, b) => sum + b.spent, 0);
-    return {
-      totalBudget: budget,
-      totalSpent: spent,
-      totalRemaining: budget - spent
-    };
-  }, [budgets]);
+  const totalRemainingInGlobal = totalBudgetInGlobal - totalSpentInGlobal;
   const renderBudget = useCallback(({
     item
   }: {
@@ -329,19 +370,29 @@ export const BudgetScreen = ({
         </View>
         <View style={styles.budgetDetailItem}>
           <Text style={styles.budgetDetailLabel}>{tl("المصروف")}</Text>
-          <Text style={[styles.budgetDetailValue, {
-            color: theme.colors.error
-          }]}>
-            {formatCurrency(item.spent)}
-          </Text>
+          <View>
+            <Text style={[styles.budgetDetailValue, {
+              color: theme.colors.error
+            }]}>
+              {isPrivacyEnabled ? '****' : formatCurrencyAmount(item.spent, item.budget.currency || currencyCode)}
+            </Text>
+            {item.budget.currency !== currencyCode && item.spentInGlobal !== undefined && <Text style={styles.convertedAmountText}>
+              ≈ {formatCurrency(item.spentInGlobal)}
+            </Text>}
+          </View>
         </View>
         <View style={styles.budgetDetailItem}>
           <Text style={styles.budgetDetailLabel}>{tl("المتبقي")}</Text>
-          <Text style={[styles.budgetDetailValue, {
-            color: item.remaining >= 0 ? theme.colors.success : theme.colors.error
-          }]}>
-            {formatCurrency(item.remaining)}
-          </Text>
+          <View>
+            <Text style={[styles.budgetDetailValue, {
+              color: item.remaining >= 0 ? theme.colors.success : theme.colors.error
+            }]}>
+              {isPrivacyEnabled ? '****' : formatCurrencyAmount(item.remaining, item.budget.currency || currencyCode)}
+            </Text>
+            {item.budget.currency !== currencyCode && item.remainingInGlobal !== undefined && <Text style={styles.convertedAmountText}>
+              ≈ {formatCurrency(item.remainingInGlobal)}
+            </Text>}
+          </View>
         </View>
       </View>
     </View>;
@@ -409,22 +460,22 @@ export const BudgetScreen = ({
         <View style={styles.summaryRow}>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>{tl("إجمالي الميزانية")}</Text>
-            <Text style={styles.summaryAmount}>{formatCurrency(totalBudget)}</Text>
+            <Text style={styles.summaryAmount}>{formatCurrency(totalBudgetInGlobal)}</Text>
           </View>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>{tl("المصروف")}</Text>
             <Text style={[styles.summaryAmount, {
               color: theme.colors.error
             }]}>
-              {formatCurrency(totalSpent)}
+              {formatCurrency(totalSpentInGlobal)}
             </Text>
           </View>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>{tl("المتبقي")}</Text>
             <Text style={[styles.summaryAmount, {
-              color: totalRemaining >= 0 ? theme.colors.success : theme.colors.error
+              color: totalRemainingInGlobal >= 0 ? theme.colors.success : theme.colors.error
             }]}>
-              {formatCurrency(totalRemaining)}
+              {formatCurrency(totalRemainingInGlobal)}
             </Text>
           </View>
         </View>

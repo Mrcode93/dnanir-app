@@ -14,6 +14,7 @@ import { useCurrency } from '../hooks/useCurrency';
 import { isRTL } from '../utils/rtl';
 import { alertService } from '../services/alertService';
 import { usePrivacy } from '../context/PrivacyContext';
+import { formatCurrencyAmount } from '../services/currencyService';
 import { tl, useLocalization } from "../localization";
 export const SavingsScreen = ({
   navigation
@@ -32,7 +33,7 @@ export const SavingsScreen = ({
   } = usePrivacy();
   const [savingsList, setSavingsList] = useState<Savings[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [totalSavings, setTotalSavings] = useState(0);
+  const [currencyTotals, setCurrencyTotals] = useState<Record<string, number>>({});
   const [selectedSavings, setSelectedSavings] = useState<Savings | null>(null);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -41,8 +42,13 @@ export const SavingsScreen = ({
     try {
       const data = await getSavings();
       setSavingsList(data);
-      const total = data.reduce((sum, item) => sum + item.currentAmount, 0);
-      setTotalSavings(total);
+      
+      const totals: Record<string, number> = {};
+      data.forEach(item => {
+        const cur = item.currency || 'IQD';
+        totals[cur] = (totals[cur] || 0) + item.currentAmount;
+      });
+      setCurrencyTotals(totals);
     } catch (error) {}
   }, []);
   useEffect(() => {
@@ -112,9 +118,17 @@ export const SavingsScreen = ({
             </View>
             <View style={styles.summaryTextContainer}>
               <Text style={styles.summaryLabel}>{tl("إجمالي المدخرات")}</Text>
-              <Text style={styles.summaryValue}>
-                {isPrivacyEnabled ? '****' : formatCurrency(totalSavings)}
-              </Text>
+              {Object.entries(currencyTotals).length > 0 ? (
+                Object.entries(currencyTotals).map(([cur, amt]) => (
+                  <Text key={cur} style={styles.summaryValue}>
+                    {isPrivacyEnabled ? '****' : formatCurrencyAmount(amt, cur)}
+                  </Text>
+                ))
+              ) : (
+                <Text style={styles.summaryValue}>
+                  {isPrivacyEnabled ? '****' : formatCurrency(0)}
+                </Text>
+              )}
             </View>
           </View>
           <View style={styles.summaryFooter}>
@@ -197,10 +211,11 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: 4
   },
   summaryValue: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: getPlatformFontWeight('800'),
     color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily
+    fontFamily: theme.typography.fontFamily,
+    marginBottom: 2
   },
   summaryFooter: {
     borderTopWidth: 1,

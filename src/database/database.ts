@@ -1,5 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 import { encryptField, decryptField } from '../utils/encryption';
+import { CURRENCIES } from '../types';
 
 let db: SQLite.SQLiteDatabase | null = null;
 let hasBaseAmountColumnsCache: boolean | null = null;
@@ -716,45 +717,23 @@ export const initDatabase = async () => {
 export const deleteAllData = async () => {
   const database = getDb();
 
-
-  const tables = [
-    'savings_transactions',
-    'debt_payments',
-    'debt_installments',
-    'bill_payments',
-    'ai_insights_cache',
-    'goal_plan_cache',
-    'expenses',
-    'income',
-    'savings',
-    'debts',
-    'bills',
-    'financial_goals',
-    'wallets',
-    'debtors',
-    'custom_categories',
-    'user_settings',
-    'app_settings',
-    'notification_settings',
-    'exchange_rates',
-    'recurring_expenses',
-    'expense_shortcuts',
-    'income_shortcuts',
-    'notifications',
-    'challenges',
-    'achievements',
-    'budgets'
-  ];
-
   try {
-    // Disable foreign keys temporarily to allow deleting everything without order issues
+    // 1. Get all tables dynamically to ensure we don't miss any (like financial_goals)
+    const rows = await database.getAllAsync<{ name: string }>(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';"
+    );
+    const tables = rows.map(r => r.name);
+
+    // Disable foreign keys temporarily
     await database.execAsync('PRAGMA foreign_keys = OFF;');
 
     for (const table of tables) {
       try {
         await database.runAsync(`DELETE FROM ${table}`);
+        // Reset autoincrement
+        await database.runAsync(`DELETE FROM sqlite_sequence WHERE name = '${table}'`);
       } catch (error) {
-        console.log(`[Database] Skipping delete for ${table}:`, error);
+        console.error(`[Database] Failed to delete table ${table}:`, error);
       }
     }
 
@@ -2765,19 +2744,19 @@ export const getDebtorSummaries = async (): Promise<DebtorSummary[]> => {
 
   return debtors.map(debtor => {
     const personDebts = allDebts.filter(d => d.debtorId === debtor.id || (!d.debtorId && d.debtorName === debtor.name));
-    
+
     // Group by currency
     const groups: Record<string, { toMe: number; byMe: number }> = {};
-    
+
     let totalToMe = 0;
     let totalByMe = 0;
 
     personDebts.forEach(d => {
       if (d.isPaid) return;
-      
+
       const cur = d.currency || 'IQD';
       if (!groups[cur]) groups[cur] = { toMe: 0, byMe: 0 };
-      
+
       if (d.direction === 'owed_to_me') {
         groups[cur].toMe += d.remainingAmount;
         totalToMe += d.remainingAmount; // Legacy fallback
@@ -4807,10 +4786,20 @@ export const addSavingsTransaction = async (transaction: Omit<import('../types')
     );
 
     // Update currentAmount in savings table
+    // 1. Get savings record to check currency
+    const savings = await database.getFirstAsync<any>('SELECT currency FROM savings WHERE id = ?', [transaction.savingsId]);
+    const currency = savings?.currency || 'IQD';
+    const appSettings = await getAppSettings();
+    const targetCurrency = appSettings?.currency ? (CURRENCIES.find(c => c.name === appSettings.currency)?.code || 'IQD') : 'IQD';
+    
+    // 2. Convert delta to base currency
+    const { convertCurrency } = await import('../services/currencyService');
     const amountDelta = transaction.type === 'deposit' ? transaction.amount : -transaction.amount;
+    const baseDelta = await convertCurrency(amountDelta, currency, targetCurrency);
+
     await database.runAsync(
-      'UPDATE savings SET currentAmount = currentAmount + ?, updatedAt = ?, synced_at = NULL WHERE id = ?',
-      [amountDelta, now, transaction.savingsId]
+      'UPDATE savings SET currentAmount = currentAmount + ?, base_current_amount = base_current_amount + ?, updatedAt = ?, synced_at = NULL WHERE id = ?',
+      [amountDelta, baseDelta, now, transaction.savingsId]
     );
 
     await database.execAsync('COMMIT;');
@@ -4834,24 +4823,40 @@ export const transferBetweenSavings = async (
   await database.execAsync('BEGIN TRANSACTION;');
 
   try {
+    // 0. Get currencies and target currency
+    const [fromSavings, toSavings] = await Promise.all([
+      database.getFirstAsync<any>('SELECT currency FROM savings WHERE id = ?', [fromId]),
+      database.getFirstAsync<any>('SELECT currency FROM savings WHERE id = ?', [toId]),
+    ]);
+    const fromCur = fromSavings?.currency || 'IQD';
+    const toCur = toSavings?.currency || 'IQD';
+    
+    const appSettings = await getAppSettings();
+    const mainCur = appSettings?.currency ? (CURRENCIES.find(c => c.name === appSettings.currency)?.code || 'IQD') : 'IQD';
+    const { convertCurrency } = await import('../services/currencyService');
+
+    const targetAmount = await convertCurrency(amount, fromCur, toCur);
+    const baseAmountFrom = await convertCurrency(amount, fromCur, mainCur);
+    const baseAmountTo = await convertCurrency(targetAmount, toCur, mainCur);
+
     // 1. Withdrawal from source
     await database.runAsync(
       'INSERT INTO savings_transactions (savingsId, amount, type, date, description, createdAt) VALUES (?, ?, ?, ?, ?, ?)',
       [fromId, amount, 'withdrawal', date, description || 'تحويل إلى حصالة أخرى', now]
     );
     await database.runAsync(
-      'UPDATE savings SET currentAmount = currentAmount - ?, updatedAt = ?, synced_at = NULL WHERE id = ?',
-      [amount, now, fromId]
+      'UPDATE savings SET currentAmount = currentAmount - ?, base_current_amount = base_current_amount - ?, updatedAt = ?, synced_at = NULL WHERE id = ?',
+      [amount, baseAmountFrom, now, fromId]
     );
 
     // 2. Deposit to destination
     await database.runAsync(
       'INSERT INTO savings_transactions (savingsId, amount, type, date, description, createdAt) VALUES (?, ?, ?, ?, ?, ?)',
-      [toId, amount, 'deposit', date, description || 'تحويل من حصالة أخرى', now]
+      [toId, targetAmount, 'deposit', date, description || 'تحويل من حصالة أخرى', now]
     );
     await database.runAsync(
-      'UPDATE savings SET currentAmount = currentAmount + ?, updatedAt = ?, synced_at = NULL WHERE id = ?',
-      [amount, now, toId]
+      'UPDATE savings SET currentAmount = currentAmount + ?, base_current_amount = base_current_amount + ?, updatedAt = ?, synced_at = NULL WHERE id = ?',
+      [targetAmount, baseAmountTo, now, toId]
     );
 
     await database.execAsync('COMMIT;');

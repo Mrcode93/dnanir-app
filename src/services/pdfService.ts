@@ -600,3 +600,123 @@ export const generateFullReport = async (): Promise<string> => {
   }
 };
 
+
+export const generateDebtorReport = async (
+  debtor: any,
+  debts: any[],
+  installmentsMap: Record<number, any[]>
+): Promise<string> => {
+  try {
+    const currencyCode = await getSelectedCurrencyCode();
+    const formatCurrency = (amount: number, cur?: string) => formatCurrencyAmount(amount, cur || currencyCode);
+
+    const totalsByCurrency: Record<string, { toMe: number; byMe: number; net: number }> = {};
+    debts.forEach(d => {
+      if (d.isPaid) return;
+      const cur = d.currency || 'IQD';
+      if (!totalsByCurrency[cur]) {
+        totalsByCurrency[cur] = { toMe: 0, byMe: 0, net: 0 };
+      }
+      if (d.direction === 'owed_to_me') totalsByCurrency[cur].toMe += d.remainingAmount;
+      else totalsByCurrency[cur].byMe += d.remainingAmount;
+    });
+    
+    Object.keys(totalsByCurrency).forEach(cur => {
+      totalsByCurrency[cur].net = totalsByCurrency[cur].toMe - totalsByCurrency[cur].byMe;
+    });
+
+    const currencies = Object.keys(totalsByCurrency);
+
+    const html = `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+          body { font-family: 'Cairo', sans-serif; padding: 20px; direction: rtl; color: #111827; }
+          .header { text-align: center; margin-bottom: 30px; border-bottom: 3px solid #3B82F6; padding-bottom: 20px; }
+          .header h1 { color: #3B82F6; margin: 0; font-size: 24px; }
+          .debtor-info { margin-bottom: 20px; text-align: right; }
+          .section { margin-bottom: 30px; page-break-inside: avoid; }
+          .section-title { background: #3B82F6; color: white; padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; font-size: 18px; font-weight: bold; }
+          .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px; }
+          .summary-card { background: #F8F9FA; padding: 15px; border-radius: 8px; text-align: center; border: 2px solid #E5E7EB; }
+          .summary-card h3 { margin: 0 0 10px 0; color: #6B7280; font-size: 14px; }
+          .amount { font-size: 18px; font-weight: bold; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          th, td { padding: 10px; text-align: right; border-bottom: 1px solid #E5E7EB; font-size: 12px; }
+          th { background: #F8F9FA; font-weight: bold; }
+          .status-paid { color: #10B981; font-weight: bold; }
+          .status-pending { color: #F59E0B; font-weight: bold; }
+          .footer { margin-top: 40px; padding-top: 20px; border-top: 2px solid #E5E7EB; text-align: center; color: #6B7280; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>كشف حساب مالي</h1>
+          <p>تم الإنشاء: ${new Date().toLocaleDateString('ar-IQ-u-nu-latn')}</p>
+        </div>
+        
+        <div class="debtor-info">
+          <p><strong>الاسم:</strong> ${debtor.name}</p>
+          ${debtor.phone ? `<p><strong>الهاتف:</strong> ${debtor.phone}</p>` : ''}
+        </div>
+
+        <div class="section">
+          <div class="section-title">ملخص الأرصدة المتبقية</div>
+          <div class="summary-grid">
+            ${currencies.length > 0 ? currencies.map(cur => `
+              <div class="summary-card">
+                <h3>صافي الرصيد (${cur})</h3>
+                <div class="amount" style="color: ${totalsByCurrency[cur].net >= 0 ? '#10B981' : '#EF4444'}">
+                  ${totalsByCurrency[cur].net > 0 ? '+' : ''}${formatCurrency(totalsByCurrency[cur].net, cur)}
+                </div>
+              </div>
+            `).join('') : '<div class="summary-card"><h3>لا توجد ديون معلقة</h3><div class="amount">0</div></div>'}
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">سجل العمليات (${debts.length})</div>
+          <table>
+            <thead>
+              <tr>
+                <th>التاريخ</th>
+                <th>الوصف</th>
+                <th>النوع</th>
+                <th>المبلغ الكلي</th>
+                <th>المتبقي</th>
+                <th>الحالة</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${debts.map(d => `
+                <tr>
+                  <td>${new Date(d.startDate).toLocaleDateString('ar-IQ-u-nu-latn')}</td>
+                  <td>${d.description || d.debtorName}</td>
+                  <td>${d.direction === 'owed_to_me' ? 'دين لي' : 'دين علي'}</td>
+                  <td>${formatCurrency(d.totalAmount, d.currency)}</td>
+                  <td>${formatCurrency(d.remainingAmount, d.currency)}</td>
+                  <td class="${d.isPaid ? 'status-paid' : 'status-pending'}">
+                    ${d.isPaid ? 'مسدد' : 'قيد الانتظار'}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="footer">
+          <p>تم إنشاء هذا التقرير بواسطة تطبيق دنانير</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const { uri } = await Print.printToFileAsync({ html });
+    return uri;
+  } catch (error) {
+    throw error;
+  }
+};

@@ -104,6 +104,7 @@ const GoalCardComponent: React.FC<GoalCardProps> = ({
   useEffect(() => {
     let cancelled = false;
     const calculateTime = async () => {
+      // If result is already completed or remaining is 0, no need to estimate
       if (isCompleted || remaining <= 0) {
         if (!cancelled) {
           setEstimatedTime({ months: 0, days: 0, formatted: 'مكتمل' });
@@ -113,8 +114,16 @@ const GoalCardComponent: React.FC<GoalCardProps> = ({
       }
 
       try {
-        // Reuse precomputed savings when provided by parent screen.
-        const avgSavings = averageMonthlySavingsHint ?? await calculateAverageMonthlySavings(6);
+        // Optimization: ONLY call the expensive calculation if the hint is strictly null (not 0)
+        // If averageMonthlySavingsHint is 0, we still use it and don't re-calculate.
+        let avgSavings: number;
+        if (averageMonthlySavingsHint !== null && averageMonthlySavingsHint !== undefined) {
+          avgSavings = averageMonthlySavingsHint;
+        } else {
+          avgSavings = await calculateAverageMonthlySavings(6);
+        }
+
+        if (cancelled) return;
 
         // Convert remaining amount to primary currency if needed
         let remainingInPrimaryCurrency = remaining;
@@ -348,7 +357,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: theme.borderRadius.round,
     overflow: 'hidden',
     marginBottom: theme.spacing.xs,
-    flexDirection: isRTL ? 'row-reverse' : 'row', // Fix fill direction
+    flexDirection: 'row', // Let RTL handle direction naturally (starts from right in RTL)
     ...getPlatformShadow('sm'),
   },
   progressFill: {
