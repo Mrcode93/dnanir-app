@@ -12,6 +12,8 @@ import { useAppTheme, useThemedStyles } from '../utils/theme-context';
 import { isRTL } from '../utils/rtl';
 import { alertService } from '../services/alertService';
 import { ConfirmAlert } from '../components/ConfirmAlert';
+import { PayBillModal } from '../components/PayBillModal';
+import { Portal } from 'react-native-paper';
 import { tl, useLocalization } from "../localization";
 const {
   width
@@ -35,6 +37,8 @@ export const BillDetailsScreen = ({
   const [refreshing, setRefreshing] = useState(false);
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [showPayModal, setShowPayModal] = useState(false);
+  const [payLoading, setPayLoading] = useState(false);
   const billId = route.params?.billId;
   const loadBillData = async () => {
     if (!billId) return;
@@ -71,13 +75,28 @@ export const BillDetailsScreen = ({
       if (bill.isPaid) {
         await markBillAsUnpaid(bill.id);
         alertService.toastSuccess(tl("تم تحديث حالة الفاتورة"));
+        await loadBillData();
       } else {
-        await markBillAsPaid(bill.id);
-        alertService.toastSuccess(tl("تم دفع الفاتورة بنجاح"));
+        setShowPayModal(true);
       }
-      await loadBillData();
     } catch (error) {
       alertService.error(tl("خطأ"), tl("حدث خطأ أثناء تحديث حالة الفاتورة"));
+    }
+  };
+  const handlePayConfirm = async (walletId: number) => {
+    if (!bill) return;
+    setPayLoading(true);
+    try {
+      await markBillAsPaid(bill.id, undefined, {
+        walletId
+      });
+      alertService.toastSuccess(tl("تم دفع الفاتورة بنجاح"));
+      setShowPayModal(false);
+      await loadBillData();
+    } catch (error) {
+      alertService.error(tl("خطأ"), tl("حدث خطأ أثناء دفع الفاتورة"));
+    } finally {
+      setPayLoading(false);
     }
   };
   const handleEdit = () => {
@@ -286,6 +305,16 @@ export const BillDetailsScreen = ({
       </ScrollView>
 
       <ConfirmAlert visible={showDeleteAlert} title={tl("حذف الفاتورة")} message={tl("هل أنت متأكد من حذف الفاتورة \"{{}}\"؟", [bill.title])} onConfirm={confirmDelete} onCancel={() => setShowDeleteAlert(false)} />
+
+      <Portal>
+        <PayBillModal 
+          visible={showPayModal} 
+          onClose={() => setShowPayModal(false)} 
+          bill={bill} 
+          onPay={handlePayConfirm} 
+          loading={payLoading} 
+        />
+      </Portal>
 
       {/* Full Screen Image Modal */}
       <Modal visible={showImageModal} transparent={true} animationType="fade" onRequestClose={() => setShowImageModal(false)}>

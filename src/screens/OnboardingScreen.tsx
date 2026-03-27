@@ -16,7 +16,7 @@ import { useThemedStyles, useAppTheme } from '../utils/theme-context';
 import { isRTL } from '../utils/rtl';
 import { onboardingStorage } from '../services/onboardingStorage';
 import { authModalService } from '../services/authModalService';
-import { useLocalization } from '../localization';
+import { useLocalization, tl } from '../localization';
 
 const { width, height } = Dimensions.get('window');
 
@@ -129,6 +129,15 @@ export const OnboardingScreen = ({ navigation, onFinish }: OnboardingScreenProps
         {/* Footer Info */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>{t('onboarding.footer')}</Text>
+          <View style={styles.legalLinks}>
+            <TouchableOpacity onPress={() => navigation.navigate('PrivacyPolicy')}>
+              <Text style={styles.legalLinkText}>{tl("سياسة الخصوصية")}</Text>
+            </TouchableOpacity>
+            <Text style={styles.footerDivider}> • </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Terms')}>
+              <Text style={styles.legalLinkText}>{tl("الشروط والأحكام")}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
     </View>
@@ -257,5 +266,22 @@ const createStyles = (theme: AppTheme) =>
       fontSize: 12,
       color: 'rgba(255, 255, 255, 0.4)',
       letterSpacing: 0.5,
+      marginBottom: 4,
+    },
+    legalLinks: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    legalLinkText: {
+      fontFamily: theme.typography.fontFamily,
+      fontSize: 12,
+      color: 'rgba(255, 255, 255, 0.65)',
+      textDecorationLine: 'underline',
+      paddingHorizontal: 4,
+    },
+    footerDivider: {
+      color: 'rgba(255, 255, 255, 0.3)',
+      fontSize: 12,
     },
   });

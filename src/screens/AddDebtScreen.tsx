@@ -243,8 +243,9 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
       colors: theme.gradients.success
     }
   };
+  const currentTypeData = typeData[type] || typeData.debt;
   const saveFooter = <AppButton label={loading ? tl("جاري الحفظ...") : editingDebt ? tl("تحديث البيانات") : tl("حفظ الالتزام")} onPress={handleSave} variant="primary" size="lg" loading={loading} disabled={loading} rightIcon="checkmark-circle" style={{
-    backgroundColor: typeData[type].colors[0]
+    backgroundColor: currentTypeData.colors[0]
   }} />;
   return <ScreenContainer scrollable edges={[]} scrollPadBottom={32} style={{
     backgroundColor: theme.colors.background
@@ -261,7 +262,7 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
       <TextInput value={totalAmount} onChangeText={v => {
         const cleaned = convertArabicToEnglish(v);
         setTotalAmount(formatNumberWithCommas(cleaned));
-      }} placeholder="0" placeholderTextColor={theme.colors.textMuted + '80'} style={styles.amountInput} keyboardType="decimal-pad" selectionColor={typeData[type].colors[0]} underlineColor="transparent" activeUnderlineColor="transparent" />
+      }} placeholder="0" placeholderTextColor={theme.colors.textMuted + '80'} style={styles.amountInput} keyboardType="decimal-pad" selectionColor={currentTypeData.colors[0]} underlineColor="transparent" activeUnderlineColor="transparent" />
     </View>
 
     {/* Balance Context */}
@@ -405,8 +406,8 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
             <Text style={styles.fieldText}>{tl("موعد الاستحقاق (اختياري)")}</Text>
             <Switch value={hasDueDate} onValueChange={setHasDueDate} trackColor={{
               false: theme.colors.border,
-              true: typeData[type].colors[0] + '80'
-            }} thumbColor={hasDueDate ? typeData[type].colors[0] : theme.colors.surfaceCard} />
+              true: currentTypeData.colors[0] + '80'
+            }} thumbColor={hasDueDate ? currentTypeData.colors[0] : theme.colors.surfaceCard} />
           </View>
         </View>
 
@@ -433,8 +434,8 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
           <Text style={styles.fieldText}>{tl("دفع على شكل أقساط؟")}</Text>
           <Switch value={hasInstallments} onValueChange={setHasInstallments} trackColor={{
             false: theme.colors.border,
-            true: typeData[type].colors[0] + '80'
-          }} thumbColor={hasInstallments ? typeData[type].colors[0] : theme.colors.surfaceCard} />
+            true: currentTypeData.colors[0] + '80'
+          }} thumbColor={hasInstallments ? currentTypeData.colors[0] : theme.colors.surfaceCard} />
         </View>
       </View>
 
@@ -452,14 +453,14 @@ export const AddDebtScreen: React.FC<AddDebtScreenProps> = ({
           <Text style={styles.optionLabel}>{tl("تكرار القسط")}</Text>
           <View style={styles.frequencyChips}>
             <TouchableOpacity onPress={() => setInstallmentFrequency('monthly')} style={[styles.freqChip, installmentFrequency === 'monthly' && {
-              backgroundColor: typeData[type].colors[0]
+              backgroundColor: currentTypeData.colors[0]
             }]}>
               <Text style={[styles.freqChipText, installmentFrequency === 'monthly' && {
                 color: '#FFFFFF'
               }]}>{tl("شهرياً")}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setInstallmentFrequency('weekly')} style={[styles.freqChip, installmentFrequency === 'weekly' && {
-              backgroundColor: typeData[type].colors[0]
+              backgroundColor: currentTypeData.colors[0]
             }]}>
               <Text style={[styles.freqChipText, installmentFrequency === 'weekly' && {
                 color: '#FFFFFF'

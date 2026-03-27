@@ -16,12 +16,14 @@ import { alertService } from '../services/alertService';
 import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 import { AppBottomSheet, AppButton, AppInput } from '../design-system';
 import { formatCurrencyAmount } from '../services/currencyService';
+import { useWallets } from '../context/WalletContext';
+import { ScrollView } from 'react-native-gesture-handler';
 
 interface PayDebtModalProps {
   visible: boolean;
   debt: Debt | null;
   onClose: () => void;
-  onPay: (amount: number) => Promise<void>;
+  onPay: (amount: number, walletId?: number) => Promise<void>;
 }
 
 export const PayDebtModal: React.FC<PayDebtModalProps> = ({
@@ -36,6 +38,8 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [paymentType, setPaymentType] = useState<'all' | 'partial'>('all');
+  const { wallets } = useWallets();
+  const [selectedWalletId, setSelectedWalletId] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     if (visible && debt) {
@@ -44,8 +48,13 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
       } else {
         setAmount('');
       }
+      
+      if (wallets.length > 0 && selectedWalletId === undefined) {
+        const defaultW = wallets.find(w => w.isDefault) || wallets[0];
+        setSelectedWalletId(defaultW?.id);
+      }
     }
-  }, [visible, debt, paymentType]);
+  }, [visible, debt, paymentType, wallets]);
 
   const handlePayAll = () => {
     setPaymentType('all');
@@ -79,7 +88,7 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
 
     setLoading(true);
     try {
-      await onPay(paymentAmount);
+      await onPay(paymentAmount, selectedWalletId);
       setAmount('');
       setPaymentType('all');
       onClose();
@@ -148,6 +157,47 @@ export const PayDebtModal: React.FC<PayDebtModalProps> = ({
           style={styles.paymentTypeButton}
         />
       </View>
+
+      {/* Wallet Selection */}
+      {wallets.length > 1 && (
+        <>
+          <Text style={styles.sectionLabel}>المحفظة المستخدمة</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.walletsContainer}
+            style={{ marginBottom: 16 }}
+          >
+            {wallets.map(wallet => (
+              <TouchableOpacity
+                key={wallet.id}
+                style={[
+                  styles.walletChip,
+                   selectedWalletId === wallet.id && {
+                     borderColor: wallet.color || theme.colors.primary,
+                     backgroundColor: (wallet.color || theme.colors.primary) + '10',
+                     borderWidth: 2
+                   }
+                ]}
+                onPress={() => setSelectedWalletId(wallet.id)}
+              >
+                <Ionicons
+                  name={wallet.icon as any || 'wallet'}
+                  size={18}
+                  color={selectedWalletId === wallet.id ? (wallet.color || theme.colors.primary) : theme.colors.textSecondary}
+                />
+                <Text style={[
+                  styles.walletChipText,
+                  selectedWalletId === wallet.id && {
+                    color: wallet.color || theme.colors.primary,
+                    fontWeight: '700'
+                  }
+                ]}>{wallet.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </>
+      )}
 
       {/* Amount Input - Only show for partial payment */}
       {paymentType === 'partial' && (
@@ -338,5 +388,29 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   actionBtnConfirm: {
     flex: 1.4,
+  },
+  walletsContainer: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    paddingHorizontal: 16,
+    gap: 10,
+    paddingBottom: 4,
+  },
+  walletChip: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 16,
+    backgroundColor: theme.colors.surfaceLight,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    gap: 8,
+    minWidth: 100,
+    justifyContent: 'center',
+  },
+  walletChipText: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
   },
 });

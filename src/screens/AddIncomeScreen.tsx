@@ -207,7 +207,8 @@ export const AddIncomeScreen: React.FC<AddIncomeScreenProps> = ({
         category: s.incomeSource,
         currency: s.currency || currencyCode,
         date: new Date().toISOString().split('T')[0],
-        description: s.description || ''
+        description: s.description || '',
+        walletId: walletId
       });
       handleClose();
       alertService.toastSuccess(tl("أضيف من الاختصار"));

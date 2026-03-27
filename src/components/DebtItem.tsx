@@ -8,6 +8,7 @@ import { isRTL } from '../utils/rtl';
 import { ConfirmAlert } from './ConfirmAlert';
 import { useCurrency } from '../hooks/useCurrency';
 import { formatCurrencyAmount } from '../services/currencyService';
+import { tl } from "../localization";
 
 interface DebtItemProps {
   item: Debt;
@@ -30,6 +31,7 @@ const DebtItemComponent: React.FC<DebtItemProps> = ({
   unpaidInstallmentsCount = 0,
   totalInstallmentsCount = 0,
 }) => {
+  if (!item) return null;
   const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const { formatCurrency: hookFormatCurrency } = useCurrency();
@@ -50,13 +52,18 @@ const DebtItemComponent: React.FC<DebtItemProps> = ({
     advance: ['#F59E0B', '#D97706'],
   };
 
-  const icon = typeIcons[item.type];
+  const icon = (item.type && typeIcons[item.type as keyof typeof typeIcons]) || 'card';
   const itemCurrency = item.currency || 'IQD';
   const isOwedToMe = item.direction === 'owed_to_me';
-  const colors = item.isPaid ? ['#10B981', '#059669'] : (isOwedToMe ? ['#10B981', '#059669'] : typeColors[item.type]);
+  
+  const colors = item.isPaid 
+    ? ['#10B981', '#059669'] 
+    : (isOwedToMe 
+        ? ['#10B981', '#059669'] 
+        : ((item.type && typeColors[item.type as keyof typeof typeColors]) || ['#8B5CF6', '#7C3AED']));
   const title = isOwedToMe ? `مدين لي: ${item.debtorName}` : `مدين لـ: ${item.debtorName}`;
-  const typeLabel = DEBT_TYPES[item.type];
-  const date = new Date(item.startDate);
+  const typeLabel = (item.type && DEBT_TYPES[item.type as keyof typeof DEBT_TYPES]) || item.type || tl("غير محدد");
+  const date = item.startDate ? new Date(item.startDate) : new Date();
   const formattedDate = date.toLocaleDateString('ar-IQ-u-nu-latn', {
     month: 'short',
     day: 'numeric',

@@ -56,6 +56,7 @@ import { AddSavingsScreen } from '../screens/AddSavingsScreen';
 import { WalletsScreen } from '../screens/WalletsScreen';
 import { AddWalletScreen } from '../screens/AddWalletScreen';
 import { TermsScreen } from '../screens/TermsScreen';
+import { PrivacyPolicyScreen } from '../screens/PrivacyPolicyScreen';
 
 
 
@@ -1252,6 +1253,16 @@ export const AppNavigator = () => {
           options={({ navigation }) => ({
             headerShown: true,
             headerTitle: tl("الأحكام والشروط"),
+            ...getCommonStackOptions(theme, top),
+          })}
+        />
+
+        <Stack.Screen
+          name="PrivacyPolicy"
+          component={PrivacyPolicyScreen}
+          options={({ navigation }) => ({
+            headerShown: true,
+            headerTitle: tl("سياسة الخصوصية"),
             ...getCommonStackOptions(theme, top),
           })}
         />

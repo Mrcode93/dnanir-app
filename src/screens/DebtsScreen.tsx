@@ -175,10 +175,10 @@ export const DebtsScreen = ({
     setDebtToPay(debt);
     setShowPayModal(true);
   };
-  const handlePayDebtConfirm = async (amount: number) => {
+  const handlePayDebtConfirm = async (amount: number, walletId?: number) => {
     if (!debtToPay) return;
     try {
-      await payDebt(debtToPay.id, amount);
+      await payDebt(debtToPay.id, amount, walletId);
       await loadDebts();
       const isOwedToMe = debtToPay.direction === 'owed_to_me';
       const message = isOwedToMe ? amount === debtToPay.remainingAmount ? tl("تم تسجيل التسديد بالكامل وتمت إضافته لرصيدك") : tl("تم تسجيل تسديد {{}} وتمت إضافته لرصيدك", [formatCurrencyAmount(amount, debtToPay.currency || 'IQD')]) : amount === debtToPay.remainingAmount ? tl("تم دفع الدين بالكامل بنجاح") : tl("تم دفع {{}} بنجاح", [formatCurrencyAmount(amount, debtToPay.currency || 'IQD')]);

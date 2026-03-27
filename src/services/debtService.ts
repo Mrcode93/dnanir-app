@@ -12,10 +12,12 @@ import {
   addExpense,
   addIncome,
   addDebtPayment,
+  getAppSettings,
   Debt,
   DebtInstallment,
 } from '../database/database';
-import { DEBT_TYPES } from '../types';
+import { DEBT_TYPES, CURRENCIES } from '../types';
+import { convertCurrency } from './currencyService';
 
 /**
  * Create a new debt with optional installments
@@ -68,7 +70,8 @@ export const createDebt = async (
  */
 export const payInstallment = async (
   installmentId: number,
-  amount?: number
+  amount?: number,
+  walletId?: number
 ): Promise<void> => {
   // We need to find the installment by searching all debts
   const allDebts = await getDebts();
@@ -122,23 +125,31 @@ export const payInstallment = async (
 
   const isOwedToMe = debt.direction === 'owed_to_me';
   try {
+    const appSettings = await getAppSettings();
+    const baseCurrency = appSettings?.currency ? (CURRENCIES.find(c => String(c.name).toLowerCase() === String(appSettings.currency).toLowerCase())?.code || 'IQD') : 'IQD';
+    const baseAmount = await convertCurrency(paidAmount, debt.currency || 'IQD', baseCurrency);
+
     if (isOwedToMe) {
       await addIncome({
         source: `تسديد قسط - ${debt.debtorName}`,
         amount: paidAmount,
+        base_amount: baseAmount,
         date: paidDate,
         description: `تسديد القسط رقم ${installment.installmentNumber} من ${DEBT_TYPES[debt.type]} - ${debt.debtorName}${debt.description ? ` - ${debt.description}` : ''}`,
         currency: debt.currency || 'IQD',
         category: 'other',
+        walletId,
       });
     } else {
       await addExpense({
         title: `دفع قسط - ${debt.debtorName}`,
         amount: paidAmount,
+        base_amount: baseAmount,
         category: 'bills',
         date: paidDate,
         description: `دفع القسط رقم ${installment.installmentNumber} من ${DEBT_TYPES[debt.type]} - ${debt.debtorName}${debt.description ? ` - ${debt.description}` : ''}`,
         currency: debt.currency || 'IQD',
+        walletId,
       });
     }
   } catch (error) {
@@ -149,7 +160,7 @@ export const payInstallment = async (
 /**
  * Mark a debt as fully paid
  */
-export const payDebt = async (debtId: number, amount?: number): Promise<void> => {
+export const payDebt = async (debtId: number, amount?: number, walletId?: number): Promise<void> => {
   const debt = await getDebt(debtId);
   if (!debt) {
     throw new Error('Debt not found');
@@ -201,25 +212,33 @@ export const payDebt = async (debtId: number, amount?: number): Promise<void> =>
 
   const isOwedToMe = debt.direction === 'owed_to_me';
   try {
+    const appSettings = await getAppSettings();
+    const baseCurrency = appSettings?.currency ? (CURRENCIES.find(c => String(c.name).toLowerCase() === String(appSettings.currency).toLowerCase())?.code || 'IQD') : 'IQD';
+    const baseAmount = await convertCurrency(paidAmount, debt.currency || 'IQD', baseCurrency);
+
     if (isOwedToMe) {
       await addIncome({
         source: `تسديد دين - ${debt.debtorName}`,
         amount: paidAmount,
+        base_amount: baseAmount,
         date: paidDate,
         description: amount === debt.remainingAmount
           ? `تسديد ${DEBT_TYPES[debt.type]} بالكامل - ${debt.debtorName}${debt.description ? ` - ${debt.description}` : ''}`
           : `تسديد جزئي - ${debt.debtorName}`,
         currency: debt.currency || 'IQD',
         category: 'other',
+        walletId,
       });
     } else {
       await addExpense({
         title: `دفع ${DEBT_TYPES[debt.type]} - ${debt.debtorName}`,
         amount: paidAmount,
+        base_amount: baseAmount,
         category: 'bills',
         date: paidDate,
         description: `دفع ${DEBT_TYPES[debt.type]} بالكامل - ${debt.debtorName}${debt.description ? ` - ${debt.description}` : ''}`,
         currency: debt.currency || 'IQD',
+        walletId,
       });
     }
   } catch (error) {

@@ -78,10 +78,10 @@ export const DebtDetailsScreen = ({
     if (!debt) return;
     setShowPayModal(true);
   };
-  const handlePayDebtConfirm = async (amount: number) => {
+  const handlePayDebtConfirm = async (amount: number, walletId?: number) => {
     if (!debt) return;
     try {
-      await payDebt(debt.id, amount);
+      await payDebt(debt.id, amount, walletId);
       await loadDebtData();
       const isOwedToMe = debt.direction === 'owed_to_me';
       const message = isOwedToMe ? amount === debt.remainingAmount ? tl("تم تسجيل التسديد بالكامل وتمت إضافته لرصيدك") : tl("تم تسجيل تسديد {{}} وتمت إضافته لرصيدك", [formatCurrencyAmount(amount, debt.currency || 'IQD')]) : amount === debt.remainingAmount ? tl("تم دفع الدين بالكامل بنجاح") : tl("تم دفع {{}} بنجاح", [formatCurrencyAmount(amount, debt.currency || 'IQD')]);
@@ -150,10 +150,11 @@ export const DebtDetailsScreen = ({
     advance: [theme.colors.warning, theme.colors.warning]
   };
 
+  const currentTypeIcon = (debt.type && typeIcons[debt.type as keyof typeof typeIcons]) || 'card';
+  const currentTypeColors = (debt.type && typeColors[debt.type as keyof typeof typeColors]) || theme.gradients.info;
+
   // Use green colors for paid debts, original colors for unpaid
-  const baseColors = typeColors[debt.type];
-  const colors = debt.isPaid ? theme.gradients.success // Green gradient for paid debts
-  : baseColors;
+  const colors = debt.isPaid ? theme.gradients.success : currentTypeColors;
   const paidInstallments = installments.filter(inst => inst.isPaid);
   const unpaidInstallments = installments.filter(inst => !inst.isPaid);
   const progress = debt.totalAmount > 0 ? (debt.totalAmount - debt.remainingAmount) / debt.totalAmount * 100 : 0;
@@ -187,7 +188,7 @@ export const DebtDetailsScreen = ({
       }}>
           <View style={styles.summaryTopRow}>
             <View style={styles.typeBadge}>
-              <Ionicons name={typeIcons[debt.type] as any} size={14} color="#FFFFFF" />
+              <Ionicons name={currentTypeIcon as any} size={14} color="#FFFFFF" />
               <Text style={styles.typeBadgeText}>
                 {debt.direction === 'owed_to_me' ? tl("يستحق لك") : tl("يستحق عليك")}
               </Text>

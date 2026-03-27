@@ -41,7 +41,7 @@ export const getBillsDueInDays = async (days: number = 7): Promise<Bill[]> => {
 export const markBillAsPaid = async (
   billId: number,
   paymentDate?: string,
-  options?: { skipAddExpense?: boolean }
+  options?: { skipAddExpense?: boolean, walletId?: number }
 ): Promise<void> => {
   const paidDate = paymentDate || new Date().toISOString();
   const dateOnly = paidDate.slice(0, 10);
@@ -58,6 +58,7 @@ export const markBillAsPaid = async (
         date: dateOnly,
         description: bill.description ? `فاتورة: ${bill.description}` : undefined,
         currency: bill.currency || 'IQD',
+        walletId: options?.walletId,
       });
     } catch (error) {
       
@@ -95,7 +96,7 @@ export const markBillAsUnpaid = async (billId: number): Promise<void> => {
 /**
  * Pay a bill (add payment record and record as expense so balance updates)
  */
-export const payBill = async (billId: number, amount: number, paymentDate?: string, description?: string): Promise<number> => {
+export const payBill = async (billId: number, amount: number, paymentDate?: string, description?: string, walletId?: number): Promise<number> => {
   const paidDate = paymentDate || new Date().toISOString();
   const dateOnly = paidDate.slice(0, 10);
 
@@ -111,6 +112,7 @@ export const payBill = async (billId: number, amount: number, paymentDate?: stri
       date: dateOnly,
       description: description || bill.description ? `فاتورة: ${bill.description || ''}` : undefined,
       currency: bill.currency || 'IQD',
+      walletId: walletId,
     });
   } catch (error) {
     
@@ -125,7 +127,7 @@ export const payBill = async (billId: number, amount: number, paymentDate?: stri
 
   const totalPaid = await getTotalPaidForBill(billId);
   if (totalPaid >= bill.amount) {
-    await markBillAsPaid(billId, paidDate, { skipAddExpense: true });
+    await markBillAsPaid(billId, paidDate, { skipAddExpense: true, walletId });
   }
 
   return paymentId;

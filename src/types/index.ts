@@ -149,6 +149,7 @@ export interface RecurringExpense {
   currency?: string;
   base_amount?: number;
   lastProcessedDate?: string;
+  walletId?: number;
   createdAt: string;
 }
 
@@ -452,6 +453,7 @@ export interface Bill {
   paidDate?: string;
   reminderDaysBefore: number;
   image_path?: string; // Path to stored bill image
+  walletId?: number;
   createdAt: string;
 }
 

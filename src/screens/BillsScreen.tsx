@@ -261,12 +261,6 @@ export const BillsScreen = ({
               <View style={styles.billActions}>
                 <TouchableOpacity onPress={e => {
                 e.stopPropagation();
-                handleTogglePaid(item);
-              }} style={[styles.actionBtn, item.isPaid && styles.actionBtnActive]} hitSlop={8}>
-                  <Ionicons name={item.isPaid ? 'checkmark-circle' : 'ellipse-outline'} size={18} color={item.isPaid ? theme.colors.success : theme.colors.textSecondary} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={e => {
-                e.stopPropagation();
                 handleEdit(item);
               }} style={styles.actionBtn} hitSlop={8}>
                   <Ionicons name="pencil-outline" size={16} color={theme.colors.textSecondary} />

@@ -21,6 +21,13 @@ import { getCustomCategories } from '../database/database';
 import { convertArabicToEnglish, formatNumberWithCommas } from '../utils/numbers';
 import { AppBottomSheet, AppButton, AppInput } from '../design-system';
 import { Platform } from 'react-native';
+import { useWallets } from '../context/WalletContext';
+import { isRTL } from '../utils/rtl';
+import { useCurrency } from '../hooks/useCurrency';
+import { convertCurrency } from '../services/currencyService';
+import { getAppSettings } from '../database/database';
+import { CURRENCIES } from '../types';
+import { CurrencyPickerModal } from './CurrencyPickerModal';
 
 interface AddRecurringExpenseModalProps {
   visible: boolean;
@@ -50,6 +57,12 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
   const [customCategories, setCustomCategories] = useState<any[]>([]);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showRecurrencePicker, setShowRecurrencePicker] = useState(false);
+  const { wallets } = useWallets();
+  const [walletId, setWalletId] = useState<number | undefined>(undefined);
+  const { currencyCode } = useCurrency();
+  const [currency, setCurrency] = useState<string>(currencyCode);
+  const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
+  const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
 
   useEffect(() => {
     loadCustomCategories();
@@ -63,10 +76,32 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
       setEndDate(editingExpense.endDate ? new Date(editingExpense.endDate) : null);
       setHasEndDate(!!editingExpense.endDate);
       setDescription(editingExpense.description || '');
+      setWalletId(editingExpense.walletId);
+      setCurrency(editingExpense.currency || currencyCode);
     } else {
       resetForm();
+      const defaultW = wallets.find(w => w.isDefault) || wallets[0];
+      setWalletId(defaultW?.id);
+      setCurrency(currencyCode);
     }
-  }, [editingExpense, visible]);
+  }, [editingExpense, visible, wallets, currencyCode]);
+
+  useEffect(() => {
+    const calcBase = async () => {
+      const cleanAmount = amount.replace(/,/g, '');
+      if (cleanAmount && !isNaN(Number(cleanAmount)) && Number(cleanAmount) > 0) {
+        if (currency !== currencyCode) {
+          const converted = await convertCurrency(Number(cleanAmount), currency, currencyCode);
+          setConvertedAmount(converted);
+        } else {
+          setConvertedAmount(null);
+        }
+      } else {
+        setConvertedAmount(null);
+      }
+    };
+    calcBase();
+  }, [amount, currency, currencyCode]);
 
   const loadCustomCategories = async () => {
     try {
@@ -125,6 +160,9 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
         endDate: hasEndDate && endDate ? endDate.toISOString().split('T')[0] : undefined,
         description: description.trim(),
         isActive: true,
+        walletId: walletId,
+        currency: currency,
+        base_amount: convertedAmount !== null ? convertedAmount : Number(cleanAmount),
       };
 
       if (editingExpense) {
@@ -195,6 +233,16 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
             icon="cash-outline"
             style={styles.input}
           />
+          {convertedAmount !== null && (
+            <Text style={styles.convertedText}>≈ {convertedAmount.toLocaleString('en-US', { maximumFractionDigits: 0 })} {currencyCode}</Text>
+          )}
+          <TouchableOpacity 
+            style={styles.currencyToggle}
+            onPress={() => setShowCurrencyPicker(true)}
+          >
+            <Text style={styles.currencyToggleText}>{currency}</Text>
+            <Ionicons name="chevron-down" size={12} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.formGroup}>
@@ -361,6 +409,44 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
             style={styles.input}
           />
         </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>المحفظة المستخدمة</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.walletsContainer}
+            style={{ marginBottom: 16 }}
+          >
+            {wallets.map(wallet => (
+              <TouchableOpacity
+                key={wallet.id}
+                style={[
+                  styles.walletChip,
+                  walletId === wallet.id && {
+                    borderColor: wallet.color || theme.colors.primary,
+                    backgroundColor: (wallet.color || theme.colors.primary) + '10',
+                    borderWidth: 2
+                  }
+                ]}
+                onPress={() => setWalletId(wallet.id)}
+              >
+                <Ionicons
+                  name={wallet.icon as any || 'wallet'}
+                  size={18}
+                  color={walletId === wallet.id ? (wallet.color || theme.colors.primary) : theme.colors.textSecondary}
+                />
+                <Text style={[
+                  styles.walletChipText,
+                  walletId === wallet.id && {
+                    color: wallet.color || theme.colors.primary,
+                    fontWeight: '700'
+                  }
+                ]}>{wallet.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
         {/* Save Button */}
         <View style={[styles.actions, { borderTopWidth: 0, marginTop: 20 }]}>
           <AppButton
@@ -379,6 +465,17 @@ export const AddRecurringExpenseModal: React.FC<AddRecurringExpenseModalProps> =
           />
         </View>
       </ScrollView>
+
+      {/* Currency Picker Modal */}
+      <CurrencyPickerModal
+        visible={showCurrencyPicker}
+        selectedCurrency={currency}
+        onSelect={(code) => {
+          setCurrency(code);
+          setShowCurrencyPicker(false);
+        }}
+        onClose={() => setShowCurrencyPicker(false)}
+      />
     </AppBottomSheet>
   );
 };
@@ -485,5 +582,55 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   actionButton: {
     flex: 1,
+  },
+  convertedText: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+    marginTop: 4,
+    textAlign: isRTL ? 'right' : 'left',
+  },
+  currencyToggle: {
+    position: 'absolute',
+    right: isRTL ? undefined : 12,
+    left: isRTL ? 12 : undefined,
+    top: 40,
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  currencyToggleText: {
+    fontSize: 12,
+    color: theme.colors.textPrimary,
+    fontWeight: 'bold',
+  },
+  walletsContainer: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    gap: 10,
+    paddingBottom: 4,
+  },
+  walletChip: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 16,
+    backgroundColor: theme.colors.surfaceLight,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    gap: 8,
+    minWidth: 100,
+    justifyContent: 'center',
+  },
+  walletChipText: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
   },
 });

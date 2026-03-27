@@ -253,19 +253,11 @@ export const initDatabase = async () => {
         walletId INTEGER
       );
     `);
-    try {
-      await db.execAsync('ALTER TABLE recurring_expenses ADD COLUMN base_amount REAL;');
-      await db.execAsync('UPDATE recurring_expenses SET base_amount = amount WHERE base_amount IS NULL;');
-    } catch (e) { }
-    try {
-      await db.execAsync('ALTER TABLE recurring_expenses ADD COLUMN currency TEXT DEFAULT "IQD";');
-    } catch (e) { }
-    try {
-      await db.execAsync('ALTER TABLE recurring_expenses ADD COLUMN synced_at INTEGER;');
-    } catch (e) { }
-    try {
-      await db.execAsync('ALTER TABLE recurring_expenses ADD COLUMN walletId INTEGER;');
-    } catch (e) { }
+    await addColumnIfNeeded('recurring_expenses', 'base_amount', 'REAL');
+    await db.execAsync('UPDATE recurring_expenses SET base_amount = amount WHERE base_amount IS NULL;');
+    await addColumnIfNeeded('recurring_expenses', 'currency', 'TEXT DEFAULT "IQD"');
+    await addColumnIfNeeded('recurring_expenses', 'synced_at', 'INTEGER');
+    await addColumnIfNeeded('recurring_expenses', 'walletId', 'INTEGER');
 
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS exchange_rates (
@@ -473,6 +465,7 @@ export const initDatabase = async () => {
     await addColumnIfNeeded('bills', 'image_path', 'TEXT');
     await addColumnIfNeeded('bills', 'base_amount', 'REAL');
     await addColumnIfNeeded('bills', 'synced_at', 'INTEGER');
+    await addColumnIfNeeded('bills', 'walletId', 'INTEGER');
 
     // Initialize missing records
     await db.execAsync('UPDATE bills SET base_amount = amount WHERE base_amount IS NULL;');
@@ -2361,6 +2354,7 @@ export interface RecurringExpense {
   currency?: string;
   base_amount?: number;
   lastProcessedDate?: string;
+  walletId?: number;
   createdAt: string;
 }
 
@@ -2372,7 +2366,7 @@ export const addRecurringExpense = async (expense: Omit<RecurringExpense, 'id' |
   if (isNaN(baseAmount)) baseAmount = expense.amount;
 
   const result = await database.runAsync(
-    'INSERT INTO recurring_expenses (title, amount, base_amount, category, recurrenceType, recurrenceValue, startDate, endDate, description, isActive, lastProcessedDate, createdAt, currency) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO recurring_expenses (title, amount, base_amount, category, recurrenceType, recurrenceValue, startDate, endDate, description, isActive, lastProcessedDate, createdAt, currency, walletId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     [
       expense.title,
       expense.amount,
@@ -2387,6 +2381,7 @@ export const addRecurringExpense = async (expense: Omit<RecurringExpense, 'id' |
       expense.lastProcessedDate || null,
       createdAt,
       expense.currency || 'IQD',
+      expense.walletId || null,
     ]
   );
   return result.lastInsertRowId;
@@ -2481,6 +2476,10 @@ export const updateRecurringExpense = async (id: number, expense: Partial<Recurr
   if (expense.base_amount !== undefined) {
     updates.push('base_amount = ?');
     values.push(expense.base_amount);
+  }
+  if (expense.walletId !== undefined) {
+    updates.push('walletId = ?');
+    values.push(expense.walletId || null);
   }
 
   if (updates.length > 0) {
@@ -3515,6 +3514,7 @@ export interface Bill {
   paidDate?: string;
   reminderDaysBefore: number;
   image_path?: string;
+  walletId?: number;
   createdAt: string;
 }
 
@@ -3535,7 +3535,7 @@ export const addBill = async (bill: Omit<Bill, 'id' | 'createdAt'>): Promise<num
   if (isNaN(baseAmount)) baseAmount = bill.amount;
 
   const result = await database.runAsync(
-    'INSERT INTO bills (title, amount, base_amount, category, dueDate, recurrenceType, recurrenceValue, description, currency, isPaid, paidDate, reminderDaysBefore, image_path, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO bills (title, amount, base_amount, category, dueDate, recurrenceType, recurrenceValue, description, currency, isPaid, paidDate, reminderDaysBefore, image_path, walletId, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     [
       bill.title,
       bill.amount,
@@ -3550,6 +3550,7 @@ export const addBill = async (bill: Omit<Bill, 'id' | 'createdAt'>): Promise<num
       bill.paidDate || null,
       bill.reminderDaysBefore || 3,
       bill.image_path || null,
+      bill.walletId || null,
       createdAt,
     ]
   );
@@ -3636,6 +3637,10 @@ export const updateBill = async (id: number, bill: Partial<Bill>): Promise<void>
   if (bill.image_path !== undefined) {
     updates.push('image_path = ?');
     values.push(bill.image_path || null);
+  }
+  if (bill.walletId !== undefined) {
+    updates.push('walletId = ?');
+    values.push(bill.walletId || null);
   }
 
   if (updates.length > 0) {

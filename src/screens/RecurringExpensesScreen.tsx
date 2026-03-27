@@ -6,9 +6,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { AppTheme, getPlatformFontWeight, getPlatformShadow, useAppTheme, useThemedStyles } from '../utils/theme';
 import { getRecurringExpenses, deleteRecurringExpense, RecurringExpense } from '../database/database';
 import { useCurrency } from '../hooks/useCurrency';
-import { getNextOccurrenceDate } from '../services/recurringExpenseService';
+import { getNextOccurrenceDate, processSingleRecurringExpense } from '../services/recurringExpenseService';
 import { AddRecurringExpenseModal } from '../components/AddRecurringExpenseModal';
+import { PayBillModal } from '../components/PayBillModal';
 import { ConfirmAlert } from '../components/ConfirmAlert';
+import { useWallets } from '../context/WalletContext';
 import { EXPENSE_CATEGORIES } from '../types';
 import { getCustomCategories } from '../database/database';
 import { ScreenContainer } from '../design-system';
@@ -33,6 +35,10 @@ export const RecurringExpensesScreen = ({
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState<RecurringExpense | null>(null);
   const [customCategories, setCustomCategories] = useState<any[]>([]);
+  const { wallets } = useWallets();
+  const [payingExpense, setPayingExpense] = useState<RecurringExpense | null>(null);
+  const [showPayModal, setShowPayModal] = useState(false);
+  const [payLoading, setPayLoading] = useState(false);
   const loadRecurringExpenses = useCallback(async () => {
     try {
       const expenses = await getRecurringExpenses();
@@ -81,6 +87,23 @@ export const RecurringExpensesScreen = ({
     setEditingExpense(null);
     setShowAddModal(true);
   };
+  const handlePay = (expense: RecurringExpense) => {
+    setPayingExpense(expense);
+    setShowPayModal(true);
+  };
+  const handlePayConfirm = async (walletId: number) => {
+    if (payingExpense) {
+      setPayLoading(true);
+      try {
+        await processSingleRecurringExpense(payingExpense, walletId);
+        loadRecurringExpenses();
+        setShowPayModal(false);
+        setPayingExpense(null);
+      } catch (error) {} finally {
+        setPayLoading(false);
+      }
+    }
+  };
   const handleModalClose = () => {
     setShowAddModal(false);
     setEditingExpense(null);
@@ -108,12 +131,23 @@ export const RecurringExpensesScreen = ({
   }) => {
     const nextOccurrence = getNextOccurrenceDate(item);
     const nextDate = nextOccurrence ? new Date(nextOccurrence).toLocaleDateString(language === 'ar' ? 'ar-IQ-u-nu-latn' : 'en-US') : tl("انتهى");
+    const itemWallet = wallets.find(w => w.id === item.walletId);
     return <LinearGradient colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]} style={styles.expenseCard}>
         <View style={styles.cardContent}>
           <View style={styles.cardHeader}>
             <View style={styles.cardInfo}>
               <Text style={styles.expenseTitle}>{item.title}</Text>
-              <Text style={styles.expenseCategory}>{getCategoryName(item.category)}</Text>
+              <View style={styles.categoryRow}>
+                <Text style={styles.expenseCategory}>{getCategoryName(item.category)}</Text>
+                {itemWallet && <View style={[styles.walletPill, {
+                backgroundColor: (itemWallet.color || theme.colors.primary) + '15'
+              }]}>
+                    <Ionicons name={itemWallet.icon as any || 'wallet'} size={12} color={itemWallet.color || theme.colors.primary} />
+                    <Text style={[styles.walletPillText, {
+                  color: itemWallet.color || theme.colors.primary
+                }]}>{itemWallet.name}</Text>
+                  </View>}
+              </View>
             </View>
             <View style={styles.amountContainer}>
               <Text style={styles.expenseAmount}>{formatCurrency(item.amount)}</Text>
@@ -135,13 +169,24 @@ export const RecurringExpensesScreen = ({
           </View>
 
           <View style={styles.cardActions}>
+            <TouchableOpacity style={[styles.actionButton, {
+            backgroundColor: theme.colors.primary + '10',
+            flex: 1.5
+          }]} onPress={() => handlePay(item)}>
+              <Ionicons name="checkmark-circle" size={18} color={theme.colors.primary} />
+              <Text style={[styles.actionText, {
+              color: theme.colors.primary,
+              fontWeight: '800'
+            }]}>{tl("دفع الآن")}</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.actionButton} onPress={() => handleEdit(item)}>
-              <Ionicons name="pencil" size={18} color={theme.colors.primary} />
-              <Text style={styles.actionText}>{tl("تعديل")}</Text>
+              <Ionicons name="pencil-outline" size={18} color={theme.colors.textSecondary} />
+              <Text style={[styles.actionText, {
+              color: theme.colors.textSecondary
+            }]}>{tl("تعديل")}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.actionButton, styles.deleteButton]} onPress={() => handleDelete(item)}>
-              <Ionicons name="trash" size={18} color="#EF4444" />
-              <Text style={[styles.actionText, styles.deleteText]}>{tl("حذف")}</Text>
+              <Ionicons name="trash-outline" size={18} color="#EF4444" />
             </TouchableOpacity>
           </View>
         </View>
@@ -157,6 +202,8 @@ export const RecurringExpensesScreen = ({
       <FAB icon="plus" style={styles.fab} onPress={handleAdd} color={theme.colors.textInverse} />
 
       <AddRecurringExpenseModal visible={showAddModal} onClose={handleModalClose} editingExpense={editingExpense} />
+
+      <PayBillModal visible={showPayModal} onClose={() => setShowPayModal(false)} bill={payingExpense} onPay={handlePayConfirm} loading={payLoading} />
 
       <ConfirmAlert visible={showDeleteAlert} onCancel={() => {
       setShowDeleteAlert(false);
@@ -265,6 +312,25 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   deleteText: {
     color: '#DC2626'
+  },
+  categoryRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap'
+  },
+  walletPill: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    gap: 4
+  },
+  walletPillText: {
+    fontSize: 10,
+    fontWeight: getPlatformFontWeight('700'),
+    fontFamily: theme.typography.fontFamily
   },
   fab: {
     position: 'absolute',

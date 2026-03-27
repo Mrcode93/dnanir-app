@@ -40,9 +40,12 @@ export const processRecurringExpenses = async (): Promise<number> => {
       await addExpense({
         title: recurring.title,
         amount: recurring.amount,
+        base_amount: recurring.base_amount,
         category: recurring.category,
         date: expenseDate,
         description: recurring.description || `مصروف متكرر: ${recurring.title}`,
+        currency: recurring.currency || 'IQD',
+        walletId: recurring.walletId,
       });
 
       // Update last processed date
@@ -55,6 +58,30 @@ export const processRecurringExpenses = async (): Promise<number> => {
   }
 
   return processedCount;
+};
+
+/**
+ * Process a single recurring expense manually
+ */
+export const processSingleRecurringExpense = async (recurring: RecurringExpense, walletId?: number): Promise<void> => {
+  const today = new Date();
+  const expenseDate = today.toISOString().split('T')[0];
+
+  await addExpense({
+    title: recurring.title,
+    amount: recurring.amount,
+    base_amount: recurring.base_amount,
+    category: recurring.category,
+    date: expenseDate,
+    description: recurring.description || `دفع يدوي للمصروف المتكرر: ${recurring.title}`,
+    currency: recurring.currency || 'IQD',
+    walletId: walletId || recurring.walletId,
+  });
+
+  // Update last processed date
+  await updateRecurringExpense(recurring.id, {
+    lastProcessedDate: expenseDate,
+  });
 };
 
 /**

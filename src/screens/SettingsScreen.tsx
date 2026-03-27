@@ -1196,6 +1196,18 @@ export const SettingsScreen = ({
 
             <View style={styles.compactRowDivider} />
 
+            <TouchableOpacity style={styles.compactRow} onPress={() => navigation.navigate('PrivacyPolicy')}>
+              <View style={[styles.compactIconContainer, { backgroundColor: '#3B82F610' }]}>
+                <Ionicons name="shield-checkmark" size={20} color="#3B82F6" />
+              </View>
+              <View style={styles.compactRowContent}>
+                <Text style={styles.compactRowText}>{tl("سياسة الخصوصية")}</Text>
+                <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={theme.colors.textMuted} />
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.compactRowDivider} />
+
             <View style={styles.compactRow}>
               <View style={styles.compactIconContainer}>
                 <Ionicons name="information-circle" size={20} color={theme.colors.textSecondary} />
