@@ -178,172 +178,176 @@ export const AddGoalScreen: React.FC<AddGoalScreenProps> = ({
   return <ScreenContainer scrollable edges={['bottom', 'left', 'right']} scrollPadBottom={32} style={{
     backgroundColor: theme.colors.surfaceCard
   }}>
-      {/* Header */}
-      <AppHeader title={editingGoal ? tl("تعديل الهدف") : tl("إضافة هدف جديد")} onBack={handleClose} backIcon={isRTL ? 'chevron-back' : 'chevron-forward'} action={<View style={[styles.headerIcon, {
+    <AppHeader title={editingGoal ? tl("تعديل الهدف") : tl("إضافة هدف جديد")} onBack={handleClose} backIcon={isRTL ? 'chevron-back' : 'chevron-forward'} action={<View style={[styles.headerIcon, {
       backgroundColor: categoryColors[category][0] + '20'
     }]}>
-            <Ionicons name={categoryIcons[category] as any} size={24} color={categoryColors[category][0]} />
-          </View>} />
+      <Ionicons name={categoryIcons[category] as any} size={24} color={categoryColors[category][0]} />
+    </View>} />
 
+    <View style={styles.formContainer}>
       {/* Title Input */}
       <View style={styles.inputCard}>
-        <View style={styles.inputHeader}>
-          <Ionicons name="bookmark-outline" size={20} color={theme.colors.primary} />
-          <Text style={styles.inputLabel}>{tl("عنوان الهدف")}</Text>
+      <View style={styles.inputHeader}>
+        <Ionicons name="bookmark-outline" size={20} color={theme.colors.primary} />
+        <Text style={styles.inputLabel}>{tl("عنوان الهدف")}</Text>
+      </View>
+      <TextInput style={styles.textInput} value={title} onChangeText={setTitle} placeholder={tl("مثال: توفير لسيارة جديدة")} placeholderTextColor={theme.colors.textMuted} />
+    </View>
+
+    {/* Amount Card */}
+    <View style={styles.amountCard}>
+      <View style={styles.amountHeader}>
+        <View style={styles.amountIconBg}>
+          <Ionicons name="flag-outline" size={24} color={categoryColors[category][0]} />
         </View>
-        <TextInput style={styles.textInput} value={title} onChangeText={setTitle} placeholder={tl("مثال: توفير لسيارة جديدة")} placeholderTextColor={theme.colors.textMuted} />
+        <Text style={styles.amountLabel}>{tl("المبلغ المستهدف")}</Text>
       </View>
 
-      {/* Amount Card */}
-      <View style={styles.amountCard}>
-        <View style={styles.amountHeader}>
-          <View style={styles.amountIconBg}>
-            <Ionicons name="flag-outline" size={24} color={categoryColors[category][0]} />
-          </View>
-          <Text style={styles.amountLabel}>{tl("المبلغ المستهدف")}</Text>
-        </View>
-
-        <View style={styles.amountInputContainer}>
-          <TextInput ref={amountInputRef} style={styles.amountInput} value={targetAmount} onChangeText={val => {
+      <View style={styles.amountInputContainer}>
+        <TextInput ref={amountInputRef} style={styles.amountInput} value={targetAmount} onChangeText={val => {
           const cleaned = convertArabicToEnglish(val);
           setTargetAmount(formatNumberWithCommas(cleaned));
         }} placeholder="0" placeholderTextColor={theme.colors.textMuted} keyboardType="decimal-pad" />
         <Text style={[styles.currencyLabel, {
           color: categoryColors[category][0]
         }]}>
-            {CURRENCIES.find(c => c.code === currency)?.symbol || tl("د.ع")}
-          </Text>
-        </View>
+          {CURRENCIES.find(c => c.code === currency)?.symbol || tl("د.ع")}
+        </Text>
+      </View>
 
-        {convertedTargetAmount !== null && currency !== currencyCode && <Text style={styles.convertedAmountText}>
-            ≈ {formatCurrency(convertedTargetAmount)}
-          </Text>}
+      {convertedTargetAmount !== null && currency !== currencyCode && <Text style={styles.convertedAmountText}>
+        ≈ {formatCurrency(convertedTargetAmount)}
+      </Text>}
 
-        {/* Current Amount */}
-        <View style={styles.currentAmountRow}>
-          <Text style={styles.currentAmountLabel}>{tl("المبلغ الحالي:")}</Text>
-          <View style={styles.currentAmountInput}>
-            <TextInput ref={currentAmountInputRef} style={styles.currentAmountTextInput} value={currentAmount} onChangeText={val => {
+      {/* Current Amount */}
+      <View style={styles.currentAmountRow}>
+        <Text style={styles.currentAmountLabel}>{tl("المبلغ الحالي:")}</Text>
+        <View style={styles.currentAmountInput}>
+          <TextInput ref={currentAmountInputRef} style={styles.currentAmountTextInput} value={currentAmount} onChangeText={val => {
             const cleaned = convertArabicToEnglish(val);
             setCurrentAmount(formatNumberWithCommas(cleaned));
           }} placeholder="0" placeholderTextColor={theme.colors.textMuted} keyboardType="decimal-pad" />
-            <Text style={styles.currentAmountCurrency}>
-              {CURRENCIES.find(c => c.code === currency)?.symbol}
-            </Text>
-          </View>
+          <Text style={styles.currentAmountCurrency}>
+            {CURRENCIES.find(c => c.code === currency)?.symbol}
+          </Text>
         </View>
-
-        {/* Currency Selection */}
-        <AppButton label={getCurrencyDisplayName(currency)} onPress={() => setShowCurrencyPicker(true)} variant="secondary" leftIcon="cash-outline" rightIcon="chevron-down" style={styles.currencySelector} labelStyle={styles.currencySelectorText} />
       </View>
 
-      {/* Category Selection */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>{tl("نوع الهدف")}</Text>
-        <View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoriesRow}
-            style={[styles.categoriesScrollView, isRTL && { transform: [{ scaleX: -1 }] }]}
-          >
-            {categories.map(([catKey, catInfo]) => {
-              const isSelected = category === catKey;
-              return (
-                <TouchableOpacity
-                  key={catKey}
-                  onPress={() => setCategory(catKey)}
-                  activeOpacity={0.7}
+      {/* Currency Selection */}
+      <AppButton label={getCurrencyDisplayName(currency)} onPress={() => setShowCurrencyPicker(true)} variant="secondary" leftIcon="cash-outline" rightIcon="chevron-down" style={styles.currencySelector} labelStyle={styles.currencySelectorText} />
+    </View>
+
+    {/* Category Selection */}
+    <View style={styles.section}>
+      <Text style={styles.sectionLabel}>{tl("نوع الهدف")}</Text>
+      <View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoriesRow}
+          style={[styles.categoriesScrollView, isRTL && { transform: [{ scaleX: -1 }] }]}
+        >
+          {categories.map(([catKey, catInfo]) => {
+            const isSelected = category === catKey;
+            return (
+              <TouchableOpacity
+                key={catKey}
+                onPress={() => setCategory(catKey)}
+                activeOpacity={0.7}
+                style={[
+                  styles.categoryCard,
+                  isSelected && { backgroundColor: categoryColors[catKey][0] },
+                  isRTL && { transform: [{ scaleX: -1 }] }
+                ]}
+              >
+                <Ionicons
+                  name={(isSelected ? categoryIcons[catKey] : `${categoryIcons[catKey]}-outline`) as any}
+                  size={20}
+                  color={isSelected ? '#FFFFFF' : categoryColors[catKey][0]}
+                />
+                <Text
                   style={[
-                    styles.categoryCard,
-                    isSelected && { backgroundColor: categoryColors[catKey][0] },
-                    isRTL && { transform: [{ scaleX: -1 }] }
+                    styles.categoryCardLabel,
+                    isSelected && styles.categoryCardLabelActive
                   ]}
                 >
-                  <Ionicons
-                    name={(isSelected ? categoryIcons[catKey] : `${categoryIcons[catKey]}-outline`) as any}
-                    size={20}
-                    color={isSelected ? '#FFFFFF' : categoryColors[catKey][0]}
-                  />
-                  <Text
-                    style={[
-                      styles.categoryCardLabel,
-                      isSelected && styles.categoryCardLabelActive
-                    ]}
-                  >
-                    {tl(catInfo.label)}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
+                  {tl(catInfo.label)}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
+    </View>
 
-      {/* Target Date */}
-      <View style={styles.section}>
-        <View style={styles.optionRow}>
-          <View style={styles.optionInfo}>
-            <View style={styles.optionIconContainer}>
-              <Ionicons name="calendar" size={18} color={theme.colors.primary} />
-            </View>
-            <View>
-              <Text style={styles.optionTitle}>{tl("تاريخ الهدف")}</Text>
-              <Text style={styles.optionSubtitle}>{tl("حدد موعد لتحقيق هدفك")}</Text>
-            </View>
+    {/* Target Date */}
+    <View style={styles.section}>
+      <View style={styles.optionRow}>
+        <View style={styles.optionInfo}>
+          <View style={styles.optionIconContainer}>
+            <Ionicons name="calendar" size={18} color={theme.colors.primary} />
           </View>
-          <Switch value={hasTargetDate} onValueChange={setHasTargetDate} trackColor={{
+          <View>
+            <Text style={styles.optionTitle}>{tl("تاريخ الهدف")}</Text>
+            <Text style={styles.optionSubtitle}>{tl("حدد موعد لتحقيق هدفك")}</Text>
+          </View>
+        </View>
+        <Switch value={hasTargetDate} onValueChange={setHasTargetDate} trackColor={{
           false: '#767577',
           true: categoryColors[category][0]
         }} thumbColor={hasTargetDate ? '#FFFFFF' : '#f4f3f4'} />
-        </View>
+      </View>
 
-        {hasTargetDate && <AppButton label={targetDate ? targetDate.toLocaleDateString(language === 'ar' ? 'ar-IQ-u-nu-latn' : 'en-US', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
+      {hasTargetDate && <AppButton label={targetDate ? targetDate.toLocaleDateString(language === 'ar' ? 'ar-IQ-u-nu-latn' : 'en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
       }) : tl("اختر التاريخ")} onPress={() => setShowDatePicker(true)} variant="secondary" leftIcon="calendar-outline" style={styles.dateSelector} labelStyle={styles.dateValue} />}
 
-        {showDatePicker && <CustomDatePicker value={targetDate || new Date()} onChange={(event, selectedDate) => {
+      {showDatePicker && <CustomDatePicker value={targetDate || new Date()} onChange={(event, selectedDate) => {
         if (selectedDate) {
           setTargetDate(selectedDate);
         }
         if (Platform.OS === 'android') setShowDatePicker(false);
       }} onClose={() => setShowDatePicker(false)} minimumDate={new Date()} />}
-      </View>
+    </View>
 
-      {/* Description */}
-      <View style={styles.inputCard}>
-        <View style={styles.inputHeader}>
-          <Ionicons name="document-text-outline" size={20} color={theme.colors.primary} />
-          <Text style={styles.inputLabel}>{tl("وصف (اختياري)")}</Text>
-        </View>
-        <TextInput style={[styles.textInput, styles.textArea]} value={description} onChangeText={setDescription} placeholder={tl("أضف ملاحظات حول هدفك...")} placeholderTextColor={theme.colors.textMuted} multiline numberOfLines={3} />
+    {/* Description */}
+    <View style={styles.inputCard}>
+      <View style={styles.inputHeader}>
+        <Ionicons name="document-text-outline" size={20} color={theme.colors.primary} />
+        <Text style={styles.inputLabel}>{tl("وصف (اختياري)")}</Text>
       </View>
+      <TextInput style={[styles.textInput, styles.textArea]} value={description} onChangeText={setDescription} placeholder={tl("أضف ملاحظات حول هدفك...")} placeholderTextColor={theme.colors.textMuted} multiline numberOfLines={3} />
+    </View>
 
-      {/* Completed Checkbox (only for editing) */}
-      {editingGoal && <View style={styles.section}>
-          <TouchableOpacity style={styles.checkboxContainer} onPress={() => setCompleted(!completed)} activeOpacity={0.7}>
-            <Ionicons name={completed ? "checkbox" : "checkbox-outline"} size={26} color={completed ? categoryColors[category][0] : theme.colors.textSecondary} />
-            <Text style={styles.checkboxLabel}>{tl("تم إنجاز الهدف")}</Text>
-          </TouchableOpacity>
-        </View>}
-      {/* Save Button */}
-      <View style={{
-      paddingHorizontal: 16,
+    {/* Completed Checkbox (only for editing) */}
+    {editingGoal && <View style={styles.section}>
+      <TouchableOpacity style={styles.checkboxContainer} onPress={() => setCompleted(!completed)} activeOpacity={0.7}>
+        <Ionicons name={completed ? "checkbox" : "checkbox-outline"} size={26} color={completed ? categoryColors[category][0] : theme.colors.textSecondary} />
+        <Text style={styles.checkboxLabel}>{tl("تم إنجاز الهدف")}</Text>
+      </TouchableOpacity>
+    </View>}
+    {/* Save Button */}
+    <View style={{
       marginTop: 12,
       marginBottom: 20
     }}>
-        {saveFooter}
-      </View>
+      {saveFooter}
+    </View>
+    </View>
 
-      <CurrencyPickerModal visible={showCurrencyPicker} selectedCurrency={currency} onSelect={code => {
+    <CurrencyPickerModal visible={showCurrencyPicker} selectedCurrency={currency} onSelect={code => {
       setCurrency(code);
       setShowCurrencyPicker(false);
     }} onClose={() => setShowCurrencyPicker(false)} />
-    </ScreenContainer>;
+  </ScreenContainer>;
 };
 const createStyles = (theme: AppTheme) => StyleSheet.create({
+  formContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16
+  },
   headerIcon: {
     width: 44,
     height: 44,
@@ -613,7 +617,9 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontSize: theme.typography.sizes.md,
     fontWeight: getPlatformFontWeight('600'),
     color: theme.colors.textPrimary,
-    fontFamily: theme.typography.fontFamily
+    fontFamily: theme.typography.fontFamily,
+    lineHeight: 26, // Generous breathing room
+    writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   optionSubtitle: {
     fontSize: theme.typography.sizes.sm,
@@ -623,18 +629,24 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   dateSelector: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    gap: theme.spacing.md,
+    justifyContent: isRTL ? 'flex-start' : 'flex-end',
+    gap: 12,
     backgroundColor: theme.colors.surfaceLight,
-    padding: theme.spacing.md,
-    borderRadius: 12,
-    marginTop: theme.spacing.md
+    height: 60, // Tall enough for any Arabic font size/style
+    borderRadius: 16,
+    marginTop: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border + '30',
+    paddingHorizontal: 16
   },
   dateValue: {
     flex: 1,
     fontSize: theme.typography.sizes.md,
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
-    textAlign: isRTL ? 'right' : 'left'
+    textAlign: isRTL ? 'right' : 'left',
+    lineHeight: 26, // Generous breathing room
+    writingDirection: isRTL ? 'rtl' : 'ltr'
   },
   checkboxContainer: {
     flexDirection: isRTL ? 'row-reverse' : 'row',

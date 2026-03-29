@@ -457,6 +457,10 @@ export const initDatabase = async () => {
         paidDate TEXT,
         reminderDaysBefore INTEGER DEFAULT 3,
         image_path TEXT,
+        base_amount REAL,
+        synced_at INTEGER,
+        walletId INTEGER,
+        enc_blob TEXT,
         createdAt TEXT NOT NULL
       );
     `);
@@ -466,6 +470,7 @@ export const initDatabase = async () => {
     await addColumnIfNeeded('bills', 'base_amount', 'REAL');
     await addColumnIfNeeded('bills', 'synced_at', 'INTEGER');
     await addColumnIfNeeded('bills', 'walletId', 'INTEGER');
+    await addColumnIfNeeded('bills', 'enc_blob', 'TEXT');
 
     // Initialize missing records
     await db.execAsync('UPDATE bills SET base_amount = amount WHERE base_amount IS NULL;');
@@ -530,13 +535,17 @@ export const initDatabase = async () => {
         color TEXT DEFAULT '#10B981',
         createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL,
-        synced_at INTEGER
+        base_target_amount REAL,
+        base_current_amount REAL,
+        synced_at INTEGER,
+        enc_blob TEXT
       );
     `);
 
     await addColumnIfNeeded('savings', 'base_target_amount', 'REAL');
     await addColumnIfNeeded('savings', 'base_current_amount', 'REAL');
     await addColumnIfNeeded('savings', 'synced_at', 'INTEGER');
+    await addColumnIfNeeded('savings', 'enc_blob', 'TEXT');
 
     // Initialize missing records
     await db.execAsync('UPDATE savings SET base_target_amount = targetAmount WHERE base_target_amount IS NULL;');
@@ -696,6 +705,98 @@ export const initDatabase = async () => {
     } catch (e) {
       console.error('Multi-wallet migration error:', e);
     }
+
+    // ── Sync v2 columns ────────────────────────────────────────────────────────
+    // Add versioned conflict-resolution columns to all syncable tables.
+    // Safe to run on every init — addColumnIfNeeded is a no-op when the column exists.
+    const SYNC_V2_TABLES = [
+      'expenses',
+      'income',
+      'custom_categories',
+      'financial_goals',
+      'exchange_rates',
+      'goal_plan_cache',
+      'ai_insights_cache',
+    ] as const;
+
+    for (const t of SYNC_V2_TABLES) {
+      await addColumnIfNeeded(t, 'local_id',           'TEXT');
+      await addColumnIfNeeded(t, 'device_id',          'TEXT');
+      await addColumnIfNeeded(t, 'server_id',          'TEXT');
+      await addColumnIfNeeded(t, 'sync_status',        "TEXT DEFAULT 'pending'");
+      await addColumnIfNeeded(t, 'local_created_at',   'TEXT');
+      await addColumnIfNeeded(t, 'client_created_at',  'TEXT');
+      await addColumnIfNeeded(t, 'server_received_at', 'TEXT');
+      await addColumnIfNeeded(t, 'is_deleted',         'INTEGER DEFAULT 0');
+      await addColumnIfNeeded(t, 'conflict_backup',    'TEXT');
+      await addColumnIfNeeded(t, 'version',            'INTEGER DEFAULT 0');
+    }
+
+    // Indexes for sync queries (server_id lookups, pending queue scan)
+    for (const t of SYNC_V2_TABLES) {
+      try {
+        await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_${t}_server_id     ON ${t}(server_id);`);
+        await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_${t}_sync_status   ON ${t}(sync_status);`);
+        await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_${t}_local_created ON ${t}(local_created_at);`);
+      } catch (_) { /* index already exists */ }
+    }
+
+    // ── Backfill date columns for existing rows ────────────────────────────────
+    // local_created_at / client_created_at are used for conflict resolution —
+    // they must reflect the original record date, not "now".
+    // COALESCE keeps already-set values; only fills NULLs.
+    try {
+      // expenses & income — use their 'date' column (user-perceived transaction date)
+      await db.execAsync(`
+        UPDATE expenses SET
+          local_created_at  = COALESCE(local_created_at,  date || 'T00:00:00.000Z'),
+          client_created_at = COALESCE(client_created_at, date || 'T00:00:00.000Z')
+        WHERE date IS NOT NULL;
+      `);
+      await db.execAsync(`
+        UPDATE income SET
+          local_created_at  = COALESCE(local_created_at,  date || 'T00:00:00.000Z'),
+          client_created_at = COALESCE(client_created_at, date || 'T00:00:00.000Z')
+        WHERE date IS NOT NULL;
+      `);
+      // custom_categories & financial_goals — use their 'createdAt' column
+      await db.execAsync(`
+        UPDATE custom_categories SET
+          local_created_at  = COALESCE(local_created_at,  createdAt),
+          client_created_at = COALESCE(client_created_at, createdAt)
+        WHERE createdAt IS NOT NULL;
+      `);
+      await db.execAsync(`
+        UPDATE financial_goals SET
+          local_created_at  = COALESCE(local_created_at,  createdAt),
+          client_created_at = COALESCE(client_created_at, createdAt)
+        WHERE createdAt IS NOT NULL;
+      `);
+      // exchange_rates — use updatedAt
+      await db.execAsync(`
+        UPDATE exchange_rates SET
+          local_created_at  = COALESCE(local_created_at,  updatedAt),
+          client_created_at = COALESCE(client_created_at, updatedAt)
+        WHERE updatedAt IS NOT NULL;
+      `);
+    } catch (_) { /* tables may not exist on very first install — safe to skip */ }
+
+    // ── AI cache tables are server-generated, not user data ──────────────────
+    // Mark them 'synced' so pushPending() ignores them entirely.
+    // They are populated via pull-only; users never push them.
+    try {
+      await db.execAsync(`UPDATE goal_plan_cache     SET sync_status = 'synced' WHERE sync_status = 'pending' OR sync_status IS NULL;`);
+      await db.execAsync(`UPDATE ai_insights_cache   SET sync_status = 'synced' WHERE sync_status = 'pending' OR sync_status IS NULL;`);
+    } catch (_) { /* safe to skip if table doesn't exist yet */ }
+
+    // sync_meta: tracks last_sync_at per table (updated only after a successful pull)
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS sync_meta (
+        table_name TEXT PRIMARY KEY,
+        synced_at  TEXT NOT NULL
+      );
+    `);
+
   } catch (error) {
     console.error('Database initialization error:', error);
     throw error;
@@ -3951,6 +4052,7 @@ export const exportFullData = async (): Promise<Record<string, unknown>> => {
     notifications,
     savings,
     savings_transactions,
+    debt_payments,
     debtors,
     wallets,
     ai_insights_cache,
@@ -4018,6 +4120,7 @@ export const exportFullData = async (): Promise<Record<string, unknown>> => {
     notifications,
     savings,
     savings_transactions,
+    debt_payments,
     debtors,
     wallets,
     ai_insights_cache,

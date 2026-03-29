@@ -10,6 +10,7 @@ import { isRTL } from '../utils/rtl';
 import { type AppTheme, getPlatformFontWeight, getPlatformShadow } from '../utils/theme-constants';
 import { authStorage } from '../services/authStorage';
 import { tl, useLocalization } from "../localization";
+import { IconPickerModal } from '../components/IconPickerModal';
 
 const WALLET_ICONS = ['wallet', 'card', 'cash', 'briefcase', 'gift', 'cart', 'home', 'car'];
 const WALLET_COLORS = ['#0B5A7A', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#3B82F6', '#6366F1'];
@@ -25,6 +26,7 @@ export const AddWalletScreen = ({ navigation, route }: any) => {
   const [balance, setBalance] = useState('');
   const [selectedIcon, setSelectedIcon] = useState('wallet');
   const [selectedColor, setSelectedColor] = useState(WALLET_COLORS[0]);
+  const [isIconPickerVisible, setIsIconPickerVisible] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -116,34 +118,21 @@ export const AddWalletScreen = ({ navigation, route }: any) => {
               containerStyle={styles.inputContainer}
             />
 
-            <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>{tl("الرصيد الحالي")}</Text>
-            <AppInput
-              value={balance}
-              onChangeText={setBalance}
-              placeholder="0.00"
-              keyboardType="numeric"
-              containerStyle={styles.inputContainer}
-            />
-
             <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>{tl("الأيقونة")}</Text>
-            <View style={styles.iconGrid}>
-              {WALLET_ICONS.map((icon) => (
-                <TouchableOpacity
-                  key={icon}
-                  style={[
-                    styles.iconItem,
-                    selectedIcon === icon && { borderColor: theme.colors.primary, backgroundColor: theme.colors.primary + '15' }
-                  ]}
-                  onPress={() => setSelectedIcon(icon)}
-                >
-                  <Ionicons 
-                    name={icon as any} 
-                    size={24} 
-                    color={selectedIcon === icon ? theme.colors.primary : theme.colors.textSecondary} 
-                  />
-                </TouchableOpacity>
-              ))}
-            </View>
+            <TouchableOpacity 
+              onPress={() => setIsIconPickerVisible(true)}
+              style={[styles.pickerButton, { borderColor: selectedColor + '40', backgroundColor: selectedColor + '05' }]}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.pickerIconCircle, { backgroundColor: selectedColor }]}>
+                <Ionicons name={selectedIcon as any} size={28} color="#FFF" />
+              </View>
+              <View style={styles.pickerTextContainer}>
+                <Text style={styles.pickerLabel}>{tl("تغيير الأيقونة")}</Text>
+                <Text style={styles.pickerSub}>{tl("أكثر من 50 أيقونة متاحة")}</Text>
+              </View>
+              <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color={theme.colors.textMuted} />
+            </TouchableOpacity>
 
             <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>{tl("اللون")}</Text>
             <View style={styles.colorGrid}>
@@ -175,6 +164,13 @@ export const AddWalletScreen = ({ navigation, route }: any) => {
           />
         </View>
       </KeyboardAvoidingView>
+
+      <IconPickerModal
+        visible={isIconPickerVisible}
+        selectedIcon={selectedIcon}
+        onSelect={setSelectedIcon}
+        onClose={() => setIsIconPickerVisible(false)}
+      />
     </ScreenContainer>
   );
 };
@@ -203,22 +199,39 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   inputContainer: {
     marginBottom: 20,
   },
-  iconGrid: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+  pickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1.5,
     marginBottom: 24,
-    justifyContent: 'center',
+    gap: 16,
   },
-  iconItem: {
+  pickerIconCircle: {
     width: 56,
     height: 56,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.surface,
+    ...getPlatformShadow('sm'),
+  },
+  pickerTextContainer: {
+    flex: 1,
+  },
+  pickerLabel: {
+    fontSize: 16,
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
+    marginBottom: 2,
+    textAlign: isRTL ? 'right' : 'left',
+  },
+  pickerSub: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'right' : 'left',
   },
   colorGrid: {
     flexDirection: isRTL ? 'row-reverse' : 'row',

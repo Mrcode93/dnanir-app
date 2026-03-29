@@ -79,6 +79,11 @@ export const API_ENDPOINTS = {
     ITEMS: '/api/sync/items',
     DELETE_DATA: '/api/sync/data',
   },
+  // Sync v2 — conflict-aware, versioned (push/pull per table)
+  SYNC_V2: {
+    PUSH: (table: string) => `/api/sync/v2/${table}/push`,
+    PULL: (table: string) => `/api/sync/v2/${table}/pull`,
+  },
   // Referral (Growth)
   REFERRAL: {
     INFO: '/api/referral/info',

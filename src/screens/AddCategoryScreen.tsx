@@ -9,6 +9,7 @@ import { alertService } from '../services/alertService';
 import { ScreenContainer, AppHeader, AppButton } from '../design-system';
 import { tl, useLocalization } from "../localization";
 import { isRTL } from '../utils/rtl';
+import { IconPickerModal } from '../components/IconPickerModal';
 
 interface AddCategoryScreenProps {
   navigation: any;
@@ -45,6 +46,7 @@ export const AddCategoryScreen: React.FC<AddCategoryScreenProps> = ({
   const [name, setName] = useState('');
   const [selectedIcon, setSelectedIcon] = useState('ellipse');
   const [selectedColor, setSelectedColor] = useState(COLOR_PRESETS[0]);
+  const [isIconPickerVisible, setIsIconPickerVisible] = useState(false);
 
   useEffect(() => {
     if (category) {
@@ -134,24 +136,20 @@ export const AddCategoryScreen: React.FC<AddCategoryScreenProps> = ({
 
         <View style={styles.section}>
           <Text style={styles.label}>{tl("اختر الأيقونة")}</Text>
-          <FlatList 
-            data={AVAILABLE_ICONS}
-            horizontal 
-            inverted={isRTL}
-            showsHorizontalScrollIndicator={false} 
-            style={styles.iconScroll} 
-            contentContainerStyle={styles.iconContainer}
-            keyExtractor={icon => icon}
-            renderItem={({ item: icon }) => (
-              <TouchableOpacity 
-                onPress={() => setSelectedIcon(icon)} 
-                style={[styles.iconButton, selectedIcon === icon && { borderColor: selectedColor[0], backgroundColor: selectedColor[0] + '15' }]} 
-                activeOpacity={0.7}
-              >
-                <Ionicons name={icon as any} size={24} color={selectedIcon === icon ? selectedColor[0] : theme.colors.textSecondary} />
-              </TouchableOpacity>
-            )}
-          />
+          <TouchableOpacity 
+            onPress={() => setIsIconPickerVisible(true)} 
+            style={[styles.selectedIconContainer, { borderColor: selectedColor[0] + '40', backgroundColor: selectedColor[0] + '05' }]} 
+            activeOpacity={0.7}
+          >
+            <View style={[styles.selectedIconCircle, { backgroundColor: selectedColor[0] }]}>
+              <Ionicons name={selectedIcon as any} size={32} color="#FFFFFF" />
+            </View>
+            <View style={styles.selectedIconInfo}>
+              <Text style={styles.selectedIconLabel}>{tl("تغيير الأيقونة")}</Text>
+              <Text style={styles.selectedIconSub}>{tl("أكثر من 50 أيقونة متاحة")}</Text>
+            </View>
+            <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color={theme.colors.textMuted} />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.section}>
@@ -186,6 +184,13 @@ export const AddCategoryScreen: React.FC<AddCategoryScreenProps> = ({
           {saveFooter}
         </View>
       </View>
+
+      <IconPickerModal
+        visible={isIconPickerVisible}
+        selectedIcon={selectedIcon}
+        onSelect={setSelectedIcon}
+        onClose={() => setIsIconPickerVisible(false)}
+      />
     </ScreenContainer>
   );
 };
@@ -223,23 +228,40 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   section: {
     marginBottom: theme.spacing.lg
   },
-  iconScroll: {
-    marginTop: theme.spacing.xs
-  },
-  iconContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingVertical: theme.spacing.xs
-  },
-  iconButton: {
-    width: 56,
-    height: 56,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.surfaceLight,
-    justifyContent: 'center',
+  selectedIconContainer: {
+    flexDirection: 'row', // forced RTL handles this
     alignItems: 'center',
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.surfaceLight,
+    borderRadius: theme.borderRadius.lg,
     borderWidth: 1.5,
-    borderColor: theme.colors.border
+    borderColor: theme.colors.border,
+    gap: theme.spacing.md,
+  },
+  selectedIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...getPlatformShadow('sm'),
+  },
+  selectedIconInfo: {
+    flex: 1,
+  },
+  selectedIconLabel: {
+    fontSize: theme.typography.sizes.md,
+    fontWeight: getPlatformFontWeight('700'),
+    color: theme.colors.textPrimary,
+    fontFamily: theme.typography.fontFamily,
+    marginBottom: 2,
+    textAlign: isRTL ? 'right' : 'left',
+  },
+  selectedIconSub: {
+    fontSize: theme.typography.sizes.xs,
+    color: theme.colors.textMuted,
+    fontFamily: theme.typography.fontFamily,
+    textAlign: isRTL ? 'right' : 'left',
   },
   colorScroll: {
     marginTop: theme.spacing.xs

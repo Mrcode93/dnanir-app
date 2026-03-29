@@ -124,7 +124,9 @@ keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -sto
 ابحث في المخرجات عن السطر **SHA1:** وانسخ القيمة (مثل `AA:BB:CC:...`).
 
 **ب) SHA-1 للإصدار (Release)**  
-بعد إنشاء مجلد `android` وملف الـ keystore (مثلاً `android/app/dnanir-release.keystore`):
+بعد إنشاء مجلد `android` وملف الـ keystore (مثلاً `android/app/dnanir-rexport JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
+export ANDROID_HOME=$HOME/Library/Android/sdk
+npm run build:android:apkelease.keystore`):
 
 ```bash
 export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home

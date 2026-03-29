@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, I18nManager, TouchableOpacity, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, Dimensions, Image, Linking, Share, type LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScreenContainer } from '../design-system';
+import { ScreenContainer, AppButton, AppInput } from '../design-system';
 import { List, Switch, Button } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -251,6 +251,20 @@ export const SettingsScreen = ({
       }
     } catch (error) {
       // Ignore error
+    }
+  };
+  const handleThemeModeChange = async (mode: import('../utils/theme-context').ThemeMode) => {
+    setThemeMode(mode);
+    try {
+      const appSettings = await getAppSettings();
+      const settingsToSave = appSettings || getDefaultAppSettings();
+      await upsertAppSettings({
+        ...settingsToSave,
+        themeMode: mode,
+        darkModeEnabled: mode === 'dark',
+      });
+    } catch (e) {
+      // ignore
     }
   };
   const handleNotificationsToggle = async (value: boolean) => {
@@ -734,16 +748,16 @@ export const SettingsScreen = ({
       alertService.error(tl("خطأ"), tl("حدث خطأ أثناء فتح البريد الإلكتروني"));
     }
   };
-  const handleContactWhatsApp = async () => {
+  const handleContactWhatsApp = async (number: string = CONTACT_INFO.whatsappNumber) => {
     const message = encodeURIComponent(CONTACT_INFO.whatsappMessage);
-    const whatsappUrl = `https://wa.me/${CONTACT_INFO.whatsappNumber}?text=${message}`;
+    const whatsappUrl = `https://wa.me/${number}?text=${message}`;
     try {
       const canOpen = await Linking.canOpenURL(whatsappUrl);
       if (canOpen) {
         await Linking.openURL(whatsappUrl);
       } else {
         // Fallback: try to open WhatsApp app directly
-        const whatsappAppUrl = `whatsapp://send?phone=${CONTACT_INFO.whatsappNumber}&text=${message}`;
+        const whatsappAppUrl = `whatsapp://send?phone=${number}&text=${message}`;
         try {
           await Linking.openURL(whatsappAppUrl);
         } catch {
@@ -859,7 +873,7 @@ export const SettingsScreen = ({
                   <Text style={[styles.profileTitle, { fontSize: 18, marginBottom: 0, textAlign: 'left' }]}>
                     {isAuthenticated ? (userName || tl("مستخدم دنانير")) : tl("مستخدم دنانير")}
                   </Text>
-                  {isAuthenticated && (
+                  {isAuthenticated && (userData?.isPro === true || userData?.is_pro === true) && (
                     <View style={{ backgroundColor: '#D4AF3720', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
                       <Text style={{ fontSize: 10, fontWeight: '700', color: '#B8860B', fontFamily: theme.typography.fontFamily }}>{tl("PRO")}</Text>
                     </View>
@@ -945,21 +959,21 @@ export const SettingsScreen = ({
                 <View style={styles.segmentedControl}>
                   <TouchableOpacity
                     style={[styles.segmentedOption, themeMode === 'light' && styles.segmentedOptionActive]}
-                    onPress={() => setThemeMode('light')}
+                    onPress={() => handleThemeModeChange('light')}
                   >
                     <Ionicons name="sunny" size={16} color={themeMode === 'light' ? theme.colors.primary : theme.colors.textSecondary} />
                     <Text style={[styles.segmentedOptionText, themeMode === 'light' && styles.segmentedOptionTextActive]}>{tl("فاتح")}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.segmentedOption, themeMode === 'dark' && styles.segmentedOptionActive]}
-                    onPress={() => setThemeMode('dark')}
+                    onPress={() => handleThemeModeChange('dark')}
                   >
                     <Ionicons name="moon" size={16} color={themeMode === 'dark' ? theme.colors.primary : theme.colors.textSecondary} />
                     <Text style={[styles.segmentedOptionText, themeMode === 'dark' && styles.segmentedOptionTextActive]}>{tl("داكن")}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.segmentedOption, themeMode === 'system' && styles.segmentedOptionActive]}
-                    onPress={() => setThemeMode('system')}
+                    onPress={() => handleThemeModeChange('system')}
                   >
                     <Ionicons name="phone-portrait" size={16} color={themeMode === 'system' ? theme.colors.primary : theme.colors.textSecondary} />
                     <Text style={[styles.segmentedOptionText, themeMode === 'system' && styles.segmentedOptionTextActive]}>{tl("تلقائي")}</Text>
@@ -1172,12 +1186,24 @@ export const SettingsScreen = ({
 
             <View style={styles.compactRowDivider} />
 
+            <TouchableOpacity style={styles.compactRow} onPress={() => handleContactWhatsApp(CONTACT_INFO.whatsappNumber)}>
+              <View style={[styles.compactIconContainer, { backgroundColor: '#25D36610' }]}>
+                <Ionicons name="logo-whatsapp" size={20} color="#25D366" />
+              </View>
+              <View style={styles.compactRowContent}>
+                <Text style={styles.compactRowText}>{tl("تواصل عبر الواتساب")}</Text>
+                <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={theme.colors.textMuted} />
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.compactRowDivider} />
+
             <TouchableOpacity style={styles.compactRow} onPress={handleContactEmail}>
               <View style={[styles.compactIconContainer, { backgroundColor: theme.colors.info + '10' }]}>
                 <Ionicons name="mail" size={20} color={theme.colors.info} />
               </View>
               <View style={styles.compactRowContent}>
-                <Text style={styles.compactRowText}>{tl("تواصل معنا")}</Text>
+                <Text style={styles.compactRowText}>{tl("تواصل عبر البريد")}</Text>
                 <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={theme.colors.textMuted} />
               </View>
             </TouchableOpacity>
@@ -1392,8 +1418,8 @@ export const SettingsScreen = ({
                     <Ionicons name="phone-portrait-outline" size={20} color={theme.colors.warning} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: 'DINNext-Medium', fontSize: 15, color: theme.colors.textPrimary, textAlign: 'left' }}>{tl("حذف من الجهاز فقط")}</Text>
-                    <Text style={{ fontFamily: 'DINNext-Regular', fontSize: 12, color: theme.colors.textSecondary, marginTop: 2, textAlign: 'left' }}>{tl("ستبقى النسخة على السيرفر")}</Text>
+                    <Text style={{ fontFamily: 'DINNext-Medium', fontSize: 15, color: theme.colors.textPrimary, textAlign: 'right' }}>{tl("حذف من الجهاز فقط")}</Text>
+                    <Text style={{ fontFamily: 'DINNext-Regular', fontSize: 12, color: theme.colors.textSecondary, marginTop: 2, textAlign: 'right' }}>{tl("ستبقى النسخة على السيرفر")}</Text>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -1411,8 +1437,8 @@ export const SettingsScreen = ({
                     <Ionicons name="cloud-offline-outline" size={20} color={theme.colors.error} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: 'DINNext-Medium', fontSize: 15, color: theme.colors.textPrimary, textAlign: 'left' }}>{tl("حذف من الجهاز والسيرفر")}</Text>
-                    <Text style={{ fontFamily: 'DINNext-Regular', fontSize: 12, color: theme.colors.textSecondary, marginTop: 2, textAlign: 'left' }}>{tl("سيتم حذف جميع البيانات نهائياً")}</Text>
+                    <Text style={{ fontFamily: 'DINNext-Medium', fontSize: 15, color: theme.colors.textPrimary, textAlign: 'right' }}>{tl("حذف من الجهاز والسيرفر")}</Text>
+                    <Text style={{ fontFamily: 'DINNext-Regular', fontSize: 12, color: theme.colors.textSecondary, marginTop: 2, textAlign: 'right' }}>{tl("سيتم حذف جميع البيانات نهائياً")}</Text>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -3109,12 +3135,9 @@ const ExchangeRateModal: React.FC<ExchangeRateModalProps> = ({
   } = useLocalization();
   const styles = useMemo(() => createStyles(theme, isRTL), [theme, isRTL]);
   return <Modal visible={visible} animationType="fade" transparent={true} onRequestClose={onClose}>
-    <View style={styles.exchangeRateModalOverlay}>
-      <TouchableOpacity style={styles.exchangeRateModalBackdrop} activeOpacity={1} onPress={onClose} />
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{
-        width: '100%',
-        alignItems: 'center'
-      }}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+      <View style={styles.exchangeRateModalOverlay}>
+        <TouchableOpacity style={styles.exchangeRateModalBackdrop} activeOpacity={1} onPress={onClose} />
         <View style={styles.exchangeRateModalContainer}>
           <LinearGradient colors={[theme.colors.surfaceCard, theme.colors.surfaceLight]} style={styles.exchangeRateModalGradient} start={{
             x: 0,
@@ -3155,39 +3178,39 @@ const ExchangeRateModal: React.FC<ExchangeRateModalProps> = ({
                 <View style={styles.exchangeRateInputSection}>
                   <Text style={styles.exchangeRateInputLabel}>{tl("سعر الصرف (1 دولار = ?")}{getCurrencyDisplayName(selectedCurrency, language)}
                   </Text>
-                  <View style={styles.exchangeRateInputContainer}>
-                    <TextInput style={styles.exchangeRateInput} value={rate} onChangeText={val => onRateChange(convertArabicToEnglish(val))} placeholder="1315" placeholderTextColor={theme.colors.textSecondary} keyboardType="decimal-pad" textAlign={'left'} />
-                    <Text style={styles.exchangeRateInputUnit}>
-                      {selectedCurrency}
-                    </Text>
-                  </View>
+                  <AppInput
+                    value={rate}
+                    onChangeText={val => onRateChange(convertArabicToEnglish(val))}
+                    placeholder="1315"
+                    keyboardType="decimal-pad"
+                    textAlign="left"
+                    rightAction={<Text style={styles.exchangeRateInputUnit}>{selectedCurrency}</Text>}
+                  />
                   <Text style={styles.exchangeRateHint}>{tl("أدخل سعر الصرف الحالي للدولار مقابل")}{getCurrencyDisplayName(selectedCurrency, language)}
                   </Text>
                 </View>
 
                 {/* Actions */}
                 <View style={styles.exchangeRateModalActions}>
-                  <TouchableOpacity onPress={onClose} style={styles.exchangeRateCancelButton} activeOpacity={0.7}>
-                    <Text style={styles.exchangeRateCancelButtonText}>{tl("إلغاء")}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={onSave} style={styles.exchangeRateSaveButton} activeOpacity={0.7}>
-                    <LinearGradient colors={theme.gradients.primary as any} style={styles.exchangeRateSaveButtonGradient} start={{
-                      x: 0,
-                      y: 0
-                    }} end={{
-                      x: 1,
-                      y: 0
-                    }}>
-                      <Text style={styles.exchangeRateSaveButtonText}>{tl("حفظ")}</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
+                  <AppButton
+                    label={tl("إلغاء")}
+                    onPress={onClose}
+                    variant="secondary"
+                    style={{ flex: 1 }}
+                  />
+                  <AppButton
+                    label={tl("حفظ")}
+                    onPress={onSave}
+                    variant="primary"
+                    style={{ flex: 1 }}
+                  />
                 </View>
               </View>
             </SafeAreaView>
           </LinearGradient>
         </View>
-      </KeyboardAvoidingView>
-    </View>
+      </View>
+    </KeyboardAvoidingView>
   </Modal>;
 };
 interface ExportPeriodModalProps {

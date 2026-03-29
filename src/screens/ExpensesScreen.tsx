@@ -501,16 +501,16 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     direction: isRTL ? 'rtl' : 'ltr'
   },
   categoriesContent: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     gap: 8,
     paddingHorizontal: 4
   },
   categoryChip: {
-    flexDirection: isRTL ? 'row-reverse' : 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: 10,
     backgroundColor: theme.colors.surface,
     borderWidth: 1,
     borderColor: theme.colors.border,

@@ -4,7 +4,7 @@
 
 export const CONTACT_INFO = {
   email: 'ameralazawi69@gmail.com',
-  whatsappNumber: '9647838584311', // WhatsApp number with country code (no + sign)
+  whatsappNumber: '9647838584311', // WhatsApp 1
   whatsappMessage: 'مرحباً، أريد الاستفسار عن تطبيق دنانير',
   emailSubject: 'استفسار عن تطبيق دنانير',
   emailBody: 'مرحباً،\n\n',

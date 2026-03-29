@@ -42,7 +42,7 @@ export const AppInput: React.FC<AppInputProps> = ({
         style={[
           styles.row,
           {
-            flexDirection: isRTL ? 'row-reverse' : 'row',
+            flexDirection: 'row', // forced RTL app handles this
             backgroundColor: theme.colors.surface,
             borderColor: error ? theme.colors.error : theme.colors.border,
           },
@@ -68,6 +68,7 @@ export const AppInput: React.FC<AppInputProps> = ({
               fontFamily: theme.typography.fontFamily,
               fontSize: FONT_SIZE.md,
               textAlign: isRTL ? 'right' : 'left',
+              writingDirection: isRTL ? 'rtl' : 'ltr',
             },
             style,
           ]}

@@ -11,6 +11,7 @@ import { useCurrency } from '../hooks/useCurrency';
 import { convertCurrency, formatCurrencyAmount } from '../services/currencyService';
 import { CustomCategory } from '../database/database';
 import { usePrivacy } from '../context/PrivacyContext';
+import { useWallets } from '../context/WalletContext';
 
 interface TransactionItemProps {
   item: Expense | Income;
@@ -43,6 +44,9 @@ const TransactionItemComponent: React.FC<TransactionItemProps> = ({
   const [showConfirmAlert, setShowConfirmAlert] = useState(false);
   const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
   const [showMenu, setShowMenu] = useState(false);
+  const { wallets } = useWallets();
+
+  const wallet = item.walletId ? wallets.find(w => w.id === item.walletId) : null;
 
   const isExpense = type === 'expense';
   const expense = isExpense ? (item as Expense) : null;
@@ -255,26 +259,35 @@ const TransactionItemComponent: React.FC<TransactionItemProps> = ({
 
             {/* Main Info Column */}
             <View style={styles.infoColumn}>
-              <View style={styles.titleRow}>
+              <View style={styles.titleAndAmountRow}>
                 <Text style={styles.itemTitle} numberOfLines={1}>{title}</Text>
+                <Text style={[
+                  styles.amountText,
+                  { color: isExpense ? theme.colors.error : theme.colors.success }
+                ]}>
+                  {isPrivacyEnabled ? '****' : (isExpense ? '-' : '+') + formatCurrencyAmount(amount, itemCurrency)}
+                </Text>
               </View>
+
               <View style={styles.metaRow}>
                 <Text style={styles.dateText}>{formattedDate}</Text>
                 <View style={styles.dateDot} />
                 <Text style={[styles.categoryText, { color: colors[0] }]}>
                   {categoryInfo.label}
                 </Text>
+                {wallet && (
+                  <>
+                    <View style={styles.dateDot} />
+                    <View style={[styles.walletBadge, { backgroundColor: (wallet.color || theme.colors.primary) + '15' }]}>
+                      <Ionicons name={(wallet.icon || 'wallet') as any} size={10} color={wallet.color || theme.colors.primary} style={styles.walletIcon} />
+                      <Text style={[styles.walletText, { color: wallet.color || theme.colors.primary }]}>
+                        {wallet.name}
+                      </Text>
+                    </View>
+                  </>
+                )}
               </View>
-            </View>
 
-            {/* Amount Column */}
-            <View style={styles.amountColumn}>
-              <Text style={[
-                styles.amountText,
-                { color: isExpense ? theme.colors.error : theme.colors.success }
-              ]}>
-                {isPrivacyEnabled ? '****' : (isExpense ? '-' : '+') + formatCurrencyAmount(amount, itemCurrency)}
-              </Text>
               {convertedAmount !== null && itemCurrency !== currencyCode && (
                 <Text style={styles.subAmountText}>
                   ≈ {isPrivacyEnabled ? '****' : formatCurrency(convertedAmount)}
@@ -400,7 +413,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginHorizontal: 2,
   },
   cardContent: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
     gap: 12,
@@ -420,7 +433,11 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: isRTL ? 'flex-end' : 'flex-start',
   },
-  titleRow: {
+  titleAndAmountRow: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
     marginBottom: 6,
   },
   itemTitle: {
@@ -429,6 +446,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     textAlign: isRTL ? 'right' : 'left',
+    flex: 1,
   },
   metaRow: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -449,6 +467,23 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   categoryText: {
     fontSize: 12,
     fontWeight: getPlatformFontWeight('600'),
+    fontFamily: theme.typography.fontFamily,
+  },
+  walletBadge: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+    gap: 4,
+  },
+  walletIcon: {
+    marginRight: isRTL ? 0 : 2,
+    marginLeft: isRTL ? 2 : 0,
+  },
+  walletText: {
+    fontSize: 10,
+    fontWeight: getPlatformFontWeight('700'),
     fontFamily: theme.typography.fontFamily,
   },
   amountColumn: {

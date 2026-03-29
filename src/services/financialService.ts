@@ -444,7 +444,7 @@ export const predictNextMonthExpenses = async (monthsToAnalyze: number = 3, wall
 
     // Use Promise.all to fetch data for all months in parallel for better performance
     const promises = [];
-    const { getExpensesByRange } = await import('../database/database');
+    const { getFinancialStatsAggregated, getExpensesByCategoryAggregated } = await import('../database/database');
 
     for (let i = 0; i < monthsToAnalyze; i++) {
       const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -455,23 +455,16 @@ export const predictNextMonthExpenses = async (monthsToAnalyze: number = 3, wall
       const firstDay = `${year}-${(month + 1).toString().padStart(2, '0')}-01`;
       const lastDay = `${year}-${(month + 1).toString().padStart(2, '0')}-${lastDayObj.getDate().toString().padStart(2, '0')}`;
 
-      // Push the promise immediately
+      // Parallelize fetching this month's totals + category breakdown
       promises.push(
-        getExpensesByRange(firstDay, lastDay, walletId).then(monthExpenses => {
-          const total = monthExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-          const byCategory = new Map<string, number>();
-
-          monthExpenses.forEach((exp) => {
-            const current = byCategory.get(exp.category) || 0;
-            byCategory.set(exp.category, current + exp.amount);
-          });
-
-          return {
-            month: `${year}-${month + 1}`,
-            total,
-            byCategory
-          };
-        })
+        Promise.all([
+          getFinancialStatsAggregated(firstDay, lastDay, walletId),
+          getExpensesByCategoryAggregated(firstDay, lastDay, walletId)
+        ]).then(([stats, cats]) => ({
+          month: `${year}-${month + 1}`,
+          total: stats.totalExpenses,
+          byCategory: cats
+        }))
       );
     }
 
@@ -488,18 +481,18 @@ export const predictNextMonthExpenses = async (monthsToAnalyze: number = 3, wall
     // Calculate average
     const avgTotal = monthlyExpenses.reduce((sum, m) => sum + m.total, 0) / monthlyExpenses.length;
 
-    // Calculate average by category
-    const categoryTotals = new Map<string, number[]>();
+    // Calculate average by category (already aggregated by DB)
+    const categoryAggregator = new Map<string, number[]>();
     monthlyExpenses.forEach((month) => {
-      month.byCategory.forEach((amount, category) => {
-        if (!categoryTotals.has(category)) {
-          categoryTotals.set(category, []);
+      month.byCategory.forEach((catItem) => {
+        if (!categoryAggregator.has(catItem.category)) {
+          categoryAggregator.set(catItem.category, []);
         }
-        categoryTotals.get(category)!.push(amount);
+        categoryAggregator.get(catItem.category)!.push(catItem.amount);
       });
     });
 
-    const predictedByCategory = Array.from(categoryTotals.entries()).map(([category, amounts]) => {
+    const predictedByCategory = Array.from(categoryAggregator.entries()).map(([category, amounts]) => {
       const avg = amounts.reduce((sum, a) => sum + a, 0) / amounts.length;
       return { category, amount: Math.round(avg) };
     });
@@ -577,7 +570,7 @@ export const getMonthlyTrendData = async (months: number = 6, walletId?: number)
     }> = [];
 
 
-    const { getExpensesByRange, getIncomeByRange } = await import('../database/database');
+    const { getFinancialStatsAggregated } = await import('../database/database');
     const promises = [];
 
     for (let i = 0; i < months; i++) {
@@ -589,22 +582,17 @@ export const getMonthlyTrendData = async (months: number = 6, walletId?: number)
       const firstDay = `${year}-${(month + 1).toString().padStart(2, '0')}-01`;
       const lastDay = `${year}-${(month + 1).toString().padStart(2, '0')}-${lastDayObj.getDate().toString().padStart(2, '0')}`;
 
-      // Create a promise for this month's data
-      const monthPromise = Promise.all([
-        getExpensesByRange(firstDay, lastDay, walletId),
-        getIncomeByRange(firstDay, lastDay, walletId)
-      ]).then(([expenses, income]) => {
-        const totalIncome = income.reduce((sum, inc) => sum + inc.amount, 0);
-        const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+      // Efficiently fetch totals using SQL SUM instead of fetching full lists
+      const monthPromise = getFinancialStatsAggregated(firstDay, lastDay, walletId).then((stats) => {
         const monthNames = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
 
         return {
           month: monthNames[month],
           year: year,
           monthNumber: month + 1,
-          totalIncome,
-          totalExpenses,
-          balance: totalIncome - totalExpenses,
+          totalIncome: stats.totalIncome,
+          totalExpenses: stats.totalExpenses,
+          balance: stats.balance,
         };
       });
 

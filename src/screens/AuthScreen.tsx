@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView, Dimensions, Image, Modal, Keyboard, InteractionManager, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,6 +14,30 @@ import { tl, useLocalization } from "../localization";
 const {
   width
 } = Dimensions.get('window');
+
+// ── Country fuzzy search ───────────────────────────────────────────────────────
+function normalizeAr(s: string): string {
+  return s
+    .replace(/[\u064B-\u065F\u0670]/g, '') // strip tashkeel
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .toLowerCase()
+    .trim();
+}
+
+function countryFuzzyScore(query: string, name: string, dial: string, code: string): number {
+  const q = normalizeAr(query);
+  // normalized substring match (highest priority)
+  if (normalizeAr(name).includes(q) || dial.includes(q) || code.toLowerCase().includes(q.toLowerCase())) return 2;
+  // subsequence match on Arabic name
+  const t = normalizeAr(name);
+  let qi = 0;
+  for (let ti = 0; ti < t.length && qi < q.length; ti++) {
+    if (t[ti] === q[qi]) qi++;
+  }
+  return qi === q.length ? qi / t.length : 0;
+}
 interface AuthModalProps {
   visible: boolean;
   isLogin?: boolean;
@@ -103,7 +127,24 @@ export const AuthScreen = ({
   }, [resendCountdown > 0]);
   const countries = COUNTRIES;
   const [searchQuery, setSearchQuery] = useState('');
-  const filteredCountries = countries.filter(c => c.name.includes(searchQuery) || c.dial.includes(searchQuery) || c.code.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredCountries = useMemo(() => {
+    const q = searchQuery.trim();
+    if (!q) return countries;
+    // Pass 1: exact substring (original behaviour)
+    const exact = countries.filter(c =>
+      c.name.includes(q) || c.dial.includes(q) || c.code.toLowerCase().includes(q.toLowerCase())
+    );
+    if (exact.length > 0) return exact;
+    // Pass 2: normalised Arabic + subsequence fuzzy
+    const scored = countries
+      .map(c => ({ c, s: countryFuzzyScore(q, c.name, c.dial, c.code) }))
+      .filter(x => x.s > 0)
+      .sort((a, b) => b.s - a.s)
+      .slice(0, 8)
+      .map(x => x.c);
+    // Pass 3: never return empty list
+    return scored.length > 0 ? scored : countries;
+  }, [searchQuery, countries]);
   const showError = (error: string | undefined, fallback: string) => {
     if (error === 'MAINTENANCE_MODE') return;
     const msg = error || fallback;
@@ -198,11 +239,13 @@ export const AuthScreen = ({
       setLoading(false);
     }
   };
-  const handleForgotVerifyOtp = () => {
-    if (forgotOtp.length !== 6) {
+  const handleForgotVerifyOtp = (codeOverride?: string) => {
+    const code = codeOverride ?? forgotOtp;
+    if (code.length !== 6) {
       alertService.warning(tl("تنبيه"), tl("يرجى إدخال رمز التحقق المكون من 6 أرقام"));
       return;
     }
+    if (codeOverride) setForgotOtp(codeOverride);
     setForgotStep('reset');
   };
   const handleForgotReset = async () => {
@@ -275,7 +318,7 @@ export const AuthScreen = ({
       const result = await authApiService.sendOtp(fullPhone, country, purpose);
       if (result.success) {
         setResendCountdown(60);
-        if (isForgotMode) setForgotOtp('');else setOtpCode('');
+        if (isForgotMode) setForgotOtp(''); else setOtpCode('');
         alertService.toastSuccess(tl("تم إعادة إرسال رمز التحقق"));
       } else {
         showError(result.error, tl("فشل إعادة إرسال رمز التحقق"));
@@ -307,8 +350,9 @@ export const AuthScreen = ({
       setLoading(false);
     }
   };
-  const handleVerifyAndAction = async () => {
-    if (otpCode.length !== 6) {
+  const handleVerifyAndAction = async (codeOverride?: string) => {
+    const code = codeOverride ?? otpCode;
+    if (code.length !== 6) {
       alertService.warning(tl("تنبيه"), tl("يرجى إدخال رمز التحقق المكون من 6 أرقام"));
       return;
     }
@@ -317,7 +361,7 @@ export const AuthScreen = ({
     try {
       if (isForgotMode) {
         // Reset password flow
-        const result = await authApiService.resetPassword(fullPhone, otpCode, password.trim());
+        const result = await authApiService.resetPassword(fullPhone, code, password.trim());
         if (result.success) {
           setOtpVisible(false);
           alertService.toastSuccess(tl("تم تغيير كلمة المرور بنجاح، يمكنك الآن تسجيل الدخول"));
@@ -329,7 +373,7 @@ export const AuthScreen = ({
         }
       } else {
         // Registration flow
-        const verifyResult = await authApiService.verifyOtp(fullPhone, otpCode);
+        const verifyResult = await authApiService.verifyOtp(fullPhone, code);
         if (verifyResult.success) {
           const registerResult = await authApiService.register({
             phone: fullPhone,
@@ -359,131 +403,144 @@ export const AuthScreen = ({
     }
   };
   return <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose} statusBarTranslucent>
-        <View style={styles.container}>
-            <StatusBar style={isDark ? 'light' : 'dark'} />
-            <SafeAreaView style={styles.safeArea} edges={['top']}>
-                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardView} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
-                    <View style={styles.header}>
-                        <TouchableOpacity onPress={() => onClose()} style={styles.backButton} activeOpacity={0.7}>
-                            <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={24} color={theme.colors.text} />
-                        </TouchableOpacity>
-                    </View>
+    <View style={styles.container}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardView} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => onClose()} style={styles.backButton} activeOpacity={0.7}>
+              <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={24} color={theme.colors.text} />
+            </TouchableOpacity>
+          </View>
 
-                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-                        <View style={styles.logoContainer}>
-                            <Image source={require('../../assets/logo.png')} style={styles.logo} resizeMode="contain" />
-                        </View>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+            <View style={styles.logoContainer}>
+              <Image source={require('../../assets/logo.png')} style={styles.logo} resizeMode="contain" />
+            </View>
 
-                        <View style={styles.titleBlock}>
-                            <Text style={styles.screenTitle}>
-                                {isForgotMode ? forgotStep === 'phone' ? tl("نسيت كلمة المرور") : forgotStep === 'otp' ? tl("رمز التحقق") : tl("كلمة مرور جديدة") : isLogin ? tl("تسجيل الدخول") : tl("إنشاء حساب")}
-                            </Text>
-                            {isForgotMode && <Text style={styles.screenSubtitle}>
-                                    {forgotStep === 'phone' ? tl("أدخل رقم هاتفك لاستعادة حسابك") : forgotStep === 'otp' ? tl("أدخل الرمز المرسل إلى {{}}", [phone]) : tl("أنشئ كلمة مرور قوية جديدة")}
-                                </Text>}
-                        </View>
+            <View style={styles.titleBlock}>
+              <Text style={styles.screenTitle}>
+                {isForgotMode ? forgotStep === 'phone' ? tl("نسيت كلمة المرور") : forgotStep === 'otp' ? tl("رمز التحقق") : tl("كلمة مرور جديدة") : isLogin ? tl("تسجيل الدخول") : tl("إنشاء حساب")}
+              </Text>
+              {isForgotMode && <Text style={styles.screenSubtitle}>
+                {forgotStep === 'phone' ? tl("أدخل رقم هاتفك لاستعادة حسابك") : forgotStep === 'otp' ? tl("أدخل الرمز المرسل إلى {{}}", [phone]) : tl("أنشئ كلمة مرور قوية جديدة")}
+              </Text>}
+            </View>
 
-                        <View style={styles.formContainer}>
-                            {localError && <View style={styles.errorBanner}>
-                                    <Ionicons name="alert-circle" size={20} color={theme.colors.error} />
-                                    <Text style={styles.errorBannerText}>{localError}</Text>
-                                </View>}
+            <View style={styles.formContainer}>
+              {localError && <View style={styles.errorBanner}>
+                <Ionicons name="alert-circle" size={20} color={theme.colors.error} />
+                <Text style={styles.errorBannerText}>{localError}</Text>
+              </View>}
 
-                            {/* ── Forgot: Step 1 — Phone ── */}
-                            {isForgotMode && forgotStep === 'phone' && <View style={styles.phoneContainer}>
-                                    <View style={styles.phoneInputWrapper}>
-                                        <TouchableOpacity activeOpacity={0.7} onPress={() => setCountryPickerVisible(true)} style={[styles.dialCodeBox, {
+              {/* ── Forgot: Step 1 — Phone ── */}
+              {isForgotMode && forgotStep === 'phone' && <View style={styles.phoneContainer}>
+                <View style={styles.phoneInputWrapper}>
+                  <TouchableOpacity activeOpacity={0.7} onPress={() => { Keyboard.dismiss(); setCountryPickerVisible(true); }} style={[styles.dialCodeBox, {
                     borderRightWidth: 1
                   }]}>
-                                            <Text style={styles.dialCodeText}>
-                                                {countries.find(c => c.code === country)?.dial}
-                                            </Text>
-                                            <Ionicons name="chevron-down" size={12} color={theme.colors.textSecondary} style={{
+                    <Text style={styles.dialCodeText}>
+                      {countries.find(c => c.code === country)?.dial}
+                    </Text>
+                    <Ionicons name="chevron-down" size={12} color={theme.colors.textSecondary} style={{
                       marginLeft: 4
                     }} />
-                                        </TouchableOpacity>
-                                        <TextInput value={phone} onChangeText={v => setPhone(convertArabicToEnglish(v))} placeholder={tl("رقم الهاتف")} placeholderTextColor={theme.colors.textMuted} style={styles.flexInput} keyboardType="phone-pad" textAlign="left" autoFocus />
-                                    </View>
-                                </View>}
+                  </TouchableOpacity>
+                  <TextInput value={phone} onChangeText={v => setPhone(convertArabicToEnglish(v))} placeholder={tl("رقم الهاتف")} placeholderTextColor={theme.colors.textMuted} style={styles.flexInput} keyboardType="phone-pad" textAlign="left" autoFocus />
+                </View>
+              </View>}
 
-                            {/* ── Forgot: Step 2 — OTP ── */}
-                            {isForgotMode && forgotStep === 'otp' && <View>
-                                    <View style={styles.singleOtpInputContainer}>
-                                        <TextInput value={forgotOtp} onChangeText={v => setForgotOtp(convertArabicToEnglish(v))} placeholder="000000" placeholderTextColor={theme.colors.textMuted + '50'} style={styles.singleOtpInput} keyboardType="number-pad" maxLength={6} autoFocus selectionColor={theme.colors.primary} />
-                                    </View>
-                                    <TouchableOpacity onPress={handleResendOtp} disabled={resendCountdown > 0 || loading} style={styles.resendOtpButton}>
-                                        <Text style={[styles.resendOtpText, resendCountdown > 0 && {
+              {/* ── Forgot: Step 2 — OTP ── */}
+              {isForgotMode && forgotStep === 'otp' && <View>
+                <View style={styles.singleOtpInputContainer}>
+                  <TextInput
+                    value={forgotOtp}
+                    onChangeText={v => {
+                      const cleaned = convertArabicToEnglish(v);
+                      setForgotOtp(cleaned);
+                      if (cleaned.length === 6) handleForgotVerifyOtp(cleaned);
+                    }}
+                    placeholder="000000"
+                    placeholderTextColor={theme.colors.textMuted + '50'}
+                    style={styles.singleOtpInput}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    autoFocus
+                    selectionColor={theme.colors.primary}
+                    textContentType="oneTimeCode"
+                    autoComplete="sms-otp"
+                  />
+                </View>
+                <TouchableOpacity onPress={handleResendOtp} disabled={resendCountdown > 0 || loading} style={styles.resendOtpButton}>
+                  <Text style={[styles.resendOtpText, resendCountdown > 0 && {
                     color: theme.colors.textMuted
                   }]}>
-                                            {resendCountdown > 0 ? tl("إعادة الإرسال بعد {{}} ثانية", [resendCountdown]) : tl("إعادة إرسال الرمز")}
-                                        </Text>
-                                    </TouchableOpacity>
-                                </View>}
+                    {resendCountdown > 0 ? tl("إعادة الإرسال بعد {{}} ثانية", [resendCountdown]) : tl("إعادة إرسال الرمز")}
+                  </Text>
+                </TouchableOpacity>
+              </View>}
 
-                            {/* ── Forgot: Step 3 — New Password ── */}
-                            {isForgotMode && forgotStep === 'reset' && <View>
-                                    <View style={styles.passwordWrapper}>
-                                        <TextInput value={password} onChangeText={v => setPassword(convertArabicToEnglishSimple(v))} placeholder={tl("كلمة المرور الجديدة")} placeholderTextColor={theme.colors.textMuted} style={styles.passwordInput} secureTextEntry={!showPassword} textAlign={isRTL ? 'right' : 'left'} autoFocus />
-                                        <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
-                                            <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={theme.colors.textMuted} />
-                                        </TouchableOpacity>
-                                    </View>
-                                    <View style={styles.passwordWrapper}>
-                                        <TextInput value={confirmPassword} onChangeText={v => setConfirmPassword(convertArabicToEnglishSimple(v))} placeholder={tl("تأكيد كلمة المرور")} placeholderTextColor={theme.colors.textMuted} style={styles.passwordInput} secureTextEntry={!showConfirmPassword} textAlign={isRTL ? 'right' : 'left'} />
-                                        <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeButton}>
-                                            <Ionicons name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={theme.colors.textMuted} />
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>}
+              {/* ── Forgot: Step 3 — New Password ── */}
+              {isForgotMode && forgotStep === 'reset' && <View>
+                <View style={styles.passwordWrapper}>
+                  <TextInput value={password} onChangeText={v => setPassword(convertArabicToEnglishSimple(v))} placeholder={tl("كلمة المرور الجديدة")} placeholderTextColor={theme.colors.textMuted} style={styles.passwordInput} secureTextEntry={!showPassword} textAlign={isRTL ? 'right' : 'left'} autoFocus />
+                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
+                    <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={theme.colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.passwordWrapper}>
+                  <TextInput value={confirmPassword} onChangeText={v => setConfirmPassword(convertArabicToEnglishSimple(v))} placeholder={tl("تأكيد كلمة المرور")} placeholderTextColor={theme.colors.textMuted} style={styles.passwordInput} secureTextEntry={!showConfirmPassword} textAlign={isRTL ? 'right' : 'left'} />
+                  <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeButton}>
+                    <Ionicons name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={theme.colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
+              </View>}
 
-                            {/* ── Login / Register fields ── */}
-                            {!isForgotMode && <>
-                                    {!isLogin && <TextInput value={name} onChangeText={v => setName(convertArabicToEnglishSimple(v))} placeholder={tl("الاسم الكامل")} placeholderTextColor={theme.colors.textMuted} style={styles.input} autoCapitalize="words" textAlign={isRTL ? 'right' : 'left'} />}
+              {/* ── Login / Register fields ── */}
+              {!isForgotMode && <>
+                {!isLogin && <TextInput value={name} onChangeText={v => setName(convertArabicToEnglishSimple(v))} placeholder={tl("الاسم الكامل")} placeholderTextColor={theme.colors.textMuted} style={styles.input} autoCapitalize="words" textAlign={isRTL ? 'right' : 'left'} />}
 
-                                    <View style={styles.phoneContainer}>
-                                        <View style={styles.phoneInputWrapper}>
-                                            <TouchableOpacity activeOpacity={0.7} onPress={() => setCountryPickerVisible(true)} style={[styles.dialCodeBox, {
+                <View style={styles.phoneContainer}>
+                  <View style={styles.phoneInputWrapper}>
+                    <TouchableOpacity activeOpacity={0.7} onPress={() => { Keyboard.dismiss(); setCountryPickerVisible(true); }} style={[styles.dialCodeBox, {
                       borderRightWidth: 1
                     }]}>
-                                                <Text style={styles.dialCodeText}>
-                                                    {countries.find(c => c.code === country)?.dial}
-                                                </Text>
-                                                <Ionicons name="chevron-down" size={12} color={theme.colors.textSecondary} style={{
+                      <Text style={styles.dialCodeText}>
+                        {countries.find(c => c.code === country)?.dial}
+                      </Text>
+                      <Ionicons name="chevron-down" size={12} color={theme.colors.textSecondary} style={{
                         marginLeft: 4
                       }} />
-                                            </TouchableOpacity>
-                                            <TextInput value={phone} onChangeText={v => setPhone(convertArabicToEnglish(v))} placeholder={tl("رقم الهاتف")} placeholderTextColor={theme.colors.textMuted} style={styles.flexInput} keyboardType="phone-pad" textAlign="left" />
-                                        </View>
-                                    </View>
+                    </TouchableOpacity>
+                    <TextInput value={phone} onChangeText={v => setPhone(convertArabicToEnglish(v))} placeholder={tl("رقم الهاتف")} placeholderTextColor={theme.colors.textMuted} style={styles.flexInput} keyboardType="phone-pad" textAlign="left" />
+                  </View>
+                </View>
 
-                                    {!isLogin && <TextInput value={referralCode} onChangeText={v => setReferralCode(convertArabicToEnglishSimple(v))} placeholder={tl("كود الإحالة (اختياري)")} placeholderTextColor={theme.colors.textMuted} style={[styles.input, {
-                  fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-                  letterSpacing: 2
-                }]} autoCapitalize="characters" autoCorrect={false} textAlign={isRTL ? 'right' : 'left'} />}
+                {!isLogin && <TextInput value={referralCode} onChangeText={v => setReferralCode(convertArabicToEnglishSimple(v))} placeholder={tl("كود الإحالة (اختياري)")} placeholderTextColor={theme.colors.textMuted} style={styles.input} autoCapitalize="characters" autoCorrect={false} textAlign={isRTL ? 'right' : 'left'} />}
 
-                                    <View style={styles.passwordWrapper}>
-                                        <TextInput value={password} onChangeText={v => setPassword(convertArabicToEnglishSimple(v))} placeholder={tl("كلمة المرور")} placeholderTextColor={theme.colors.textMuted} style={styles.passwordInput} secureTextEntry={!showPassword} textAlign={isRTL ? 'right' : 'left'} />
-                                        <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
-                                            <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={theme.colors.textMuted} />
-                                        </TouchableOpacity>
-                                    </View>
+                <View style={styles.passwordWrapper}>
+                  <TextInput value={password} onChangeText={v => setPassword(convertArabicToEnglishSimple(v))} placeholder={tl("كلمة المرور")} placeholderTextColor={theme.colors.textMuted} style={styles.passwordInput} secureTextEntry={!showPassword} textAlign={isRTL ? 'right' : 'left'} />
+                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
+                    <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={theme.colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
 
-                                    {isLogin && <TouchableOpacity onPress={() => setIsForgotMode(true)} style={styles.forgotButton}>
-                                            <Text style={styles.forgotText}>{tl("نسيت كلمة المرور؟")}</Text>
-                                        </TouchableOpacity>}
-                                </>}
+                {isLogin && <TouchableOpacity onPress={() => setIsForgotMode(true)} style={styles.forgotButton}>
+                  <Text style={styles.forgotText}>{tl("نسيت كلمة المرور؟")}</Text>
+                </TouchableOpacity>}
+              </>}
 
-                            <TouchableOpacity onPress={handleSubmit} disabled={loading} style={styles.submitButton} activeOpacity={0.8}>
-                                {loading ? <ActivityIndicator color={theme.colors.textInverse} /> : <Text style={styles.submitButtonText}>
-                                        {isForgotMode ? forgotStep === 'phone' ? tl("إرسال رمز التحقق") : forgotStep === 'otp' ? tl("تحقق من الرمز") : tl("تغيير كلمة المرور") : isLogin ? tl("تسجيل الدخول") : tl("إنشاء الحساب")}
-                                    </Text>}
-                            </TouchableOpacity>
+              <TouchableOpacity onPress={handleSubmit} disabled={loading} style={styles.submitButton} activeOpacity={0.8}>
+                {loading ? <ActivityIndicator color={theme.colors.textInverse} /> : <Text style={styles.submitButtonText}>
+                  {isForgotMode ? forgotStep === 'phone' ? tl("إرسال رمز التحقق") : forgotStep === 'otp' ? tl("تحقق من الرمز") : tl("تغيير كلمة المرور") : isLogin ? tl("تسجيل الدخول") : tl("إنشاء الحساب")}
+                </Text>}
+              </TouchableOpacity>
 
-                            <View style={styles.switchContainer}>
-                                <Text style={styles.switchText}>
-                                    {isForgotMode ? tl("تذكرت كلمة المرور؟") : isLogin ? tl("ليس لديك حساب؟") : tl("لديك حساب بالفعل؟")}
-                                </Text>
-                                <TouchableOpacity onPress={() => {
+              <View style={styles.switchContainer}>
+                <Text style={styles.switchText}>
+                  {isForgotMode ? tl("تذكرت كلمة المرور؟") : isLogin ? tl("ليس لديك حساب؟") : tl("لديك حساب بالفعل؟")}
+                </Text>
+                <TouchableOpacity onPress={() => {
                   if (isForgotMode) {
                     setIsForgotMode(false);
                     setForgotStep('phone');
@@ -495,81 +552,102 @@ export const AuthScreen = ({
                     setIsLogin(!isLogin);
                   }
                 }} activeOpacity={0.7}>
-                                    <Text style={styles.switchLink}>
-                                        {isForgotMode ? tl("تسجيل الدخول") : isLogin ? tl("إنشاء حساب جديد") : tl("تسجيل الدخول")}
-                                    </Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    </ScrollView>
-                </KeyboardAvoidingView>
+                  <Text style={styles.switchLink}>
+                    {isForgotMode ? tl("تسجيل الدخول") : isLogin ? tl("إنشاء حساب جديد") : tl("تسجيل الدخول")}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
 
-                {/* OTP Overlay (Replacement for Modal to avoid nesting which causes freezes) */}
-                {otpVisible && <View style={StyleSheet.absoluteFill}>
-                        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.otpModalOverlay}>
-                            <View style={styles.otpModalContainer}>
-                                <Text style={styles.otpTitle}>{tl("رمز التحقق")}</Text>
-                                <Text style={styles.otpSubtitle}>{tl("أدخل الرمز المكون من 6 أرقام المرسل إلى")}{phone}</Text>
+        {/* OTP Overlay (Replacement for Modal to avoid nesting which causes freezes) */}
+        {otpVisible && <View style={StyleSheet.absoluteFill}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.otpModalOverlay}>
+            <View style={styles.otpModalContainer}>
+              <Text style={styles.otpTitle}>{tl("رمز التحقق")}</Text>
+              <Text style={styles.otpSubtitle}>{tl("أدخل الرمز المكون من 6 أرقام المرسل إلى")}{phone}</Text>
 
-                                <View style={styles.singleOtpInputContainer}>
-                                    <TextInput ref={otpInputRef} value={otpCode} onChangeText={v => setOtpCode(convertArabicToEnglish(v))} placeholder="000000" placeholderTextColor={theme.colors.textMuted + '50'} style={styles.singleOtpInput} keyboardType="number-pad" maxLength={6} autoFocus={true} selectionColor={theme.colors.primary} />
-                                </View>
+              <View style={styles.singleOtpInputContainer}>
+                <TextInput
+                  ref={otpInputRef}
+                  value={otpCode}
+                  onChangeText={v => {
+                    const cleaned = convertArabicToEnglish(v);
+                    setOtpCode(cleaned);
+                    if (cleaned.length === 6 && !verifyingOtp) {
+                      handleVerifyAndAction(cleaned);
+                    }
+                  }}
+                  placeholder="000000"
+                  placeholderTextColor={theme.colors.textMuted + '50'}
+                  style={styles.singleOtpInput}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  autoFocus={true}
+                  selectionColor={theme.colors.primary}
+                  textContentType="oneTimeCode"
+                  autoComplete="sms-otp"
+                />
+              </View>
 
-                                <TouchableOpacity onPress={handleVerifyAndAction} disabled={verifyingOtp} style={styles.verifyButton}>
-                                    {verifyingOtp ? <ActivityIndicator color={theme.colors.textInverse} /> : <Text style={styles.verifyButtonText}>
-                                            {isForgotMode ? tl("تغيير كلمة المرور") : tl("تحقق وتسجيل")}
-                                        </Text>}
-                                </TouchableOpacity>
+              <TouchableOpacity onPress={handleVerifyAndAction} disabled={verifyingOtp} style={styles.verifyButton}>
+                {verifyingOtp ? <ActivityIndicator color={theme.colors.textInverse} /> : <Text style={styles.verifyButtonText}>
+                  {isForgotMode ? tl("تغيير كلمة المرور") : tl("تحقق وتسجيل")}
+                </Text>}
+              </TouchableOpacity>
 
-                                <TouchableOpacity onPress={handleResendOtp} disabled={resendCountdown > 0 || loading} style={styles.resendOtpButton}>
-                                    <Text style={[styles.resendOtpText, resendCountdown > 0 && {
+              <TouchableOpacity onPress={handleResendOtp} disabled={resendCountdown > 0 || loading} style={styles.resendOtpButton}>
+                <Text style={[styles.resendOtpText, resendCountdown > 0 && {
                   color: theme.colors.textMuted
                 }]}>
-                                        {resendCountdown > 0 ? tl("إعادة الإرسال بعد {{}} ثانية", [resendCountdown]) : tl("إعادة إرسال الرمز")}
-                                    </Text>
-                                </TouchableOpacity>
+                  {resendCountdown > 0 ? tl("إعادة الإرسال بعد {{}} ثانية", [resendCountdown]) : tl("إعادة إرسال الرمز")}
+                </Text>
+              </TouchableOpacity>
 
-                                <TouchableOpacity onPress={() => setOtpVisible(false)} style={styles.cancelOtpButton}>
-                                    <Text style={styles.cancelOtpText}>{tl("إلغاء")}</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </KeyboardAvoidingView>
-                    </View>}
+              <TouchableOpacity onPress={() => setOtpVisible(false)} style={styles.cancelOtpButton}>
+                <Text style={styles.cancelOtpText}>{tl("إلغاء")}</Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </View>}
 
-                {/* Country Picker Overlay (Replacement for Modal to avoid nesting) */}
-                {countryPickerVisible && <View style={StyleSheet.absoluteFill}>
-                        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setCountryPickerVisible(false)}>
-                            <View style={styles.pickerContainer}>
-                                <View style={styles.pickerHeader}>
-                                    <Text style={styles.pickerTitle}>{tl("اختر الدولة")}</Text>
-                                    <TouchableOpacity onPress={() => setCountryPickerVisible(false)}>
-                                        <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
-                                    </TouchableOpacity>
-                                </View>
-                                <View style={styles.searchContainer}>
-                                    <Ionicons name="search" size={20} color={theme.colors.textMuted} style={styles.searchIcon} />
-                                    <TextInput style={styles.searchInput} placeholder={tl("بحث عن دولة أو رمز...")} placeholderTextColor={theme.colors.textMuted} value={searchQuery} onChangeText={setSearchQuery} autoFocus={false} />
-                                </View>
-                                <ScrollView style={styles.pickerScroll}>
-                                    {filteredCountries.map(c => <TouchableOpacity key={c.code} style={[styles.countryItem, country === c.code && {
-                  backgroundColor: theme.colors.primary + '10'
-                }]} onPress={() => {
-                  setCountry(c.code);
-                  setCountryPickerVisible(false);
-                }}>
-                                            <View style={styles.countryInfo}>
-                                                <Text style={styles.countryNameText}>{c.name}</Text>
-                                                <Text style={styles.countryCodeText}>{c.dial}</Text>
-                                            </View>
-                                            {country === c.code && <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />}
-                                        </TouchableOpacity>)}
-                                </ScrollView>
-                            </View>
-                        </TouchableOpacity>
-                    </View>}
-            </SafeAreaView>
-        </View>
-        </Modal>;
+        {/* Country Picker Overlay (Replacement for Modal to avoid nesting) */}
+        {countryPickerVisible && <View style={StyleSheet.absoluteFill}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+            <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setCountryPickerVisible(false)}>
+              <View style={styles.pickerContainer}>
+                <View style={styles.pickerHeader}>
+                  <Text style={styles.pickerTitle}>{tl("اختر الدولة")}</Text>
+                  <TouchableOpacity onPress={() => setCountryPickerVisible(false)}>
+                    <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.searchContainer}>
+                  <Ionicons name="search" size={20} color={theme.colors.textMuted} style={styles.searchIcon} />
+                  <TextInput style={styles.searchInput} placeholder={tl("بحث عن دولة أو رمز...")} placeholderTextColor={theme.colors.textMuted} value={searchQuery} onChangeText={setSearchQuery} autoFocus={false} />
+                </View>
+                <ScrollView style={styles.pickerScroll} keyboardShouldPersistTaps="handled">
+                  {filteredCountries.map(c => <TouchableOpacity key={c.code} style={[styles.countryItem, country === c.code && {
+                    backgroundColor: theme.colors.primary + '10'
+                  }]} onPress={() => {
+                    setCountry(c.code);
+                    setCountryPickerVisible(false);
+                  }}>
+                    <View style={styles.countryInfo}>
+                      <Text style={styles.countryNameText}>{c.name}</Text>
+                      <Text style={styles.countryCodeText}>{c.dial}</Text>
+                    </View>
+                    {country === c.code && <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />}
+                  </TouchableOpacity>)}
+                </ScrollView>
+              </View>
+            </TouchableOpacity>
+          </KeyboardAvoidingView>
+        </View>}
+      </SafeAreaView>
+    </View>
+  </Modal>;
 };
 const createStyles = (theme: AppTheme) => StyleSheet.create({
   container: {
@@ -724,14 +802,15 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily
   },
   forgotButton: {
-    alignSelf: 'flex-start',
+    alignSelf: 'flex-end',
     marginBottom: 20,
     marginTop: -4
   },
   forgotText: {
     color: theme.colors.textSecondary,
     fontSize: 14,
-    fontFamily: theme.typography.fontFamily
+    fontFamily: theme.typography.fontFamily,
+
   },
   otpModalOverlay: {
     flex: 1,
@@ -906,7 +985,8 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.typography.fontFamily,
     letterSpacing: 0,
-    writingDirection: 'ltr'
+    writingDirection: 'ltr',
+
   },
   errorBanner: {
     flexDirection: isRTL ? 'row-reverse' : 'row',
