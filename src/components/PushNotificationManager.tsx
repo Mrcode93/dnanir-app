@@ -38,6 +38,8 @@ const PushNotificationManager = () => {
         // Check for initial notification if app was opened from one
         Notifications.getLastNotificationResponseAsync().then(response => {
             if (response) {
+                // Ensure it's saved to the DB
+                pushNotificationService.processNotification(response.notification).catch(() => {});
                 pushNotificationService.handleNotificationNavigation(response);
             }
         });

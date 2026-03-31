@@ -165,52 +165,15 @@ export const pushNotificationService = {
     },
 
     setupNotificationListeners: () => {
+        // Harvesting any notifications that arrived while app was closed
+        pushNotificationService.savePresentedNotifications().catch(() => {});
+
         // Listen for incoming notifications when app is foreground/background
         const receivedSubscription = Notifications.addNotificationReceivedListener(async (notification) => {
             try {
-                const { title, body, data } = notification.request.content;
-                const { addNotification } = await import('../database/database');
-                const parsedData =
-                    typeof data === 'string'
-                        ? (() => {
-                            try {
-                                return JSON.parse(data) as Record<string, unknown>;
-                            } catch {
-                                return {};
-                            }
-                        })()
-                        : (data && typeof data === 'object' ? data as Record<string, unknown> : {});
-
-                if (parsedData[INTERNAL_INBOX_SAVED_FLAG]) {
-                    if (__DEV__) {
-                        
-                    }
-                    return;
-                }
-
-                let notificationDate = notification.date;
-
-                // Fix for 1970 date issue:
-                // If date is missing or 0, use current time
-                if (!notificationDate) {
-                    notificationDate = Date.now();
-                }
-                // If date is in seconds (e.g., < 10 billion), convert to milliseconds
-                // 10 billion seconds is year 2286, so this checks if it's likely seconds vs ms
-                else if (notificationDate < 10000000000) {
-                    notificationDate = notificationDate * 1000;
-                }
-
-                await addNotification({
-                    title: title || 'No Title',
-                    body: body || '',
-                    data: typeof data === 'string' ? data : JSON.stringify(parsedData),
-                    date: notificationDate,
-                    type: (parsedData?.type as string) || 'default'
-                });
-                if (__DEV__) {
-                    
-                }
+                // If the app is in the background on Android, this might still fire depending on the build.
+                // We call savePresentedNotifications periodically or on focus as well.
+                await pushNotificationService.processNotification(notification);
             } catch (error) {
                 
             }
@@ -227,8 +190,76 @@ export const pushNotificationService = {
         };
     },
 
+    processNotification: async (notification: Notifications.Notification) => {
+        try {
+            const { title, body, data } = notification.request.content;
+            const { addNotification, getNotifications } = await import('../database/database');
+            const parsedData =
+                typeof data === 'string'
+                    ? (() => {
+                        try {
+                            return JSON.parse(data) as Record<string, unknown>;
+                        } catch {
+                            return {};
+                        }
+                    })()
+                    : (data && typeof data === 'object' ? data as Record<string, unknown> : {});
+
+            if (parsedData[INTERNAL_INBOX_SAVED_FLAG]) {
+                if (__DEV__) {
+                    
+                }
+                return;
+            }
+
+            let notificationDate = notification.date;
+            if (!notificationDate) {
+                notificationDate = Date.now();
+            } else if (notificationDate < 10000000000) {
+                notificationDate = notificationDate * 1000;
+            }
+
+            // Check for duplicate in DB before adding
+            const existing = await getNotifications();
+            const type = (parsedData?.type as string) || 'default';
+            const isDuplicate = existing.some(n => 
+                n.title === title && 
+                n.body === body && 
+                (n as any).type === type && 
+                Math.abs(n.date - notificationDate) < 10000
+            );
+
+            if (isDuplicate) return;
+
+            await addNotification({
+                title: title || 'No Title',
+                body: body || '',
+                data: typeof data === 'string' ? data : JSON.stringify(parsedData),
+                date: notificationDate,
+                type
+            });
+        } catch (error) {
+            
+        }
+    },
+
+    savePresentedNotifications: async () => {
+        try {
+            const presented = await Notifications.getPresentedNotificationsAsync();
+            if (presented && presented.length > 0) {
+                for (const notification of presented) {
+                    await pushNotificationService.processNotification(notification);
+                }
+            }
+        } catch (error) {
+            
+        }
+    },
+
     handleNotificationNavigation: (response: Notifications.NotificationResponse) => {
-        // Placeholder for navigation logic
+        // Ensure the notification being clicked is also saved if it wasn't already
+        pushNotificationService.processNotification(response.notification).catch(() => {});
+
         const data = response.notification.request.content.data;
         const type = (data?.type as string) || 'default';
 
@@ -237,6 +268,5 @@ export const pushNotificationService = {
         }
 
         // TODO: Implement navigation based on notification type
-        // For now, just logging. Screen navigation is handled by global navigation ref or similar if needed.
     }
 };

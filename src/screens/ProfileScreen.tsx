@@ -937,6 +937,29 @@ export const ProfileScreen = ({
           </View>}
         </LinearGradient>
 
+        {/* Upgrade to Pro Banner */}
+        {isAuthenticated && !userData?.isPro && (
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Plans')}
+            activeOpacity={0.85}
+            style={styles.upgradeBanner}
+          >
+            <LinearGradient
+              colors={['#3EB5A7', '#2da89a'] as any}
+              style={styles.upgradeBannerGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Ionicons name="diamond-outline" size={22} color="#FFFFFF" />
+              <View style={styles.upgradeBannerContent}>
+                <Text style={styles.upgradeBannerTitle}>{tl("ترقية إلى دنانير برو")}</Text>
+                <Text style={styles.upgradeBannerSubtitle}>{tl("مزامنة • تحليل ذكي • بدون إعلانات")}</Text>
+              </View>
+              <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={18} color="#FFFFFF" />
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+
         {/* Account Section - Removed for now */}
 
         {/* Account & Settings Sections */}
@@ -1206,7 +1229,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     ...getPlatformShadow('sm')
   },
   skeletonProfileHeader: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 12
   },
@@ -1252,7 +1275,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     marginBottom: 2
   },
   skeletonRow: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     paddingVertical: 8
@@ -1310,7 +1333,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     })
   },
   proCrownBanner: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(212, 175, 55, 0.25)',
     paddingHorizontal: 8,
@@ -1318,7 +1341,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 12,
     gap: 4,
     marginBottom: 4,
-    alignSelf: isRTL ? 'flex-start' : 'flex-end'
+    alignSelf: isRTL ? 'flex-end' : 'flex-start'
   },
   proCrownBannerText: {
     fontSize: 10,
@@ -1327,7 +1350,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily
   },
   profileHeader: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 12
   },
@@ -1378,10 +1401,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   userInfo: {
     flex: 1,
     gap: 3,
-    alignItems: isRTL ? 'flex-start' : 'flex-end'
+    alignItems: 'flex-start'
   },
   userNameRow: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: 6
@@ -1412,10 +1435,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     color: 'rgba(245, 230, 163, 0.95)'
   },
   verifiedBadge: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    alignSelf: isRTL ? 'flex-start' : 'flex-end',
+    alignSelf: 'flex-start',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
@@ -1432,10 +1455,10 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: 'rgba(212, 175, 55, 0.35)'
   },
   proExpiryBadge: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(212, 175, 55, 0.15)',
-    alignSelf: isRTL ? 'flex-start' : 'flex-end',
+    alignSelf: 'flex-start',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
@@ -1497,7 +1520,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontFamily: theme.typography.fontFamily
   },
   statsRow: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     marginTop: 28,
     paddingTop: 24,
     borderTopWidth: 1,
@@ -1529,7 +1552,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     textShadowRadius: 2
   },
   copyIdButton: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
@@ -1552,7 +1575,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)'
   },
   proFeaturesRow: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'flex-start',
     gap: 6,
@@ -1562,7 +1585,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderTopColor: 'rgba(245, 230, 163, 0.2)'
   },
   proFeaturePill: {
-    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(212, 175, 55, 0.2)',
     paddingHorizontal: 8,
@@ -2649,7 +2672,38 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: '#EF444410',
     padding: 12,
     borderRadius: 12
-  }
+  },
+  upgradeBanner: {
+    // marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: theme.spacing.md,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  upgradeBannerGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  upgradeBannerContent: {
+    flex: 1,
+  },
+  upgradeBannerTitle: {
+    fontSize: 15,
+    fontWeight: getPlatformFontWeight('700'),
+    color: '#FFFFFF',
+    fontFamily: theme.typography.fontFamily,
+    textAlign: 'left',
+  },
+  upgradeBannerSubtitle: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontFamily: theme.typography.fontFamily,
+    marginTop: 2,
+    textAlign: 'left',
+  },
 });
 interface ExchangeRateModalProps {
   visible: boolean;

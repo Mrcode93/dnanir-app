@@ -443,6 +443,10 @@ export default function App() {
         } else {
           await runSmartFinancialAlerts();
         }
+        
+        // Also harvest any visible push notifications
+        const { pushNotificationService } = await import('./src/services/pushNotificationService');
+        await pushNotificationService.savePresentedNotifications().catch(() => {});
       } catch (error) {
         // console.error('Error refreshing notifications on focus:', error);
       }

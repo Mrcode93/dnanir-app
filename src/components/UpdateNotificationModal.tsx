@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AppDialog, AppButton } from '../design-system';
-import { type AppUpdate } from '../services/updateService';
+import { updateService, type AppUpdate } from '../services/updateService';
 import { useAppTheme, useThemedStyles, type AppTheme } from '../utils/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -64,8 +64,20 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
 
         <View style={styles.actions}>
           <AppButton
-            label="فهمت، شكراً"
-            onPress={onClose}
+            label={update.isOTA ? "تحديث الآن" : (update.downloadUrl ? "تحميل التحديث" : "فهمت، شكراً")}
+            onPress={async () => {
+              if (update.isOTA) {
+                try {
+                  await updateService.fetchAndApplyUpdate();
+                } catch (error) {
+                  onClose();
+                }
+              } else if (update.downloadUrl) {
+                Linking.openURL(update.downloadUrl).catch(() => onClose());
+              } else {
+                onClose();
+              }
+            }}
             variant="primary"
             size="lg"
             style={styles.updateButton}

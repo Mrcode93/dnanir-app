@@ -57,6 +57,7 @@ import { WalletsScreen } from '../screens/WalletsScreen';
 import { AddWalletScreen } from '../screens/AddWalletScreen';
 import { TermsScreen } from '../screens/TermsScreen';
 import { PrivacyPolicyScreen } from '../screens/PrivacyPolicyScreen';
+import { PlansScreen } from '../screens/PlansScreen';
 
 
 
@@ -1263,6 +1264,16 @@ export const AppNavigator = () => {
           options={({ navigation }) => ({
             headerShown: true,
             headerTitle: tl("سياسة الخصوصية"),
+            ...getCommonStackOptions(theme, top),
+          })}
+        />
+
+        <Stack.Screen
+          name="Plans"
+          component={PlansScreen}
+          options={() => ({
+            headerShown: true,
+            headerTitle: tl('باقات الاشتراك'),
             ...getCommonStackOptions(theme, top),
           })}
         />

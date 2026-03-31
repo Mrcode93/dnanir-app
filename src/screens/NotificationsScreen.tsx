@@ -29,6 +29,10 @@ export const NotificationsScreen = ({
   const [refreshing, setRefreshing] = useState(false);
   const loadNotifications = async () => {
     try {
+      const { pushNotificationService } = await import('../services/pushNotificationService');
+      // Harvest visible notifications first
+      await pushNotificationService.savePresentedNotifications();
+
       const {
         getNotifications,
         markAllNotificationsRead

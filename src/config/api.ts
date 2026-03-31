@@ -89,6 +89,13 @@ export const API_ENDPOINTS = {
     INFO: '/api/referral/info',
     APPLY: '/api/referral/apply',
   },
+  // Plans
+  PLANS: '/api/plans',
+  // Payments
+  PAYMENTS: {
+    CREATE_SESSION: '/api/payments/create-session',
+    STATUS: (id: string) => `/api/payments/status/${id}`,
+  },
   // Promo (Marketing)
   PROMO: {
     APPLY: '/api/promo/apply',

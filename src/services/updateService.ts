@@ -1,3 +1,4 @@
+import * as Updates from 'expo-updates';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from './apiClient';
@@ -12,7 +13,8 @@ export interface AppUpdate {
   platform: 'ios' | 'android' | 'all';
   mandatory: boolean;
   releaseDate: string;
-  downloadUrl?: string; // We can add this to the server response or model later
+  downloadUrl?: string;
+  isOTA?: boolean;
 }
 
 class UpdateService {
@@ -75,14 +77,32 @@ class UpdateService {
    * Check for updates from the server
    */
   async checkForUpdate(): Promise<AppUpdate | null> {
+    // 1. Check for OTA (Over-The-Air) update via Expo Updates
+    try {
+      if (!__DEV__) {
+        const update = await Updates.checkForUpdateAsync();
+        if (update.isAvailable) {
+          return {
+            version: `OTA-${Updates.updateId?.slice(0, 8) || 'latest'}`,
+            description: 'تتوفر تحديثات جديدة لتحسين الأداء وإصلاح الأخطاء.',
+            platform: 'all',
+            mandatory: false,
+            releaseDate: new Date().toISOString(),
+            isOTA: true
+          };
+        }
+      }
+    } catch (error) {
+      console.log('[UpdateService] Expo Updates check failed:', error);
+    }
+
+    // 2. Fallback to manual store update check via API
     try {
       const platform = Platform.OS === 'ios' ? 'ios' : 'android';
       
-      // The server returns { success: true, data: AppUpdate[] }
-      // ApiResponse<T> wraps this as response.data = { success: true, data: AppUpdate[] }
       const response = await apiClient.get<any>(
         `${API_ENDPOINTS.UPDATES}?platform=${platform}`,
-        false // Public endpoint
+        false
       );
 
       if (response.success && response.data && response.data.success && Array.isArray(response.data.data)) {
@@ -92,25 +112,32 @@ class UpdateService {
           const latestUpdate = updates[0];
           const currentVersion = packageJson.version;
 
-          console.log(`[UpdateService] Latest: ${latestUpdate.version}, Current: ${currentVersion}`);
-
           if (this.compareVersions(latestUpdate.version, currentVersion) > 0) {
-            console.log('[UpdateService] New update found!');
             return latestUpdate;
-          } else {
-            console.log('[UpdateService] App is up to date.');
           }
-        } else {
-          console.log('[UpdateService] No active updates found for this platform.');
         }
-      } else {
-        console.log('[UpdateService] Failed to fetch updates or invalid response structure.');
       }
       
       return null;
     } catch (error) {
-      console.log('[UpdateService] Error checking for updates:', error);
+      console.log('[UpdateService] Manual check failed:', error);
       return null;
+    }
+  }
+
+  /**
+   * Fetch and apply an Expo OTA update
+   */
+  async fetchAndApplyUpdate(): Promise<void> {
+    try {
+      const update = await Updates.checkForUpdateAsync();
+      if (update.isAvailable) {
+        await Updates.fetchUpdateAsync();
+        await Updates.reloadAsync();
+      }
+    } catch (error) {
+      console.error('[UpdateService] Failed to apply update:', error);
+      throw error;
     }
   }
 }
