@@ -1,6 +1,6 @@
 {
   "name": "dnanir",
-  "version": "1.2.5",
+  "version": "1.2.8",
   "description": "دنانير - Smart Iraqi-themed financial app for expense and income tracking",
   "main": "index.ts",
   "scripts": {
@@ -36,6 +36,7 @@
     "@shopify/flash-list": "^2.3.0",
     "date-fns": "^4.1.0",
     "expo": "~54.0.12",
+    "expo-constants": "~18.0.9",
     "expo-apple-authentication": "^8.0.8",
     "expo-auth-session": "~7.0.10",
     "expo-av": "~16.0.8",

@@ -38,6 +38,8 @@ interface ScreenContainerProps {
   edges?: SafeEdge[];
   /** Extra bottom padding inside scroll content. Default: 16 */
   scrollPadBottom?: number;
+  /** Vertical offset for KeyboardAvoidingView. */
+  keyboardOffset?: number;
 }
 
 export const ScreenContainer: React.FC<ScreenContainerProps> = ({
@@ -48,6 +50,7 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({
   contentStyle,
   edges = ['top', 'left', 'right'],
   scrollPadBottom = 16,
+  keyboardOffset = 0,
 }) => {
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
@@ -60,6 +63,7 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({
       <KeyboardAvoidingView
         style={styles.kav}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={keyboardOffset}
       >
         {scrollable ? (
           <ScrollView

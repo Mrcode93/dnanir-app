@@ -6,7 +6,7 @@ import { createStackNavigator, TransitionPresets } from '@react-navigation/stack
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ActivityIndicator, Keyboard, Platform, Text, TouchableOpacity, View, Dimensions } from 'react-native';
+import { ActivityIndicator, Keyboard, Platform, Text, TouchableOpacity, View, Dimensions, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
 import { useAppTheme } from '../utils/theme-context';
@@ -17,6 +17,7 @@ import { InsightsScreen } from '../screens/InsightsScreen';
 import { AISmartInsightsScreen } from '../screens/AISmartInsightsScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { AIAdvisorScreen } from '../screens/AIAdvisorScreen';
 import { GoalsScreen } from '../screens/GoalsScreen';
 import { BudgetScreen } from '../screens/BudgetScreen';
 import { RecurringExpensesScreen } from '../screens/RecurringExpensesScreen';
@@ -295,11 +296,11 @@ const TransactionsTabs = () => {
 
   const CustomTopTabBar = ({ state, descriptors, navigation }: any) => {
     return (
-      <View style={{ 
-        flexDirection: 'row', 
-        backgroundColor: theme.colors.surface, 
-        paddingHorizontal: 16, 
-        paddingVertical: 12, 
+      <View style={{
+        flexDirection: 'row',
+        backgroundColor: theme.colors.surface,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
         gap: 12,
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.border
@@ -432,9 +433,9 @@ const InsightsStack = () => {
                     authStorage.getAccessToken(),
                     authStorage.getUser(),
                   ]);
-                  
+
                   if (!token || !user) {
-                  
+
                     alertService.show({
                       title: t('auth.loginRequiredTitle'),
                       message: t('auth.loginRequiredForAi'),
@@ -447,7 +448,7 @@ const InsightsStack = () => {
                   }
                   navigation.getParent()?.navigate('AISmartInsights');
                 } catch (e) {
-                  
+
                   alertService.error(t('common.error'), t('auth.loginTryAgain'));
                 }
               }}
@@ -485,7 +486,7 @@ const DebtsStack = () => {
           headerTitle: () => (
 
             <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
-            
+
               <Text style={{
                 fontFamily: theme.typography.fontFamily,
                 fontSize: theme.typography.sizes.lg,
@@ -568,7 +569,7 @@ const DebtsStack = () => {
           headerBackTitle: '',
         })}
       />
-       <Stack.Screen
+      <Stack.Screen
         name="DebtorDetails"
         component={DebtorDetailsScreen}
         options={({ navigation }) => ({
@@ -616,7 +617,7 @@ const BillsStack = () => {
           headerTitle: () => (
 
             <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
-             
+
               <Text style={{
                 fontFamily: theme.typography.fontFamily,
                 fontSize: theme.typography.sizes.lg,
@@ -1278,6 +1279,28 @@ export const AppNavigator = () => {
           })}
         />
 
+        <Stack.Screen
+          name="AIAdvisor"
+          component={AIAdvisorScreen}
+          options={({ navigation }) => ({
+            headerShown: true,
+            headerTitle: tl("استشارة الحجّي"),
+            ...getCommonStackOptions(theme, top),
+            headerRight: () => (
+              <Image
+                source={require('../../assets/images/chat/avatar.png')}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  marginHorizontal: 16,
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.3)',
+                }}
+              />
+            ),
+          })}
+        />
         <Stack.Screen
           name="Calendar"
           component={CalendarScreen}

@@ -3,7 +3,9 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from './apiClient';
 import { API_ENDPOINTS } from '../config/api';
+import Constants from 'expo-constants';
 import packageJson from '../../package.json';
+
 
 const UPDATE_CHECK_KEY = '@dnanir_last_update_check';
 
@@ -110,7 +112,7 @@ class UpdateService {
         
         if (updates.length > 0) {
           const latestUpdate = updates[0];
-          const currentVersion = packageJson.version;
+          const currentVersion = Constants.expoConfig?.version ?? packageJson.version;
 
           if (this.compareVersions(latestUpdate.version, currentVersion) > 0) {
             return latestUpdate;

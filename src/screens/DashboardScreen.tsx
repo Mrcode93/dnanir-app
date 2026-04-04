@@ -9,6 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import { PieChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BalanceCard } from '../components/BalanceCard';
+import { PromoBanner } from '../components/PromoBanner';
 import { SummaryCard } from '../components/SummaryCard';
 import { TransactionItem } from '../components/TransactionItem';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
@@ -43,6 +44,7 @@ import { referralService } from '../services/referralService';
 import { TransactionDetailsModal } from '../components/TransactionDetailsModal';
 import { getSmartExpenseShortcuts, getSmartIncomeShortcuts } from '../services/smartShortcutsService';
 import { syncNewToServer } from '../services/syncService';
+import { AIAdvisorBanner } from '../components/AIAdvisorBanner';
 import { tl, useLocalization } from "../localization";
 const {
   width
@@ -554,6 +556,11 @@ const DashboardScreenComponent = ({
             </LinearGradient>}
         </View>
 
+        {/* Promo Banner / Ads Area */}
+        <PromoBanner 
+          style={{ marginBottom: theme.spacing.md }}
+        />
+
         <View style={styles.sectionDivider} />
 
         {/* Unified Tool Grid - All items in the circle button style */}
@@ -719,6 +726,12 @@ const DashboardScreenComponent = ({
               <Text style={styles.shortcutsEmptyHintText}>{tl("لا توجد اختصارات. اضغط لإضافة اسم، فئة ومبلغ ثم استخدمها من هنا دون فتح النموذج.")}</Text>
             </TouchableOpacity>}
         </View>
+
+        {/* Smart AI Advisor Banner */}
+        <AIAdvisorBanner 
+          style={{ marginBottom: theme.spacing.lg, marginTop: theme.spacing.xs }}
+          onPress={() => navigation.navigate('AIAdvisor')} 
+        />
 
         <View style={styles.sectionDivider} />
 
@@ -1241,7 +1254,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
 
   heroSection: {
     marginTop: theme.spacing.sm,
-    marginBottom: theme.spacing.lg
+    marginBottom: theme.spacing.md
   },
   todayQuickLook: {
     flexDirection: isRTL ? 'row-reverse' : 'row',

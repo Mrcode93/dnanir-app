@@ -64,6 +64,7 @@ export const API_ENDPOINTS = {
     GOAL_PLAN: '/api/ai/goal-plan',
     SMART_ADD: '/api/ai/smart-add',
     SMART_ADD_USAGE: '/api/ai/smart-add/usage',
+    AL_HAJJI: '/api/ai/al-hajji',
   },
   // Health
   HEALTH: '/health',

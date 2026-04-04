@@ -373,6 +373,38 @@ export const aiApiService = {
       return { success: false, error: message };
     }
   },
+
+  /**
+   * Ask Al-Hajji – المستشار المالي العراقي الذكي
+   */
+  async askAlHajji(
+    message: string,
+    summary: Record<string, unknown>,
+    currency?: string,
+    history?: Array<{ sender: 'user' | 'hajji'; text: string }>
+  ): Promise<{ success: boolean; data?: ChatbotResponse; error?: string }> {
+    try {
+      const response = await apiClient.post<{ success: boolean; data: ChatbotResponse }>(
+        API_ENDPOINTS.AI.AL_HAJJI as any,
+        { message, summary, currency, history }
+      );
+
+      if (response.success && response.data?.data) {
+        return {
+          success: true,
+          data: response.data.data,
+        };
+      }
+
+      return {
+        success: false,
+        error: response.error || 'فشل في الحصول على رد من الحجّي',
+      };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'فشل في التواصل مع الحجّي';
+      return { success: false, error: message };
+    }
+  },
 };
 
 export interface GoalPlanData {
