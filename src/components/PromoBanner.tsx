@@ -1,18 +1,25 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Image, StyleSheet, TouchableOpacity, Dimensions, ScrollView, NativeSyntheticEvent, NativeScrollEvent, Text, Linking, Share } from 'react-native';
+import { View, Image, StyleSheet, TouchableOpacity, Dimensions, ScrollView, NativeSyntheticEvent, NativeScrollEvent, Text, Linking, Share, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme, useThemedStyles } from '../utils/theme-context';
 import { getPlatformShadow, type AppTheme } from '../utils/theme-constants';
 import { tl } from '../localization';
 import { isRTL } from '../utils/rtl';
+import { API_CONFIG, API_ENDPOINTS } from '../config/api';
+import { authStorage } from '../services/authStorage';
+import { authModalService } from '../services/authModalService';
 
 interface BannerItem {
   id: string;
   title: string;
   text: string;
+  buttonText?: string;
   url?: string;
-  imageUrl?: any; // Changed from string to any to support require()
+  actionType?: 'url' | 'screen';
+  actionValue?: string;
+  imageUrl?: any;
   onPress?: () => void;
 }
 
@@ -24,11 +31,12 @@ interface PromoCarouselProps {
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const BANNER_CACHE_KEY = 'dnanir_promo_banner_cache';
 
 /**
  * A premium carousel banner for the dashboard.
  * Supports multiple slides with title, text, and optional URL.
- * Recommended image dimensions: 1200x500 pixels (approx. 2.4:1 ratio)
+ * Now supports server-driven content with offline caching.
  */
 export const PromoBanner: React.FC<PromoCarouselProps> = ({
   items: propItems,
@@ -41,46 +49,126 @@ export const PromoBanner: React.FC<PromoCarouselProps> = ({
   const styles = useThemedStyles(createStyles);
   const scrollViewRef = useRef<ScrollView>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [serverBanners, setServerBanners] = useState<BannerItem[]>([]);
+
+  useEffect(() => {
+    loadBanners();
+  }, []);
+
+  const loadBanners = async () => {
+    try {
+      // 1. Load from cache first
+      const cached = await AsyncStorage.getItem(BANNER_CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        // Migrating old single-object cache to array
+        if (Array.isArray(parsed)) {
+          setServerBanners(parsed);
+        } else {
+          await AsyncStorage.removeItem(BANNER_CACHE_KEY);
+        }
+      }
+
+      // 2. Fetch fresh from server
+      const url = `${API_CONFIG.BASE_URL}${API_ENDPOINTS.PROMO.BANNER}`;
+      
+      const response = await fetch(url);
+      const result = await response.json();
+
+      if (result.success && Array.isArray(result.data)) {
+        const items: BannerItem[] = result.data.map((b: any) => ({
+          id: b._id,
+          title: b.title,
+          text: b.text,
+          buttonText: b.buttonText,
+          url: b.url,
+          actionType: b.actionType,
+          actionValue: b.actionValue,
+          imageUrl: b.imageUrl,
+        }));
+        
+        setServerBanners(items);
+        await AsyncStorage.setItem(BANNER_CACHE_KEY, JSON.stringify(items));
+      } else {
+        setServerBanners([]);
+        await AsyncStorage.removeItem(BANNER_CACHE_KEY);
+      }
+    } catch (error: any) {
+      // Error handled silently for better UX
+    }
+  };
 
   const handlePress = async (item: BannerItem) => {
+    // Auth Check for specific AI screens
+    if (item.actionValue === 'AIAdvisor' || item.id === 'ai_hajji' || item.actionValue === 'AISmartInsights') {
+      const token = await authStorage.getAccessToken();
+      if (!token) {
+        authModalService.show();
+        return;
+      }
+    }
+
     if (item.onPress) {
-      item.onPress();
-    } else if (item.url) {
+      return item.onPress();
+    }
+
+    if (item.actionType === 'screen' && item.actionValue) {
+      try {
+        navigation.navigate(item.actionValue);
+        return;
+      } catch (err) {
+        // Silent fail
+      }
+    }
+
+    if (item.url) {
       try {
         const canOpen = await Linking.canOpenURL(item.url);
         if (canOpen) {
           await Linking.openURL(item.url);
-        } else if (rootOnPress) {
-          rootOnPress();
+          return;
         }
       } catch (error) {
-        if (rootOnPress) rootOnPress();
+        // Silent fail
       }
-    } else if (rootOnPress) {
+    }
+
+    // Fallback if no specific action worked
+    if (rootOnPress) {
       rootOnPress();
     }
   };
 
   // Default premium Arabic placeholders with local images
-  const defaultItems = [
+  const defaultItems: BannerItem[] = [
     {
       id: 'ai_hajji',
       title: tl("استشر الحجّي"),
       text: tl("مستشارك المالي العراقي الذكي جاهز لمساعدتك في إدارة ميزانيتك بحكمة."),
+      buttonText: tl('تحدث الآن'),
       imageUrl: require('../../assets/images/chat/haji-banner.png'),
-      onPress: () => navigation.navigate('AIAdvisor')
+      onPress: async () => {
+        const token = await authStorage.getAccessToken();
+        if (!token) {
+          authModalService.show();
+        } else {
+          navigation.navigate('AIAdvisor');
+        }
+      }
     },
     {
       id: '0',
       title: tl("أوروكس للحلول البرمجية"),
       text: tl("نطور مواقع، تطبيقات، وأنظمة ذكية لأفكارك الرقمية المبتكرة."),
+      buttonText: tl('زورونا الآن'),
       url: 'https://urux.guru',
       imageUrl: require('../../assets/images/promo-images/urux.png')
     },
     {
       id: '1',
       title: tl("اشترك في برو"),
-      text: tl("استمتع بمميزات حصرية مثل المزامنة السحابية و الادخال الصوتي و المحافظ المتعددة."),
+      text: tl("استمتع بمميزات حصرية مثل المزامنة السباحية و الادخال الصوتي و المحافظ المتعددة."),
+      buttonText: tl('اشترك الآن'),
       imageUrl: require('../../assets/images/promo-images/Pro-Subscription.png'),
       onPress: () => navigation.navigate('Plans')
     },
@@ -88,13 +176,22 @@ export const PromoBanner: React.FC<PromoCarouselProps> = ({
       id: '2',
       title: tl("التحليل الذكي"),
       text: tl("دع الذكاء الاصطناعي يحلل مصاريفك ويعطيك نصائح لتوفير المال."),
+      buttonText: tl('حلل الآن'),
       imageUrl: require('../../assets/images/promo-images/Smart-AI-Analysis.png'),
-      onPress: () => navigation.navigate('AISmartInsights')
+      onPress: async () => {
+        const token = await authStorage.getAccessToken();
+        if (!token) {
+          authModalService.show();
+        } else {
+          navigation.navigate('AISmartInsights');
+        }
+      }
     },
     {
       id: '3',
       title: tl("الأهداف المالية"),
       text: tl("حدد أهدافك للادخار وتابع تقدمك خطوة بخطوة حتى تصل لهدفك."),
+      buttonText: tl('حدد هدفك'),
       imageUrl: require('../../assets/images/promo-images/Financial-Goals.png'),
       onPress: () => navigation.navigate('Goals')
     },
@@ -102,6 +199,7 @@ export const PromoBanner: React.FC<PromoCarouselProps> = ({
       id: '4',
       title: tl("شارك التطبيق"),
       text: tl("ساعد أصدقاءك على إدارة أموالهم وشاركهم تجربة دنانير الرائعة."),
+      buttonText: tl('شارك الآن'),
       imageUrl: require('../../assets/images/promo-images/Share-App.png'),
       onPress: () => {
         Share.share({
@@ -113,7 +211,8 @@ export const PromoBanner: React.FC<PromoCarouselProps> = ({
     },
   ];
 
-  const items = propItems || defaultItems;
+  // Combine items: If server-driven banners are available, prioritize them.
+  const items = propItems || (serverBanners.length > 0 ? serverBanners : defaultItems);
   const displayItems = isRTL ? [...items].reverse() : items;
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -157,7 +256,6 @@ export const PromoBanner: React.FC<PromoCarouselProps> = ({
         scrollEventThrottle={16}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        // Ensure starting on the right
         contentOffset={isRTL ? { x: (displayItems.length - 1) * (SCREEN_WIDTH - theme.spacing.lg * 2), y: 0 } : undefined}
       >
         {displayItems.map((item) => (
@@ -180,11 +278,10 @@ export const PromoBanner: React.FC<PromoCarouselProps> = ({
               </View>
             )}
 
-            {/* Overlay Content using Gradient for professional look - Stronger on the right */}
             <LinearGradient
               colors={['rgba(0, 0, 0, 0.9)', 'rgba(0, 0, 0, 0.45)', 'transparent']}
-              start={{ x: 1, y: 0.5 }} // Start from right
-              end={{ x: 0, y: 0.5 }}   // Fade towards left
+              start={{ x: 1, y: 0.5 }}
+              end={{ x: 0, y: 0.5 }}
               style={styles.overlay}
             >
               <View style={styles.textContainer}>
@@ -193,13 +290,18 @@ export const PromoBanner: React.FC<PromoCarouselProps> = ({
                   <View style={styles.titleIndicator} />
                 </View>
                 <Text style={styles.text} numberOfLines={2}>{item.text}</Text>
+
+                {item.buttonText && (item.url || item.actionValue || item.onPress) && (
+                  <View style={styles.ctaButton}>
+                    <Text style={styles.ctaButtonText}>{item.buttonText}</Text>
+                  </View>
+                )}
               </View>
             </LinearGradient>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
-      {/* Pagination Indicators - Respect RTL order visually */}
       {items.length > 1 && (
         <View style={[styles.pagination, isRTL && { flexDirection: 'row-reverse' }]}>
           {items.map((_, index) => (
@@ -266,7 +368,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     alignItems: 'flex-end',
   },
   textContainer: {
-    width: '65%', // Limit width for better layout
+    width: '65%',
     alignItems: 'flex-end',
   },
   titleWrapper: {
@@ -290,13 +392,27 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 2,
   },
   text: {
-    color: 'rgba(255, 255, 255, 0.7)', // Even lighter
+    color: '#FFFFFF',
     fontSize: 10,
-    fontFamily: 'Tajawal', // Using Tajawal font
+    fontFamily: 'Tajawal',
     lineHeight: 14,
     textAlign: 'right',
     fontWeight: '300',
     paddingRight: 0,
+  },
+  ctaButton: {
+    marginTop: 6,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 100,
+    ...getPlatformShadow('sm'),
+  },
+  ctaButtonText: {
+    color: '#000000',
+    fontSize: 9,
+    fontWeight: '800',
+    fontFamily: theme.typography.fontFamily,
   },
   pagination: {
     flexDirection: 'row',

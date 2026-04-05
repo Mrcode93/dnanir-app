@@ -124,6 +124,7 @@ export default function App() {
     'DINNext-Regular': require('./assets/fonts/din-next-lt-w23-regular-1.ttf'),
     'DINNext-Medium': require('./assets/fonts/din-next-lt-w23-medium.ttf'),
     'DINNext-Light': require('./assets/fonts/din-next-lt-w23-ultra-light-1.ttf'),
+    'Tajawal': require('./assets/fonts/Tajawal-Regular.ttf'),
   });
   const uiDirectionKey = `${appLanguage}-${isAppRTL ? 'rtl' : 'ltr'}`;
 

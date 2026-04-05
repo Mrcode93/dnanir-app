@@ -23,6 +23,7 @@ export interface ChatbotRequest {
 export interface ChatbotResponse {
   response: string;
   suggestions?: string[];
+  actions?: any[];
 }
 
 export interface CategorizeRequest {

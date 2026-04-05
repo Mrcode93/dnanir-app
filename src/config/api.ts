@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 /**
  * API Configuration
  * 
@@ -6,11 +8,16 @@
  * For production, use your production server URL.
  */
 
-// Development: Uses production server (no separate dev server).
-// To test locally, uncomment the localhost line below and set to your IP.
-const DEV_API_URL = 'https://dnanir.up.railway.app';
-// const DEV_API_URL = 'https://urcash.up.railway.app';
-// const DEV_API_URL = 'http://192.168.31.221:8080';
+// Development Server Configuration
+const LOCAL_IP = '192.168.0.103'; // Your local network IP for physical devices
+const PORT = 4000;
+
+// Auto-detect localhost based on platform
+const LOCALHOST = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
+
+// To test on physical device, use LOCAL_IP. To test on simulator/emulator, use LOCALHOST.
+const DEV_API_URL = `http://${LOCALHOST}:${PORT}`;
+// const DEV_API_URL = `http://${LOCAL_IP}:${PORT}`;
 
 // Production API URL
 const PROD_API_URL = 'https://dnanir.up.railway.app';
@@ -100,6 +107,7 @@ export const API_ENDPOINTS = {
   // Promo (Marketing)
   PROMO: {
     APPLY: '/api/promo/apply',
+    BANNER: '/api/promo/banner',
   },
   // Updates
   UPDATES: '/api/updates',
