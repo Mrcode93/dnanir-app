@@ -37,7 +37,6 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.mrcodeiq.dinar",
-      "googleServicesFile": "./GoogleService-Info.plist",
       "buildNumber": "45",
       "infoPlist": {
         "CFBundleURLTypes": [
@@ -98,7 +97,6 @@
       "locale": "ar",
       "package": "com.mrcodeiq.dinar",
       "windowSoftInputMode": "adjustPan",
-      "googleServicesFile": "./google-services.json",
       "versionCode": 23,
       "fonts": [
         "./assets/fonts/din-next-lt-w23-regular-1.ttf",
