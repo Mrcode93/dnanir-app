@@ -16,7 +16,7 @@ const PORT = 4000;
 const LOCALHOST = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
 
 // To test on physical device, use LOCAL_IP. To test on simulator/emulator, use LOCALHOST.
-const DEV_API_URL = `http://${LOCALHOST}:${PORT}`;
+const DEV_API_URL = 'https://dnanir.up.railway.app';
 // const DEV_API_URL = `http://${LOCAL_IP}:${PORT}`;
 
 // Production API URL

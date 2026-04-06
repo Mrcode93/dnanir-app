@@ -20,7 +20,7 @@
     ],
     "name": "دنانير",
     "slug": "dnanir",
-    "version": "1.2.8",
+    "version": "1.2.9",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "automatic",
@@ -38,7 +38,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.mrcodeiq.dinar",
       "googleServicesFile": "./GoogleService-Info.plist",
-      "buildNumber": "44",
+      "buildNumber": "45",
       "infoPlist": {
         "CFBundleURLTypes": [
           {

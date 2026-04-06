@@ -212,15 +212,15 @@ struct DnanirWidget: Widget {
         AppIntentConfiguration(kind: kind, intent: ConfigurationAppIntent.self, provider: Provider()) { entry in
             WidgetEntryView(entry: entry)
                 .containerBackground(for: .widget) {
-                    ZStack {
-                        if entry.themeMode == "light" {
-                            Color(red: 0.96, green: 0.97, blue: 0.98)
-                        } else if entry.themeMode == "dark" {
+                    if entry.themeMode == "light" {
+                        Color(red: 0.96, green: 0.97, blue: 0.98)
+                    } else if entry.themeMode == "dark" {
+                        ZStack {
                             Color(red: 0.05, green: 0.07, blue: 0.12)
                             RadialGradient(colors: [Color.blue.opacity(0.12), .clear], center: .topTrailing, startRadius: 0, endRadius: 200)
-                        } else {
-                            DynamicBackgroundView()
                         }
+                    } else {
+                        DynamicBackgroundView()
                     }
                 }
         }
