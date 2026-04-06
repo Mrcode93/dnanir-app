@@ -17,7 +17,8 @@
     "copy:android-icons": "./copy-android-icons.sh",
     "android:prebuild": "npx expo prebuild --platform android && npm run copy:android-icons",
     "build:android:aab": "cd android && ./gradlew bundleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a",
-    "build:android:apk": "cd android && ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a"
+    "build:android:apk": "cd android && ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@bacons/apple-targets": "^4.0.6",
