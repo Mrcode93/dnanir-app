@@ -172,11 +172,16 @@ export const AISmartInsightsScreen = ({
     loadInsights();
   }, [loadInsights]);
   const runAnalyze = useCallback(() => {
+    if (usage?.hasUnlimitedAi) {
+      loadInsights();
+      loadUsage();
+      return;
+    }
     alertService.confirm(tl("تأكيد التحليل"), tl("التحليل الذكي يستهلك محاولة من حدك الشهري. هل تريد المتابعة؟"), async () => {
       await loadInsights();
       await loadUsage();
     });
-  }, [loadInsights, loadUsage]);
+  }, [loadInsights, loadUsage, usage]);
   const onAnalyzePress = useCallback(() => {
     if (usage != null && !usage.hasUnlimitedAi && usage.remaining <= 0) {
       alertService.show({
@@ -223,6 +228,11 @@ export const AISmartInsightsScreen = ({
       icon: 'alert-circle' as const
     }
   };
+  const getStatusColors = (status: string | undefined) => {
+    const key = (status || 'green') as keyof typeof statusColors;
+    return statusColors[key] || statusColors.green;
+  };
+
   if (!authChecked || needsAuth) {
     return <SafeAreaView style={[styles.container, styles.centered]}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -236,7 +246,7 @@ export const AISmartInsightsScreen = ({
       }]}>{tl("جاري تهيئة الرؤى الذكية...")}</Text>
       </SafeAreaView>;
   }
-  const statusStyle = insights ? statusColors[insights.status] : statusColors.green;
+  const statusStyle = getStatusColors(insights?.status);
   return <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} refreshControl={insights ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} /> : undefined}>
         {/* Header Section */}
@@ -259,7 +269,7 @@ export const AISmartInsightsScreen = ({
                 </Text>
               </View>}
           </View>
-          <TouchableOpacity style={styles.refreshBadge} onPress={onAnalyzePress} disabled={loading || usage != null && usage.remaining <= 0}>
+          <TouchableOpacity style={styles.refreshBadge} onPress={onAnalyzePress} disabled={loading || (usage != null && !usage.hasUnlimitedAi && usage.remaining <= 0)}>
             <LinearGradient colors={theme.gradients.primary as any} start={{
             x: 0,
             y: 0
@@ -295,7 +305,7 @@ export const AISmartInsightsScreen = ({
             <Text style={[styles.emptyStateText, {
           color: theme.colors.textSecondary
         }]}>{tl("قم بتحليل بياناتك المالية للحصول على رؤى عميقة وتوقعات دقيقة لميزانيتك.")}</Text>
-            <TouchableOpacity onPress={onAnalyzePress} style={styles.largeAnalyzeBtn} disabled={usage != null && usage.remaining <= 0}>
+            <TouchableOpacity onPress={onAnalyzePress} style={styles.largeAnalyzeBtn} disabled={usage != null && !usage.hasUnlimitedAi && usage.remaining <= 0}>
               <LinearGradient colors={theme.gradients.primary as any} start={{
             x: 0,
             y: 0
@@ -330,7 +340,7 @@ export const AISmartInsightsScreen = ({
             </LinearGradient>
 
             {/* Risks */}
-            {insights.risks && insights.risks.length > 0 && <View style={styles.section}>
+            {Array.isArray(insights.risks) && insights.risks.length > 0 && <View style={styles.section}>
                 <View style={styles.sectionHeader}>
                   <View style={[styles.sectionIcon, {
               backgroundColor: theme.colors.error + '20'
@@ -394,7 +404,7 @@ export const AISmartInsightsScreen = ({
               </View>}
 
             {/* Analysis */}
-            {insights.analysis.length > 0 && <View style={styles.section}>
+            {Array.isArray(insights.analysis) && insights.analysis.length > 0 && <View style={styles.section}>
                 <View style={styles.sectionHeader}>
                   <View style={[styles.sectionIcon, {
               backgroundColor: theme.colors.primary + '20'
@@ -416,7 +426,7 @@ export const AISmartInsightsScreen = ({
               </View>}
 
             {/* Category insights */}
-            {insights.categoryInsights && insights.categoryInsights.length > 0 && <View style={styles.section}>
+            {Array.isArray(insights.categoryInsights) && insights.categoryInsights.length > 0 && <View style={styles.section}>
                 <View style={styles.sectionHeader}>
                   <View style={[styles.sectionIcon, {
               backgroundColor: theme.colors.primary + '20'
@@ -457,7 +467,7 @@ export const AISmartInsightsScreen = ({
               </View>}
 
             {/* Saving tips */}
-            {insights.savingTips.length > 0 && <View style={styles.section}>
+            {Array.isArray(insights.savingTips) && insights.savingTips.length > 0 && <View style={styles.section}>
                 <View style={styles.sectionHeader}>
                   <View style={[styles.sectionIcon, {
               backgroundColor: theme.colors.warning + '20'
@@ -480,7 +490,7 @@ export const AISmartInsightsScreen = ({
               </View>}
 
             {/* Action items */}
-            {insights.actionItems && insights.actionItems.length > 0 && <View style={styles.section}>
+            {Array.isArray(insights.actionItems) && insights.actionItems.length > 0 && <View style={styles.section}>
                 <View style={styles.sectionHeader}>
                   <View style={[styles.sectionIcon, {
               backgroundColor: theme.colors.primary + '20'
@@ -548,7 +558,7 @@ export const AISmartInsightsScreen = ({
               </View>}
 
             {/* Re-analyze Button at bottom */}
-            <TouchableOpacity style={styles.bottomAnalyzeBtn} onPress={onAnalyzePress} disabled={loading || usage != null && usage.remaining <= 0}>
+            <TouchableOpacity style={styles.bottomAnalyzeBtn} onPress={onAnalyzePress} disabled={loading || (usage != null && !usage.hasUnlimitedAi && usage.remaining <= 0)}>
               <LinearGradient colors={theme.gradients.primary as any} start={{
             x: 0,
             y: 0

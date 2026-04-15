@@ -59,6 +59,8 @@ import { AddWalletScreen } from '../screens/AddWalletScreen';
 import { TermsScreen } from '../screens/TermsScreen';
 import { PrivacyPolicyScreen } from '../screens/PrivacyPolicyScreen';
 import { PlansScreen } from '../screens/PlansScreen';
+import { AddSubscriptionScreen } from '../screens/AddSubscriptionScreen';
+import { SubscriptionsScreen } from '../screens/SubscriptionsScreen';
 
 
 
@@ -691,6 +693,45 @@ const BillsStack = () => {
   );
 };
 
+const SubscriptionsStack = () => {
+  const { theme } = useAppTheme();
+  const { t, isRTL } = useLocalization();
+  const { top } = useSafeAreaInsets();
+  return (
+    <Stack.Navigator screenOptions={{ ...getCommonStackOptions(theme, top) }}>
+      <Stack.Screen
+        name="SubscriptionsList"
+        component={SubscriptionsScreen}
+        options={({ navigation }) => ({
+          headerShown: true,
+          headerTitle: tl("الاشتراكات"),
+          headerStyle: {
+            backgroundColor: '#003459',
+            borderBottomWidth: 0,
+            height: top + 48,
+          },
+          headerTintColor: '#FFFFFF',
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={() => navigation.navigate('AddSubscription')}
+              style={{
+                marginRight: isRTL ? 0 : 16,
+                marginLeft: isRTL ? 16 : 0,
+                padding: 8,
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: 44,
+              }}
+            >
+              <Ionicons name="add-circle" size={28} color="#FFFFFF" />
+            </TouchableOpacity>
+          ),
+        })}
+      />
+    </Stack.Navigator>
+  );
+};
+
 const DashboardStack = () => {
   const { theme } = useAppTheme();
   const { top } = useSafeAreaInsets();
@@ -1052,6 +1093,15 @@ export const AppNavigator = () => {
           }}
         />
         <Stack.Screen
+          name="AddSubscription"
+          component={AddSubscriptionScreen}
+          options={{
+            headerShown: false,
+            presentation: 'modal',
+            ...TransitionPresets.ModalSlideFromBottomIOS,
+          }}
+        />
+        <Stack.Screen
           name="AddWallet"
           component={AddWalletScreen}
           options={{
@@ -1202,6 +1252,13 @@ export const AppNavigator = () => {
         <Stack.Screen
           name="Bills"
           component={BillsStack}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="Subscriptions"
+          component={SubscriptionsStack}
           options={{
             headerShown: false,
           }}

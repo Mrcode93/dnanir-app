@@ -45,12 +45,12 @@ export const useCurrency = () => {
 
   const formatCurrency = useCallback((
     amount: number,
-    options?: { ignorePrivacy?: boolean }
+    options?: { ignorePrivacy?: boolean; currencyCode?: string }
   ): string => {
     if (isPrivacyEnabled && !options?.ignorePrivacy) {
       return '****';
     }
-    return formatCurrencyAmount(amount, currencyCode);
+    return formatCurrencyAmount(amount, options?.currencyCode || currencyCode);
   }, [currencyCode, isPrivacyEnabled]);
 
   const getCurrency = () => {

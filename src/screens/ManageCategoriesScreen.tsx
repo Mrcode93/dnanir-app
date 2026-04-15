@@ -80,6 +80,8 @@ export const ManageCategoriesScreen: React.FC<ManageCategoriesScreenProps> = ({
   const isDefaultCategory = (categoryName: string) => {
     if (type === 'income') {
       return Object.values(INCOME_SOURCES).includes(categoryName);
+    } else if (type === 'subscription') {
+      return false; // All custom subscription categories are custom
     } else {
       return Object.values(EXPENSE_CATEGORIES).includes(categoryName);
     }
@@ -87,7 +89,7 @@ export const ManageCategoriesScreen: React.FC<ManageCategoriesScreenProps> = ({
 
   const addFooter = (
     <AppButton 
-      label={type === 'income' ? tl("إضافة مصدر جديد") : tl("إضافة فئة جديدة")} 
+      label={type === 'income' ? tl("إضافة مصدر جديد") : type === 'subscription' ? tl("إضافة خدمة رقمية") : tl("إضافة فئة جديدة")} 
       onPress={handleAdd} 
       variant="success" 
       size="lg" 
@@ -105,7 +107,7 @@ export const ManageCategoriesScreen: React.FC<ManageCategoriesScreenProps> = ({
       }}
     >
       <AppHeader 
-        title={type === 'income' ? tl("إدارة مصادر الدخل") : tl("إدارة فئات المصاريف")} 
+        title={type === 'income' ? tl("إدارة مصادر الدخل") : type === 'subscription' ? tl("إدارة الخدمات الرقمية") : tl("إدارة فئات المصاريف")} 
         backIcon="close" 
         onBack={handleClose} 
       />

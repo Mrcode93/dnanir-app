@@ -244,3 +244,13 @@ cd android && ./gradlew assembleDebug
 npm cache clean --force
 rm -rf android/app/build
 ```
+
+
+
+
+
+## Eas Build Plan
+Platform	Build Type	Command
+Android	APK File	npx eas build --platform android --profile preview
+iOS	App Store / TestFlight	npx eas build --platform ios --profile production
+iOS	Simulator	npx eas build --platform ios --profile preview --type simulator

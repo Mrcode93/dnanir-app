@@ -119,7 +119,7 @@ export const aiApiService = {
       };
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to process receipt image';
-      
+
       return {
         success: false,
         error: errorMessage,
@@ -292,12 +292,27 @@ export const aiApiService = {
         data?: Record<string, unknown>;
         usage?: { insightsUsed: number; limit: number; remaining: number; isPro: boolean; hasUnlimitedAi?: boolean };
       }>(API_ENDPOINTS.AI.INSIGHTS, payload);
-      const data = response.data?.data ?? response.data;
+      const rawData = (response.data?.data ?? response.data) as any;
       const usage = (response.data as any)?.usage;
-      if (response.success && data) {
+
+      if (response.success && rawData) {
+        // Normalize the data to prevent crashes if AI omits fields or returns nulls
+        const normalizedData: SmartInsightsData = {
+          status: (['green', 'yellow', 'red'].includes(rawData.status) ? rawData.status : 'green') as any,
+          statusMessage: rawData.statusMessage || '',
+          analysis: Array.isArray(rawData.analysis) ? rawData.analysis : [],
+          categoryInsights: Array.isArray(rawData.categoryInsights) ? rawData.categoryInsights : [],
+          risks: Array.isArray(rawData.risks) ? rawData.risks : [],
+          savingTips: Array.isArray(rawData.savingTips) ? rawData.savingTips : [],
+          actionItems: Array.isArray(rawData.actionItems) ? rawData.actionItems : [],
+          budgetRecommendations: Array.isArray(rawData.budgetRecommendations) ? rawData.budgetRecommendations : [],
+          monthComparison: rawData.monthComparison || { message: '', incomeChangePercent: null, expenseChangePercent: null },
+          prediction: rawData.prediction || { message: '', willLastUntilEndOfMonth: null, estimatedRemaining: null },
+        };
+
         return {
           success: true,
-          data: data as any,
+          data: normalizedData,
           usage: usage
             ? {
               insightsUsed: usage.insightsUsed ?? 0,

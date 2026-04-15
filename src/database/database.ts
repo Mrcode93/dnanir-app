@@ -490,6 +490,27 @@ export const initDatabase = async () => {
     `);
     await addColumnIfNeeded('bill_payments', 'synced_at', 'INTEGER');
 
+    // Subscriptions table
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS subscriptions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        amount REAL NOT NULL,
+        currency TEXT NOT NULL DEFAULT 'IQD',
+        billingCycle TEXT NOT NULL,
+        startDate TEXT NOT NULL,
+        nextPaymentDate TEXT NOT NULL,
+        category TEXT NOT NULL,
+        description TEXT,
+        isActive INTEGER DEFAULT 1,
+        walletId INTEGER,
+        base_amount REAL,
+        synced_at INTEGER,
+        createdAt TEXT NOT NULL
+      );
+    `);
+    await db.execAsync('CREATE INDEX IF NOT EXISTS idx_subscriptions_next_payment ON subscriptions(nextPaymentDate);');
+
     await addColumnIfNeeded('expenses', 'receipt_image_path', 'TEXT');
 
     // Notifications table
@@ -717,19 +738,21 @@ export const initDatabase = async () => {
       'exchange_rates',
       'goal_plan_cache',
       'ai_insights_cache',
+      'bills',
+      'subscriptions',
     ] as const;
 
     for (const t of SYNC_V2_TABLES) {
-      await addColumnIfNeeded(t, 'local_id',           'TEXT');
-      await addColumnIfNeeded(t, 'device_id',          'TEXT');
-      await addColumnIfNeeded(t, 'server_id',          'TEXT');
-      await addColumnIfNeeded(t, 'sync_status',        "TEXT DEFAULT 'pending'");
-      await addColumnIfNeeded(t, 'local_created_at',   'TEXT');
-      await addColumnIfNeeded(t, 'client_created_at',  'TEXT');
+      await addColumnIfNeeded(t, 'local_id', 'TEXT');
+      await addColumnIfNeeded(t, 'device_id', 'TEXT');
+      await addColumnIfNeeded(t, 'server_id', 'TEXT');
+      await addColumnIfNeeded(t, 'sync_status', "TEXT DEFAULT 'pending'");
+      await addColumnIfNeeded(t, 'local_created_at', 'TEXT');
+      await addColumnIfNeeded(t, 'client_created_at', 'TEXT');
       await addColumnIfNeeded(t, 'server_received_at', 'TEXT');
-      await addColumnIfNeeded(t, 'is_deleted',         'INTEGER DEFAULT 0');
-      await addColumnIfNeeded(t, 'conflict_backup',    'TEXT');
-      await addColumnIfNeeded(t, 'version',            'INTEGER DEFAULT 0');
+      await addColumnIfNeeded(t, 'is_deleted', 'INTEGER DEFAULT 0');
+      await addColumnIfNeeded(t, 'conflict_backup', 'TEXT');
+      await addColumnIfNeeded(t, 'version', 'INTEGER DEFAULT 0');
     }
 
     // Indexes for sync queries (server_id lookups, pending queue scan)
@@ -1849,10 +1872,36 @@ export const getFinancialStatsAggregated = async (startDate?: string, endDate?: 
   const expenseResult = await database.getFirstAsync<{ total: number }>(expenseQuery, expenseParams);
   const incomeResult = await database.getFirstAsync<{ total: number }>(incomeQuery, incomeParams);
 
+  // Also get native amounts if specifically for one wallet
+  let nativeBalance = undefined;
+  if (walletId) {
+    let expenseNativeQuery = 'SELECT SUM(amount) as total FROM expenses WHERE walletId = ?';
+    let incomeNativeQuery = 'SELECT SUM(amount) as total FROM income WHERE walletId = ?';
+    const expenseNativeParams: any[] = [walletId];
+    const incomeNativeParams: any[] = [walletId];
+    if (startDate && endDate) {
+      expenseNativeQuery += ' AND date >= ? AND date <= ?';
+      incomeNativeQuery += ' AND date >= ? AND date <= ?';
+      expenseNativeParams.push(startDate, endDate);
+      incomeNativeParams.push(startDate, endDate);
+    }
+
+    // For wallet with initial balance
+    const wallet = await database.getFirstAsync<{ balance: number }>('SELECT balance FROM wallets WHERE id = ?', [walletId]);
+    const initialBalance = wallet?.balance || 0;
+
+    const [expNative, incNative] = await Promise.all([
+      database.getFirstAsync<{ total: number }>(expenseNativeQuery, expenseNativeParams),
+      database.getFirstAsync<{ total: number }>(incomeNativeQuery, incomeNativeParams),
+    ]);
+    nativeBalance = initialBalance + (incNative?.total || 0) - (expNative?.total || 0);
+  }
+
   return {
     totalExpenses: expenseResult?.total || 0,
     totalIncome: incomeResult?.total || 0,
     balance: (incomeResult?.total || 0) - (expenseResult?.total || 0),
+    nativeBalance,
   };
 };
 
@@ -2264,7 +2313,7 @@ export const deleteFinancialGoal = async (id: number): Promise<void> => {
 export interface CustomCategory {
   id: number;
   name: string;
-  type: 'expense' | 'income';
+  type: 'expense' | 'income' | 'subscription';
   icon: string;
   color: string;
   createdAt: string;
@@ -2287,7 +2336,7 @@ export const addCustomCategory = async (category: Omit<CustomCategory, 'id' | 'c
   }
 };
 
-export const getCustomCategories = async (type?: 'expense' | 'income'): Promise<CustomCategory[]> => {
+export const getCustomCategories = async (type?: 'expense' | 'income' | 'subscription'): Promise<CustomCategory[]> => {
   const database = getDb();
   let query = 'SELECT * FROM custom_categories';
   const params: any[] = [];
@@ -3628,6 +3677,22 @@ export interface BillPayment {
   createdAt: string;
 }
 
+export interface Subscription {
+  id: number;
+  name: string;
+  amount: number;
+  currency: string;
+  billingCycle: 'monthly' | 'yearly' | 'weekly';
+  startDate: string;
+  nextPaymentDate: string;
+  category: string;
+  description?: string;
+  isActive: boolean;
+  walletId?: number;
+  base_amount?: number;
+  createdAt: string;
+}
+
 export const addBill = async (bill: Omit<Bill, 'id' | 'createdAt'>): Promise<number> => {
   const database = getDb();
   const createdAt = new Date().toISOString();
@@ -3757,6 +3822,157 @@ export const updateBill = async (id: number, bill: Partial<Bill>): Promise<void>
 export const deleteBill = async (id: number): Promise<void> => {
   const database = getDb();
   await database.runAsync('DELETE FROM bills WHERE id = ?', [id]);
+};
+
+// Subscriptions operations
+export const getSubscriptions = async (): Promise<Subscription[]> => {
+  const database = getDb();
+  const result = await database.getAllAsync<any>(
+    'SELECT * FROM subscriptions ORDER BY nextPaymentDate ASC, createdAt DESC'
+  );
+  return result.map(sub => ({
+    ...sub,
+    isActive: sub.isActive === 1,
+  }));
+};
+
+export const addSubscription = async (subscription: Omit<Subscription, 'id' | 'createdAt'>): Promise<number> => {
+  const database = getDb();
+  const createdAt = new Date().toISOString();
+  const result = await database.runAsync(
+    'INSERT INTO subscriptions (name, amount, currency, billingCycle, startDate, nextPaymentDate, category, description, isActive, walletId, base_amount, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [
+      subscription.name,
+      subscription.amount,
+      subscription.currency || 'IQD',
+      subscription.billingCycle,
+      subscription.startDate,
+      subscription.nextPaymentDate,
+      subscription.category,
+      subscription.description || null,
+      subscription.isActive ? 1 : 0,
+      subscription.walletId || null,
+      subscription.base_amount || subscription.amount,
+      createdAt,
+    ]
+  );
+  return result.lastInsertRowId;
+};
+
+export const updateSubscription = async (id: number, subscription: Partial<Subscription>): Promise<void> => {
+  const database = getDb();
+  const updates: string[] = [];
+  const values: any[] = [];
+
+  if (subscription.name !== undefined) {
+    updates.push('name = ?');
+    values.push(subscription.name);
+  }
+  if (subscription.amount !== undefined) {
+    updates.push('amount = ?');
+    values.push(subscription.amount);
+  }
+  if (subscription.currency !== undefined) {
+    updates.push('currency = ?');
+    values.push(subscription.currency);
+  }
+  if (subscription.billingCycle !== undefined) {
+    updates.push('billingCycle = ?');
+    values.push(subscription.billingCycle);
+  }
+  if (subscription.startDate !== undefined) {
+    updates.push('startDate = ?');
+    values.push(subscription.startDate);
+  }
+  if (subscription.nextPaymentDate !== undefined) {
+    updates.push('nextPaymentDate = ?');
+    values.push(subscription.nextPaymentDate);
+  }
+  if (subscription.category !== undefined) {
+    updates.push('category = ?');
+    values.push(subscription.category);
+  }
+  if (subscription.description !== undefined) {
+    updates.push('description = ?');
+    values.push(subscription.description || null);
+  }
+  if (subscription.isActive !== undefined) {
+    updates.push('isActive = ?');
+    values.push(subscription.isActive ? 1 : 0);
+  }
+  if (subscription.walletId !== undefined) {
+    updates.push('walletId = ?');
+    values.push(subscription.walletId || null);
+  }
+  if (subscription.base_amount !== undefined) {
+    updates.push('base_amount = ?');
+    values.push(subscription.base_amount);
+  }
+
+  if (updates.length > 0) {
+    updates.push('synced_at = NULL');
+    values.push(id);
+    await database.runAsync(
+      `UPDATE subscriptions SET ${updates.join(', ')} WHERE id = ?`,
+      values
+    );
+  }
+};
+
+export const markSubscriptionAsPaid = async (id: number): Promise<void> => {
+  const database = getDb();
+  const sub = await database.getFirstAsync<any>('SELECT * FROM subscriptions WHERE id = ?', [id]);
+  if (!sub) return;
+
+  // 1. Calculate next date
+  const currentNextDate = new Date(sub.nextPaymentDate);
+  const cycle = sub.billingCycle;
+  const nextDate = new Date(currentNextDate);
+  if (cycle === 'monthly') nextDate.setMonth(nextDate.getMonth() + 1);
+  else if (cycle === 'yearly') nextDate.setFullYear(nextDate.getFullYear() + 1);
+  else if (cycle === 'weekly') nextDate.setDate(nextDate.getDate() + 7);
+
+  // 2. Add as expense
+  await addExpense({
+    title: `اشتراك: ${sub.name}`,
+    amount: sub.amount,
+    category: 'bills',
+    date: new Date().toISOString().split('T')[0],
+    description: sub.description || `دفع اشتراك ${sub.name}`,
+    currency: sub.currency || 'IQD',
+    walletId: sub.walletId,
+    base_amount: sub.base_amount || sub.amount
+  });
+
+  // 3. Update subscription next date
+  await database.runAsync(
+    'UPDATE subscriptions SET nextPaymentDate = ?, synced_at = NULL WHERE id = ?',
+    [nextDate.toISOString().split('T')[0], id]
+  );
+};
+
+export const deleteSubscription = async (id: number): Promise<void> => {
+  const database = getDb();
+  await database.runAsync('DELETE FROM subscriptions WHERE id = ?', [id]);
+};
+
+export const getUnsyncedSubscriptions = async (): Promise<Subscription[]> => {
+  const database = getDb();
+  const result = await database.getAllAsync<any>('SELECT * FROM subscriptions WHERE synced_at IS NULL');
+  return result.map(sub => ({
+    ...sub,
+    isActive: sub.isActive === 1,
+  }));
+};
+
+export const markSubscriptionsSynced = async (ids: number[]): Promise<void> => {
+  const database = getDb();
+  if (ids.length === 0) return;
+  const placeholders = ids.map(() => '?').join(',');
+  await database.runAsync(
+    `UPDATE subscriptions SET synced_at = ? WHERE id IN (${placeholders})`,
+    [Date.now(), ...ids]
+  );
 };
 
 export const addBillPayment = async (payment: Omit<BillPayment, 'id' | 'createdAt'>): Promise<number> => {
@@ -3912,6 +4128,7 @@ export const exportNewDataOnly = async (): Promise<{ items: { type: string; loca
     wallets,
     debtInstallments,
     billPayments,
+    subscriptions,
   ] = await Promise.all([
     getUnsyncedExpenses(),
     getUnsyncedIncome(),
@@ -3936,6 +4153,7 @@ export const exportNewDataOnly = async (): Promise<{ items: { type: string; loca
     getUnsyncedWallets(),
     getUnsyncedDebtInstallments(),
     getUnsyncedBillPayments(),
+    getUnsyncedSubscriptions(),
   ]);
 
   const items: { type: string; localId: number; data: Record<string, unknown> }[] = [];
@@ -4027,6 +4245,9 @@ export const exportNewDataOnly = async (): Promise<{ items: { type: string; loca
   for (const bp of billPaymentArray) {
     items.push({ type: 'bill_payment', localId: bp.id, data: bp as unknown as Record<string, unknown> });
   }
+  for (const s of subscriptions) {
+    items.push({ type: 'subscription', localId: s.id, data: s as unknown as Record<string, unknown> });
+  }
 
   return { items };
 };
@@ -4057,6 +4278,7 @@ export const exportFullData = async (): Promise<Record<string, unknown>> => {
     wallets,
     ai_insights_cache,
     goal_plan_cache,
+    subscriptions,
   ] = await Promise.all([
     getExpenses(),
     getIncome(),
@@ -4082,6 +4304,7 @@ export const exportFullData = async (): Promise<Record<string, unknown>> => {
     getWallets(),
     getDb().getAllAsync('SELECT * FROM ai_insights_cache'),
     getDb().getAllAsync('SELECT * FROM goal_plan_cache'),
+    getSubscriptions(),
   ]);
 
   const debt_installments: any[] = [];
@@ -4125,6 +4348,7 @@ export const exportFullData = async (): Promise<Record<string, unknown>> => {
     wallets,
     ai_insights_cache,
     goal_plan_cache,
+    subscriptions,
   };
 };
 
@@ -4484,11 +4708,16 @@ export const importFullData = async (data: Record<string, unknown>, force: boole
     await runSection('debt_installments', async () => {
       const debt_installments = (data.debt_installments as any[]) || [];
       for (const di of debt_installments) {
+        const diDebtId = toSql(di.debtId);
+        if (diDebtId == null) {
+          console.log('[Database] Skipping debt_installment with null debtId:', di.id);
+          continue;
+        }
         await database.runAsync(
           'INSERT OR REPLACE INTO debt_installments (id, debtId, amount, dueDate, isPaid, paidDate, installmentNumber, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [
             toSql(di.id),
-            toSql(di.debtId),
+            diDebtId,
             toSql(di.amount) || 0,
             toSql(di.dueDate) ?? new Date().toISOString().slice(0, 10),
             toSql(di.isPaid),
@@ -4532,11 +4761,16 @@ export const importFullData = async (data: Record<string, unknown>, force: boole
     await runSection('bill_payments', async () => {
       const bill_payments = (data.bill_payments as any[]) || [];
       for (const bp of bill_payments) {
+        const bpBillId = toSql(bp.billId);
+        if (bpBillId == null) {
+          console.log('[Database] Skipping bill_payment with null billId:', bp.id);
+          continue;
+        }
         await database.runAsync(
           'INSERT OR REPLACE INTO bill_payments (id, billId, amount, paymentDate, description, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
           [
             toSql(bp.id),
-            toSql(bp.billId),
+            bpBillId,
             toSql(bp.amount) || 0,
             toSql(bp.paymentDate ?? bp.paidDate) ?? new Date().toISOString().slice(0, 10),
             toSql(bp.description),
@@ -4550,11 +4784,16 @@ export const importFullData = async (data: Record<string, unknown>, force: boole
     await runSection('debt_payments', async () => {
       const debt_payments = (data.debt_payments as any[]) || [];
       for (const dp of debt_payments) {
+        const dpDebtId = toSql(dp.debtId);
+        if (dpDebtId == null) {
+          console.log('[Database] Skipping debt_payment with null debtId:', dp.id);
+          continue;
+        }
         await database.runAsync(
           'INSERT OR REPLACE INTO debt_payments (id, debtId, amount, paymentDate, installmentId, description, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
           [
             toSql(dp.id),
-            toSql(dp.debtId),
+            dpDebtId,
             toSql(dp.amount) || 0,
             toSql(dp.paymentDate ?? dp.date) ?? new Date().toISOString().slice(0, 10),
             toSql(dp.installmentId),
@@ -4791,6 +5030,31 @@ export const importFullData = async (data: Record<string, unknown>, force: boole
       await database.runAsync('UPDATE income SET walletId = ? WHERE walletId IS NULL', [defaultWalletId]);
     }
 
+    await runSection('subscriptions', async () => {
+      const subscriptions = (data.subscriptions as any[]) || [];
+      for (const s of subscriptions) {
+        await database.runAsync(
+          'INSERT OR REPLACE INTO subscriptions (id, name, amount, currency, billingCycle, startDate, nextPaymentDate, category, description, isActive, walletId, base_amount, createdAt, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            toSql(s.id),
+            toSql(s.name) ?? 'اشتراك',
+            toSql(s.amount) || 0,
+            toSql(s.currency) || 'IQD',
+            toSql(s.billingCycle) ?? 'monthly',
+            toSql(s.startDate) ?? new Date().toISOString().slice(0, 10),
+            toSql(s.nextPaymentDate) ?? new Date().toISOString().slice(0, 10),
+            toSql(s.category) ?? 'other',
+            toSql(s.description),
+            toSql(s.isActive),
+            toSql(s.walletId),
+            toSql(s.base_amount) ?? toSql(s.amount) ?? 0,
+            toSql(s.createdAt) ?? new Date().toISOString(),
+            toSql(s.synced_at)
+          ]
+        );
+      }
+    });
+
     await database.execAsync('COMMIT;');
     // Re-enable foreign keys after total success
     await database.execAsync('PRAGMA foreign_keys = ON;');
@@ -4899,7 +5163,7 @@ export const addSavingsTransaction = async (transaction: Omit<import('../types')
     const currency = savings?.currency || 'IQD';
     const appSettings = await getAppSettings();
     const targetCurrency = appSettings?.currency ? (CURRENCIES.find(c => c.name === appSettings.currency)?.code || 'IQD') : 'IQD';
-    
+
     // 2. Convert delta to base currency
     const { convertCurrency } = await import('../services/currencyService');
     const amountDelta = transaction.type === 'deposit' ? transaction.amount : -transaction.amount;
@@ -4938,7 +5202,7 @@ export const transferBetweenSavings = async (
     ]);
     const fromCur = fromSavings?.currency || 'IQD';
     const toCur = toSavings?.currency || 'IQD';
-    
+
     const appSettings = await getAppSettings();
     const mainCur = appSettings?.currency ? (CURRENCIES.find(c => c.name === appSettings.currency)?.code || 'IQD') : 'IQD';
     const { convertCurrency } = await import('../services/currencyService');
@@ -5055,6 +5319,11 @@ export const recalculateAllBaseAmounts = async (targetCurrency: string, convertF
     for (const item of recurring) {
       const baseAmount = await convertFn(item.amount, item.currency || 'IQD', targetCurrency);
       await database.runAsync('UPDATE recurring_expenses SET base_amount = ?, synced_at = NULL WHERE id = ?', [baseAmount, item.id]);
+    }    // 9. Subscriptions
+    const subscriptions = await database.getAllAsync<any>('SELECT id, amount, currency FROM subscriptions');
+    for (const item of subscriptions) {
+      const baseAmount = await convertFn(item.amount, item.currency || 'IQD', targetCurrency);
+      await database.runAsync('UPDATE subscriptions SET base_amount = ?, synced_at = NULL WHERE id = ?', [baseAmount, item.id]);
     }
 
 
@@ -5075,10 +5344,13 @@ export const getWallets = async (): Promise<import('../types').Wallet[]> => {
   // Calculate dynamic balance for each wallet: initial balance + sum(income) - sum(expenses)
   const query = `
     SELECT w.*, 
-      (w.balance + COALESCE(inc.total, 0) - COALESCE(exp.total, 0)) as balance
+      (w.balance + COALESCE(inc_base.total, 0) - COALESCE(exp_base.total, 0)) as balance,
+      (w.balance + COALESCE(inc_native.total, 0) - COALESCE(exp_native.total, 0)) as native_balance
     FROM wallets w
-    LEFT JOIN (SELECT walletId, SUM(amount) as total FROM income GROUP BY walletId) inc ON inc.walletId = w.id
-    LEFT JOIN (SELECT walletId, SUM(amount) as total FROM expenses GROUP BY walletId) exp ON exp.walletId = w.id
+    LEFT JOIN (SELECT walletId, SUM(base_amount) as total FROM income GROUP BY walletId) inc_base ON inc_base.walletId = w.id
+    LEFT JOIN (SELECT walletId, SUM(base_amount) as total FROM expenses GROUP BY walletId) exp_base ON exp_base.walletId = w.id
+    LEFT JOIN (SELECT walletId, SUM(amount) as total FROM income GROUP BY walletId) inc_native ON inc_native.walletId = w.id
+    LEFT JOIN (SELECT walletId, SUM(amount) as total FROM expenses GROUP BY walletId) exp_native ON exp_native.walletId = w.id
     ORDER BY w.isDefault DESC, w.name ASC
   `;
   const wallets = await database.getAllAsync<import('../types').Wallet>(query);
@@ -5089,10 +5361,13 @@ export const getWalletById = async (id: number): Promise<import('../types').Wall
   const database = getDb();
   const query = `
     SELECT w.*, 
-      (w.balance + COALESCE(inc.total, 0) - COALESCE(exp.total, 0)) as balance
+      (w.balance + COALESCE(inc_base.total, 0) - COALESCE(exp_base.total, 0)) as balance,
+      (w.balance + COALESCE(inc_native.total, 0) - COALESCE(exp_native.total, 0)) as native_balance
     FROM wallets w
-    LEFT JOIN (SELECT walletId, SUM(amount) as total FROM income GROUP BY walletId) inc ON inc.walletId = w.id
-    LEFT JOIN (SELECT walletId, SUM(amount) as total FROM expenses GROUP BY walletId) exp ON exp.walletId = w.id
+    LEFT JOIN (SELECT walletId, SUM(base_amount) as total FROM income GROUP BY walletId) inc_base ON inc_base.walletId = w.id
+    LEFT JOIN (SELECT walletId, SUM(base_amount) as total FROM expenses GROUP BY walletId) exp_base ON exp_base.walletId = w.id
+    LEFT JOIN (SELECT walletId, SUM(amount) as total FROM income GROUP BY walletId) inc_native ON inc_native.walletId = w.id
+    LEFT JOIN (SELECT walletId, SUM(amount) as total FROM expenses GROUP BY walletId) exp_native ON exp_native.walletId = w.id
     WHERE w.id = ?
   `;
   const wallet = await database.getFirstAsync<import('../types').Wallet>(

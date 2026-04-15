@@ -96,13 +96,15 @@ const DashboardScreenComponent = ({
       month: number;
     }>;
     filteredBalance: number | null;
+    filteredNativeBalance?: number | null;
   }>({
     summary: null,
     recentTransactions: [],
     todayData: null,
     currentMonthData: null,
     availableMonths: [],
-    filteredBalance: null
+    filteredBalance: null,
+    filteredNativeBalance: null
   });
   const [secondaryData, setSecondaryData] = useState<{
     userName: string;
@@ -252,12 +254,14 @@ const DashboardScreenComponent = ({
     const allTimeData = {
       totalIncome: stats?.totalIncome || 0,
       totalExpenses: stats?.totalExpenses || 0,
-      balance: stats?.balance || 0
+      balance: stats?.balance || 0,
+      nativeBalance: (stats as any).nativeBalance
     };
     setDashboardData(prev => ({
       ...prev,
       currentMonthData: allTimeData,
-      filteredBalance: allTimeData.balance
+      filteredBalance: allTimeData.balance,
+      filteredNativeBalance: allTimeData.nativeBalance
     }));
   }, [selectedBalanceMonth, selectedWallet?.id]);
   const loadEssentialData = useCallback(async () => {
@@ -400,11 +404,15 @@ const DashboardScreenComponent = ({
     setRefreshing(false);
   };
   useEffect(() => {
-    loadDataSafe();
+    // Defer initial load until after the navigation transition completes
+    const initialLoad = InteractionManager.runAfterInteractions(() => {
+      loadDataSafe();
+    });
     const unsubscribe = navigation.addListener('focus', () => {
       loadDataSafe();
     });
     return () => {
+      initialLoad.cancel();
       unsubscribe();
       deferredLoadRef.current?.cancel?.();
       if (referralTimeoutRef.current) clearTimeout(referralTimeoutRef.current);
@@ -530,7 +538,11 @@ const DashboardScreenComponent = ({
 
         {/* Main Balance Hero */}
         <View style={styles.heroSection}>
-          {dashboardData.summary ? <BalanceCard balance={dashboardData.filteredBalance !== null ? dashboardData.filteredBalance : dashboardData.summary.balance} selectedMonth={selectedBalanceMonth || undefined} onMonthChange={(year, month) => {
+          {dashboardData.summary ? <BalanceCard 
+            balance={dashboardData.filteredBalance !== null ? dashboardData.filteredBalance : dashboardData.summary.balance} 
+            nativeBalance={dashboardData.filteredBalance !== null ? (dashboardData as any).filteredNativeBalance : dashboardData.summary.nativeBalance}
+            selectedMonth={selectedBalanceMonth || undefined} 
+            onMonthChange={(year, month) => {
           setSelectedBalanceMonth({
             year,
             month
@@ -617,6 +629,15 @@ const DashboardScreenComponent = ({
               <Ionicons name="receipt" size={24} color={theme.colors.primary} />
             </View>
             <Text style={styles.actionLabel}>{tl("الفواتير")}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.actionItem} onPress={() => navigation.navigate('Subscriptions')}>
+            <View style={[styles.actionIconBg, {
+            backgroundColor: '#8B5CF6' + '18'
+          }]}>
+              <Ionicons name="card" size={24} color="#8B5CF6" />
+            </View>
+            <Text style={styles.actionLabel}>{tl("الاشتراكات")}</Text>
           </TouchableOpacity>
 
 

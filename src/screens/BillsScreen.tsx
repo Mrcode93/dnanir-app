@@ -5,10 +5,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { getPlatformFontWeight, getPlatformShadow, type AppTheme } from '../utils/theme-constants';
 import { useAppTheme, useThemedStyles } from '../utils/theme-context';
-import { getBills, deleteBill, Bill } from '../database/database';
+import { getBills, deleteBill, Bill, getSubscriptions, deleteSubscription, Subscription } from '../database/database';
 import { useCurrency } from '../hooks/useCurrency';
 import { ConfirmAlert } from '../components/ConfirmAlert';
-import { BILL_CATEGORIES, BillCategory } from '../types';
+import { BILL_CATEGORIES, BillCategory, SUBSCRIPTION_CATEGORIES } from '../types';
 import { markBillAsPaid, markBillAsUnpaid } from '../services/billService';
 import { isRTL } from '../utils/rtl';
 import { alertService } from '../services/alertService';
@@ -32,9 +32,10 @@ export const BillsScreen = ({
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<BillCategory | 'all'>('all');
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
-  const [billToDelete, setBillToDelete] = useState<Bill | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{ id: number, title: string } | null>(null);
   const [loading, setLoading] = useState(false);
-  const loadBills = useCallback(async () => {
+
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const allBills = await getBills();
@@ -45,13 +46,36 @@ export const BillsScreen = ({
       setLoading(false);
     }
   }, []);
+
   useEffect(() => {
-    loadBills();
+    loadData();
     const unsubscribe = navigation.addListener('focus', () => {
-      loadBills();
+      loadData();
     });
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, loadData]);
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerTitle: tl("الفواتير"),
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={() => navigation.navigate('AddBill')}
+          style={{
+            marginRight: isRTL ? 0 : 16,
+            marginLeft: isRTL ? 16 : 0,
+            padding: 8,
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 44,
+          }}
+        >
+          <Ionicons name="add-circle" size={28} color="#FFFFFF" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, isRTL]);
+
   useEffect(() => {
     if (route?.params?.action === 'add') {
       navigation.navigate('AddBill');
@@ -60,6 +84,7 @@ export const BillsScreen = ({
       });
     }
   }, [route?.params]);
+
   useEffect(() => {
     let filtered = bills;
     if (selectedCategory !== 'all') {
@@ -67,38 +92,47 @@ export const BillsScreen = ({
     }
     setFilteredBills(filtered);
   }, [bills, selectedCategory]);
+
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadBills();
+    await loadData();
     setRefreshing(false);
   };
-  const handleDelete = (bill: Bill) => {
-    setBillToDelete(bill);
+
+  const handleDelete = (item: Bill) => {
+    setItemToDelete({
+      id: item.id,
+      title: item.title
+    });
     setShowDeleteAlert(true);
   };
+
   const confirmDelete = async () => {
-    if (billToDelete) {
+    if (itemToDelete) {
       try {
-        await deleteBill(billToDelete.id);
-        await loadBills();
-        setShowDeleteAlert(false);
-        setBillToDelete(null);
+        await deleteBill(itemToDelete.id);
         alertService.toastSuccess(tl("تم حذف الفاتورة بنجاح"));
+        await loadData();
+        setShowDeleteAlert(false);
+        setItemToDelete(null);
       } catch (error) {
-        alertService.error(tl("خطأ"), tl("حدث خطأ أثناء حذف الفاتورة"));
+        alertService.error(tl("خطأ"), tl("حدث خطأ أثناء الحذف"));
       }
     }
   };
+
   const handleBillPress = (bill: Bill) => {
     navigation.navigate('BillDetails', {
       billId: bill.id
     });
   };
-  const handleEdit = (bill: Bill) => {
+
+  const handleEditBill = (bill: Bill) => {
     navigation.navigate('AddBill', {
       bill
     });
   };
+
   const handleTogglePaid = async (bill: Bill) => {
     try {
       if (bill.isPaid) {
@@ -108,14 +142,16 @@ export const BillsScreen = ({
         await markBillAsPaid(bill.id);
         alertService.toastSuccess(tl("تم دفع الفاتورة بنجاح"));
       }
-      await loadBills();
+      await loadData();
     } catch (error) {
       alertService.error(tl("خطأ"), tl("حدث خطأ أثناء تحديث حالة الفاتورة"));
     }
   };
+
   const getCategoryInfo = (category: string) => {
     return BILL_CATEGORIES[category as BillCategory] || BILL_CATEGORIES.other;
   };
+
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString(language === 'ar' ? 'ar-IQ-u-nu-latn' : 'en-US', {
       year: 'numeric',
@@ -123,6 +159,7 @@ export const BillsScreen = ({
       day: 'numeric'
     });
   };
+
   const getDaysUntilDue = (dueDate: string) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -130,16 +167,13 @@ export const BillsScreen = ({
     due.setHours(0, 0, 0, 0);
     return Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   };
-  const {
-    totalBills,
-    unpaidBills,
-    paidBills,
-    dueSoonBills
-  } = useMemo(() => {
+
+  const summary = useMemo(() => {
     let total = 0;
     let unpaid = 0;
     let paid = 0;
     let dueSoon = 0;
+    
     for (const b of bills) {
       if (b.isPaid) {
         paid++;
@@ -150,13 +184,15 @@ export const BillsScreen = ({
         if (days >= 0 && days <= 7) dueSoon++;
       }
     }
+    
     return {
-      totalBills: total,
-      unpaidBills: unpaid,
-      paidBills: paid,
-      dueSoonBills: dueSoon
+      totalUnpaid: total,
+      unpaidCount: unpaid,
+      paidCount: paid,
+      dueSoonCount: dueSoon
     };
   }, [bills]);
+
   const renderSummaryCard = () => <View style={styles.summaryContainer}>
       <LinearGradient colors={theme.gradients.error as any} style={styles.summaryCard} start={{
       x: 0,
@@ -171,27 +207,28 @@ export const BillsScreen = ({
           </View>
           <View style={styles.summaryTextContainer}>
             <Text style={styles.summaryLabel}>{tl("إجمالي الفواتير غير المدفوعة")}</Text>
-            <Text style={styles.summaryAmount}>{formatCurrency(totalBills)}</Text>
+            <Text style={styles.summaryAmount}>{formatCurrency(summary.totalUnpaid)}</Text>
           </View>
         </View>
         <View style={styles.summaryFooter}>
           <View style={styles.summaryStatItem}>
             <Ionicons name="close-circle-outline" size={14} color="rgba(255,255,255,0.8)" />
-            <Text style={styles.summaryStatText}>{unpaidBills}{tl("غير مدفوعة")}</Text>
+            <Text style={styles.summaryStatText}>{summary.unpaidCount} {tl("غير مدفوعة")}</Text>
           </View>
           <View style={styles.summaryStatDivider} />
           <View style={styles.summaryStatItem}>
             <Ionicons name="checkmark-circle-outline" size={14} color="rgba(255,255,255,0.8)" />
-            <Text style={styles.summaryStatText}>{paidBills}{tl("مدفوعة")}</Text>
+            <Text style={styles.summaryStatText}>{summary.paidCount} {tl("مدفوعة")}</Text>
           </View>
           <View style={styles.summaryStatDivider} />
           <View style={styles.summaryStatItem}>
             <Ionicons name="time-outline" size={14} color="rgba(255,255,255,0.8)" />
-            <Text style={styles.summaryStatText}>{dueSoonBills}{tl("قريباً")}</Text>
+            <Text style={styles.summaryStatText}>{summary.dueSoonCount} {tl("قريباً")}</Text>
           </View>
         </View>
       </LinearGradient>
     </View>;
+
   const renderBillItem = useCallback(({
     item
   }: {
@@ -203,7 +240,6 @@ export const BillsScreen = ({
     const categoryInfo = getCategoryInfo(item.category);
     return <View style={styles.itemWrapper}>
         <TouchableOpacity onPress={() => handleBillPress(item)} activeOpacity={0.7} style={styles.billCard}>
-          {/* Status side bar */}
           <View style={[styles.billStatusBar, item.isPaid && {
           backgroundColor: theme.colors.success
         }, !item.isPaid && isOverdue && {
@@ -213,9 +249,7 @@ export const BillsScreen = ({
         }, !item.isPaid && !isOverdue && !isDueSoon && {
           backgroundColor: theme.colors.border
         }]} />
-
           <View style={styles.billCardContent}>
-            {/* Top row */}
             <View style={styles.billCardTop}>
               <View style={[styles.billIconBadge, {
               backgroundColor: categoryInfo.color + '15'
@@ -224,7 +258,7 @@ export const BillsScreen = ({
               </View>
               <View style={styles.billCardCenter}>
                 <Text style={styles.billTitle} numberOfLines={1}>{item.title}</Text>
-                <Text style={styles.billCategory}>{tl(categoryInfo.label)}</Text>
+                <Text style={styles.billCategory}>{categoryInfo.label}</Text>
               </View>
               <View style={styles.billAmountWrap}>
                 <Text style={[styles.billAmount, item.isPaid && styles.billAmountPaid]}>
@@ -236,14 +270,11 @@ export const BillsScreen = ({
                   </View>}
               </View>
             </View>
-
-            {/* Bottom row */}
             <View style={styles.billCardFooter}>
               <View style={styles.billDateRow}>
                 <Ionicons name="calendar-outline" size={13} color={theme.colors.textMuted} />
                 <Text style={styles.billDate}>{formatDate(item.dueDate)}</Text>
               </View>
-
               {!item.isPaid && <View style={[styles.daysBadge, isOverdue && {
               backgroundColor: theme.colors.error + '15'
             }, isDueSoon && !isOverdue && {
@@ -257,11 +288,10 @@ export const BillsScreen = ({
                     {isOverdue ? tl("متأخرة {{}} يوم", [Math.abs(daysUntilDue)]) : daysUntilDue === 0 ? tl("اليوم") : tl("{{}} يوم", [daysUntilDue])}
                   </Text>
                 </View>}
-
               <View style={styles.billActions}>
                 <TouchableOpacity onPress={e => {
                 e.stopPropagation();
-                handleEdit(item);
+                handleEditBill(item);
               }} style={styles.actionBtn} hitSlop={8}>
                   <Ionicons name="pencil-outline" size={16} color={theme.colors.textSecondary} />
                 </TouchableOpacity>
@@ -277,73 +307,36 @@ export const BillsScreen = ({
         </TouchableOpacity>
       </View>;
   }, [theme, styles, formatCurrency]);
+
   return <View style={styles.container}>
-      <FlashList data={filteredBills}
-    // @ts-ignore
-    estimatedItemSize={100} ListHeaderComponent={<>
-            {/* <View style={styles.header}>
-              <View style={styles.categoriesRow}>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.categoriesContent}
-                >
-                  <TouchableOpacity
-                    onPress={() => setSelectedCategory('all')}
-                    style={[styles.categoryChip, selectedCategory === 'all' && styles.categoryChipActive]}
-                  >
-                    <Text style={[styles.categoryChipText, selectedCategory === 'all' && styles.categoryChipTextActive]}>
-                      {tl("الكل")}
-                    </Text>
-                  </TouchableOpacity>
-                  {(Object.keys(BILL_CATEGORIES) as BillCategory[]).map((cat) => {
-                    const info = BILL_CATEGORIES[cat];
-                    const isSelected = selectedCategory === cat;
-                    return (
-                      <TouchableOpacity
-                        key={cat}
-                        onPress={() => setSelectedCategory(cat)}
-                        style={[
-                          styles.categoryChip,
-                          isSelected && { backgroundColor: info.color + '20', borderColor: info.color, borderWidth: 1 },
-                        ]}
-                      >
-                        <Ionicons
-                          name={info.icon as any}
-                          size={14}
-                          color={isSelected ? info.color : theme.colors.textSecondary}
-                          style={{ marginHorizontal: 2 }}
-                        />
-                        <Text style={[
-                          styles.categoryChipText,
-                          isSelected && { color: info.color, fontWeight: getPlatformFontWeight('700') },
-                        ]}>
-                          {info.label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
-             </View> */}
-            {renderSummaryCard()}
-          </>} renderItem={renderBillItem} keyExtractor={item => item.id.toString()} contentContainerStyle={styles.listContent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} colors={[theme.colors.primary]} />} ListEmptyComponent={!loading ? <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconContainer}>
-                <Ionicons name="receipt-outline" size={64} color={theme.colors.primary + '40'} />
-              </View>
-              <Text style={styles.emptyText}>{tl("لا توجد فواتير")}</Text>
-              <Text style={styles.emptySubtext}>
-                {selectedCategory !== 'all' ? tl("لا توجد نتائج لهذه الفئة") : tl("أضف فاتورة جديدة للبدء")}
-              </Text>
-            </View> : null} />
-
-
-
-
-      <ConfirmAlert visible={showDeleteAlert} title={tl("حذف الفاتورة")} message={tl("هل أنت متأكد من حذف الفاتورة \"{{}}\"؟", [billToDelete?.title])} onConfirm={confirmDelete} onCancel={() => {
-      setShowDeleteAlert(false);
-      setBillToDelete(null);
-    }} />
+      <FlashList 
+        data={filteredBills}
+        estimatedItemSize={100} 
+        ListHeaderComponent={renderSummaryCard()} 
+        renderItem={renderBillItem} 
+        keyExtractor={item => item.id.toString()} 
+        contentContainerStyle={styles.listContent} 
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} colors={[theme.colors.primary]} />} 
+        ListEmptyComponent={!loading ? <View style={styles.emptyContainer}>
+            <View style={styles.emptyIconContainer}>
+              <Ionicons name="receipt-outline" size={64} color={theme.colors.primary + '40'} />
+            </View>
+            <Text style={styles.emptyText}>{tl("لا توجد فواتير")}</Text>
+            <Text style={styles.emptySubtext}>
+               {selectedCategory !== 'all' ? tl("لا توجد نتائج لهذه الفئة") : tl("أضف فاتورة جديدة للبدء")}
+            </Text>
+          </View> : null} 
+      />
+      <ConfirmAlert 
+        visible={showDeleteAlert} 
+        title={tl("حذف الفاتورة")} 
+        message={tl("هل أنت متأكد من حذف \"{{}}\"؟", [itemToDelete?.title])} 
+        onConfirm={confirmDelete} 
+        onCancel={() => {
+          setShowDeleteAlert(false);
+          setItemToDelete(null);
+        }} 
+      />
     </View>;
 };
 const createStyles = (theme: AppTheme) => StyleSheet.create({
@@ -397,7 +390,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   summaryContainer: {
     marginBottom: 20,
     paddingHorizontal: 20,
-    marginTop: 20
+    marginTop: 10
   },
   summaryCard: {
     borderRadius: 20,

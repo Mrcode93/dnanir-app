@@ -12,15 +12,18 @@
       },
       "ios": {
         "buildConfiguration": "Debug"
-      }
+      },
+      "channel": "development"
     },
     "preview": {
       "distribution": "internal",
       "android": {
         "buildType": "apk"
-      }
+      },
+      "channel": "preview"
     },
     "production": {
+      "channel": "production",
       "android": {
         "buildType": "app-bundle"
       }
@@ -29,13 +32,9 @@
   "submit": {
     "production": {
       "ios": {
-        "ascApiKeyPath": "./AuthKey.p8",
-        "ascApiKeyId": "323B2YC34J",
-        "ascApiKeyIssuerId": "efe61021-7e42-4446-b470-75ee3f13cb3b",
-        "ascAppId": "REPLACE_WITH_YOUR_APP_ID"
+        "ascAppId": "6753695330"
       },
       "android": {
-        "serviceAccountKeyPath": "./dnanir-app-e69e13cbbdc0.json"
       }
     }
   }

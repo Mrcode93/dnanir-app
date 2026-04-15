@@ -111,14 +111,16 @@ export const AddCategoryScreen: React.FC<AddCategoryScreenProps> = ({
       backgroundColor: theme.colors.surfaceCard
     }}>
       <AppHeader 
-        title={category ? tl("تعديل الفئة") : tl("إضافة فئة جديدة")} 
+        title={category ? (type === 'subscription' ? tl("تعديل الخدمة") : tl("تعديل الفئة")) : (type === 'subscription' ? tl("إضافة خدمة رقمية") : tl("إضافة فئة جديدة"))} 
         backIcon="close" 
         onBack={handleClose} 
       />
 
       <View style={{ paddingHorizontal: 24, paddingTop: 16 }}>
         <Text style={styles.subtitle}>
-          {category ? type === 'expense' ? tl("قم بتعديل بيانات فئة المصاريف") : tl("قم بتعديل بيانات مصدر الدخل") : type === 'expense' ? tl("أضف فئة جديدة للمصاريف") : tl("أضف مصدر دخل جديد")}
+          {category 
+            ? (type === 'expense' ? tl("قم بتعديل بيانات فئة المصاريف") : type === 'subscription' ? tl("قم بتعديل بيانات الخدمة الرقمية") : tl("قم بتعديل بيانات مصدر الدخل")) 
+            : (type === 'expense' ? tl("أضف فئة جديدة للمصاريف") : type === 'subscription' ? tl("أضف خدمة رقمية جديدة") : tl("أضف مصدر دخل جديد"))}
         </Text>
 
         <View style={styles.inputContainer}>

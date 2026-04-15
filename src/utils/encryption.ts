@@ -37,6 +37,8 @@ import * as SecureStore from 'expo-secure-store';
 const DEK_RAW_KEY     = 'dnanir_dek';         // raw DEK — fast restart without password
 const DEK_WRAPPED_KEY = 'dnanir_dek_wrapped'; // GCM(DEK, KEK) — password rotation + backup
 const DEK_OWNER_KEY   = 'dnanir_dek_owner';   // userId who owns this DEK
+const KEK_KEY         = 'dnanir_kek';         // cached KEK — needed for backup DEK adoption
+const KEK_LEGACY_KEY  = 'dnanir_kek_legacy';  // cached legacy KEK (100k iters)
 const LOCKOUT_KEY     = 'dnanir_lockout';     // brute-force tracking
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -44,11 +46,14 @@ const KEY_BYTES       = 32;             // 256-bit AES key
 const IV_BYTES        = 12;             // 96-bit GCM nonce
 const PBKDF2_ITERS    = 5_000;
 const LEGACY_ITERS    = 100_000;
+const ORIGINAL_ITERS  = 500;           // earliest app version
 const MAX_ATTEMPTS    = 5;
 const BASE_LOCKOUT_MS = 30 * 60_000;   // 30 minutes
 
 // ─── In-memory session DEK ────────────────────────────────────────────────────
 let _sessionDEK: Uint8Array | null = null;
+let _sessionKEK: Uint8Array | null = null;  // cached KEK for backup DEK adoption
+let _cachedCredentials: { password: string; userId: string } | null = null;  // temporary, cleared on logout
 
 /** Returns true when the session DEK is loaded and encryption is operational. */
 export function isEncryptionReady(): boolean {
@@ -196,13 +201,22 @@ export async function initEncryptionKey(
   }
 
   const kek5k = await deriveKEK(password, userId, PBKDF2_ITERS);
+  _sessionKEK = kek5k;  // cache for later backup DEK adoption
+  _cachedCredentials = { password, userId };  // cache for multi-iteration adoption
+  // Persist KEK so it survives app restart (needed for adoptWrappedDEK)
+  await SecureStore.setItemAsync(KEK_KEY, toBase64(kek5k));
+
+  console.log(`[Encryption] 🔍 initEncryptionKey: userId=${userId.substring(0, 8)}..., cloudWrappedDek=${cloudWrappedDek ? 'yes(' + cloudWrappedDek.length + ')' : 'no'}`);
 
   try {
     let stored = await SecureStore.getItemAsync(DEK_WRAPPED_KEY);
     const owner  = await SecureStore.getItemAsync(DEK_OWNER_KEY);
 
+    console.log(`[Encryption] 🔍 stored wrapped DEK: ${stored ? 'yes(' + stored.length + ')' : 'no'}, owner: ${owner || 'none'}`);
+
     // Normalize owner if needed
     if (owner && owner !== userId) {
+      console.log(`[Encryption] 🔍 Owner mismatch (${owner} vs ${userId}), clearing stored DEK`);
       await SecureStore.deleteItemAsync(DEK_WRAPPED_KEY);
       await SecureStore.deleteItemAsync(DEK_OWNER_KEY);
       stored = null;
@@ -210,6 +224,7 @@ export async function initEncryptionKey(
 
     // Attempt to unwrap a key — either from cloud or local storage
     const targetWrapped = cloudWrappedDek || stored;
+    console.log(`[Encryption] 🔍 targetWrapped: ${targetWrapped ? 'yes(' + targetWrapped.length + ' chars, starts: ' + targetWrapped.substring(0, 20) + ')' : 'NONE'}, source: ${cloudWrappedDek ? 'cloud' : stored ? 'local' : 'none'}`);
 
     if (targetWrapped) {
       let dek: Uint8Array | null = null;
@@ -224,12 +239,23 @@ export async function initEncryptionKey(
           const kek100k = await deriveKEK(password, userId, LEGACY_ITERS);
           dek = gcmDecrypt(fromBase64(targetWrapped), kek100k);
           usedLegacy = true;
+          // Persist legacy KEK for backup DEK adoption (server may still have legacy-wrapped DEK)
+          await SecureStore.setItemAsync(KEK_LEGACY_KEY, toBase64(kek100k));
         } catch (legacyErr) {
-          // Both failed — means password is wrong or key is for different user/pass
+          // 3. Try original KEK (500 iterations — earliest app version)
+          try {
+            const kek500 = await deriveKEK(password, userId, ORIGINAL_ITERS);
+            dek = gcmDecrypt(fromBase64(targetWrapped), kek500);
+            usedLegacy = true;
+            await SecureStore.setItemAsync(KEK_LEGACY_KEY, toBase64(kek500));
+          } catch (origErr) {
+            // All three failed — wrong password or key is for different user
+          }
         }
       }
 
       if (dek) {
+        console.log(`[Encryption] ✅ Successfully unwrapped DEK (legacy=${usedLegacy})`);
         _sessionDEK = dek;
         
         // UPGRADE: If we used the legacy key, or if we were adopting a cloud key, 
@@ -256,6 +282,7 @@ export async function initEncryptionKey(
     }
 
     // Fresh setup: generate DEK, wrap it with kek5k, cache raw
+    console.log('[Encryption] ⚠️ All unwrap attempts failed — generating NEW DEK (old data will be undecryptable!)');
     const newDek    = Crypto.getRandomBytes(KEY_BYTES);
     const wrapped   = gcmEncrypt(newDek, kek5k);
     await SecureStore.setItemAsync(DEK_WRAPPED_KEY, toBase64(wrapped));
@@ -282,6 +309,8 @@ export async function restoreEncryptionKeyFromStorage(): Promise<void> {
   try {
     const raw = await SecureStore.getItemAsync(DEK_RAW_KEY);
     if (raw) _sessionDEK = fromBase64(raw);
+    const kek = await SecureStore.getItemAsync(KEK_KEY);
+    if (kek) _sessionKEK = fromBase64(kek);
   } catch { /* non-critical — user will re-derive on next login */ }
 }
 
@@ -306,7 +335,10 @@ export async function rotateKeyEncryption(
 
 export async function clearEncryptionKey(): Promise<void> {
   _sessionDEK = null;
+  _sessionKEK = null;
+  _cachedCredentials = null;
   await SecureStore.deleteItemAsync(DEK_RAW_KEY).catch(() => {});
+  await SecureStore.deleteItemAsync(KEK_KEY).catch(() => {});
   // Note: we DON'T clear DEK_WRAPPED_KEY or DEK_OWNER_KEY here.
   // They stay so the same user can log back in and decrypt their data.
 }
@@ -317,12 +349,100 @@ export async function clearEncryptionKey(): Promise<void> {
  */
 export async function hardResetEncryption(): Promise<void> {
   _sessionDEK = null;
+  _sessionKEK = null;
+  _cachedCredentials = null;
   await SecureStore.deleteItemAsync(DEK_RAW_KEY).catch(() => {});
   await SecureStore.deleteItemAsync(DEK_WRAPPED_KEY).catch(() => {});
   await SecureStore.deleteItemAsync(DEK_OWNER_KEY).catch(() => {});
+  await SecureStore.deleteItemAsync(KEK_KEY).catch(() => {});
+  await SecureStore.deleteItemAsync(KEK_LEGACY_KEY).catch(() => {});
+}
+
+/**
+ * Try to adopt a wrapped DEK from a server backup.
+ * Uses the cached KEK (from the most recent login) to unwrap the backup's DEK
+ * and swap it into the active session. This allows decrypting data that was
+ * encrypted with a different DEK than the one generated during login.
+ *
+ * Returns true if the DEK was successfully adopted, false otherwise.
+ */
+export async function adoptWrappedDEK(wrappedDek: string): Promise<boolean> {
+  // Try to restore KEK from storage if not in memory
+  if (!_sessionKEK) {
+    try {
+      const kekStored = await SecureStore.getItemAsync(KEK_KEY);
+      if (kekStored) {
+        _sessionKEK = fromBase64(kekStored);
+        console.log('[Encryption] Restored KEK from storage for backup adoption');
+      }
+    } catch {}
+  }
+
+  if (!_sessionKEK) {
+    console.log('[Encryption] Cannot adopt wrapped DEK — no KEK available. Please log out and log back in.');
+    return false;
+  }
+
+  try {
+    // Try to unwrap using cached KEK (5k iterations — derived during login)
+    const dek = gcmDecrypt(fromBase64(wrappedDek), _sessionKEK);
+    _sessionDEK = dek;
+    await SecureStore.setItemAsync(DEK_RAW_KEY, toBase64(dek));
+    await SecureStore.setItemAsync(DEK_WRAPPED_KEY, wrappedDek);
+    console.log('[Encryption] ✅ Adopted backup DEK successfully (modern KEK)');
+    return true;
+  } catch (err) {
+    console.log('[Encryption] Modern KEK (5k) failed, trying other iteration counts...');
+  }
+
+  // Try legacy KEK from storage
+  try {
+    const legacyKekStored = await SecureStore.getItemAsync(KEK_LEGACY_KEY);
+    if (legacyKekStored) {
+      const legacyKek = fromBase64(legacyKekStored);
+      const dek = gcmDecrypt(fromBase64(wrappedDek), legacyKek);
+      _sessionDEK = dek;
+      await SecureStore.setItemAsync(DEK_RAW_KEY, toBase64(dek));
+      const rewrapped = gcmEncrypt(dek, _sessionKEK);
+      await SecureStore.setItemAsync(DEK_WRAPPED_KEY, toBase64(rewrapped));
+      console.log('[Encryption] ✅ Adopted backup DEK successfully (legacy KEK from storage)');
+      return true;
+    }
+  } catch (err) {
+    console.log('[Encryption] Legacy KEK from storage also failed');
+  }
+
+  // Last resort: re-derive KEKs with ALL known iteration counts using cached credentials
+  if (_cachedCredentials) {
+    const { password, userId } = _cachedCredentials;
+    const iterationsToTry = [ORIGINAL_ITERS, LEGACY_ITERS]; // 500 and 100k (5k already tried above)
+    for (const iters of iterationsToTry) {
+      try {
+        console.log(`[Encryption] Trying KEK derivation with ${iters} iterations...`);
+        const kek = await deriveKEK(password, userId, iters);
+        const dek = gcmDecrypt(fromBase64(wrappedDek), kek);
+        _sessionDEK = dek;
+        await SecureStore.setItemAsync(DEK_RAW_KEY, toBase64(dek));
+        // Re-wrap with modern KEK and cache the working legacy KEK
+        const rewrapped = gcmEncrypt(dek, _sessionKEK);
+        await SecureStore.setItemAsync(DEK_WRAPPED_KEY, toBase64(rewrapped));
+        await SecureStore.setItemAsync(KEK_LEGACY_KEY, toBase64(kek));
+        console.log(`[Encryption] ✅ Adopted backup DEK successfully (${iters} iterations)`);
+        return true;
+      } catch (err) {
+        console.log(`[Encryption] ${iters} iterations failed`);
+      }
+    }
+  } else {
+    console.log('[Encryption] No cached credentials — cannot try other iteration counts. Log out and back in.');
+  }
+
+  console.log('[Encryption] ❌ Could not adopt backup DEK — all iteration counts failed');
+  return false;
 }
 
 // ─── Envelope types ───────────────────────────────────────────────────────────
+
 
 export interface EncryptedEnvelope {
   _enc: true;

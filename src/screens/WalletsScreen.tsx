@@ -18,7 +18,7 @@ export const WalletsScreen = ({ navigation }: any) => {
   const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const { wallets, deleteWallet, setDefaultWallet } = useWallets();
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency, currencyCode } = useCurrency();
 
   // Pro gate — wallets feature is restricted to Pro subscribers
   useEffect(() => {
@@ -90,6 +90,11 @@ export const WalletsScreen = ({ navigation }: any) => {
           <View style={styles.walletInfo}>
             <Text style={styles.walletTitle} numberOfLines={1}>{item.name}</Text>
             <Text style={styles.walletBalance}>{formatCurrency(item.balance)}</Text>
+            {item.currency !== currencyCode && item.native_balance !== undefined && (
+              <Text style={styles.walletNativeBalance}>
+                ({formatCurrency(item.native_balance, { currencyCode: item.currency })})
+              </Text>
+            )}
           </View>
           <View style={styles.walletActions}>
             {isDefault ? null : (
@@ -217,6 +222,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontWeight: getPlatformFontWeight('700'),
     fontFamily: theme.typography.fontFamily,
     marginTop: 4,
+    textAlign: isRTL ? 'right' : 'left',
+  },
+  walletNativeBalance: {
+    fontSize: 16,
+    fontWeight: getPlatformFontWeight('500'),
+    color: 'rgba(255, 255, 255, 0.85)',
+    marginTop: 2,
     textAlign: isRTL ? 'right' : 'left',
   },
   walletActions: {

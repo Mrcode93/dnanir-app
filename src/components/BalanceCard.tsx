@@ -21,6 +21,7 @@ interface BalanceCardProps {
   showFilter?: boolean;
   availableMonths?: Array<{ year: number; month: number }>;
   onCurrencyPress?: () => void;
+  nativeBalance?: number;
 }
 
 const BalanceCardComponent: React.FC<BalanceCardProps> = ({
@@ -31,6 +32,7 @@ const BalanceCardComponent: React.FC<BalanceCardProps> = ({
   showFilter = true,
   availableMonths,
   onCurrencyPress,
+  nativeBalance,
 }) => {
   const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
@@ -42,6 +44,9 @@ const BalanceCardComponent: React.FC<BalanceCardProps> = ({
   const isPositive = balance >= 0;
 
   const formattedBalance = formatCurrency(balance);
+  const formattedNativeBalance = selectedWallet?.currency && selectedWallet.currency !== currencyCode && nativeBalance !== undefined
+    ? formatCurrency(nativeBalance, { currencyCode: selectedWallet.currency })
+    : null;
 
   // Get month label (keeping original Arabic logic)
   const getMonthLabel = () => {
@@ -122,6 +127,11 @@ const BalanceCardComponent: React.FC<BalanceCardProps> = ({
                 <Text style={styles.balanceAmount}>
                   {isPrivacyEnabled ? '****' : formattedBalance}
                 </Text>
+                {formattedNativeBalance && !isPrivacyEnabled && (
+                  <Text style={styles.nativeBalanceText}>
+                    ({formattedNativeBalance})
+                  </Text>
+                )}
                 {!isPositive && (
                   <Ionicons name="alert-circle" size={20} color="#FCA5A5" style={styles.warningIcon} />
                 )}
@@ -341,6 +351,13 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     fontWeight: getPlatformFontWeight('600'),
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily,
+  },
+  nativeBalanceText: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontWeight: getPlatformFontWeight('500'),
+    fontFamily: theme.typography.fontFamily,
+    ...(isRTL ? { marginRight: 8 } : { marginLeft: 8 }),
   },
   warningIcon: {
     ...(isRTL ? { marginRight: 8 } : { marginLeft: 8 }),

@@ -77,6 +77,7 @@ export interface FinancialSummary {
     amount: number;
     percentage: number;
   }[];
+  nativeBalance?: number;
 }
 
 export interface UserSettings {
@@ -521,6 +522,7 @@ export interface Wallet {
   name: string;
   currency?: string;
   balance: number;
+  native_balance?: number;
   icon?: string;
   color?: string;
   isDefault: boolean;
@@ -528,3 +530,52 @@ export interface Wallet {
   updatedAt?: string;
   synced_at?: number;
 }
+
+// Subscriptions
+export interface Subscription {
+  id: number;
+  name: string;
+  amount: number;
+  currency: string;
+  billingCycle: 'monthly' | 'yearly' | 'weekly';
+  startDate: string;
+  nextPaymentDate: string;
+  category: SubscriptionCategory;
+  description?: string;
+  isActive: boolean;
+  walletId?: number;
+  base_amount?: number;
+  createdAt: string;
+  synced_at?: number;
+}
+
+export type SubscriptionCategory =
+  | 'google'
+  | 'youtube'
+  | 'netflix'
+  | 'gemini'
+  | 'chatgpt'
+  | 'spotify'
+  | 'apple'
+  | 'disney'
+  | 'amazon'
+  | 'microsoft'
+  | 'playstation'
+  | 'xbox'
+  | 'other';
+
+export const SUBSCRIPTION_CATEGORIES: Record<SubscriptionCategory, { label: string; icon: string; color: string; library: 'Ionicons' | 'MaterialCommunityIcons' }> = {
+  google: { label: 'Google', icon: 'google', color: '#4285F4', library: 'MaterialCommunityIcons' },
+  youtube: { label: 'YouTube', icon: 'youtube', color: '#FF0000', library: 'MaterialCommunityIcons' },
+  netflix: { label: 'Netflix', icon: 'netflix', color: '#E50914', library: 'MaterialCommunityIcons' },
+  gemini: { label: 'Gemini', icon: 'sparkles', color: '#8E75FF', library: 'Ionicons' },
+  chatgpt: { label: 'ChatGPT', icon: 'chat-outline', color: '#10A37F', library: 'MaterialCommunityIcons' },
+  spotify: { label: 'Spotify', icon: 'spotify', color: '#1DB954', library: 'MaterialCommunityIcons' },
+  apple: { label: 'Apple', icon: 'apple', color: '#000000', library: 'MaterialCommunityIcons' },
+  disney: { label: 'Disney+', icon: 'television-classic', color: '#0063E5', library: 'MaterialCommunityIcons' },
+  amazon: { label: 'Amazon', icon: 'amazon', color: '#FF9900', library: 'MaterialCommunityIcons' },
+  microsoft: { label: 'Microsoft', icon: 'microsoft', color: '#00A4EF', library: 'MaterialCommunityIcons' },
+  playstation: { label: 'PS Plus', icon: 'sony-playstation', color: '#003791', library: 'MaterialCommunityIcons' },
+  xbox: { label: 'Game Pass', icon: 'microsoft-xbox', color: '#107C10', library: 'MaterialCommunityIcons' },
+  other: { label: 'أخرى', icon: 'apps-outline', color: '#6B7280', library: 'Ionicons' },
+};

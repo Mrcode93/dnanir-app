@@ -20,7 +20,7 @@ export const WalletListModal: React.FC<WalletListModalProps> = ({ visible, onClo
   const { theme } = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const { wallets, selectedWallet, setSelectedWallet } = useWallets();
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency, currencyCode } = useCurrency();
 
   const renderWalletItem = ({ item }: { item: Wallet | null }) => {
     const isSelected = (!item && !selectedWallet) || (item?.id === selectedWallet?.id);
@@ -46,9 +46,16 @@ export const WalletListModal: React.FC<WalletListModalProps> = ({ visible, onClo
             {item ? item.name : 'الكل'}
           </Text>
           {item && (
-            <Text style={styles.walletBalance}>
-              {formatCurrency(item.balance)}
-            </Text>
+            <View>
+              <Text style={styles.walletBalance}>
+                {formatCurrency(item.balance)}
+              </Text>
+              {item.currency !== currencyCode && item.native_balance !== undefined && (
+                <Text style={styles.walletNativeBalance}>
+                  ({formatCurrency(item.native_balance, { currencyCode: item.currency })})
+                </Text>
+              )}
+            </View>
           )}
         </View>
         {isSelected && (
@@ -176,6 +183,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   walletBalance: {
     fontSize: 14,
     color: theme.colors.textSecondary,
+    fontFamily: theme.typography.fontFamily,
+  },
+  walletNativeBalance: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    opacity: 0.7,
     fontFamily: theme.typography.fontFamily,
   },
   manageButton: {

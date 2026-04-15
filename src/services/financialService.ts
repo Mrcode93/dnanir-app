@@ -88,6 +88,7 @@ export const calculateFinancialSummary = async (walletId?: number): Promise<Fina
     totalIncome: stats.totalIncome,
     totalExpenses: stats.totalExpenses,
     balance: stats.balance,
+    nativeBalance: (stats as any).nativeBalance,
     topExpenseCategories,
   };
 };

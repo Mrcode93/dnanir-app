@@ -32,7 +32,7 @@ export const parseWithGemini = async (text: string): Promise<GeminiTransaction[]
     let categories: { key: string; name: string }[] = [];
     try {
         const customCategories = await getCustomCategories();
-        
+
 
         // Build categories list (built-in + custom)
         categories = [
@@ -42,7 +42,7 @@ export const parseWithGemini = async (text: string): Promise<GeminiTransaction[]
             ...customCategories.map(c => ({ key: c.name, name: c.name })),
         ];
     } catch (e) {
-        
+
         categories = [
             ...BUILTIN_EXPENSE_CATEGORIES.map(key => ({ key, name: CATEGORY_DISPLAY_NAMES[key] || key })),
             ...BUILTIN_INCOME_CATEGORIES.map(key => ({ key, name: CATEGORY_DISPLAY_NAMES[key] || key })),
@@ -50,7 +50,7 @@ export const parseWithGemini = async (text: string): Promise<GeminiTransaction[]
     }
 
     try {
-        
+
 
         const response = await apiClient.post<{
             success?: boolean;
@@ -66,12 +66,12 @@ export const parseWithGemini = async (text: string): Promise<GeminiTransaction[]
         }
 
         if (result?.message) {
-            
+
         }
 
         return null;
     } catch (error: any) {
-        
+
         return null;
     }
 };

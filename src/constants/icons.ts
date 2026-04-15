@@ -9,6 +9,15 @@ export interface IconCategory {
 
 export const ICON_PICKER_LIST: IconCategory[] = [
   {
+    title: 'الخدمات الرقمية',
+    icons: [
+      'logo-google', 'logo-youtube', 'logo-apple', 'logo-playstation', 'logo-xbox', 
+      'logo-amazon', 'logo-steam', 'logo-rss', 'logo-twitch', 'logo-discord',
+      'logo-facebook', 'logo-instagram', 'logo-twitter', 'logo-linkedin',
+      'logo-github', 'logo-whatsapp', 'logo-vimeo', 'logo-skype'
+    ]
+  },
+  {
     title: 'المال والتمويل',
     icons: [
       'wallet', 'cash', 'card', 'stats-chart', 'pie-chart', 'trending-up',

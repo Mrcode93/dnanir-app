@@ -43,11 +43,13 @@ export const register = async (data: RegisterRequest): Promise<AuthResponse> => 
   if (response.data) {
     // Store tokens and user
     await setAccessToken(response.data.tokens.accessToken);
-    await setRefreshToken(response.data.tokens.refreshToken);
-    await setUser(response.data.user);
+    await Promise.all([
+      setRefreshToken(response.data.tokens.refreshToken),
+      setUser(response.data.user),
+    ]);
 
-    // Derive + wrap DEK and cache session key (GCM, DEK/KEK pattern)
-    await initEncryptionKey(data.password, response.data.user.id);
+    // Run PBKDF2 in background — login is instant, DEK ready in ~2s
+    initEncryptionKey(data.password, response.data.user.id).catch(() => {});
 
     // Notify app of login
     authEventService.notifyAuthChanged();
@@ -74,11 +76,13 @@ export const login = async (data: LoginRequest): Promise<AuthResponse> => {
   if (response.data) {
     // Store tokens and user
     await setAccessToken(response.data.tokens.accessToken);
-    await setRefreshToken(response.data.tokens.refreshToken);
-    await setUser(response.data.user);
+    await Promise.all([
+      setRefreshToken(response.data.tokens.refreshToken),
+      setUser(response.data.user),
+    ]);
 
-    // Derive + wrap DEK and cache session key (GCM, DEK/KEK pattern)
-    await initEncryptionKey(data.password, response.data.user.id);
+    // Run PBKDF2 in background — login is instant, DEK ready in ~2s
+    initEncryptionKey(data.password, response.data.user.id).catch(() => {});
 
     // Notify app of login
     authEventService.notifyAuthChanged();

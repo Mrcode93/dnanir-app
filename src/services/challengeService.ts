@@ -575,10 +575,7 @@ const calculateCompleteLoanProgress = async (challenge: Challenge): Promise<numb
 export const updateAllChallenges = async (): Promise<void> => {
   const challenges = await getChallenges();
   const activeChallenges = challenges.filter(c => !c.completed);
-  
-  for (const challenge of activeChallenges) {
-    await updateChallengeProgress(challenge.id);
-  }
+  await Promise.all(activeChallenges.map(c => updateChallengeProgress(c.id)));
 };
 
 /**

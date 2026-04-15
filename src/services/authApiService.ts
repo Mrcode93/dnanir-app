@@ -62,10 +62,14 @@ const saveUserProfileToLocal = async (user: UserData): Promise<void> => {
  * Store tokens and user data after successful auth
  */
 const storeAuthData = async (data: AuthResponse): Promise<void> => {
+  // Access token first (needed by subsequent API calls)
   await apiClient.setAccessToken(data.tokens.accessToken);
-  await apiClient.setRefreshToken(data.tokens.refreshToken);
-  await authStorage.setUser(data.user);
-  await saveUserProfileToLocal(data.user);
+  // Run remaining storage writes in parallel — they're independent
+  await Promise.all([
+    apiClient.setRefreshToken(data.tokens.refreshToken),
+    authStorage.setUser(data.user),
+    saveUserProfileToLocal(data.user),
+  ]);
   authEventService.notifyAuthChanged();
 };
 
@@ -85,8 +89,12 @@ export const authApiService = {
 
     if (response.success && response.data) {
       await storeAuthData(response.data);
-      // Run PBKDF2 in background — login is instant, DEK ready in ~2s
-      initEncryptionKey(data.password, response.data.user.id, response.data.user.wrappedDek).catch(() => {});
+      // Delay PBKDF2 so the navigation transition finishes before the JS thread is loaded
+      const _userId = response.data.user.id;
+      const _wrappedDek = response.data.user.wrappedDek;
+      setTimeout(() => {
+        initEncryptionKey(data.password, _userId, _wrappedDek).catch(() => {});
+      }, 600);
       return { success: true, user: response.data.user };
     }
 
@@ -108,8 +116,12 @@ export const authApiService = {
 
     if (response.success && response.data) {
       await storeAuthData(response.data);
-      // Run PBKDF2 in background — login is instant, DEK ready in ~2s
-      initEncryptionKey(data.password, response.data.user.id, response.data.user.wrappedDek).catch(() => {});
+      // Delay PBKDF2 so the navigation transition finishes before the JS thread is loaded
+      const _userId = response.data.user.id;
+      const _wrappedDek = response.data.user.wrappedDek;
+      setTimeout(() => {
+        initEncryptionKey(data.password, _userId, _wrappedDek).catch(() => {});
+      }, 600);
       return { success: true, user: response.data.user };
     }
 

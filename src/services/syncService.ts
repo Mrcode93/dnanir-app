@@ -38,6 +38,7 @@ import {
   markDebtInstallmentsSynced,
   markBillPaymentsSynced,
   markWalletsSynced,
+  markSubscriptionsSynced,
 } from '../database/database';
 
 export type SyncResult =
@@ -328,6 +329,7 @@ export async function syncNewToServer(): Promise<NewSyncResult> {
       if (byType('debt_installment').length) await markDebtInstallmentsSynced(byType('debt_installment'));
       if (byType('bill_payment').length) await markBillPaymentsSynced(byType('bill_payment'));
       if (byType('wallet').length) await markWalletsSynced(byType('wallet'));
+      if (byType('subscription').length) await markSubscriptionsSynced(byType('subscription'));
     }
 
     return { success: true, count: syncedCount };
@@ -385,11 +387,39 @@ export async function getFullFromServer(force: boolean = false): Promise<Restore
     let payload: Record<string, any> = {};
 
     try {
-      // Handle new wrapped DEK if present
+      // Handle new wrapped DEK if present — try to adopt it so we can decrypt backup data
       if (serverBody.wrapped_dek) {
-        console.log('[Sync] New wrapped DEK found from server, saving...');
+        console.log('[Sync] New wrapped DEK found from server, attempting to adopt...');
+        // Diagnostic: log the wrapped DEK shape
+        const wdek = serverBody.wrapped_dek;
+        console.log(`[Sync] 🔍 wrapped_dek type: ${typeof wdek}, length: ${wdek?.length}, starts: ${typeof wdek === 'string' ? wdek.substring(0, 40) + '...' : JSON.stringify(wdek).substring(0, 80)}`);
+        
         const SecureStore = await import('expo-secure-store');
         await SecureStore.setItemAsync('dnanir_dek_wrapped', serverBody.wrapped_dek);
+        
+        // Try to unwrap the backup's DEK using the cached KEK from login
+        const { adoptWrappedDEK } = await import('../utils/encryption');
+        const adopted = await adoptWrappedDEK(serverBody.wrapped_dek);
+        if (adopted) {
+          console.log('[Sync] ✅ Session DEK swapped to backup DEK — decryption should succeed');
+        } else {
+          console.log('[Sync] ⚠️ Could not adopt backup DEK — encrypted items may fail to decrypt');
+        }
+      }
+
+      // Diagnostic: dump the shape of the first encrypted item for debugging
+      const diagData = serverBody.data || serverBody;
+      for (const tbl of ['expenses', 'income', 'wallets', 'custom_categories']) {
+        const arr = diagData[tbl];
+        if (Array.isArray(arr) && arr.length > 0) {
+          const sample = arr[0];
+          console.log(`[Sync] 🔍 Sample ${tbl}[0] keys: ${Object.keys(sample).join(', ')}`);
+          console.log(`[Sync] 🔍 Sample ${tbl}[0] _enc: ${sample._enc}, v: ${sample.v}, payload type: ${typeof sample.payload}, payload len: ${sample.payload?.length}`);
+          if (typeof sample.payload === 'string') {
+            console.log(`[Sync] 🔍 Sample ${tbl}[0] payload starts: ${sample.payload.substring(0, 50)}...`);
+          }
+          break; // only need one sample
+        }
       }
 
       // Determine the raw data to decrypt
@@ -431,20 +461,33 @@ export async function getFullFromServer(force: boolean = false): Promise<Restore
     for (const key of keys) {
       const list = payload[key];
       if (Array.isArray(list)) {
-        console.log(`[Sync] Decrypting ${list.length} items for table: ${key}`);
-        payload[key] = await Promise.all(
-          list.map(async (item) => {
-            if (isEncryptedEnvelope(item)) {
-              try {
-                return await decryptFromStorage(item);
-              } catch (e) {
-                console.log(`[Sync] Warning: Failed to decrypt item in ${key}`, e);
-                return item;
-              }
+        const encryptedCount = list.filter(item => isEncryptedEnvelope(item)).length;
+        const plainCount = list.length - encryptedCount;
+        console.log(`[Sync] Decrypting ${list.length} items for table: ${key} (${encryptedCount} encrypted, ${plainCount} plain)`);
+        
+        let failedCount = 0;
+        const decrypted: any[] = [];
+        
+        for (const item of list) {
+          if (isEncryptedEnvelope(item)) {
+            try {
+              const result = await decryptFromStorage(item);
+              decrypted.push(result);
+            } catch (e) {
+              failedCount++;
+              // Skip this item entirely — inserting the raw envelope would
+              // cause NOT NULL constraint failures (debtId, billId, etc.)
             }
-            return item;
-          })
-        );
+          } else {
+            decrypted.push(item);
+          }
+        }
+        
+        if (failedCount > 0) {
+          console.log(`[Sync] ⚠️ ${key}: ${failedCount}/${list.length} items could not be decrypted and were SKIPPED (key mismatch or corrupted data)`);
+        }
+        
+        payload[key] = decrypted;
       }
     }
 

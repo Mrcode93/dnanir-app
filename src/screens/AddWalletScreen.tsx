@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ScreenContainer, AppHeader, AppButton, AppInput } from '../design-system';
 import { useAppTheme, useThemedStyles } from '../utils/theme-context';
 import { useWallets } from '../context/WalletContext';
-import { Wallet } from '../types';
+import { Wallet, CURRENCIES } from '../types';
 import { isRTL } from '../utils/rtl';
 import { type AppTheme, getPlatformFontWeight, getPlatformShadow } from '../utils/theme-constants';
 import { authStorage } from '../services/authStorage';
@@ -27,6 +27,7 @@ export const AddWalletScreen = ({ navigation, route }: any) => {
   const [selectedIcon, setSelectedIcon] = useState('wallet');
   const [selectedColor, setSelectedColor] = useState(WALLET_COLORS[0]);
   const [isIconPickerVisible, setIsIconPickerVisible] = useState(false);
+  const [currency, setCurrency] = useState('IQD');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -35,6 +36,7 @@ export const AddWalletScreen = ({ navigation, route }: any) => {
       setBalance(editingWallet.balance.toString());
       setSelectedIcon(editingWallet.icon || 'wallet');
       setSelectedColor(editingWallet.color || WALLET_COLORS[0]);
+      setCurrency(editingWallet.currency || 'IQD');
     }
   }, [editingWallet]);
 
@@ -70,6 +72,7 @@ export const AddWalletScreen = ({ navigation, route }: any) => {
       name: name.trim(),
       balance: parseFloat(balance) || 0,
       icon: selectedIcon,
+      currency: currency,
       color: selectedColor,
       isDefault: editingWallet?.isDefault || false,
       createdAt: editingWallet?.createdAt || new Date().toISOString(),
@@ -149,6 +152,24 @@ export const AddWalletScreen = ({ navigation, route }: any) => {
                   {selectedColor === color && (
                     <Ionicons name="checkmark" size={24} color="#FFF" />
                   )}
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={[styles.inputLabel, { color: theme.colors.textSecondary, marginTop: 12 }]}>{tl("العملة")}</Text>
+            <View style={styles.currencyGrid}>
+              {CURRENCIES.slice(0, 8).map((c) => (
+                <TouchableOpacity
+                  key={c.code}
+                  style={[
+                    styles.currencyItem,
+                    { borderColor: theme.colors.border },
+                    currency === c.code && { ...styles.currencyItemSelected, borderColor: selectedColor, backgroundColor: selectedColor + '10' }
+                  ]}
+                  onPress={() => setCurrency(c.code)}
+                >
+                  <Text style={[styles.currencySymbol, currency === c.code && { color: selectedColor }]}>{c.symbol}</Text>
+                  <Text style={[styles.currencyCode, currency === c.code && { color: selectedColor }]}>{c.code}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -251,6 +272,35 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     borderWidth: 3,
     borderColor: '#FFF',
     ...getPlatformShadow('md'),
+  },
+  currencyGrid: {
+    flexDirection: isRTL ? 'row-reverse' : 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 8,
+  },
+  currencyItem: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 65,
+  },
+  currencyItemSelected: {
+    borderWidth: 2,
+  },
+  currencySymbol: {
+    fontSize: 16,
+    fontWeight: getPlatformFontWeight('700'),
+    color: '#6B7280',
+  },
+  currencyCode: {
+    fontSize: 10,
+    fontWeight: getPlatformFontWeight('600'),
+    color: '#9CA3AF',
+    marginTop: 2,
   },
   footer: {
     padding: 24,
